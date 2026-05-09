@@ -12,7 +12,7 @@ export default function WhyPanel({ title, body, refs = [], tone = 'leaf' }) {
 
   return (
     <div
-      className="rounded-2xl p-5 sticky top-[88px]"
+      className="rounded-2xl p-5"
       style={{
         background: bg,
         border: `1px solid ${accent}`,
