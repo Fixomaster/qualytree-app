@@ -126,16 +126,23 @@ const adapters = {
     },
   },
 
-  /* ---------- 제품 (ONB-002에서 정의) ---------- */
+  /* ---------- 제품 (ONB-002에서 정의 — 단일 product 객체) ---------- */
   [ENTITY_TYPES.PRODUCT]: {
     findById(id) {
-      const data = onboarding.getData()
-      const products = data?.products || []
-      return products.find((p) => p.id === id) || null
+      const data = onboarding.load()
+      const p = data?.product
+      if (!p || !p.name) return null
+      // id가 명시되지 않으면 'main' 또는 modelNumber/name으로 매치
+      if (id === 'main' || id === p.modelNumber || id === p.name) {
+        return { id: p.modelNumber || 'main', ...p }
+      }
+      return null
     },
     findAll() {
-      const data = onboarding.getData()
-      return data?.products || []
+      const data = onboarding.load()
+      const p = data?.product
+      if (!p || !p.name) return []
+      return [{ id: p.modelNumber || 'main', ...p }]
     },
     exists(id) {
       return !!this.findById(id)
@@ -222,12 +229,12 @@ const adapters = {
   /* ---------- 규제 세트 (ONB-004) ---------- */
   [ENTITY_TYPES.REGULATION_SET]: {
     findById(id) {
-      const data = onboarding.getData()
+      const data = onboarding.load()
       const regs = data?.regulations || []
       return regs.includes(id) ? { id, name: id } : null
     },
     findAll() {
-      const data = onboarding.getData()
+      const data = onboarding.load()
       return (data?.regulations || []).map((id) => ({ id, name: id }))
     },
     exists(id) {

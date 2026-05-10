@@ -240,20 +240,20 @@ export default function QualityTree() {
    ================================================================ */
 function buildTree() {
   // 회사 (싱글톤 — 온보딩 데이터에서)
-  const ob = onboarding.getData() || {}
+  const ob = onboarding.load() || {}
   const companyName = ob.company?.name || '회사 (온보딩 미완)'
 
   let totalNodes = 1 // 루트
 
-  // 제품
-  const products = ob.products || []
-  const productNodes = products.map((p) => {
+  // 제품 — onboarding은 단일 product 객체
+  const products = ob.product && ob.product.name ? [ob.product] : []
+  const productNodes = products.map((p, i) => {
     totalNodes++
     return {
-      key: `product:${p.id || p.name}`,
-      eid: p.id ? eid(ENTITY_TYPES.PRODUCT, p.id) : null,
+      key: `product:${p.modelNumber || p.name || i}`,
+      eid: eid(ENTITY_TYPES.PRODUCT, p.modelNumber || 'main'),
       label: p.name || '제품',
-      sub: p.code || p.model || '',
+      sub: p.modelNumber || p.intendedUse || '',
       icon: Package,
       tone: 'moss',
       children: [],
