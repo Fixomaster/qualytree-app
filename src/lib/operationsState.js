@@ -1,5 +1,7 @@
 // 작업 지시(Work Order) 및 eBR 상태 관리
 // localStorage 기반, 어제 온보딩에서 정의한 공정을 그대로 가져와 작업 지시로 발행
+import { inspectionTemplates } from './inspectionTemplates'
+
 const KEY = 'qualytree.operations'
 
 const DEFAULT = {
@@ -70,21 +72,36 @@ export const operations = {
 
     const stages = [...onboardingProcesses]
       .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .map((p, idx) => ({
-        stageId: `${woId}-S${String(idx + 1).padStart(2, '0')}`,
-        order: idx + 1,
-        blockId: p.blockId,
-        customName: p.customName || null,
-        // 첫 단계만 PENDING, 나머지는 LOCKED (공정 순차 잠금)
-        status: idx === 0 ? PROCESS_STATUS.PENDING : PROCESS_STATUS.LOCKED,
-        startedAt: null,
-        completedAt: null,
-        operatorName: null,
-        operatorSignature: null, // 전자서명 (이름·시각 패키지)
-        measurements: [], // [{ id, label, value, unit, spec, pass }]
-        inspectionResults: [], // [{ id, label, result: 'pass'|'fail'|'na' }]
-        notes: '',
-      }))
+      .map((p, idx) => {
+        // 시간 잠금 — 발급 시점의 검사 항목 템플릿을 스냅샷으로 복제
+        const templateSnapshot = inspectionTemplates.snapshotForBlock(p.blockId)
+        return {
+          stageId: `${woId}-S${String(idx + 1).padStart(2, '0')}`,
+          order: idx + 1,
+          blockId: p.blockId,
+          customName: p.customName || null,
+          // 첫 단계만 PENDING, 나머지는 LOCKED (공정 순차 잠금)
+          status: idx === 0 ? PROCESS_STATUS.PENDING : PROCESS_STATUS.LOCKED,
+          startedAt: null,
+          completedAt: null,
+          operatorName: null,
+          operatorSignature: null, // 전자서명 (이름·시각 패키지)
+          // 검사 항목 템플릿 스냅샷 (매니저가 정의한 것을 발급 시점에 고정)
+          inspectionTemplates: templateSnapshot,
+          // 측정값 입력 — 템플릿마다 한 줄, 작업자가 채움
+          // [{ templateId, value, pass: 'pass'|'fail'|null, note }]
+          measurements: templateSnapshot.map((t) => ({
+            templateId: t.id,
+            value: '',
+            pass: null,
+            note: '',
+          })),
+          // 매니저가 작업 지시별로 임시 추가한 항목
+          // [{ id, label, unit, value, pass, addedBy, addedAt }]
+          adHocItems: [],
+          notes: '',
+        }
+      })
 
     const wo = {
       id: woId,
@@ -146,14 +163,14 @@ export const operations = {
    * 단계 완료 + 전자서명 → 다음 단계 잠금 해제 (Stage Gate)
    */
   completeStage(woId, stageId, payload) {
-    const { measurements, inspectionResults, notes, signedBy } = payload
+    const { measurements, adHocItems, notes, signedBy } = payload
     return this.updateWorkOrder(woId, (wo) => {
       const stageIdx = wo.stages.findIndex((s) => s.stageId === stageId)
       if (stageIdx === -1) return wo
       const stage = wo.stages[stageIdx]
 
-      stage.measurements = measurements || []
-      stage.inspectionResults = inspectionResults || []
+      stage.measurements = measurements || stage.measurements || []
+      stage.adHocItems = adHocItems || stage.adHocItems || []
       stage.notes = notes || ''
       stage.status = PROCESS_STATUS.COMPLETED
       stage.completedAt = new Date().toISOString()
@@ -177,6 +194,23 @@ export const operations = {
         wo.completedAt = new Date().toISOString()
       }
 
+      return wo
+    })
+  },
+
+  /**
+   * 진행 중 측정값 저장 (단계 완료 전에도 부분 저장 가능)
+   * 매니저가 진행 중에 검사 항목 템플릿을 추가/수정/삭제할 때도 호출됨
+   */
+  saveStageProgress(woId, stageId, payload) {
+    return this.updateWorkOrder(woId, (wo) => {
+      const stage = wo.stages.find((s) => s.stageId === stageId)
+      if (!stage) return wo
+      if (payload.inspectionTemplates != null)
+        stage.inspectionTemplates = payload.inspectionTemplates
+      if (payload.measurements != null) stage.measurements = payload.measurements
+      if (payload.adHocItems != null) stage.adHocItems = payload.adHocItems
+      if (payload.notes != null) stage.notes = payload.notes
       return wo
     })
   },
