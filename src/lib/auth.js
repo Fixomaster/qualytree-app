@@ -1,19 +1,33 @@
-// Fake auth for demo. Replace with real auth (SSO/OAuth) in production.
-// Project Instructions §11.3: 실제 인증은 SSO·MFA 의무
-// Level은 lib/permissions.js와 동일 키 정의를 따른다
+// src/lib/auth.js
+// Qualytree 통합 인증 — 데모 mock auth + Supabase 정식 인증
+// Project Instructions §11.3 준수: 정식 사용은 Supabase Auth, 데모는 그대로 유지
 
 import { permissions, LEVELS } from './permissions'
+import {
+  supabase,
+  getSupabaseUser,
+  isPlatformOperator,
+  getCompanyMembership,
+  signInWithEmail,
+  signOutSupabase,
+} from './supabase'
 
 const KEY = 'qualytree.auth'
 
 export const auth = {
+  // ───────── 데모 mock auth (기존 — 그대로 유지) ─────────
   signIn(email, name, level = LEVELS.OPERATOR) {
+    return this.signInDemo(email, name, level)
+  },
+
+  signInDemo(email, name, level = LEVELS.OPERATOR) {
     const session = {
       email,
       name: name || email.split('@')[0],
       level,
-      company: null, // populated after onboarding
+      company: null,
       signedAt: new Date().toISOString(),
+      identityKind: 'demo',
     }
     localStorage.setItem(KEY, JSON.stringify(session))
     permissions.setLevel(level)
@@ -21,16 +35,20 @@ export const auth = {
   },
 
   signOut() {
+    // 데모 세션 + Supabase 세션 모두 정리
     localStorage.removeItem(KEY)
+    signOutSupabase().catch(() => {})
   },
 
   current() {
     try {
       const raw = localStorage.getItem(KEY)
       const session = raw ? JSON.parse(raw) : null
-      // 세션과 권한 모듈 동기화 (둘 중 하나만 있으면 다른 쪽 보정)
       if (session && session.level == null) {
         session.level = permissions.currentLevel()
+      }
+      if (session && !session.identityKind) {
+        session.identityKind = 'demo'
       }
       return session
     } catch {
@@ -50,7 +68,6 @@ export const auth = {
     return updated
   },
 
-  /** 시연·운영용 — 현재 사용자 Level 변경 */
   setLevel(level) {
     const cur = this.current()
     if (!cur) return null
@@ -63,4 +80,146 @@ export const auth = {
   currentLevel() {
     return this.current()?.level ?? permissions.currentLevel()
   },
+
+  // ───────── Supabase 정식 인증 (신규) ─────────
+
+  /** 정식 로그인 — Supabase Auth + 운영자/회사 컨텍스트 자동 분기 */
+  async signInWithPassword(email, password) {
+    const { data, error } = await signInWithEmail(email, password)
+    if (error) {
+      return { ok: false, error: error.message || '로그인 실패' }
+    }
+    const ctx = await this.refreshFromSupabase()
+    return { ok: true, context: ctx }
+  },
+
+  /**
+   * 현재 Supabase 세션을 읽어 사용자 컨텍스트를 빌드 후 localStorage에 미러링
+   * 반환: { kind: 'operator' | 'company_member' | 'orphan' | null, ... }
+   */
+  async refreshFromSupabase() {
+    const user = await getSupabaseUser()
+    if (!user) {
+      return null
+    }
+
+    // 1) 운영자 우선 검사
+    const isOp = await isPlatformOperator()
+    if (isOp) {
+      const session = {
+        email: user.email,
+        name: user.email?.split('@')[0] || 'Operator',
+        level: LEVELS.MANAGER,
+        company: null,
+        signedAt: new Date().toISOString(),
+        identityKind: 'operator',
+        userId: user.id,
+      }
+      localStorage.setItem(KEY, JSON.stringify(session))
+      permissions.setLevel(LEVELS.MANAGER)
+      return { kind: 'operator', session }
+    }
+
+    // 2) 회사 구성원 검사
+    const membership = await getCompanyMembership()
+    if (membership) {
+      const level = membership.permission_level === 3 ? LEVELS.MANAGER
+                  : membership.permission_level === 2 ? LEVELS.INSPECTOR
+                  : LEVELS.OPERATOR
+      const session = {
+        email: user.email,
+        name: membership.name || user.email?.split('@')[0],
+        level,
+        company: membership.companies
+          ? {
+              id: membership.companies.id,
+              name: membership.companies.name,
+              plan: membership.companies.plan_code,
+            }
+          : null,
+        signedAt: new Date().toISOString(),
+        identityKind: 'company_member',
+        isCompanyAdmin: !!membership.is_admin,
+        userId: user.id,
+        memberId: membership.id,
+        permissionLevel: membership.permission_level,
+      }
+      localStorage.setItem(KEY, JSON.stringify(session))
+      permissions.setLevel(level)
+      return { kind: 'company_member', session }
+    }
+
+    // 3) 인증은 됐지만 회사 소속 없음 (가입 승인 대기 등)
+    const session = {
+      email: user.email,
+      name: user.email?.split('@')[0] || 'User',
+      level: LEVELS.OPERATOR,
+      company: null,
+      signedAt: new Date().toISOString(),
+      identityKind: 'orphan',
+      userId: user.id,
+    }
+    localStorage.setItem(KEY, JSON.stringify(session))
+    return { kind: 'orphan', session }
+  },
+
+  /** 회사 가입 신청 — 비로그인 상태에서도 호출 가능 */
+  async signUpRequest({
+    companyName,
+    businessNumber,
+    representative,
+    industry,
+    employeeCountBand, // '1-10' | '11-30' | '31-100' | '100+'
+    desiredPlan,       // 'starter' | 'standard' | 'professional'
+    desiredBillingCycle = 'monthly', // 'monthly' | 'annual'
+    desiredCertifications = ['KGMP'],
+    adminEmail,
+    adminName,
+    adminPhone,
+  }) {
+    const { data, error } = await supabase
+      .from('signup_requests')
+      .insert({
+        company_name: companyName,
+        business_number: businessNumber || null,
+        representative: representative || null,
+        industry: industry || null,
+        employee_count_band: employeeCountBand,
+        desired_plan: desiredPlan,
+        desired_billing_cycle: desiredBillingCycle,
+        desired_certifications: desiredCertifications,
+        admin_email: adminEmail,
+        admin_name: adminName,
+        admin_phone: adminPhone || null,
+      })
+      .select()
+      .maybeSingle()
+    if (error) {
+      return { ok: false, error: error.message || '신청 실패' }
+    }
+    return { ok: true, request: data }
+  },
+
+  /** 현재 인증 종류 — 화면 분기용 */
+  identityKind() {
+    return this.current()?.identityKind || null
+  },
+}
+
+// ───────── Supabase 세션 변경 자동 동기화 ─────────
+// 다른 탭/창에서 로그인·로그아웃하거나 세션 갱신 시 자동 미러링
+if (typeof window !== 'undefined') {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT') {
+      // Supabase 로그아웃 시: 만약 현재 세션이 'demo'가 아니면 정리
+      try {
+        const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
+        if (cur && cur.identityKind !== 'demo') {
+          localStorage.removeItem(KEY)
+        }
+      } catch {}
+    } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      auth.refreshFromSupabase().catch(() => {})
+    }
+  })
 }
