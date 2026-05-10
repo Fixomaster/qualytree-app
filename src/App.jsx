@@ -5,8 +5,10 @@ import Dashboard from './pages/Dashboard'
 import Onboarding from './pages/onboarding/Onboarding'
 import WorkOrderQueue from './pages/operations/WorkOrderQueue'
 import EBatchRecord from './pages/operations/EBatchRecord'
+import InspectionStages from './pages/operations/InspectionStages'
 import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
+import ProductsHub from './pages/products/ProductsHub'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -68,6 +70,14 @@ export default function App() {
         }
       />
       <Route
+        path="/operations/:woId/inspection"
+        element={
+          <ProtectedRoute>
+            <InspectionStages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/quality"
         element={
           <ProtectedRoute>
@@ -80,6 +90,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <QualityTree />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products"
+        element={
+          <ProtectedRoute>
+            <ProductsHub />
           </ProtectedRoute>
         }
       />
