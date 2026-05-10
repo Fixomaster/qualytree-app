@@ -6,6 +6,7 @@ import Onboarding from './pages/onboarding/Onboarding'
 import WorkOrderQueue from './pages/operations/WorkOrderQueue'
 import EBatchRecord from './pages/operations/EBatchRecord'
 import QualityHub from './pages/quality/QualityHub'
+import QualityTree from './pages/tree/QualityTree'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -71,6 +72,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <QualityHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tree"
+        element={
+          <ProtectedRoute>
+            <QualityTree />
           </ProtectedRoute>
         }
       />
