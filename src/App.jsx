@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Onboarding from './pages/onboarding/Onboarding'
+import WorkOrderQueue from './pages/operations/WorkOrderQueue'
+import EBatchRecord from './pages/operations/EBatchRecord'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -44,6 +46,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/operations"
+        element={
+          <ProtectedRoute>
+            <WorkOrderQueue />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/operations/:woId/ebr"
+        element={
+          <ProtectedRoute>
+            <EBatchRecord />
           </ProtectedRoute>
         }
       />

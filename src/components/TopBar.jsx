@@ -1,16 +1,29 @@
 import React, { useState } from 'react'
-import { Search, Bell, ChevronDown, LogOut, User as UserIcon } from 'lucide-react'
+import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../lib/auth'
+import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
 
 export default function TopBar({ user, title, subtitle }) {
   const nav = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showRoleSwap, setShowRoleSwap] = useState(false)
 
   const onSignOut = () => {
     auth.signOut()
     nav('/login')
   }
+
+  const onSwapLevel = (lv) => {
+    auth.setLevel(lv)
+    setShowRoleSwap(false)
+    setMenuOpen(false)
+    // 화면 전체 새로고침 — 권한 게이트 즉시 반영
+    window.location.reload()
+  }
+
+  const currentLevel = user?.level ?? LEVELS.OPERATOR
+  const levelInfo = LEVEL_LABEL[currentLevel]
 
   return (
     <header
@@ -94,12 +107,24 @@ export default function TopBar({ user, title, subtitle }) {
             <span className="text-[13px] hidden sm:inline" style={{ color: 'var(--ink)' }}>
               {user?.name || user?.email?.split('@')[0]}
             </span>
+            {/* 권한 배지 */}
+            <span
+              className="font-mono text-[9.5px] tracking-wider px-1.5 py-0.5 rounded uppercase hidden sm:inline"
+              style={{
+                background: levelBg(currentLevel),
+                color: levelFg(currentLevel),
+                fontWeight: 500,
+              }}
+              title={`${levelInfo.ko} · Level ${currentLevel}`}
+            >
+              {levelInfo.short}
+            </span>
             <ChevronDown size={13} style={{ color: 'var(--ink-mute)' }} />
           </button>
 
           {menuOpen && (
             <div
-              className="absolute right-0 top-[calc(100%+6px)] w-56 rounded-xl shadow-lg py-1.5 overflow-hidden fade-in"
+              className="absolute right-0 top-[calc(100%+6px)] w-64 rounded-xl shadow-lg py-1.5 overflow-hidden fade-in"
               style={{
                 background: 'var(--bg-card)',
                 border: '1px solid var(--line)',
@@ -111,7 +136,76 @@ export default function TopBar({ user, title, subtitle }) {
                 <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
                   {user?.email}
                 </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <ShieldCheck size={11} style={{ color: levelFg(currentLevel) }} />
+                  <span
+                    className="text-[11.5px] font-medium"
+                    style={{ color: levelFg(currentLevel) }}
+                  >
+                    {levelInfo.ko} · Level {currentLevel}
+                  </span>
+                </div>
               </div>
+
+              {/* 시연용 역할 전환 */}
+              {!showRoleSwap ? (
+                <MenuItem
+                  icon={UserCog}
+                  label="권한 전환 (시연용)"
+                  onClick={() => setShowRoleSwap(true)}
+                />
+              ) : (
+                <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--line)' }}>
+                  <div
+                    className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2"
+                    style={{ color: 'var(--ink-mute)' }}
+                  >
+                    SWITCH LEVEL
+                  </div>
+                  <div className="space-y-1">
+                    {[LEVELS.OPERATOR, LEVELS.INSPECTOR, LEVELS.MANAGER].map((lv) => (
+                      <button
+                        key={lv}
+                        onClick={() => onSwapLevel(lv)}
+                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-[12.5px] transition"
+                        style={{
+                          background:
+                            currentLevel === lv ? 'var(--leaf-soft)' : 'transparent',
+                          color: currentLevel === lv ? 'var(--moss)' : 'var(--ink)',
+                          fontWeight: currentLevel === lv ? 500 : 400,
+                        }}
+                      >
+                        <span
+                          className="font-mono text-[9.5px] px-1.5 py-0.5 rounded uppercase"
+                          style={{
+                            background: levelBg(lv),
+                            color: levelFg(lv),
+                            fontWeight: 500,
+                          }}
+                        >
+                          {LEVEL_LABEL[lv].short}
+                        </span>
+                        <span>{LEVEL_LABEL[lv].ko}</span>
+                        {currentLevel === lv && (
+                          <span
+                            className="ml-auto text-[10px]"
+                            style={{ color: 'var(--moss)' }}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    className="text-[10.5px] mt-2"
+                    style={{ color: 'var(--ink-faint)' }}
+                  >
+                    실제 운영에선 SSO·MFA로 결정됩니다 (§11.3)
+                  </div>
+                </div>
+              )}
+
               <MenuItem icon={UserIcon} label="프로필 설정" onClick={() => setMenuOpen(false)} />
               <MenuItem icon={LogOut} label="로그아웃" onClick={onSignOut} danger />
             </div>
@@ -133,4 +227,15 @@ function MenuItem({ icon: Icon, label, onClick, danger }) {
       <span>{label}</span>
     </button>
   )
+}
+
+function levelBg(lv) {
+  if (lv === LEVELS.MANAGER) return 'var(--moss)'
+  if (lv === LEVELS.INSPECTOR) return 'var(--sky-soft)'
+  return 'var(--bg-deep)'
+}
+function levelFg(lv) {
+  if (lv === LEVELS.MANAGER) return 'var(--bg)'
+  if (lv === LEVELS.INSPECTOR) return 'var(--sky)'
+  return 'var(--ink-mute)'
 }

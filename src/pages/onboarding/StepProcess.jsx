@@ -17,43 +17,28 @@ import {
   Puzzle,
   Package,
   PenLine,
-  FlaskConical,
-  Wrench,
-  Truck,
-  Layers,
-  Folder,
-  FolderPlus,
 } from 'lucide-react'
 import WhyPanel from '../../components/WhyPanel'
-import { PROCESS_BLOCKS } from '../../lib/processBlocks'
 import {
-  CATEGORY_ICON_OPTIONS,
-  loadCustomCategories,
-  saveCustomCategories,
-  getAllCategories,
-  isBuiltinCategory,
-} from '../../lib/categories'
+  PROCESS_CATEGORIES,
+  PROCESS_BLOCKS,
+} from '../../lib/processBlocks'
 
 const CATEGORY_ICONS = {
-  Cog,
-  Droplets,
-  Puzzle,
-  Search,
-  Sparkles,
-  Package,
-  FlaskConical,
-  Wrench,
-  Truck,
-  Layers,
-  Folder,
+  Cog: Cog,
+  Droplets: Droplets,
+  Puzzle: Puzzle,
+  Search: Search,
+  Sparkles: Sparkles,
+  Package: Package,
 }
 
-// 사용자 정의 블록 저장
-const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
+// 사용자 정의 블록은 localStorage에 별도 보관 (회사 단위 자산)
+const CUSTOM_KEY = 'qualytree.customBlocks'
 
 function loadCustomBlocks() {
   try {
-    const raw = localStorage.getItem(CUSTOM_BLOCK_KEY)
+    const raw = localStorage.getItem(CUSTOM_KEY)
     return raw ? JSON.parse(raw) : []
   } catch {
     return []
@@ -61,62 +46,38 @@ function loadCustomBlocks() {
 }
 
 function saveCustomBlocks(arr) {
-  localStorage.setItem(CUSTOM_BLOCK_KEY, JSON.stringify(arr))
+  localStorage.setItem(CUSTOM_KEY, JSON.stringify(arr))
 }
 
 export default function StepProcess({ data, update, onNext, onBack }) {
+  const [activeCategory, setActiveCategory] = useState(PROCESS_CATEGORIES[0].id)
   const [search, setSearch] = useState('')
-  // 캔버스 내 재정렬 드래그
+  // 캔버스 내 재정렬용 드래그
   const [draggedFrom, setDraggedFrom] = useState(null)
-  // 라이브러리 → 캔버스 드래그
+  // 라이브러리→캔버스 드래그
   const [draggingBlockId, setDraggingBlockId] = useState(null)
   const [canvasDragOver, setCanvasDragOver] = useState(false)
-
-  // 카테고리 + 블록 상태
-  const [customCategories, setCustomCategories] = useState(loadCustomCategories)
+  // 사용자 공정 추가 모달
+  const [showCustomModal, setShowCustomModal] = useState(false)
   const [customBlocks, setCustomBlocks] = useState(loadCustomBlocks)
 
-  // 모달 상태
-  const [showBlockModal, setShowBlockModal] = useState(false)
-  const [showCategoryModal, setShowCategoryModal] = useState(false)
-  // 블록 추가 모달에 미리 채워질 카테고리 (현재 활성 카테고리)
-  const [blockModalPrefillCat, setBlockModalPrefillCat] = useState(null)
-
-  // 통합 카테고리 목록
-  const allCategories = useMemo(
-    () => getAllCategories(customCategories),
-    [customCategories]
-  )
-
-  // 활성 카테고리 (첫 빌트인 카테고리 기본)
-  const [activeCategory, setActiveCategory] = useState(allCategories[0]?.id || 'machining')
-
-  // 활성 카테고리가 삭제된 경우 첫 번째로 fallback
-  React.useEffect(() => {
-    if (!allCategories.find((c) => c.id === activeCategory)) {
-      setActiveCategory(allCategories[0]?.id || 'machining')
-    }
-  }, [allCategories, activeCategory])
-
-  // 빌트인 + 사용자 정의 블록 통합
+  // 빌트인 + 사용자 정의 통합
   const allBlocks = useMemo(
     () => [...PROCESS_BLOCKS, ...customBlocks],
     [customBlocks]
   )
 
-  // 카테고리별 블록 분류
-  const blocksByCategoryId = useMemo(() => {
+  const blockMap = useMemo(() => {
     const map = {}
-    allCategories.forEach((c) => (map[c.id] = []))
+    PROCESS_CATEGORIES.forEach((c) => (map[c.id] = []))
     allBlocks.forEach((b) => {
       if (map[b.category]) map[b.category].push(b)
     })
     return map
-  }, [allBlocks, allCategories])
+  }, [allBlocks])
 
-  // 검색 결과 또는 활성 카테고리 블록
   const filteredBlocks = useMemo(() => {
-    if (!search) return blocksByCategoryId[activeCategory] || []
+    if (!search) return blockMap[activeCategory] || []
     const q = search.toLowerCase()
     return allBlocks.filter(
       (b) =>
@@ -124,7 +85,7 @@ export default function StepProcess({ data, update, onNext, onBack }) {
         (b.en || '').toLowerCase().includes(q) ||
         (b.desc || '').toLowerCase().includes(q)
     )
-  }, [search, activeCategory, blocksByCategoryId, allBlocks])
+  }, [search, activeCategory, blockMap, allBlocks])
 
   const findBlock = (id) => allBlocks.find((b) => b.id === id)
 
@@ -188,7 +149,7 @@ export default function StepProcess({ data, update, onNext, onBack }) {
     setCanvasDragOver(false)
   }
 
-  /* ---------- 캔버스 내 재정렬 ---------- */
+  /* ---------- 캔버스 내 재정렬 드래그 ---------- */
   const onReorderDragStart = (idx) => setDraggedFrom(idx)
   const onReorderDrop = (toIdx) => {
     if (draggedFrom === null || draggedFrom === toIdx) {
@@ -202,53 +163,13 @@ export default function StepProcess({ data, update, onNext, onBack }) {
     setDraggedFrom(null)
   }
 
-  /* ---------- 카테고리 생성/삭제 ---------- */
-  const onCreateCategory = (cat) => {
-    const next = [...customCategories, cat]
-    setCustomCategories(next)
-    saveCustomCategories(next)
-    setActiveCategory(cat.id)
-    setShowCategoryModal(false)
-  }
-
-  const onDeleteCategory = (catId) => {
-    if (isBuiltinCategory(catId)) return
-    const blocksInCat = customBlocks.filter((b) => b.category === catId)
-    let confirmMsg = '이 카테고리를 삭제할까요?'
-    if (blocksInCat.length > 0) {
-      confirmMsg = `이 카테고리에 사용자 공정 ${blocksInCat.length}개가 있습니다.\n카테고리와 공정을 모두 삭제할까요?`
-    }
-    if (!confirm(confirmMsg)) return
-
-    // 카테고리 제거
-    const nextCats = customCategories.filter((c) => c.id !== catId)
-    setCustomCategories(nextCats)
-    saveCustomCategories(nextCats)
-
-    // 그 카테고리의 사용자 블록도 모두 제거
-    if (blocksInCat.length > 0) {
-      const nextBlocks = customBlocks.filter((b) => b.category !== catId)
-      setCustomBlocks(nextBlocks)
-      saveCustomBlocks(nextBlocks)
-      // 캔버스에서도 제거
-      const removedBlockIds = blocksInCat.map((b) => b.id)
-      if (data.processes?.some((p) => removedBlockIds.includes(p.blockId))) {
-        update({
-          ...data,
-          processes: data.processes.filter((p) => !removedBlockIds.includes(p.blockId)),
-        })
-      }
-    }
-  }
-
   /* ---------- 사용자 공정 생성/삭제 ---------- */
   const onCreateCustomBlock = (block) => {
     const next = [...customBlocks, block]
     setCustomBlocks(next)
     saveCustomBlocks(next)
     addBlock(block.id) // 만든 즉시 캔버스에 추가
-    setShowBlockModal(false)
-    setBlockModalPrefillCat(null)
+    setShowCustomModal(false)
     setActiveCategory(block.category)
     setSearch('')
   }
@@ -264,11 +185,6 @@ export default function StepProcess({ data, update, onNext, onBack }) {
         processes: data.processes.filter((p) => p.blockId !== id),
       })
     }
-  }
-
-  const openBlockModal = (catId = null) => {
-    setBlockModalPrefillCat(catId || activeCategory)
-    setShowBlockModal(true)
   }
 
   /* ---------- 자동 매핑 ---------- */
@@ -300,7 +216,7 @@ export default function StepProcess({ data, update, onNext, onBack }) {
 
   return (
     <div className="space-y-4">
-      {/* 상단 안내 */}
+      {/* 상단 안내 — 정확한 표현으로 수정 */}
       <div
         className="rounded-xl px-5 py-3.5 flex items-start gap-3"
         style={{ background: 'var(--leaf-soft)', border: '1px solid var(--leaf)' }}
@@ -312,7 +228,7 @@ export default function StepProcess({ data, update, onNext, onBack }) {
           </div>
           <div className="text-[12.5px] mt-1" style={{ color: 'var(--ink-soft)' }}>
             우측 패널에서 SOP·검사·인증 매핑이 <strong>실시간으로</strong> 자동 생성됩니다.
-            라이브러리에 없으면 <strong>카테고리·공정을 직접 추가</strong>할 수 있습니다.
+            라이브러리에 없는 공정은 <strong>사용자 공정 추가</strong> 버튼으로 직접 만드실 수 있습니다.
           </div>
         </div>
       </div>
@@ -329,14 +245,16 @@ export default function StepProcess({ data, update, onNext, onBack }) {
                 className="font-mono text-[10px] tracking-[0.18em] uppercase"
                 style={{ color: 'var(--ink-faint)' }}
               >
-                공정 라이브러리
+                공정 블록 라이브러리
               </span>
-              <span
-                className="font-mono text-[9.5px]"
-                style={{ color: 'var(--ink-faint)' }}
+              <button
+                onClick={() => setShowCustomModal(true)}
+                className="inline-flex items-center gap-1 text-[10.5px] px-2 py-1 rounded-md transition"
+                style={{ background: 'var(--moss)', color: 'var(--bg)' }}
               >
-                {allCategories.length}개 카테고리 · {allBlocks.length}개 공정
-              </span>
+                <Plus size={11} />
+                사용자 공정
+              </button>
             </div>
 
             {/* 검색 */}
@@ -358,124 +276,45 @@ export default function StepProcess({ data, update, onNext, onBack }) {
 
             {/* 카테고리 탭 */}
             {!search && (
-              <div className="mb-3">
-                <div className="grid grid-cols-2 gap-1.5">
-                  {allCategories.map((c) => {
-                    const Icon = CATEGORY_ICONS[c.icon] || Folder
-                    const active = activeCategory === c.id
-                    const cnt = (blocksByCategoryId[c.id] || []).length
-                    return (
-                      <div key={c.id} className="relative group">
-                        <button
-                          onClick={() => setActiveCategory(c.id)}
-                          className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11.5px] transition"
-                          style={{
-                            background: active ? 'var(--moss)' : 'var(--bg-soft)',
-                            color: active ? 'var(--bg)' : 'var(--ink)',
-                            fontWeight: active ? 500 : 400,
-                          }}
-                        >
-                          <span className="flex items-center gap-1.5 min-w-0">
-                            <Icon size={11} strokeWidth={1.7} />
-                            <span className="truncate">{c.name}</span>
-                          </span>
-                          <span
-                            className="font-mono text-[9.5px] ml-1"
-                            style={{
-                              color: active
-                                ? 'rgba(248,244,236,0.7)'
-                                : 'var(--ink-faint)',
-                            }}
-                          >
-                            {cnt}
-                          </span>
-                        </button>
-                        {!c.isBuiltin && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onDeleteCategory(c.id)
-                            }}
-                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center transition opacity-0 group-hover:opacity-100"
-                            style={{
-                              background: 'var(--rust)',
-                              color: 'var(--bg)',
-                            }}
-                            title="사용자 카테고리 삭제"
-                          >
-                            <X size={9} strokeWidth={3} />
-                          </button>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* 카테고리 추가 버튼 */}
-                <button
-                  onClick={() => setShowCategoryModal(true)}
-                  className="mt-1.5 w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] transition"
-                  style={{
-                    background: 'transparent',
-                    border: '1px dashed var(--line-strong)',
-                    color: 'var(--ink-mute)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--moss)'
-                    e.currentTarget.style.color = 'var(--moss)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--line-strong)'
-                    e.currentTarget.style.color = 'var(--ink-mute)'
-                  }}
-                >
-                  <FolderPlus size={11} />
-                  카테고리 추가
-                </button>
-              </div>
-            )}
-
-            {/* 활성 카테고리 헤더 + 블록 추가 버튼 */}
-            {!search && (
-              <div className="flex items-center justify-between mb-2 px-1">
-                <span
-                  className="text-[11px]"
-                  style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
-                >
-                  {allCategories.find((c) => c.id === activeCategory)?.name} 공정
-                </span>
-                <button
-                  onClick={() => openBlockModal(activeCategory)}
-                  className="inline-flex items-center gap-0.5 text-[10.5px] hover:opacity-70 transition"
-                  style={{ color: 'var(--moss)', fontWeight: 500 }}
-                >
-                  <Plus size={11} />
-                  공정 추가
-                </button>
+              <div className="grid grid-cols-2 gap-1.5 mb-3">
+                {PROCESS_CATEGORIES.map((c) => {
+                  const Icon = CATEGORY_ICONS[c.icon] || Cog
+                  const active = activeCategory === c.id
+                  const cnt = (blockMap[c.id] || []).length
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setActiveCategory(c.id)}
+                      className="flex items-center justify-between px-2 py-1.5 rounded-lg text-[11.5px] transition"
+                      style={{
+                        background: active ? 'var(--moss)' : 'var(--bg-soft)',
+                        color: active ? 'var(--bg)' : 'var(--ink)',
+                        fontWeight: active ? 500 : 400,
+                      }}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <Icon size={11} strokeWidth={1.7} />
+                        <span className="truncate">{c.name}</span>
+                      </span>
+                      <span
+                        className="font-mono text-[9.5px] ml-1"
+                        style={{
+                          color: active ? 'rgba(248,244,236,0.7)' : 'var(--ink-faint)',
+                        }}
+                      >
+                        {cnt}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             )}
 
             {/* 블록 목록 */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1.5" style={{ maxHeight: 460 }}>
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1.5" style={{ maxHeight: 520 }}>
               {filteredBlocks.length === 0 && (
-                <div className="text-[12px] text-center py-8 px-2" style={{ color: 'var(--ink-faint)' }}>
-                  {search ? (
-                    '검색 결과 없음'
-                  ) : (
-                    <>
-                      이 카테고리에는
-                      <br />
-                      아직 공정이 없습니다.
-                      <br />
-                      <button
-                        onClick={() => openBlockModal(activeCategory)}
-                        className="mt-2 text-[11.5px] underline"
-                        style={{ color: 'var(--moss)' }}
-                      >
-                        + 첫 공정 추가하기
-                      </button>
-                    </>
-                  )}
+                <div className="text-[12px] text-center py-8" style={{ color: 'var(--ink-faint)' }}>
+                  {search ? '검색 결과 없음' : '이 카테고리에는 아직 블록이 없습니다'}
                 </div>
               )}
               {filteredBlocks.map((b) => (
@@ -489,6 +328,22 @@ export default function StepProcess({ data, update, onNext, onBack }) {
                   isDragging={draggingBlockId === b.id}
                 />
               ))}
+            </div>
+
+            {/* 사용자 공정 안내 */}
+            <div
+              className="mt-3 pt-3 text-[11px] leading-relaxed"
+              style={{ borderTop: '1px solid var(--line)', color: 'var(--ink-mute)' }}
+            >
+              💡 라이브러리에 없는 공정은{' '}
+              <button
+                onClick={() => setShowCustomModal(true)}
+                className="underline"
+                style={{ color: 'var(--moss)' }}
+              >
+                직접 추가
+              </button>
+              할 수 있습니다.
             </div>
           </div>
         </div>
@@ -668,23 +523,10 @@ export default function StepProcess({ data, update, onNext, onBack }) {
         </button>
       </div>
 
-      {showBlockModal && (
+      {showCustomModal && (
         <CustomBlockModal
-          allCategories={allCategories}
-          prefillCategory={blockModalPrefillCat}
-          onClose={() => {
-            setShowBlockModal(false)
-            setBlockModalPrefillCat(null)
-          }}
+          onClose={() => setShowCustomModal(false)}
           onCreate={onCreateCustomBlock}
-        />
-      )}
-
-      {showCategoryModal && (
-        <CategoryModal
-          existingCategories={allCategories}
-          onClose={() => setShowCategoryModal(false)}
-          onCreate={onCreateCategory}
         />
       )}
     </div>
@@ -720,7 +562,10 @@ function BlockCard({ block, onAdd, onDragStart, onDragEnd, onDelete, isDragging 
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[12.5px]" style={{ color: 'var(--ink)', fontWeight: 500 }}>
+            <span
+              className="text-[12.5px]"
+              style={{ color: 'var(--ink)', fontWeight: 500 }}
+            >
               {block.name}
             </span>
             {block.isSpecialProcess && (
@@ -748,7 +593,10 @@ function BlockCard({ block, onAdd, onDragStart, onDragEnd, onDelete, isDragging 
               </span>
             )}
           </div>
-          <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
+          <div
+            className="text-[10.5px] mt-0.5"
+            style={{ color: 'var(--ink-mute)' }}
+          >
             {block.desc}
           </div>
         </div>
@@ -996,132 +844,12 @@ function MapBlock({ icon: Icon, count, label, items, empty, accent }) {
   )
 }
 
-/* ===================== 카테고리 추가 모달 ===================== */
-
-function CategoryModal({ existingCategories, onClose, onCreate }) {
-  const [name, setName] = useState('')
-  const [iconId, setIconId] = useState(CATEGORY_ICON_OPTIONS[0].id)
-
-  const trimmed = name.trim()
-  const dup = existingCategories.some(
-    (c) => c.name.toLowerCase() === trimmed.toLowerCase()
-  )
-  const canCreate = trimmed.length > 0 && !dup
-
-  const submit = () => {
-    if (!canCreate) return
-    const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
-    onCreate({
-      id,
-      name: trimmed,
-      en: trimmed,
-      icon: iconId,
-      color: 'moss',
-    })
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: 'rgba(15,26,20,0.5)', backdropFilter: 'blur(4px)' }}
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-[460px] rounded-2xl overflow-hidden fade-in"
-        style={{ background: 'var(--bg-card)' }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="px-6 py-4 flex items-center justify-between"
-          style={{ background: 'var(--bg-soft)', borderBottom: '1px solid var(--line)' }}
-        >
-          <div className="flex items-center gap-2.5">
-            <FolderPlus size={16} style={{ color: 'var(--moss)' }} />
-            <div>
-              <div className="font-display text-[16px]" style={{ fontWeight: 500 }}>
-                카테고리 추가
-              </div>
-              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-                회사 고유 공정 분류를 만듭니다
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-[var(--bg-soft)]"
-          >
-            <X size={14} style={{ color: 'var(--ink-mute)' }} />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
-          <Field label="카테고리 이름" required>
-            <input
-              autoFocus
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="예: 표면 처리, 외주 검사"
-              className="input-base text-[13px]"
-            />
-            {dup && (
-              <div className="text-[11px] mt-1" style={{ color: 'var(--rust)' }}>
-                이미 같은 이름의 카테고리가 있습니다.
-              </div>
-            )}
-          </Field>
-
-          <Field label="아이콘 선택">
-            <div className="grid grid-cols-5 gap-1.5">
-              {CATEGORY_ICON_OPTIONS.map((opt) => {
-                const Icon = CATEGORY_ICONS[opt.id] || Folder
-                const active = iconId === opt.id
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setIconId(opt.id)}
-                    className="aspect-square rounded-lg flex items-center justify-center transition"
-                    style={{
-                      background: active ? 'var(--moss)' : 'var(--bg-soft)',
-                      color: active ? 'var(--bg)' : 'var(--ink)',
-                      border: `1px solid ${active ? 'var(--moss)' : 'transparent'}`,
-                    }}
-                    title={opt.label}
-                  >
-                    <Icon size={16} strokeWidth={1.7} />
-                  </button>
-                )
-              })}
-            </div>
-            <div className="text-[11px] mt-1.5" style={{ color: 'var(--ink-mute)' }}>
-              {CATEGORY_ICON_OPTIONS.find((o) => o.id === iconId)?.label}
-            </div>
-          </Field>
-        </div>
-
-        <div
-          className="px-6 py-3.5 flex items-center justify-end gap-2"
-          style={{ background: 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}
-        >
-          <button onClick={onClose} className="btn-ghost">
-            취소
-          </button>
-          <button onClick={submit} disabled={!canCreate} className="btn-primary">
-            <Plus size={14} />
-            카테고리 만들기
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* ===================== 사용자 공정 추가 모달 ===================== */
 
-function CustomBlockModal({ allCategories, prefillCategory, onClose, onCreate }) {
+function CustomBlockModal({ onClose, onCreate }) {
   const [name, setName] = useState('')
   const [en, setEn] = useState('')
-  const [category, setCategory] = useState(prefillCategory || allCategories[0]?.id || 'machining')
+  const [category, setCategory] = useState(PROCESS_CATEGORIES[0].id)
   const [desc, setDesc] = useState('')
   const [sop, setSop] = useState('')
   const [inspection, setInspection] = useState('')
@@ -1210,22 +938,20 @@ function CustomBlockModal({ allCategories, prefillCategory, onClose, onCreate })
 
           <Field label="카테고리" required>
             <div className="grid grid-cols-3 gap-1.5">
-              {allCategories.map((c) => {
+              {PROCESS_CATEGORIES.map((c) => {
                 const active = category === c.id
-                const Icon = CATEGORY_ICONS[c.icon] || Folder
                 return (
                   <button
                     key={c.id}
                     onClick={() => setCategory(c.id)}
-                    className="px-2 py-2 rounded-lg text-[12px] transition flex items-center gap-1.5 justify-center"
+                    className="px-2 py-2 rounded-lg text-[12px] transition"
                     style={{
                       background: active ? 'var(--moss)' : 'var(--bg-soft)',
                       color: active ? 'var(--bg)' : 'var(--ink)',
                       fontWeight: active ? 500 : 400,
                     }}
                   >
-                    <Icon size={11} strokeWidth={1.7} />
-                    <span className="truncate">{c.name}</span>
+                    {c.name}
                   </button>
                 )
               })}
