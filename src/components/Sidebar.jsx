@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -9,12 +9,8 @@ import {
   HelpCircle,
   Settings,
   GitBranch,
-  Shield,
-  Building2,
 } from 'lucide-react'
 import Logo from './Logo'
-import { auth } from '../lib/auth'
-import { isPlatformOperator } from '../lib/supabase'
 
 const NAV = [
   { to: '/dashboard', label: '대시보드', en: 'Dashboard', icon: LayoutDashboard, area: 'ENT' },
@@ -25,35 +21,13 @@ const NAV = [
   { to: '/tree', label: 'Quality Tree', en: 'Quality Tree', icon: GitBranch, area: 'TREE' },
 ]
 
+const FOOT = [
+  { to: '/help', label: '도움', icon: HelpCircle, soon: true },
+  { to: '/admin', label: '관리자', icon: Settings, soon: true },
+]
+
 export default function Sidebar() {
   const loc = useLocation()
-  const [isOp, setIsOp] = useState(false)
-  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false)
-
-  useEffect(() => {
-    const session = auth.current()
-    if (!session) return
-    setIsCompanyAdmin(!!session.isCompanyAdmin)
-    if (session.identityKind === 'operator') {
-      setIsOp(true)
-    } else if (session.identityKind === 'demo') {
-      setIsOp(false)
-    } else {
-      isPlatformOperator().then((v) => setIsOp(v)).catch(() => setIsOp(false))
-    }
-  }, [loc.pathname])
-
-  const FOOT = []
-  if (isOp) {
-    FOOT.push({ to: '/operator', label: '운영자 콘솔', icon: Shield, area: 'OPS' })
-  }
-  if (isCompanyAdmin) {
-    FOOT.push({ to: '/admin', label: '회사 관리', icon: Building2, area: 'ADMIN' })
-  }
-  FOOT.push({ to: '/help', label: '도움', icon: HelpCircle, soon: true })
-  if (!isCompanyAdmin && !isOp) {
-    FOOT.push({ to: '/admin', label: '관리자', icon: Settings, soon: true })
-  }
 
   return (
     <aside
@@ -92,7 +66,7 @@ export default function Sidebar() {
           System
         </div>
         {FOOT.map((item) => (
-          <SidebarItem key={item.to + '|' + (item.label || '')} {...item} />
+          <SidebarItem key={item.to} {...item} />
         ))}
       </nav>
 

@@ -10,10 +10,6 @@ import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
 import ProductsHub from './pages/products/ProductsHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
-import Signup from './pages/account/Signup'
-import SignupSuccess from './pages/account/SignupSuccess'
-import OperatorConsole from './pages/operator/OperatorConsole'
-import CompanyAdmin from './pages/admin/CompanyAdmin'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -42,15 +38,6 @@ export default function App() {
           </PublicRoute>
         }
       />
-      <Route
-        path="/signup"
-        element={
-          <PublicRoute>
-            <Signup />
-          </PublicRoute>
-        }
-      />
-      <Route path="/signup-success" element={<SignupSuccess />} />
       <Route
         path="/dashboard"
         element={
@@ -120,22 +107,6 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RegulatoryHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/operator"
-        element={
-          <ProtectedRoute>
-            <OperatorConsole />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <CompanyAdmin />
           </ProtectedRoute>
         }
       />

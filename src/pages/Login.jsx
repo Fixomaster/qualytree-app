@@ -1,35 +1,22 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
-import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, UserCog, Building2 } from 'lucide-react'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, UserCog } from 'lucide-react'
 import Logo from '../components/Logo'
 import { auth } from '../lib/auth'
 import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
 
-// 데모 환경 감지 — 데모 이메일/비번 패턴
-const DEMO_EMAIL_DEFAULT = 'demo@qualytree.app'
-const DEMO_PASSWORD_DEFAULT = 'qualytree123'
-
-function looksLikeDemoCredential(email, password) {
-  // 데모 명백 — 이메일이 데모 도메인이고 비번이 데모 비번
-  if (email === DEMO_EMAIL_DEFAULT && password === DEMO_PASSWORD_DEFAULT) return true
-  if (email.endsWith('@qualytree.app') && password === DEMO_PASSWORD_DEFAULT) return true
-  return false
-}
-
 export default function Login() {
   const nav = useNavigate()
-  const [email, setEmail] = useState(DEMO_EMAIL_DEFAULT)
-  const [password, setPassword] = useState(DEMO_PASSWORD_DEFAULT)
+  const [email, setEmail] = useState('demo@qualytree.app')
+  const [password, setPassword] = useState('qualytree123')
   const [name, setName] = useState('Demo User')
-  const [level, setLevel] = useState(LEVELS.MANAGER)
+  const [level, setLevel] = useState(LEVELS.MANAGER) // 시연 편의: 매니저 기본
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [info, setInfo] = useState(null)
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-    setInfo(null)
 
     if (!email || !password) {
       setError('이메일과 비밀번호를 모두 입력해주세요.')
@@ -41,276 +28,323 @@ export default function Login() {
     }
 
     setLoading(true)
+    // Simulate auth delay (real implementation: SSO/OAuth + MFA per §11.3)
+    await new Promise((r) => setTimeout(r, 600))
 
-    // 1) 데모 입력값이면 데모 모드로 즉시 통과
-    if (looksLikeDemoCredential(email, password)) {
-      auth.signInDemo(email, name || 'Demo User', level)
-      setLoading(false)
-      nav('/dashboard')
-      return
-    }
-
-    // 2) 정식 입력값 — Supabase auth 시도
-    const res = await auth.signInWithPassword(email, password)
+    auth.signIn(email, name, level)
     setLoading(false)
-
-    if (!res.ok) {
-      // 정식 인증 실패 시 — 데모 fallback 옵션 안내
-      setError(
-        res.error === 'Invalid login credentials'
-          ? '이메일 또는 비밀번호가 일치하지 않습니다. 가입 신청 후 운영팀 승인을 받으셨는지 확인해주세요.'
-          : (res.error || '로그인 실패')
-      )
-      return
-    }
-
-    // 3) 인증 성공 — 사용자 종류에 따라 자동 라우팅
-    const ctx = res.context
-    if (ctx?.kind === 'operator') {
-      setInfo('운영자 권한으로 로그인했습니다. 운영자 콘솔로 이동합니다...')
-      setTimeout(() => nav('/operator'), 600)
-    } else if (ctx?.kind === 'company_member') {
-      setInfo(`${ctx.session.company?.name || ''} 로 로그인했습니다.`)
-      setTimeout(() => nav('/dashboard'), 600)
-    } else if (ctx?.kind === 'orphan') {
-      setError('가입은 됐지만 회사 소속이 없습니다. 운영팀에 문의해주세요.')
-    } else {
-      setError('로그인 후 사용자 정보를 불러오지 못했습니다.')
-    }
+    nav('/dashboard')
   }
 
   return (
-    <div className="min-h-screen w-full flex" style={{ background: 'var(--bg)' }}>
-      {/* ── 좌측: 로그인 폼 ── */}
-      <div className="flex-1 flex items-center justify-center px-8 py-12">
-        <div className="w-full max-w-md">
-          <div className="flex items-center gap-3 mb-12">
-            <Logo size={32} />
-            <span className="font-serif text-2xl" style={{ color: 'var(--ink)' }}>
-              Qualytree
-            </span>
-          </div>
+    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
+      {/* Left: form */}
+      <div className="flex-1 flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[400px] fade-in">
+          <Logo size={32} />
 
-          <div className="font-mono text-[10px] tracking-[0.2em] uppercase mb-3" style={{ color: 'var(--ink-faint)' }}>
-            QUALYTREE PLATFORM · ENT-001
-          </div>
-          <h1 className="font-serif text-4xl mb-3" style={{ color: 'var(--ink)' }}>
+          <h1
+            className="font-display mt-12 leading-tight"
+            style={{ fontSize: 36, fontWeight: 480, color: 'var(--ink)' }}
+          >
             로그인
           </h1>
-          <p className="text-sm mb-8" style={{ color: 'var(--ink-soft)' }}>
+          <p className="mt-2 text-[14px]" style={{ color: 'var(--ink-mute)' }}>
             Qualytree Platform — 의료기기 RA·QMS 통합 SaaS
           </p>
 
-          <form onSubmit={onSubmit} className="space-y-5">
-            <div>
-              <label className="text-sm block mb-1.5" style={{ color: 'var(--ink-soft)' }}>이메일</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ink-faint)' }} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border rounded-md text-sm focus:outline-none"
-                  style={{
-                    borderColor: 'var(--line)',
-                    background: 'var(--bg-card)',
-                    color: 'var(--ink)',
-                  }}
-                />
-              </div>
-            </div>
+          <form onSubmit={onSubmit} className="mt-10 space-y-4">
+            <Field
+              label="이메일"
+              icon={Mail}
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder="you@company.com"
+              autoFocus
+            />
+            <Field
+              label="이름"
+              type="text"
+              value={name}
+              onChange={setName}
+              placeholder="홍길동"
+              hint="처음 로그인 시에만 입력"
+            />
+            <Field
+              label="비밀번호"
+              icon={Lock}
+              type="password"
+              value={password}
+              onChange={setPassword}
+              placeholder="••••••••"
+            />
 
+            {/* 권한 Level 선택 — 시연용 (실제 운영은 SSO/IDP에서 결정) */}
             <div>
               <div className="flex items-baseline justify-between mb-1.5">
-                <label className="text-sm" style={{ color: 'var(--ink-soft)' }}>이름</label>
-                <span className="text-xs" style={{ color: 'var(--ink-faint)' }}>처음 로그인 시에만 입력</span>
-              </div>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 border rounded-md text-sm focus:outline-none"
-                style={{
-                  borderColor: 'var(--line)',
-                  background: 'var(--bg-card)',
-                  color: 'var(--ink)',
-                }}
-              />
-            </div>
-
-            <div>
-              <label className="text-sm block mb-1.5" style={{ color: 'var(--ink-soft)' }}>비밀번호</label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ink-faint)' }} />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border rounded-md text-sm focus:outline-none"
-                  style={{
-                    borderColor: 'var(--line)',
-                    background: 'var(--bg-card)',
-                    color: 'var(--ink)',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-baseline justify-between mb-2">
-                <label className="text-sm flex items-center gap-1" style={{ color: 'var(--ink-soft)' }}>
-                  <UserCog size={14} /> 권한 Level
+                <label
+                  className="text-[12.5px] flex items-center gap-1.5"
+                  style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
+                >
+                  <UserCog size={13} />
+                  권한 Level
                 </label>
-                <span className="font-mono text-[10px] tracking-wider" style={{ color: 'var(--ink-faint)' }}>
+                <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
                   ISO 13485 §5.5 · SoD
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                {[LEVELS.OPERATOR, LEVELS.INSPECTOR, LEVELS.MANAGER].map((l) => (
+              <div className="grid grid-cols-3 gap-1.5">
+                {[LEVELS.OPERATOR, LEVELS.INSPECTOR, LEVELS.MANAGER].map((lv) => (
                   <button
+                    key={lv}
                     type="button"
-                    key={l}
-                    onClick={() => setLevel(l)}
-                    className="py-2.5 rounded-md border text-center transition"
+                    onClick={() => setLevel(lv)}
+                    className="py-2 px-1.5 rounded-lg text-center transition"
                     style={{
-                      borderColor: level === l ? 'var(--moss)' : 'var(--line)',
-                      background: level === l ? 'var(--moss)' : 'var(--bg-card)',
-                      color: level === l ? 'var(--bg)' : 'var(--ink-soft)',
+                      background: level === lv ? 'var(--moss)' : 'var(--bg-card)',
+                      color: level === lv ? 'var(--bg)' : 'var(--ink)',
+                      border: `1px solid ${
+                        level === lv ? 'var(--moss)' : 'var(--line-strong)'
+                      }`,
+                      cursor: 'pointer',
                     }}
                   >
-                    <div className="font-mono text-[9.5px] tracking-[0.2em] uppercase opacity-80">LV {l}</div>
-                    <div className="text-xs mt-0.5">{LEVEL_LABEL[l]}</div>
+                    <div
+                      className="font-mono text-[9.5px] tracking-[0.16em] uppercase"
+                      style={{
+                        color: level === lv ? 'var(--amber-soft)' : 'var(--ink-faint)',
+                      }}
+                    >
+                      Lv {lv}
+                    </div>
+                    <div
+                      className="text-[12.5px] mt-0.5"
+                      style={{ fontWeight: level === lv ? 500 : 400 }}
+                    >
+                      {LEVEL_LABEL[lv].ko}
+                    </div>
                   </button>
                 ))}
               </div>
-              <div className="text-xs mt-2" style={{ color: 'var(--ink-faint)' }}>
-                {level === LEVELS.OPERATOR && '작업자: 측정값 입력·서명만 가능. 검사 항목은 매니저가 정의한 템플릿을 따른다.'}
-                {level === LEVELS.INSPECTOR && '검사관: 작업자 권한 + 검사 결과 검토·재측정 요청 가능.'}
-                {level === LEVELS.MANAGER && '매니저·RA: 모든 권한. 검사 항목·공정·카테고리 정의, 작업 지시 발행, 삭제 가능.'}
+              <div
+                className="text-[11.5px] mt-1.5 leading-relaxed"
+                style={{ color: 'var(--ink-mute)' }}
+              >
+                {level === LEVELS.OPERATOR &&
+                  '현장 작업: 단계 시작·측정값 입력·전자서명 가능. 정의·발행은 불가.'}
+                {level === LEVELS.INSPECTOR &&
+                  '검사관·QA: 작업자 권한 + 검사 결과 검토·재측정 요청 가능.'}
+                {level === LEVELS.MANAGER &&
+                  '매니저·RA: 모든 권한. 검사 항목·공정·카테고리 정의, 작업 지시 발행, 삭제 가능.'}
               </div>
             </div>
 
             {error && (
-              <div className="px-4 py-3 rounded-md text-sm" style={{ background: '#FEE2E2', color: '#991B1B' }}>
+              <div
+                className="px-3 py-2 rounded-lg text-[13px]"
+                style={{
+                  background: 'var(--rust-soft)',
+                  color: 'var(--rust)',
+                  border: '1px solid rgba(139,58,31,0.2)',
+                }}
+              >
                 {error}
-              </div>
-            )}
-            {info && (
-              <div className="px-4 py-3 rounded-md text-sm" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-                {info}
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-md font-medium transition flex items-center justify-center gap-2"
-              style={{
-                background: 'var(--moss)',
-                color: 'var(--bg)',
-                opacity: loading ? 0.6 : 1,
-              }}
+              className="btn-primary w-full justify-center"
+              style={{ marginTop: 16 }}
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> 로그인 중...
+                  <Loader2 size={15} className="animate-spin" />
+                  로그인 중…
                 </>
               ) : (
                 <>
-                  로그인 <ArrowRight size={16} />
+                  로그인 <ArrowRight size={15} />
                 </>
               )}
             </button>
           </form>
 
-          {/* 구분선 */}
-          <div className="my-8 flex items-center gap-3">
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-8">
             <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
-            <span className="font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: 'var(--ink-faint)' }}>OR</span>
+            <span
+              className="font-mono text-[10px] tracking-[0.18em] uppercase"
+              style={{ color: 'var(--ink-faint)' }}
+            >
+              OR
+            </span>
             <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
           </div>
 
-          {/* SSO 자리 (SOON) */}
-          <button
-            type="button"
-            disabled
-            className="w-full py-2.5 rounded-md text-sm border flex items-center justify-center gap-2 mb-2 cursor-not-allowed"
-            style={{ borderColor: 'var(--line)', color: 'var(--ink-faint)' }}
-          >
-            Microsoft 계정으로 로그인
-            <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)' }}>
-              SOON
-            </span>
-          </button>
-          <button
-            type="button"
-            disabled
-            className="w-full py-2.5 rounded-md text-sm border flex items-center justify-center gap-2 cursor-not-allowed"
-            style={{ borderColor: 'var(--line)', color: 'var(--ink-faint)' }}
-          >
-            Google Workspace로 로그인
-            <span className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)' }}>
-              SOON
-            </span>
-          </button>
+          <div className="space-y-2">
+            <SsoButton label="Microsoft 계정으로 로그인" disabled />
+            <SsoButton label="Google Workspace로 로그인" disabled />
+          </div>
 
-          {/* 회사 가입 신청 */}
-          <div className="mt-6 text-sm" style={{ color: 'var(--ink-soft)' }}>
+          <p className="mt-8 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
             계정이 없으신가요?{' '}
-            <Link to="/signup" className="underline font-medium" style={{ color: 'var(--moss)' }}>
+            <a className="underline" style={{ color: 'var(--moss)' }} href="#">
               회사 계정 신청
-            </Link>
-          </div>
+            </a>
+          </p>
 
-          {/* 데모 안내 */}
-          <div className="mt-6 px-4 py-3 rounded-md text-xs" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-            <div className="font-mono text-[10px] tracking-[0.2em] uppercase mb-1.5">DEMO MODE</div>
-            <div>
-              <strong>{DEMO_EMAIL_DEFAULT}</strong> + 비번 <strong>{DEMO_PASSWORD_DEFAULT}</strong> 로 즉시 데모 시작.
-              <br />
-              본인 이메일·비번을 입력하면 정식 로그인이 시도됩니다 (가입 승인 후 가능).
+          {/* Demo notice */}
+          <div
+            className="mt-12 p-3.5 rounded-xl text-[12px] leading-relaxed"
+            style={{
+              background: 'var(--amber-soft)',
+              border: '1px solid rgba(200,119,45,0.30)',
+              color: 'var(--ink-soft)',
+            }}
+          >
+            <div className="flex items-center gap-1.5 mb-1.5 font-medium" style={{ color: 'var(--rust)' }}>
+              <span className="font-mono text-[10px] tracking-wider">DEMO MODE</span>
             </div>
+            현재 데모 환경입니다. 어떤 이메일·비밀번호든 입력하면 로그인됩니다.
+            실제 인증(SSO/OAuth + MFA)은 Project Instructions §11.3에 따라 별도 구현됩니다.
           </div>
         </div>
       </div>
 
-      {/* ── 우측: 마케팅 영역 ── */}
-      <div className="hidden lg:flex flex-1 flex-col justify-between p-12" style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
-        <div>
-          <div className="font-mono text-[10px] tracking-[0.2em] uppercase opacity-70 mb-3">
+      {/* Right: feature panel */}
+      <div
+        className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden"
+        style={{ background: 'var(--moss)', color: 'var(--bg)' }}
+      >
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            background:
+              'radial-gradient(600px 300px at 100% 0%, var(--leaf), transparent 60%), radial-gradient(500px 280px at 0% 100%, var(--amber), transparent 60%)',
+          }}
+        />
+
+        <div className="relative">
+          <div
+            className="font-mono text-[10.5px] tracking-[0.22em] uppercase"
+            style={{ color: 'var(--amber-soft)' }}
+          >
             QUALYTREE PLATFORM · ENT-001
           </div>
-          <h2 className="font-serif text-5xl leading-tight mb-3">
-            품질은<br />
-            <em className="font-serif italic">나무처럼 자랍니다.</em>
-          </h2>
-          <p className="text-sm opacity-80 italic">Quality grows like a tree.</p>
         </div>
 
-        <ul className="space-y-3 text-sm opacity-90">
-          <li className="flex gap-2">
-            <span>•</span>
-            <span>RA 비전공자도 화면 안내만 따라가면 인허가 서류 자동 완성</span>
-          </li>
-          <li className="flex gap-2">
-            <span>•</span>
-            <span>담당자가 바뀌어도 5분 안에 인수인계 — 결정 일지 자동 누적</span>
-          </li>
-          <li className="flex gap-2">
-            <span>•</span>
-            <span>ISO 13485 + FDA QMSR + KGMP + EU MDR 동시 매핑</span>
-          </li>
-          <li className="flex gap-2">
-            <span>•</span>
-            <span>21 CFR Part 11 무결성 + GAMP 5 검증 + BYOK 백업</span>
-          </li>
-        </ul>
+        <div className="relative max-w-[420px]">
+          <div
+            className="font-display leading-[1.05]"
+            style={{ fontSize: 'clamp(36px, 3.6vw, 52px)', fontWeight: 380 }}
+          >
+            품질은
+            <br />
+            <em style={{ fontWeight: 320 }}>나무처럼</em> 자랍니다.
+          </div>
+          <div
+            className="font-display italic mt-3"
+            style={{ fontSize: 19, color: 'rgba(248,244,236,0.72)', fontWeight: 300 }}
+          >
+            Quality grows like a tree.
+          </div>
 
-        <div className="font-mono text-[10px] tracking-[0.2em] uppercase opacity-60 flex items-center gap-2">
-          <ShieldCheck size={12} />
-          21 CFR PART 11 · ISO 27001 · SOC 2 · ISMS-P
+          <ul className="mt-10 space-y-3 text-[14px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
+            <Bullet text="RA 비전공자도 화면 안내만 따라가면 인허가 서류 자동 완성" />
+            <Bullet text="담당자가 바뀌어도 5분 안에 인수인계 — 결정 일지 자동 누적" />
+            <Bullet text="ISO 13485 + FDA QMSR + KGMP + EU MDR 동시 매핑" />
+            <Bullet text="21 CFR Part 11 무결성 + GAMP 5 검증 + BYOK 백업" />
+          </ul>
+        </div>
+
+        <div
+          className="relative font-mono text-[10.5px] tracking-[0.16em] flex items-center gap-2"
+          style={{ color: 'rgba(248,244,236,0.55)' }}
+        >
+          <ShieldCheck size={13} />
+          <span>21 CFR PART 11 · ISO 27001 · SOC 2 · ISMS-P</span>
         </div>
       </div>
     </div>
+  )
+}
+
+function Field({ label, icon: Icon, type = 'text', value, onChange, placeholder, hint, autoFocus }) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1.5">
+        <label
+          className="text-[12.5px]"
+          style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
+        >
+          {label}
+        </label>
+        {hint && (
+          <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+            {hint}
+          </span>
+        )}
+      </div>
+      <div className="relative">
+        {Icon && (
+          <Icon
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--ink-faint)' }}
+          />
+        )}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          className="input-base"
+          style={{ paddingLeft: Icon ? 36 : undefined }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function SsoButton({ label, disabled }) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      className="w-full text-[13.5px] py-2.5 rounded-lg flex items-center justify-center gap-2 transition"
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--line-strong)',
+        color: 'var(--ink)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+      }}
+    >
+      {label}
+      {disabled && (
+        <span
+          className="font-mono text-[9.5px] tracking-wider px-1.5 py-0.5 rounded"
+          style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}
+        >
+          SOON
+        </span>
+      )}
+    </button>
+  )
+}
+
+function Bullet({ text }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span
+        className="mt-1.5 w-1 h-1 rounded-full shrink-0"
+        style={{ background: 'var(--amber-soft)' }}
+      />
+      <span>{text}</span>
+    </li>
   )
 }
