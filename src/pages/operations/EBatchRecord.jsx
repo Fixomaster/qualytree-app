@@ -32,6 +32,9 @@ import {
   CRITICALITY_OPTIONS,
 } from '../../lib/inspectionTemplates'
 import { permissions, requirePermission } from '../../lib/permissions'
+import { ncr, NCR_SEVERITY } from '../../lib/ncrState'
+import { capa, evaluateForCAPA } from '../../lib/capaState'
+import { ENTITY_TYPES, eid } from '../../lib/entityRegistry'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 function loadCustomBlocks() {
@@ -116,8 +119,95 @@ export default function EBatchRecord() {
     operations.completeStage(wo.id, activeStageId, payload)
     const updated = operations.getWorkOrder(woId)
     setWo(updated)
+
+    // ==========================================================
+    // OOS 자동 NCR 발의 — Project Instructions §14.3
+    // ==========================================================
+    const stage = updated.stages.find((s) => s.stageId === activeStageId)
+    const failedMeasurements = (payload.measurements || []).filter(
+      (m) => m.pass === 'fail'
+    )
+
+    const raisedNcrs = []
+    if (failedMeasurements.length > 0 && stage) {
+      const stageEid = eid(ENTITY_TYPES.STAGE, `${wo.id}:${activeStageId}`)
+
+      failedMeasurements.forEach((m) => {
+        const tpl = (stage.inspectionTemplates || []).find(
+          (t) => t.id === m.templateId
+        )
+        if (!tpl) return
+
+        // Criticality → Severity 매핑
+        const severity =
+          tpl.criticality === 'Critical'
+            ? NCR_SEVERITY.CRITICAL
+            : tpl.criticality === 'Major'
+            ? NCR_SEVERITY.MAJOR
+            : NCR_SEVERITY.MINOR
+
+        const ncrRecord = ncr.raise({
+          severity,
+          source: {
+            type: 'oos',
+            stageEid,
+            woId: wo.id,
+            templateId: m.templateId,
+            measurementValue: m.value,
+          },
+          title: `OOS — ${tpl.label}`,
+          description: `${stage.customName || '단계'}에서 "${tpl.label}" 측정값 ${m.value}${
+            tpl.unit ? ' ' + tpl.unit : ''
+          } 부적합 (규격: ${tpl.specMin}~${tpl.specMax}${tpl.unit ? ' ' + tpl.unit : ''}).`,
+        })
+        raisedNcrs.push(ncrRecord)
+
+        // CAPA 후보 평가
+        const capaTrigger = evaluateForCAPA(ncrRecord)
+        if (capaTrigger) {
+          const capaRecord = capa.raise({
+            title: capaTrigger.suggestedTitle,
+            description: capaTrigger.reason,
+            trigger: capaTrigger.trigger,
+            triggerReason: capaTrigger.reason,
+            sourceNcrIds: [ncrRecord.id],
+          })
+          ncrRecord._linkedCapaId = capaRecord.id
+        }
+      })
+    }
+
+    // 다음 단계 잠금 해제 시 이동
     const curIdx = updated.stages.findIndex((s) => s.stageId === activeStageId)
     const next = updated.stages[curIdx + 1]
+
+    // 발의된 NCR이 있으면 사용자에게 알림 (alert 후 NCR 큐로 이동 옵션)
+    if (raisedNcrs.length > 0) {
+      const sevSummary = raisedNcrs
+        .map((n) => `${n.id} (${n.severity})`)
+        .join(', ')
+      const totalImpact = raisedNcrs.reduce(
+        (sum, n) => sum + (n.impact?.affectedQuantity || 0),
+        0
+      )
+      const capaCount = raisedNcrs.filter((n) => n._linkedCapaId).length
+
+      const goToQuality = confirm(
+        `⚠ NCR 자동 발의됨\n\n` +
+          `${raisedNcrs.length}건 발의: ${sevSummary}\n` +
+          `위험 구간 영향: 총 ${totalImpact}개 제품\n` +
+          (capaCount > 0
+            ? `CAPA 자동 후보 ${capaCount}건 등록\n`
+            : '') +
+          `\n적용 표준: ISO 13485 §8.3 / 21 CFR 820.90\n\n` +
+          `지금 품질 통제 화면(NCR 큐)으로 이동하여 격리 처분하시겠습니까?\n(취소 시 다음 단계로 진행)`
+      )
+      if (goToQuality) {
+        nav('/quality')
+        return
+      }
+    }
+
     if (next && next.status === PROCESS_STATUS.PENDING) {
       setTimeout(() => setActiveStageId(next.stageId), 600)
     }
@@ -295,11 +385,13 @@ function StageView({
   const [templates, setTemplates] = useState(stage.inspectionTemplates || [])
   const [measurements, setMeasurements] = useState(stage.measurements || [])
   const [notes, setNotes] = useState(stage.notes || '')
+  const [toast, setToast] = useState(null) // { text, kind: 'ok'|'warn' }
 
   // 인라인 편집 폼 (새 항목 추가 또는 기존 수정)
   // editingTplId: 'new' | tpl.id | null
   const [editingTplId, setEditingTplId] = useState(null)
   const [editingDraft, setEditingDraft] = useState(null)
+  const [editingReason, setEditingReason] = useState('')
 
   const [signedBy, setSignedBy] = useState(
     stage.operatorSignature?.name || user?.name || '작업자'
@@ -343,11 +435,23 @@ function StageView({
     if (!requirePermission('ops.inspection.editTemplate')) return
     setEditingTplId(tpl.id)
     setEditingDraft({ ...tpl })
+    setEditingReason('')
   }
+
+  const startNewTemplateReset = () => {
+    setEditingReason('')
+  }
+
+  // 편집 중인 템플릿의 영향 분석 (수정 시에만 의미 있음)
+  const editingImpact = useMemo(() => {
+    if (!editingTplId || editingTplId === 'new') return null
+    return inspectionTemplates.previewImpact(editingTplId)
+  }, [editingTplId])
 
   const cancelEditing = () => {
     setEditingTplId(null)
     setEditingDraft(null)
+    setEditingReason('')
   }
 
   const saveEditing = () => {
@@ -359,12 +463,10 @@ function StageView({
     let newMeasurements = measurements
 
     if (editingTplId === 'new') {
-      // 마스터에 추가
-      const created = inspectionTemplates.add(
-        stage.blockId,
-        editingDraft,
-        user?.name || '매니저'
-      )
+      // 마스터에 추가 — CCR 자동 발의
+      const created = inspectionTemplates.add(stage.blockId, editingDraft, {
+        reason: editingReason.trim() || `${editingDraft.label} 검사 항목 신규 추가`,
+      })
       newTemplates = [...templates, created]
       // 측정값 빈 슬롯 추가
       newMeasurements = [
@@ -372,12 +474,14 @@ function StageView({
         { templateId: created.id, value: '', pass: null, note: '' },
       ]
     } else {
-      // 기존 항목 수정
+      // 기존 항목 수정 — CCR 자동 발의 (이전 값 vs 새 값 자동 diff)
       const updated = inspectionTemplates.update(
         stage.blockId,
         editingTplId,
         editingDraft,
-        user?.name || '매니저'
+        {
+          reason: editingReason.trim() || `${editingDraft.label} 검사 항목 수정`,
+        }
       )
       newTemplates = templates.map((t) => (t.id === updated.id ? updated : t))
       // 규격이 바뀌었으면 기존 측정값의 합격 판정 재계산
@@ -393,6 +497,15 @@ function StageView({
     setMeasurements(newMeasurements)
     setEditingTplId(null)
     setEditingDraft(null)
+    setEditingReason('')
+
+    // 토스트 — CCR 발의 알림
+    const isUpdate = editingTplId !== 'new'
+    showToast(
+      isUpdate
+        ? `검사 항목 수정됨 · CCR 자동 발의`
+        : `검사 항목 추가됨 · CCR 자동 발의`
+    )
 
     // WO 단계에도 즉시 반영
     onStageSave({
@@ -403,13 +516,31 @@ function StageView({
 
   const removeTemplate = (tplId) => {
     if (!requirePermission('ops.inspection.deleteTemplate')) return
-    if (
-      !confirm(
-        '이 검사 항목을 삭제할까요?\n현재 작업 지시에서도 즉시 제거되며, 마스터에서도 삭제됩니다.'
-      )
+    const tpl = templates.find((t) => t.id === tplId)
+    if (!tpl) return
+
+    // 영향 분석 미리보기
+    const preview = inspectionTemplates.previewImpact(tplId)
+    const impactSummary =
+      preview.impacts.length > 0
+        ? `\n\n영향 받는 항목 ${preview.impacts.length}건:\n${preview.impacts.slice(0, 3).map((i) => `• ${i.kindLabel}`).join('\n')}`
+        : ''
+    const runningSummary =
+      preview.affectsRunningWOs.length > 0
+        ? `\n\n진행 중 작업 지시 ${preview.affectsRunningWOs.length}건은 발급 시점 스냅샷이 유지되어 영향 받지 않음 (시간 잠금).`
+        : ''
+
+    const reason = prompt(
+      `검사 항목 "${tpl.label}" 삭제 사유를 입력하세요 (필수, ISO 13485 §4.2.4 변경 통제):${impactSummary}${runningSummary}`,
+      ''
     )
+    if (reason == null) return // 취소
+    if (!reason.trim()) {
+      alert('변경 사유는 필수입니다 — 감사 추적 요건.')
       return
-    inspectionTemplates.remove(stage.blockId, tplId)
+    }
+
+    inspectionTemplates.remove(stage.blockId, tplId, { reason: reason.trim() })
     const newTemplates = templates.filter((t) => t.id !== tplId)
     const newMeasurements = measurements.filter((m) => m.templateId !== tplId)
     setTemplates(newTemplates)
@@ -418,6 +549,7 @@ function StageView({
       inspectionTemplates: newTemplates,
       measurements: newMeasurements,
     })
+    showToast(`"${tpl.label}" 삭제됨 · CCR 자동 발의`)
   }
 
   /* -------- 자동 매핑 빠른 시드 (매니저) -------- */
@@ -433,7 +565,9 @@ function StageView({
     const created = inspectionTemplates.seedFromAutoMapping(
       stage.blockId,
       sourceInspection,
-      user?.name || '매니저'
+      {
+        reason: `자동 매핑 시드 — "${sourceInspection}" 항목으로부터 템플릿 생성`,
+      }
     )
     const newTemplates = [...templates, created]
     const newMeasurements = [
@@ -482,6 +616,12 @@ function StageView({
 
   const saveProgress = () => {
     onStageSave({ measurements, notes })
+    showToast(`측정값 ${measurements.filter((m) => m.value !== '').length}건 + 메모 저장됨 (서명 전)`)
+  }
+
+  const showToast = (text, kind = 'ok') => {
+    setToast({ text, kind })
+    setTimeout(() => setToast(null), 2400)
   }
 
   const allMeasured = templates.every((t) => {
@@ -494,6 +634,21 @@ function StageView({
   /* -------- 화면 -------- */
   return (
     <div className="space-y-4 fade-in" key={stage.stageId}>
+      {/* Toast */}
+      {toast && (
+        <div
+          className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
+          style={{
+            background: toast.kind === 'warn' ? 'var(--rust)' : 'var(--moss)',
+            color: 'var(--bg)',
+            boxShadow: '0 6px 20px rgba(15,26,20,0.18)',
+            fontWeight: 500,
+          }}
+        >
+          <CheckCircle2 size={14} strokeWidth={2.2} />
+          {toast.text}
+        </div>
+      )}
       {/* 단계 헤더 */}
       <div className="card-base p-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -720,8 +875,12 @@ function StageView({
                   key={tpl.id}
                   value={editingDraft}
                   onChange={setEditingDraft}
+                  reason={editingReason}
+                  onChangeReason={setEditingReason}
+                  impact={editingImpact}
                   onSave={saveEditing}
                   onCancel={cancelEditing}
+                  isNew={false}
                 />
               ) : (
                 <MeasurementRow
@@ -742,8 +901,12 @@ function StageView({
               <TemplateEditForm
                 value={editingDraft}
                 onChange={setEditingDraft}
+                reason={editingReason}
+                onChangeReason={setEditingReason}
+                impact={null}
                 onSave={saveEditing}
                 onCancel={cancelEditing}
+                isNew={true}
               />
             )}
           </div>
@@ -1043,7 +1206,16 @@ function MeasurementRow({
 /* ================================================================
    TemplateEditForm — 검사 항목 정의·수정 인라인 폼 (매니저)
    ================================================================ */
-function TemplateEditForm({ value, onChange, onSave, onCancel }) {
+function TemplateEditForm({
+  value,
+  onChange,
+  reason,
+  onChangeReason,
+  impact,
+  isNew,
+  onSave,
+  onCancel,
+}) {
   const set = (patch) => onChange({ ...value, ...patch })
   return (
     <div
@@ -1057,7 +1229,7 @@ function TemplateEditForm({ value, onChange, onSave, onCancel }) {
         className="font-mono text-[10px] tracking-[0.16em] uppercase mb-3"
         style={{ color: 'var(--moss)', fontWeight: 500 }}
       >
-        {value.id ? `EDIT · ${value.label || '검사 항목'}` : 'NEW INSPECTION ITEM'}
+        {isNew ? 'NEW INSPECTION ITEM' : `EDIT · ${value.label || '검사 항목'} (v${value.version || 1})`}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
@@ -1151,6 +1323,36 @@ function TemplateEditForm({ value, onChange, onSave, onCancel }) {
         </Field>
       </div>
 
+      {/* 변경 사유 — 수정 시 필수 권장 (CCR §13.15) */}
+      <div className="mt-3">
+        <Field
+          label={
+            isNew
+              ? '추가 사유 (선택)'
+              : '변경 사유 (CCR — ISO 13485 §4.2.4)'
+          }
+        >
+          <input
+            className="input-base"
+            value={reason || ''}
+            onChange={(e) => onChangeReason(e.target.value)}
+            placeholder={
+              isNew
+                ? '예: 신규 제품 도입에 따른 검사 항목 추가'
+                : '예: 공급자 변경으로 인한 규격 재설정 / NCR-2026-014 후속 조치'
+            }
+          />
+        </Field>
+      </div>
+
+      {/* 영향 분석 — 수정 시 표시 */}
+      {!isNew && impact && (
+        <ImpactPreview impact={impact} />
+      )}
+
+      {/* 규제 매핑 — 항상 표시 */}
+      <ComplianceFooter isNew={isNew} />
+
       <div className="flex justify-end gap-2 mt-4">
         <button onClick={onCancel} className="btn-ghost">
           <X size={14} /> 취소
@@ -1160,8 +1362,107 @@ function TemplateEditForm({ value, onChange, onSave, onCancel }) {
           className="btn-primary"
           style={{ background: 'var(--moss)' }}
         >
-          <Save size={14} /> 저장
+          <Save size={14} /> 저장 · CCR 발의
         </button>
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================
+   ImpactPreview — 변경 영향 분석 미리보기 패널
+   ================================================================ */
+function ImpactPreview({ impact }) {
+  const hasImpacts = impact.impacts && impact.impacts.length > 0
+  const hasRunningWOs = impact.affectsRunningWOs && impact.affectsRunningWOs.length > 0
+
+  return (
+    <div
+      className="mt-3 rounded-lg p-3"
+      style={{
+        background: 'var(--bg-soft)',
+        border: '1px solid var(--line)',
+      }}
+    >
+      <div
+        className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2"
+        style={{ color: 'var(--ink-mute)' }}
+      >
+        IMPACT ANALYSIS · 영향 분석
+      </div>
+
+      {!hasImpacts && !hasRunningWOs && (
+        <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+          이 항목을 인용하는 다른 문서·기록이 없습니다 (현재).
+        </div>
+      )}
+
+      {hasImpacts && (
+        <div className="text-[12px] mb-2" style={{ color: 'var(--ink)' }}>
+          <strong>인용 중인 문서·기록 {impact.impacts.length}건:</strong>
+          <ul className="mt-1 ml-3 space-y-0.5" style={{ color: 'var(--ink-mute)' }}>
+            {impact.impacts.slice(0, 5).map((i, idx) => (
+              <li key={idx} className="text-[11.5px]">
+                • {i.kindLabel} ({i.eid.split(':')[0]})
+              </li>
+            ))}
+            {impact.impacts.length > 5 && (
+              <li className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+                … 외 {impact.impacts.length - 5}건
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {hasRunningWOs && (
+        <div
+          className="text-[11.5px] rounded p-2 mt-1"
+          style={{ background: 'var(--amber-soft)', color: 'var(--rust)' }}
+        >
+          ⏱ 진행 중 작업 지시 {impact.affectsRunningWOs.length}건은{' '}
+          <strong>발급 시점 스냅샷이 유지</strong>되어 영향 받지 않습니다 (시간 잠금).
+          신규 작업 지시부터 새 규격이 적용됩니다.
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   ComplianceFooter — 적용 규제 표시 (모든 작업 끝에 첨부)
+   ================================================================ */
+function ComplianceFooter({ isNew }) {
+  const action = isNew ? 'create' : 'update'
+  const regs = [
+    { code: 'ISO 13485:2016', clause: '§4.2.4 (문서 변경 통제)' },
+    { code: '21 CFR 820', clause: '§820.40(b) (문서 변경)' },
+    { code: '21 CFR Part 11', clause: '§11.10(e) (감사 추적)' },
+    { code: 'ISO 14971:2019', clause: '§5.4 (위험 분석)' },
+  ]
+
+  return (
+    <div className="mt-3">
+      <div
+        className="font-mono text-[10px] tracking-[0.16em] uppercase mb-1.5"
+        style={{ color: 'var(--ink-faint)' }}
+      >
+        REGULATORY MAPPING · 적용 규제
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {regs.map((r, i) => (
+          <span
+            key={i}
+            className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+            style={{
+              background: 'var(--leaf-soft)',
+              color: 'var(--moss)',
+            }}
+            title={r.clause}
+          >
+            {r.code} {r.clause.split(' ')[0]}
+          </span>
+        ))}
       </div>
     </div>
   )
