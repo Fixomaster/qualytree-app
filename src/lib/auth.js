@@ -35,7 +35,6 @@ export const auth = {
   },
 
   signOut() {
-    // 데모 세션 + Supabase 세션 모두 정리
     localStorage.removeItem(KEY)
     signOutSupabase().catch(() => {})
   },
@@ -83,7 +82,6 @@ export const auth = {
 
   // ───────── Supabase 정식 인증 (신규) ─────────
 
-  /** 정식 로그인 — Supabase Auth + 운영자/회사 컨텍스트 자동 분기 */
   async signInWithPassword(email, password) {
     const { data, error } = await signInWithEmail(email, password)
     if (error) {
@@ -93,17 +91,10 @@ export const auth = {
     return { ok: true, context: ctx }
   },
 
-  /**
-   * 현재 Supabase 세션을 읽어 사용자 컨텍스트를 빌드 후 localStorage에 미러링
-   * 반환: { kind: 'operator' | 'company_member' | 'orphan' | null, ... }
-   */
   async refreshFromSupabase() {
     const user = await getSupabaseUser()
-    if (!user) {
-      return null
-    }
+    if (!user) return null
 
-    // 1) 운영자 우선 검사
     const isOp = await isPlatformOperator()
     if (isOp) {
       const session = {
@@ -120,7 +111,6 @@ export const auth = {
       return { kind: 'operator', session }
     }
 
-    // 2) 회사 구성원 검사
     const membership = await getCompanyMembership()
     if (membership) {
       const level = membership.permission_level === 3 ? LEVELS.MANAGER
@@ -149,7 +139,6 @@ export const auth = {
       return { kind: 'company_member', session }
     }
 
-    // 3) 인증은 됐지만 회사 소속 없음 (가입 승인 대기 등)
     const session = {
       email: user.email,
       name: user.email?.split('@')[0] || 'User',
@@ -163,15 +152,14 @@ export const auth = {
     return { kind: 'orphan', session }
   },
 
-  /** 회사 가입 신청 — 비로그인 상태에서도 호출 가능 */
   async signUpRequest({
     companyName,
     businessNumber,
     representative,
     industry,
-    employeeCountBand, // '1-10' | '11-30' | '31-100' | '100+'
-    desiredPlan,       // 'starter' | 'standard' | 'professional'
-    desiredBillingCycle = 'monthly', // 'monthly' | 'annual'
+    employeeCountBand,
+    desiredPlan,
+    desiredBillingCycle = 'monthly',
     desiredCertifications = ['KGMP'],
     adminEmail,
     adminName,
@@ -200,18 +188,14 @@ export const auth = {
     return { ok: true, request: data }
   },
 
-  /** 현재 인증 종류 — 화면 분기용 */
   identityKind() {
     return this.current()?.identityKind || null
   },
 }
 
-// ───────── Supabase 세션 변경 자동 동기화 ─────────
-// 다른 탭/창에서 로그인·로그아웃하거나 세션 갱신 시 자동 미러링
 if (typeof window !== 'undefined') {
   supabase.auth.onAuthStateChange((event, session) => {
     if (event === 'SIGNED_OUT') {
-      // Supabase 로그아웃 시: 만약 현재 세션이 'demo'가 아니면 정리
       try {
         const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
         if (cur && cur.identityKind !== 'demo') {
