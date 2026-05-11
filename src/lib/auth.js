@@ -213,29 +213,39 @@ export const auth = {
     return { kind: 'orphan', session }
   },
 
- async signUpRequest(payload) {
+  async signUpRequest(payload) {
     try {
-      const { data, error } = await supabase.rpc('submit_signup_request', {
-        p_company_name: payload.companyName,
-        p_business_number: payload.businessNumber || '',
-        p_representative: payload.representative || '',
-        p_industry: payload.industry || '',
-        p_employee_count_band: payload.employeeCountBand,
-        p_desired_plan: payload.desiredPlan,
-        p_desired_billing_cycle: payload.desiredBillingCycle || 'monthly',
-        p_desired_certifications: payload.desiredCertifications || ['KGMP'],
-        p_admin_email: payload.adminEmail,
-        p_admin_name: payload.adminName,
-        p_admin_phone: payload.adminPhone || '',
-      })
+      const { data, error } = await supabase
+        .from('signup_requests')
+        .insert({
+          company_name: payload.companyName,
+          business_number: payload.businessNumber || null,
+          representative: payload.representative || null,
+          industry: payload.industry || null,
+          employee_count_band: payload.employeeCountBand,
+          desired_plan: payload.desiredPlan,
+          desired_billing_cycle: payload.desiredBillingCycle || 'monthly',
+          desired_certifications: payload.desiredCertifications || ['KGMP'],
+          admin_email: payload.adminEmail,
+          admin_name: payload.adminName,
+          admin_phone: payload.adminPhone || null,
+        })
+        .select()
+        .maybeSingle()
       if (error) {
         return { ok: false, error: errMsg(error, '신청 실패') }
       }
-      return { ok: true, request: { id: data } }
+      return { ok: true, request: data || null }
     } catch (e) {
       return { ok: false, error: errMsg(e, '신청 실패') }
     }
   },
+
+  identityKind() {
+    return this.current()?.identityKind || null
+  },
+}
+
 // ───────── onAuthStateChange 구독 (콜백 외부 try-catch) ─────────
 
 if (typeof window !== 'undefined') {
