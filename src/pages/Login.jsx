@@ -10,14 +10,13 @@ export default function Login() {
   const [email, setEmail] = useState('demo@qualytree.app')
   const [password, setPassword] = useState('qualytree123')
   const [name, setName] = useState('Demo User')
-  const [level, setLevel] = useState(LEVELS.MANAGER) // 시연 편의: 매니저 기본
+  const [level, setLevel] = useState(LEVELS.MANAGER)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setError(null)
-
     if (!email || !password) {
       setError('이메일과 비밀번호를 모두 입력해주세요.')
       return
@@ -26,11 +25,8 @@ export default function Login() {
       setError('올바른 이메일 형식이 아닙니다.')
       return
     }
-
     setLoading(true)
-    // Simulate auth delay (real implementation: SSO/OAuth + MFA per §11.3)
     await new Promise((r) => setTimeout(r, 600))
-
     auth.signIn(email, name, level)
     setLoading(false)
     nav('/dashboard')
@@ -39,21 +35,21 @@ export default function Login() {
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
       {/* Left: form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-6 py-8 overflow-y-auto" style={{ minHeight: '100vh' }}>
         <div className="w-full max-w-[400px] fade-in">
-          <Logo size={32} />
+          <Logo size={28} />
 
           <h1
-            className="font-display mt-12 leading-tight"
-            style={{ fontSize: 36, fontWeight: 480, color: 'var(--ink)' }}
+            className="font-display mt-6 leading-tight"
+            style={{ fontSize: 30, fontWeight: 480, color: 'var(--ink)' }}
           >
             로그인
           </h1>
-          <p className="mt-2 text-[14px]" style={{ color: 'var(--ink-mute)' }}>
+          <p className="mt-1.5 text-[13px]" style={{ color: 'var(--ink-mute)' }}>
             Qualytree Platform — 의료기기 RA·QMS 통합 SaaS
           </p>
 
-          <form onSubmit={onSubmit} className="mt-10 space-y-4">
+          <form onSubmit={onSubmit} className="mt-5 space-y-3">
             <Field
               label="이메일"
               icon={Mail}
@@ -80,17 +76,17 @@ export default function Login() {
               placeholder="••••••••"
             />
 
-            {/* 권한 Level 선택 — 시연용 (실제 운영은 SSO/IDP에서 결정) */}
+            {/* 권한 Level 선택 */}
             <div>
-              <div className="flex items-baseline justify-between mb-1.5">
+              <div className="flex items-baseline justify-between mb-1">
                 <label
-                  className="text-[12.5px] flex items-center gap-1.5"
+                  className="text-[12px] flex items-center gap-1.5"
                   style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
                 >
-                  <UserCog size={13} />
+                  <UserCog size={12} />
                   권한 Level
                 </label>
-                <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+                <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
                   ISO 13485 §5.5 · SoD
                 </span>
               </div>
@@ -100,7 +96,7 @@ export default function Login() {
                     key={lv}
                     type="button"
                     onClick={() => setLevel(lv)}
-                    className="py-2 px-1.5 rounded-lg text-center transition"
+                    className="py-1.5 px-1.5 rounded-lg text-center transition"
                     style={{
                       background: level === lv ? 'var(--moss)' : 'var(--bg-card)',
                       color: level === lv ? 'var(--bg)' : 'var(--ink)',
@@ -111,7 +107,7 @@ export default function Login() {
                     }}
                   >
                     <div
-                      className="font-mono text-[9.5px] tracking-[0.16em] uppercase"
+                      className="font-mono text-[9px] tracking-[0.16em] uppercase"
                       style={{
                         color: level === lv ? 'var(--amber-soft)' : 'var(--ink-faint)',
                       }}
@@ -119,7 +115,7 @@ export default function Login() {
                       Lv {lv}
                     </div>
                     <div
-                      className="text-[12.5px] mt-0.5"
+                      className="text-[12px] mt-0.5"
                       style={{ fontWeight: level === lv ? 500 : 400 }}
                     >
                       {LEVEL_LABEL[lv].ko}
@@ -128,15 +124,15 @@ export default function Login() {
                 ))}
               </div>
               <div
-                className="text-[11.5px] mt-1.5 leading-relaxed"
+                className="text-[11px] mt-1 leading-snug"
                 style={{ color: 'var(--ink-mute)' }}
               >
                 {level === LEVELS.OPERATOR &&
-                  '현장 작업: 단계 시작·측정값 입력·전자서명 가능. 정의·발행은 불가.'}
+                  '현장 작업: 단계 시작·측정값 입력·전자서명. 정의·발행 불가.'}
                 {level === LEVELS.INSPECTOR &&
-                  '검사관·QA: 작업자 권한 + 검사 결과 검토·재측정 요청 가능.'}
+                  '검사관·QA: 작업자 권한 + 검사 결과 검토·재측정 요청.'}
                 {level === LEVELS.MANAGER &&
-                  '매니저·RA: 모든 권한. 검사 항목·공정·카테고리 정의, 작업 지시 발행, 삭제 가능.'}
+                  '매니저·RA: 모든 권한. 정의·발행·삭제 가능.'}
               </div>
             </div>
 
@@ -157,7 +153,7 @@ export default function Login() {
               type="submit"
               disabled={loading}
               className="btn-primary w-full justify-center"
-              style={{ marginTop: 16 }}
+              style={{ marginTop: 10 }}
             >
               {loading ? (
                 <>
@@ -173,10 +169,10 @@ export default function Login() {
           </form>
 
           {/* Divider */}
-          <div className="flex items-center gap-3 my-8">
+          <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
             <span
-              className="font-mono text-[10px] tracking-[0.18em] uppercase"
+              className="font-mono text-[9.5px] tracking-[0.18em] uppercase"
               style={{ color: 'var(--ink-faint)' }}
             >
               OR
@@ -184,19 +180,19 @@ export default function Login() {
             <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <SsoButton label="Microsoft 계정으로 로그인" disabled />
             <SsoButton label="Google Workspace로 로그인" disabled />
           </div>
 
-         <p className="mt-8 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+          <p className="mt-5 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
             계정이 없으신가요?{' '}
             <Link to="/signup" className="underline" style={{ color: 'var(--moss)' }}>
               회사 계정 신청
             </Link>
           </p>
 
-          <p className="mt-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+          <p className="mt-1.5 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
             <Link to="/operator" style={{ color: 'var(--ink-faint)' }}>
               운영자 콘솔 →
             </Link>
@@ -204,27 +200,27 @@ export default function Login() {
 
           {/* Demo notice */}
           <div
-            className="mt-12 p-3.5 rounded-xl text-[12px] leading-relaxed"
+            className="mt-6 p-2.5 rounded-xl text-[11.5px] leading-snug"
             style={{
               background: 'var(--amber-soft)',
               border: '1px solid rgba(200,119,45,0.30)',
               color: 'var(--ink-soft)',
             }}
           >
-            <div className="flex items-center gap-1.5 mb-1.5 font-medium" style={{ color: 'var(--rust)' }}>
-              <span className="font-mono text-[10px] tracking-wider">DEMO MODE</span>
+            <div className="flex items-center gap-1.5 mb-1 font-medium" style={{ color: 'var(--rust)' }}>
+              <span className="font-mono text-[9.5px] tracking-wider">DEMO MODE</span>
             </div>
-            현재 데모 환경입니다. 어떤 이메일·비밀번호든 입력하면 로그인됩니다.
-            실제 인증(SSO/OAuth + MFA)은 Project Instructions §11.3에 따라 별도 구현됩니다.
+            데모 환경입니다. 어떤 이메일·비밀번호든 입력하면 로그인됩니다.
           </div>
         </div>
       </div>
 
       {/* Right: feature panel */}
       <div
-        className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden"
-        style={{ background: 'var(--moss)', color: 'var(--bg)' }}
+        className="hidden lg:flex flex-col justify-between flex-1 p-10 relative overflow-hidden"
+        style={{ background: 'var(--moss)', color: 'var(--bg)', minHeight: '100vh', maxHeight: '100vh' }}
       >
+        {/* 배경 그라디언트 */}
         <div
           className="absolute inset-0 opacity-30"
           style={{
@@ -233,36 +229,27 @@ export default function Login() {
           }}
         />
 
-        <div className="relative">
-          <div
-            className="font-mono text-[10.5px] tracking-[0.22em] uppercase"
-            style={{ color: 'var(--amber-soft)' }}
-          >
-            QUALYTREE PLATFORM · ENT-001
-          </div>
-        </div>
-        {/* Quality Tree — 잎이 순차적으로 페이드인 (Stage 4 후속 데코) */}
-        <div className="relative flex justify-center" style={{ marginTop: 24, marginBottom: 24 }}>
+        {/* 나무 SVG — 우측 상단 배경 */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: 50, right: 30, opacity: 0.85 }}
+        >
           <svg
-            width="280"
-            height="320"
+            width="220"
+            height="260"
             viewBox="0 0 280 320"
             xmlns="http://www.w3.org/2000/svg"
             style={{ overflow: 'visible' }}
           >
-            {/* 줄기 */}
-            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.55)" strokeWidth="2" strokeLinecap="round" />
+            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.45)" strokeWidth="2" strokeLinecap="round" />
+            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
 
-            {/* 가지 (좌우) */}
-            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-
-            {/* 잎 (순차 페이드인) */}
             <g className="leaf leaf-1">
               <circle cx="90"  cy="80"  r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
               <text x="90"  y="84"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">510(k)</text>
@@ -300,45 +287,36 @@ export default function Login() {
               <text x="90"  y="254" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">DHF</text>
             </g>
           </svg>
-
-          <style>{`
-            .leaf {
-              opacity: 0;
-              animation: leafFadeIn 0.6s ease-out forwards;
-            }
-            .leaf-1 { animation-delay: 0.4s; }
-            .leaf-2 { animation-delay: 0.8s; }
-            .leaf-3 { animation-delay: 1.2s; }
-            .leaf-4 { animation-delay: 1.6s; }
-            .leaf-5 { animation-delay: 2.0s; }
-            .leaf-6 { animation-delay: 2.4s; }
-            .leaf-7 { animation-delay: 2.8s; }
-            .leaf-8 { animation-delay: 3.2s; }
-            .leaf-9 { animation-delay: 3.6s; }
-            @keyframes leafFadeIn {
-              from { opacity: 0; }
-              to   { opacity: 1; }
-            }
-          `}</style>
         </div>
 
+        {/* 상단 라벨 */}
+        <div className="relative">
+          <div
+            className="font-mono text-[10px] tracking-[0.22em] uppercase"
+            style={{ color: 'var(--amber-soft)' }}
+          >
+            QUALYTREE PLATFORM · ENT-001
+          </div>
+        </div>
+
+        {/* 카피·불릿 */}
         <div className="relative max-w-[420px]">
           <div
             className="font-display leading-[1.05]"
-            style={{ fontSize: 'clamp(36px, 3.6vw, 52px)', fontWeight: 380 }}
+            style={{ fontSize: 'clamp(30px, 3vw, 44px)', fontWeight: 380 }}
           >
             품질은
             <br />
             <em style={{ fontWeight: 320 }}>나무처럼</em> 자랍니다.
           </div>
           <div
-            className="font-display italic mt-3"
-            style={{ fontSize: 19, color: 'rgba(248,244,236,0.72)', fontWeight: 300 }}
+            className="font-display italic mt-2"
+            style={{ fontSize: 17, color: 'rgba(248,244,236,0.72)', fontWeight: 300 }}
           >
             Quality grows like a tree.
           </div>
 
-          <ul className="mt-10 space-y-3 text-[14px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
+          <ul className="mt-6 space-y-2 text-[13px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
             <Bullet text="RA 비전공자도 화면 안내만 따라가면 인허가 서류 자동 완성" />
             <Bullet text="담당자가 바뀌어도 5분 안에 인수인계 — 결정 일지 자동 누적" />
             <Bullet text="ISO 13485 + FDA QMSR + KGMP + EU MDR 동시 매핑" />
@@ -346,14 +324,36 @@ export default function Login() {
           </ul>
         </div>
 
+        {/* 하단 인증 마크 */}
         <div
-          className="relative font-mono text-[10.5px] tracking-[0.16em] flex items-center gap-2"
+          className="relative font-mono text-[10px] tracking-[0.16em] flex items-center gap-2"
           style={{ color: 'rgba(248,244,236,0.55)' }}
         >
-          <ShieldCheck size={13} />
+          <ShieldCheck size={12} />
           <span>21 CFR PART 11 · ISO 27001 · SOC 2 · ISMS-P</span>
         </div>
       </div>
+
+      {/* 잎 페이드인 애니메이션 */}
+      <style>{`
+        .leaf {
+          opacity: 0;
+          animation: leafFadeIn 0.6s ease-out forwards;
+        }
+        .leaf-1 { animation-delay: 0.4s; }
+        .leaf-2 { animation-delay: 0.8s; }
+        .leaf-3 { animation-delay: 1.2s; }
+        .leaf-4 { animation-delay: 1.6s; }
+        .leaf-5 { animation-delay: 2.0s; }
+        .leaf-6 { animation-delay: 2.4s; }
+        .leaf-7 { animation-delay: 2.8s; }
+        .leaf-8 { animation-delay: 3.2s; }
+        .leaf-9 { animation-delay: 3.6s; }
+        @keyframes leafFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+      `}</style>
     </div>
   )
 }
@@ -361,15 +361,12 @@ export default function Login() {
 function Field({ label, icon: Icon, type = 'text', value, onChange, placeholder, hint, autoFocus }) {
   return (
     <div>
-      <div className="flex items-baseline justify-between mb-1.5">
-        <label
-          className="text-[12.5px]"
-          style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
-        >
+      <div className="flex items-baseline justify-between mb-1">
+        <label className="text-[12px]" style={{ color: 'var(--ink-soft)', fontWeight: 500 }}>
           {label}
         </label>
         {hint && (
-          <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+          <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
             {hint}
           </span>
         )}
@@ -377,7 +374,7 @@ function Field({ label, icon: Icon, type = 'text', value, onChange, placeholder,
       <div className="relative">
         {Icon && (
           <Icon
-            size={15}
+            size={14}
             className="absolute left-3 top-1/2 -translate-y-1/2"
             style={{ color: 'var(--ink-faint)' }}
           />
@@ -389,7 +386,7 @@ function Field({ label, icon: Icon, type = 'text', value, onChange, placeholder,
           placeholder={placeholder}
           autoFocus={autoFocus}
           className="input-base"
-          style={{ paddingLeft: Icon ? 36 : undefined }}
+          style={{ paddingLeft: Icon ? 36 : undefined, paddingTop: 8, paddingBottom: 8 }}
         />
       </div>
     </div>
@@ -401,7 +398,7 @@ function SsoButton({ label, disabled }) {
     <button
       type="button"
       disabled={disabled}
-      className="w-full text-[13.5px] py-2.5 rounded-lg flex items-center justify-center gap-2 transition"
+      className="w-full text-[13px] py-2 rounded-lg flex items-center justify-center gap-2 transition"
       style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--line-strong)',
@@ -413,7 +410,7 @@ function SsoButton({ label, disabled }) {
       {label}
       {disabled && (
         <span
-          className="font-mono text-[9.5px] tracking-wider px-1.5 py-0.5 rounded"
+          className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
           style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}
         >
           SOON
