@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, UserCog } from 'lucide-react'
 import Logo from '../components/Logo'
 import { auth } from '../lib/auth'
@@ -189,11 +189,17 @@ export default function Login() {
             <SsoButton label="Google Workspace로 로그인" disabled />
           </div>
 
-          <p className="mt-8 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+         <p className="mt-8 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
             계정이 없으신가요?{' '}
-            <a className="underline" style={{ color: 'var(--moss)' }} href="#">
+            <Link to="/signup" className="underline" style={{ color: 'var(--moss)' }}>
               회사 계정 신청
-            </a>
+            </Link>
+          </p>
+
+          <p className="mt-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+            <Link to="/operator" style={{ color: 'var(--ink-faint)' }}>
+              운영자 콘솔 →
+            </Link>
           </p>
 
           {/* Demo notice */}

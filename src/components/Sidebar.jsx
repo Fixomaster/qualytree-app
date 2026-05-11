@@ -9,8 +9,10 @@ import {
   HelpCircle,
   Settings,
   GitBranch,
+  Crown,
 } from 'lucide-react'
 import Logo from './Logo'
+import { auth } from '../lib/auth'
 
 const NAV = [
   { to: '/dashboard', label: '대시보드', en: 'Dashboard', icon: LayoutDashboard, area: 'ENT' },
@@ -58,6 +60,23 @@ export default function Sidebar() {
         {NAV.map((item) => (
           <SidebarItem key={item.to} {...item} />
         ))}
+
+       {auth.identityKind() === 'operator' && (
+          <>
+            <div
+              className="px-3 mt-6 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase"
+              style={{ color: 'var(--ink-faint)' }}
+            >
+              Operator
+            </div>
+            <SidebarItem
+              to="/operator"
+              label="운영자 콘솔"
+              icon={Crown}
+              area="OPS-ADMIN"
+            />
+          </>
+        )}
 
         <div
           className="px-3 mt-6 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase"
