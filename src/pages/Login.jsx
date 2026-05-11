@@ -35,7 +35,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
       {/* Left: form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-8 overflow-y-auto" style={{ minHeight: '100vh' }}>
+      <div className="flex-1 flex items-center justify-center px-6 py-8" style={{ minHeight: '100vh' }}>
         <div className="w-full max-w-[400px] fade-in">
           <Logo size={28} />
 
@@ -168,39 +168,22 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
-            <span
-              className="font-mono text-[9.5px] tracking-[0.18em] uppercase"
-              style={{ color: 'var(--ink-faint)' }}
-            >
-              OR
+          {/* 회사 신청 / 운영자 콘솔 링크 — 로그인 버튼 바로 아래 */}
+          <div className="mt-4 flex items-center justify-between text-[12.5px]">
+            <span style={{ color: 'var(--ink-mute)' }}>
+              계정이 없으신가요?{' '}
+              <Link to="/signup" className="underline" style={{ color: 'var(--moss)', fontWeight: 500 }}>
+                회사 계정 신청
+              </Link>
             </span>
-            <div className="flex-1 h-px" style={{ background: 'var(--line)' }} />
-          </div>
-
-          <div className="space-y-1.5">
-            <SsoButton label="Microsoft 계정으로 로그인" disabled />
-            <SsoButton label="Google Workspace로 로그인" disabled />
-          </div>
-
-          <p className="mt-5 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-            계정이 없으신가요?{' '}
-            <Link to="/signup" className="underline" style={{ color: 'var(--moss)' }}>
-              회사 계정 신청
-            </Link>
-          </p>
-
-          <p className="mt-1.5 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
             <Link to="/operator" style={{ color: 'var(--ink-faint)' }}>
               운영자 콘솔 →
             </Link>
-          </p>
+          </div>
 
           {/* Demo notice */}
           <div
-            className="mt-6 p-2.5 rounded-xl text-[11.5px] leading-snug"
+            className="mt-5 p-2.5 rounded-xl text-[11.5px] leading-snug"
             style={{
               background: 'var(--amber-soft)',
               border: '1px solid rgba(200,119,45,0.30)',
@@ -229,62 +212,66 @@ export default function Login() {
           }}
         />
 
-        {/* 나무 SVG — 우측 상단 배경 */}
+        {/* 나무 SVG — 우측 패널 전체 배경으로 크게 */}
         <div
           className="absolute pointer-events-none"
-          style={{ top: 50, right: 30, opacity: 0.85 }}
+          style={{ top: 0, right: 0, bottom: 0, width: '60%', opacity: 0.75 }}
         >
           <svg
-            width="220"
-            height="260"
-            viewBox="0 0 280 320"
+            viewBox="0 0 400 800"
+            preserveAspectRatio="xMidYMid meet"
             xmlns="http://www.w3.org/2000/svg"
-            style={{ overflow: 'visible' }}
+            style={{ width: '100%', height: '100%', overflow: 'visible' }}
           >
-            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.45)" strokeWidth="2" strokeLinecap="round" />
-            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
-            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            {/* 줄기 — 길게 */}
+            <line x1="200" y1="80" x2="200" y2="720" stroke="rgba(248,244,236,0.40)" strokeWidth="2.5" strokeLinecap="round" />
 
+            {/* 가지 */}
+            <line x1="200" y1="140" x2="120" y2="120" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="140" x2="270" y2="100" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="220" x2="290" y2="200" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="320" x2="115" y2="320" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="320" x2="300" y2="340" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="450" x2="120" y2="460" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="560" x2="290" y2="560" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            <line x1="200" y1="660" x2="125" y2="660" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+
+            {/* 잎 — 큰 사이즈 */}
             <g className="leaf leaf-1">
-              <circle cx="90"  cy="80"  r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="90"  y="84"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">510(k)</text>
+              <circle cx="120" cy="120" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="120" y="125" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">510(k)</text>
             </g>
             <g className="leaf leaf-2">
-              <circle cx="140" cy="55"  r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="140" y="59"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">QMS</text>
+              <circle cx="200" cy="65" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="200" y="70" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">QMS</text>
             </g>
             <g className="leaf leaf-3">
-              <circle cx="180" cy="75"  r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="180" y="79"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">KGMP</text>
+              <circle cx="270" cy="100" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="270" y="105" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">KGMP</text>
             </g>
             <g className="leaf leaf-4">
-              <circle cx="195" cy="115" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="195" y="119" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">MDR</text>
+              <circle cx="290" cy="200" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="290" y="205" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">MDR</text>
             </g>
             <g className="leaf leaf-5">
-              <circle cx="85"  cy="155" r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="85"  y="159" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
+              <circle cx="115" cy="320" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="115" y="325" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
             </g>
             <g className="leaf leaf-6">
-              <circle cx="205" cy="170" r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="205" y="174" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
+              <circle cx="300" cy="340" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="300" y="345" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
             </g>
             <g className="leaf leaf-7">
-              <circle cx="90"  cy="200" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="90"  y="204" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">DMR</text>
+              <circle cx="120" cy="460" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="120" y="465" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">DMR</text>
             </g>
             <g className="leaf leaf-8">
-              <circle cx="195" cy="225" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="195" y="229" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">SOP</text>
+              <circle cx="290" cy="560" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="290" y="565" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">SOP</text>
             </g>
             <g className="leaf leaf-9">
-              <circle cx="90"  cy="250" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="90"  y="254" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">DHF</text>
+              <circle cx="125" cy="660" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="125" y="665" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">DHF</text>
             </g>
           </svg>
         </div>
@@ -299,11 +286,11 @@ export default function Login() {
           </div>
         </div>
 
-        {/* 카피·불릿 */}
-        <div className="relative max-w-[420px]">
+        {/* 카피·불릿 — 나무가 우측에 있으니 좌측 정렬 */}
+        <div className="relative max-w-[380px]">
           <div
             className="font-display leading-[1.05]"
-            style={{ fontSize: 'clamp(30px, 3vw, 44px)', fontWeight: 380 }}
+            style={{ fontSize: 'clamp(28px, 2.8vw, 40px)', fontWeight: 380 }}
           >
             품질은
             <br />
@@ -311,12 +298,12 @@ export default function Login() {
           </div>
           <div
             className="font-display italic mt-2"
-            style={{ fontSize: 17, color: 'rgba(248,244,236,0.72)', fontWeight: 300 }}
+            style={{ fontSize: 16, color: 'rgba(248,244,236,0.72)', fontWeight: 300 }}
           >
             Quality grows like a tree.
           </div>
 
-          <ul className="mt-6 space-y-2 text-[13px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
+          <ul className="mt-6 space-y-2 text-[12.5px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
             <Bullet text="RA 비전공자도 화면 안내만 따라가면 인허가 서류 자동 완성" />
             <Bullet text="담당자가 바뀌어도 5분 안에 인수인계 — 결정 일지 자동 누적" />
             <Bullet text="ISO 13485 + FDA QMSR + KGMP + EU MDR 동시 매핑" />
@@ -390,33 +377,6 @@ function Field({ label, icon: Icon, type = 'text', value, onChange, placeholder,
         />
       </div>
     </div>
-  )
-}
-
-function SsoButton({ label, disabled }) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      className="w-full text-[13px] py-2 rounded-lg flex items-center justify-center gap-2 transition"
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--line-strong)',
-        color: 'var(--ink)',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      {label}
-      {disabled && (
-        <span
-          className="font-mono text-[9px] tracking-wider px-1.5 py-0.5 rounded"
-          style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}
-        >
-          SOON
-        </span>
-      )}
-    </button>
   )
 }
 
