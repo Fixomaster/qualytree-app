@@ -1,6 +1,13 @@
 // src/lib/auth.js
-// Qualytree 통합 인증 — 데모 mock auth + Supabase 정식 인증
-// Project Instructions §11.3 준수: 정식 사용은 Supabase Auth, 데모는 그대로 유지
+// Qualytree 통합 인증 — 데모 mock + Supabase 정식 (Stage 1 안전화)
+// Project Instructions §11.3 / §22.5 준수
+//
+// Stage 1 변경점 (vs. e77c1e4):
+//  - 모든 Supabase 헬퍼 호출을 try-catch로 감싸 RLS/네트워크 에러 흡수
+//  - 에러 객체는 외부로 노출하지 않고 String 메시지로만 반환 (React error #31 차단)
+//  - onAuthStateChange 콜백 외부 try-catch — 콜백 throw로 구독이 죽는 것 방지
+//  - signInWithPassword가 호출하는 refreshFromSupabase도 try-catch
+//  - 세션이 null이면 어떤 RLS 보호 테이블도 조회하지 않음
 
 import { permissions, LEVELS } from './permissions'
 import {
@@ -14,8 +21,46 @@ import {
 
 const KEY = 'qualytree.auth'
 
+// ───────── 내부 안전 헬퍼: 절대 throw 하지 않음 ─────────
+
+async function safeUser() {
+  try {
+    return await getSupabaseUser()
+  } catch (e) {
+    console.warn('[auth] getSupabaseUser soft-failed:', String(e?.message || e))
+    return null
+  }
+}
+
+async function safeIsOperator() {
+  try {
+    const v = await isPlatformOperator()
+    return v === true
+  } catch (e) {
+    console.warn('[auth] isPlatformOperator soft-failed:', String(e?.message || e))
+    return false
+  }
+}
+
+async function safeMembership() {
+  try {
+    const m = await getCompanyMembership()
+    return m && typeof m === 'object' ? m : null
+  } catch (e) {
+    console.warn('[auth] getCompanyMembership soft-failed:', String(e?.message || e))
+    return null
+  }
+}
+
+function errMsg(error, fallback) {
+  if (!error) return fallback
+  if (typeof error === 'string') return error
+  if (typeof error.message === 'string' && error.message) return error.message
+  try { return String(error) } catch { return fallback }
+}
+
 export const auth = {
-  // ───────── 데모 mock auth (기존 — 그대로 유지) ─────────
+  // ───────── 데모 mock auth (동작 그대로) ─────────
   signIn(email, name, level = LEVELS.OPERATOR) {
     return this.signInDemo(email, name, level)
   },
@@ -36,7 +81,9 @@ export const auth = {
 
   signOut() {
     localStorage.removeItem(KEY)
-    signOutSupabase().catch(() => {})
+    try {
+      signOutSupabase().catch(() => {})
+    } catch { /* ignore */ }
   },
 
   current() {
@@ -80,22 +127,35 @@ export const auth = {
     return this.current()?.level ?? permissions.currentLevel()
   },
 
-  // ───────── Supabase 정식 인증 (신규) ─────────
+  // ───────── Supabase 정식 인증 ─────────
 
   async signInWithPassword(email, password) {
-    const { data, error } = await signInWithEmail(email, password)
-    if (error) {
-      return { ok: false, error: error.message || '로그인 실패' }
+    let data, error
+    try {
+      const r = await signInWithEmail(email, password)
+      data = r?.data
+      error = r?.error
+    } catch (e) {
+      return { ok: false, error: errMsg(e, '로그인 실패') }
     }
-    const ctx = await this.refreshFromSupabase()
+    if (error) {
+      return { ok: false, error: errMsg(error, '로그인 실패') }
+    }
+    let ctx = null
+    try {
+      ctx = await this.refreshFromSupabase()
+    } catch (e) {
+      console.warn('[auth] refresh after signIn soft-failed:', String(e?.message || e))
+      ctx = null
+    }
     return { ok: true, context: ctx }
   },
 
   async refreshFromSupabase() {
-    const user = await getSupabaseUser()
+    const user = await safeUser()
     if (!user) return null
 
-    const isOp = await isPlatformOperator()
+    const isOp = await safeIsOperator()
     if (isOp) {
       const session = {
         email: user.email,
@@ -111,7 +171,7 @@ export const auth = {
       return { kind: 'operator', session }
     }
 
-    const membership = await getCompanyMembership()
+    const membership = await safeMembership()
     if (membership) {
       const level = membership.permission_level === 3 ? LEVELS.MANAGER
                   : membership.permission_level === 2 ? LEVELS.INSPECTOR
@@ -149,43 +209,36 @@ export const auth = {
       userId: user.id,
     }
     localStorage.setItem(KEY, JSON.stringify(session))
+    permissions.setLevel(LEVELS.OPERATOR)
     return { kind: 'orphan', session }
   },
 
-  async signUpRequest({
-    companyName,
-    businessNumber,
-    representative,
-    industry,
-    employeeCountBand,
-    desiredPlan,
-    desiredBillingCycle = 'monthly',
-    desiredCertifications = ['KGMP'],
-    adminEmail,
-    adminName,
-    adminPhone,
-  }) {
-    const { data, error } = await supabase
-      .from('signup_requests')
-      .insert({
-        company_name: companyName,
-        business_number: businessNumber || null,
-        representative: representative || null,
-        industry: industry || null,
-        employee_count_band: employeeCountBand,
-        desired_plan: desiredPlan,
-        desired_billing_cycle: desiredBillingCycle,
-        desired_certifications: desiredCertifications,
-        admin_email: adminEmail,
-        admin_name: adminName,
-        admin_phone: adminPhone || null,
-      })
-      .select()
-      .maybeSingle()
-    if (error) {
-      return { ok: false, error: error.message || '신청 실패' }
+  async signUpRequest(payload) {
+    try {
+      const { data, error } = await supabase
+        .from('signup_requests')
+        .insert({
+          company_name: payload.companyName,
+          business_number: payload.businessNumber || null,
+          representative: payload.representative || null,
+          industry: payload.industry || null,
+          employee_count_band: payload.employeeCountBand,
+          desired_plan: payload.desiredPlan,
+          desired_billing_cycle: payload.desiredBillingCycle || 'monthly',
+          desired_certifications: payload.desiredCertifications || ['KGMP'],
+          admin_email: payload.adminEmail,
+          admin_name: payload.adminName,
+          admin_phone: payload.adminPhone || null,
+        })
+        .select()
+        .maybeSingle()
+      if (error) {
+        return { ok: false, error: errMsg(error, '신청 실패') }
+      }
+      return { ok: true, request: data || null }
+    } catch (e) {
+      return { ok: false, error: errMsg(e, '신청 실패') }
     }
-    return { ok: true, request: data }
   },
 
   identityKind() {
@@ -193,17 +246,29 @@ export const auth = {
   },
 }
 
+// ───────── onAuthStateChange 구독 (콜백 외부 try-catch) ─────────
+
 if (typeof window !== 'undefined') {
-  supabase.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_OUT') {
+  try {
+    supabase.auth.onAuthStateChange((event, session) => {
       try {
-        const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
-        if (cur && cur.identityKind !== 'demo') {
-          localStorage.removeItem(KEY)
+        if (event === 'SIGNED_OUT') {
+          try {
+            const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
+            if (cur && cur.identityKind !== 'demo') {
+              localStorage.removeItem(KEY)
+            }
+          } catch { /* ignore */ }
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          auth.refreshFromSupabase().catch((e) => {
+            console.warn('[auth] refresh after', event, 'soft-failed:', String(e?.message || e))
+          })
         }
-      } catch {}
-    } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-      auth.refreshFromSupabase().catch(() => {})
-    }
-  })
+      } catch (e) {
+        console.warn('[auth] onAuthStateChange callback threw:', String(e?.message || e))
+      }
+    })
+  } catch (e) {
+    console.warn('[auth] failed to subscribe onAuthStateChange:', String(e?.message || e))
+  }
 }
