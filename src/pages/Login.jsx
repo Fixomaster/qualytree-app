@@ -168,7 +168,7 @@ export default function Login() {
             </button>
           </form>
 
-          {/* 회사 신청 / 운영자 콘솔 링크 — 로그인 버튼 바로 아래 */}
+          {/* 회사 신청 / 운영자 콘솔 — 로그인 버튼 바로 아래 */}
           <div className="mt-4 flex items-center justify-between text-[12.5px]">
             <span style={{ color: 'var(--ink-mute)' }}>
               계정이 없으신가요?{' '}
@@ -212,66 +212,97 @@ export default function Login() {
           }}
         />
 
-        {/* 나무 SVG — 우측 패널 전체 배경으로 크게 */}
+        {/* 나무 SVG — Medical Tree of Life 모티브 */}
         <div
           className="absolute pointer-events-none"
-          style={{ top: 0, right: 0, bottom: 0, width: '60%', opacity: 0.75 }}
+          style={{ top: 0, right: 0, bottom: 0, width: '62%', opacity: 0.9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <svg
-            viewBox="0 0 400 800"
+            viewBox="0 0 400 600"
             preserveAspectRatio="xMidYMid meet"
             xmlns="http://www.w3.org/2000/svg"
             style={{ width: '100%', height: '100%', overflow: 'visible' }}
           >
-            {/* 줄기 — 길게 */}
-            <line x1="200" y1="80" x2="200" y2="720" stroke="rgba(248,244,236,0.40)" strokeWidth="2.5" strokeLinecap="round" />
+            <defs>
+              <linearGradient id="trunkGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(248,244,236,0.55)" />
+                <stop offset="100%" stopColor="rgba(248,244,236,0.30)" />
+              </linearGradient>
+              <radialGradient id="canopyGlow" cx="50%" cy="40%" r="50%">
+                <stop offset="0%" stopColor="rgba(248,244,236,0.08)" />
+                <stop offset="100%" stopColor="rgba(248,244,236,0)" />
+              </radialGradient>
+            </defs>
 
-            {/* 가지 */}
-            <line x1="200" y1="140" x2="120" y2="120" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="140" x2="270" y2="100" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="220" x2="290" y2="200" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="320" x2="115" y2="320" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="320" x2="300" y2="340" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="450" x2="120" y2="460" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="560" x2="290" y2="560" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
-            <line x1="200" y1="660" x2="125" y2="660" stroke="rgba(248,244,236,0.25)" strokeWidth="1.5" />
+            {/* 수관 글로우 */}
+            <circle cx="200" cy="220" r="200" fill="url(#canopyGlow)" />
 
-            {/* 잎 — 큰 사이즈 */}
+            {/* 뿌리 (지면 라인) */}
+            <line x1="120" y1="555" x2="280" y2="555" stroke="rgba(248,244,236,0.35)" strokeWidth="1" strokeDasharray="2 4" />
+
+            {/* 이중 줄기 (Asclepius 지팡이 모티브) */}
+            <path
+              d="M 188 555 L 192 380 Q 195 280, 200 220"
+              stroke="url(#trunkGrad)"
+              strokeWidth="6"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <path
+              d="M 212 555 L 208 380 Q 205 280, 200 220"
+              stroke="url(#trunkGrad)"
+              strokeWidth="6"
+              fill="none"
+              strokeLinecap="round"
+            />
+
+            {/* 수관 가지 — 줄기 정점(200,220)에서 부채꼴로 펼침 */}
+            <path d="M 200 220 Q 175 175, 130 130"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 200 160, 200 80"   stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 225 175, 270 130"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 145 215, 95 200"   stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 255 215, 305 200"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 155 265, 115 310"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 245 265, 285 310"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 180 305, 165 380"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 200 220 Q 220 305, 235 380"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+
+            {/* 잎 9개 — 좌우 대칭 배치 */}
             <g className="leaf leaf-1">
-              <circle cx="120" cy="120" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="120" y="125" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">510(k)</text>
+              <circle cx="200" cy="80" r="36" fill="var(--amber)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="200" y="86" textAnchor="middle" fontSize="15" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="700">QMS</text>
             </g>
             <g className="leaf leaf-2">
-              <circle cx="200" cy="65" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="200" y="70" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">QMS</text>
+              <circle cx="130" cy="130" r="32" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="130" y="135" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">510(k)</text>
             </g>
             <g className="leaf leaf-3">
-              <circle cx="270" cy="100" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="270" y="105" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">KGMP</text>
+              <circle cx="270" cy="130" r="32" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="270" y="135" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">KGMP</text>
             </g>
             <g className="leaf leaf-4">
-              <circle cx="290" cy="200" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="290" y="205" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">MDR</text>
+              <circle cx="95" cy="200" r="30" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="95" y="205" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
             </g>
             <g className="leaf leaf-5">
-              <circle cx="115" cy="320" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="115" y="325" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
+              <circle cx="305" cy="200" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="305" y="205" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">MDR</text>
             </g>
             <g className="leaf leaf-6">
-              <circle cx="300" cy="340" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="300" y="345" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
+              <circle cx="115" cy="310" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="115" y="315" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">DMR</text>
             </g>
             <g className="leaf leaf-7">
-              <circle cx="120" cy="460" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="120" y="465" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">DMR</text>
+              <circle cx="285" cy="310" r="30" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="285" y="315" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
             </g>
             <g className="leaf leaf-8">
-              <circle cx="290" cy="560" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="290" y="565" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">SOP</text>
+              <circle cx="165" cy="380" r="28" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="165" y="385" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">SOP</text>
             </g>
             <g className="leaf leaf-9">
-              <circle cx="125" cy="660" r="34" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="125" y="665" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)">DHF</text>
+              <circle cx="235" cy="380" r="28" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="235" y="385" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">DHF</text>
             </g>
           </svg>
         </div>
@@ -286,7 +317,7 @@ export default function Login() {
           </div>
         </div>
 
-        {/* 카피·불릿 — 나무가 우측에 있으니 좌측 정렬 */}
+        {/* 카피·불릿 — 좌측 정렬 */}
         <div className="relative max-w-[380px]">
           <div
             className="font-display leading-[1.05]"
