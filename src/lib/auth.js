@@ -1,13 +1,6 @@
 // src/lib/auth.js
-// Qualytree 통합 인증 — 데모 mock + Supabase 정식 (Stage 1 안전화)
+// Qualytree 통합 인증 — 데모 mock + Supabase 정식 (Stage 1 안전화 + Stage 2 RPC)
 // Project Instructions §11.3 / §22.5 준수
-//
-// Stage 1 변경점 (vs. e77c1e4):
-//  - 모든 Supabase 헬퍼 호출을 try-catch로 감싸 RLS/네트워크 에러 흡수
-//  - 에러 객체는 외부로 노출하지 않고 String 메시지로만 반환 (React error #31 차단)
-//  - onAuthStateChange 콜백 외부 try-catch — 콜백 throw로 구독이 죽는 것 방지
-//  - signInWithPassword가 호출하는 refreshFromSupabase도 try-catch
-//  - 세션이 null이면 어떤 RLS 보호 테이블도 조회하지 않음
 
 import { permissions, LEVELS } from './permissions'
 import {
@@ -60,7 +53,7 @@ function errMsg(error, fallback) {
 }
 
 export const auth = {
-  // ───────── 데모 mock auth (동작 그대로) ─────────
+  // ───────── 데모 mock auth ─────────
   signIn(email, name, level = LEVELS.OPERATOR) {
     return this.signInDemo(email, name, level)
   },
@@ -215,27 +208,23 @@ export const auth = {
 
   async signUpRequest(payload) {
     try {
-      const { data, error } = await supabase
-        .from('signup_requests')
-        .insert({
-          company_name: payload.companyName,
-          business_number: payload.businessNumber || null,
-          representative: payload.representative || null,
-          industry: payload.industry || null,
-          employee_count_band: payload.employeeCountBand,
-          desired_plan: payload.desiredPlan,
-          desired_billing_cycle: payload.desiredBillingCycle || 'monthly',
-          desired_certifications: payload.desiredCertifications || ['KGMP'],
-          admin_email: payload.adminEmail,
-          admin_name: payload.adminName,
-          admin_phone: payload.adminPhone || null,
-        })
-        .select()
-        .maybeSingle()
+      const { data, error } = await supabase.rpc('submit_signup_request', {
+        p_company_name: payload.companyName,
+        p_business_number: payload.businessNumber || '',
+        p_representative: payload.representative || '',
+        p_industry: payload.industry || '',
+        p_employee_count_band: payload.employeeCountBand,
+        p_desired_plan: payload.desiredPlan,
+        p_desired_billing_cycle: payload.desiredBillingCycle || 'monthly',
+        p_desired_certifications: payload.desiredCertifications || ['KGMP'],
+        p_admin_email: payload.adminEmail,
+        p_admin_name: payload.adminName,
+        p_admin_phone: payload.adminPhone || '',
+      })
       if (error) {
         return { ok: false, error: errMsg(error, '신청 실패') }
       }
-      return { ok: true, request: data || null }
+      return { ok: true, request: { id: data } }
     } catch (e) {
       return { ok: false, error: errMsg(e, '신청 실패') }
     }
@@ -246,7 +235,7 @@ export const auth = {
   },
 }
 
-// ───────── onAuthStateChange 구독 (콜백 외부 try-catch) ─────────
+// ───────── onAuthStateChange 구독 ─────────
 
 if (typeof window !== 'undefined') {
   try {
