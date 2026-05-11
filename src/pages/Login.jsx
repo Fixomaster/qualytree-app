@@ -212,192 +212,193 @@ export default function Login() {
           }}
         />
 
-        {/* 나무 SVG — Outline-only Tree (몸통·가지 윤곽만) */}
+        {/* 나무 SVG — 두꺼운 면(fill) 줄기 + 갈래갈래 가지 */}
         <div
           className="absolute pointer-events-none"
           style={{ top: 0, right: 0, bottom: 0, width: '65%', opacity: 0.95, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <svg
-            viewBox="0 0 400 600"
+            viewBox="0 0 500 700"
             preserveAspectRatio="xMidYMid meet"
             xmlns="http://www.w3.org/2000/svg"
             style={{ width: '100%', height: '100%', overflow: 'visible' }}
           >
             <defs>
-              <radialGradient id="canopyGlow" cx="50%" cy="40%" r="50%">
-                <stop offset="0%" stopColor="rgba(248,244,236,0.06)" />
-                <stop offset="100%" stopColor="rgba(248,244,236,0)" />
-              </radialGradient>
+              <linearGradient id="trunkGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="rgba(248,244,236,0.85)" />
+                <stop offset="100%" stopColor="rgba(248,244,236,0.65)" />
+              </linearGradient>
             </defs>
 
-            {/* 수관 글로우 */}
-            <circle cx="200" cy="220" r="200" fill="url(#canopyGlow)" />
+            {/* 지면 그림자 */}
+            <ellipse cx="250" cy="665" rx="100" ry="6" fill="rgba(0,0,0,0.15)" />
 
-            {/* 지면(뿌리) — 점선 */}
-            <line x1="100" y1="555" x2="300" y2="555" stroke="rgba(248,244,236,0.45)" strokeWidth="1" strokeDasharray="2 4" />
-
-            {/* === 나무 실루엣 (outline only) === */}
-            {/* 화분/베이스 (선택적 — 안정감) */}
+            {/*
+              === 나무 줄기 (두꺼운 면 — fill로 그림) ===
+              하단 굵고 위로 갈수록 가늘어지는 trunk
+            */}
             <path
-              d="M 165 555 L 170 540 L 230 540 L 235 555 Z"
-              stroke="rgba(248,244,236,0.65)"
-              strokeWidth="2"
-              fill="none"
-              strokeLinejoin="round"
+              d="M 230 660
+                 C 228 580, 232 500, 235 420
+                 C 237 380, 234 340, 240 300
+                 L 240 280
+                 L 260 280
+                 L 260 300
+                 C 266 340, 263 380, 265 420
+                 C 268 500, 272 580, 270 660
+                 Z"
+              fill="url(#trunkGrad)"
+              stroke="rgba(248,244,236,0.45)"
+              strokeWidth="1"
             />
 
-            {/* 줄기 윤곽선 — 위로 갈수록 가늘어지는 두꺼운 trunk */}
+            {/* === 주가지 (큰 가지 5개) — 줄기 위쪽에서 갈래갈래 분기 === */}
+
+            {/* 중앙 위 가지 (QMS로) */}
             <path
-              d="M 178 540
-                 C 175 480, 172 420, 178 360
-                 C 180 320, 178 280, 185 230
-                 L 188 220
-                 M 222 540
-                 C 225 480, 228 420, 222 360
-                 C 220 320, 222 280, 215 230
-                 L 212 220"
+              d="M 250 280
+                 C 248 250, 245 220, 245 180
+                 C 245 150, 250 130, 252 110"
               stroke="rgba(248,244,236,0.75)"
-              strokeWidth="2.5"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-
-            {/* 줄기 상단 연결부 (양쪽 줄기가 만나는 부분) */}
-            <path
-              d="M 185 230 Q 200 220, 215 230"
-              stroke="rgba(248,244,236,0.75)"
-              strokeWidth="2.5"
+              strokeWidth="8"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* === 가지 윤곽선 — 두꺼운 stroke로 실루엣 느낌 === */}
-            {/* 중앙 위쪽 가지 (QMS 방향) */}
+            {/* 좌측 큰 가지 (510k로) */}
             <path
-              d="M 200 225 C 198 180, 200 130, 200 90"
+              d="M 245 290
+                 C 230 270, 210 250, 185 230
+                 C 165 215, 145 200, 130 185"
               stroke="rgba(248,244,236,0.7)"
-              strokeWidth="3"
+              strokeWidth="7"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 좌측 상단 가지 (510k) */}
+            {/* 우측 큰 가지 (KGMP로) */}
             <path
-              d="M 195 230 C 175 200, 160 170, 138 140"
+              d="M 255 290
+                 C 270 270, 290 250, 315 230
+                 C 335 215, 355 200, 370 185"
               stroke="rgba(248,244,236,0.7)"
-              strokeWidth="3"
+              strokeWidth="7"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 우측 상단 가지 (KGMP) */}
+            {/* 좌측 중단 가지 (CAPA로) */}
             <path
-              d="M 205 230 C 225 200, 245 170, 262 140"
-              stroke="rgba(248,244,236,0.7)"
-              strokeWidth="3"
-              fill="none"
-              strokeLinecap="round"
-            />
-
-            {/* 좌측 중단 가지 (CAPA) */}
-            <path
-              d="M 190 250 C 160 240, 130 220, 105 210"
+              d="M 240 320
+                 C 215 320, 185 310, 155 305
+                 C 130 300, 110 295, 90 290"
               stroke="rgba(248,244,236,0.65)"
-              strokeWidth="2.8"
+              strokeWidth="6"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 우측 중단 가지 (MDR) */}
+            {/* 우측 중단 가지 (MDR로) */}
             <path
-              d="M 210 250 C 240 240, 270 220, 295 210"
+              d="M 260 320
+                 C 285 320, 315 310, 345 305
+                 C 370 300, 390 295, 410 290"
               stroke="rgba(248,244,236,0.65)"
-              strokeWidth="2.8"
+              strokeWidth="6"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 좌측 중하단 가지 (DMR) */}
+            {/* 좌측 중하단 가지 (DMR로) */}
             <path
-              d="M 185 290 C 155 295, 130 305, 120 315"
+              d="M 235 380
+                 C 210 388, 180 395, 150 400
+                 C 130 405, 115 410, 100 415"
               stroke="rgba(248,244,236,0.6)"
-              strokeWidth="2.5"
+              strokeWidth="5"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 우측 중하단 가지 (Risk) */}
+            {/* 우측 중하단 가지 (Risk로) */}
             <path
-              d="M 215 290 C 245 295, 270 305, 280 315"
+              d="M 265 380
+                 C 290 388, 320 395, 350 400
+                 C 370 405, 385 410, 400 415"
               stroke="rgba(248,244,236,0.6)"
-              strokeWidth="2.5"
+              strokeWidth="5"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 좌측 하단 가지 (SOP) */}
+            {/* 좌측 하단 가지 (SOP로) */}
             <path
-              d="M 185 350 C 175 365, 168 375, 162 385"
+              d="M 232 440
+                 C 215 460, 195 480, 175 500
+                 C 165 510, 158 520, 152 530"
               stroke="rgba(248,244,236,0.55)"
-              strokeWidth="2.2"
+              strokeWidth="4.5"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 우측 하단 가지 (DHF) */}
+            {/* 우측 하단 가지 (DHF로) */}
             <path
-              d="M 215 350 C 225 365, 232 375, 238 385"
+              d="M 268 440
+                 C 285 460, 305 480, 325 500
+                 C 335 510, 342 520, 348 530"
               stroke="rgba(248,244,236,0.55)"
-              strokeWidth="2.2"
+              strokeWidth="4.5"
               fill="none"
               strokeLinecap="round"
             />
 
-            {/* 추가 잔가지 (장식용 — 풍성하게) */}
-            <path d="M 175 200 C 165 195, 155 195, 148 198" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <path d="M 225 200 C 235 195, 245 195, 252 198" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <path d="M 175 290 C 165 292, 158 295, 152 300" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <path d="M 225 290 C 235 292, 242 295, 248 300" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <path d="M 200 380 C 192 388, 188 395, 185 402" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-            <path d="M 200 380 C 208 388, 212 395, 215 402" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+            {/* === 잔가지 (장식용 — 풍성하게) === */}
+            <path d="M 245 200 C 230 195, 215 195, 200 200" stroke="rgba(248,244,236,0.35)" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <path d="M 250 220 C 265 215, 280 215, 295 220" stroke="rgba(248,244,236,0.35)" strokeWidth="2" fill="none" strokeLinecap="round" />
+            <path d="M 200 250 C 190 240, 180 235, 170 232" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 300 250 C 310 240, 320 235, 330 232" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 175 310 C 160 312, 145 316, 132 320" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 325 310 C 340 312, 355 316, 368 320" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 195 410 C 180 414, 165 420, 152 425" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+            <path d="M 305 410 C 320 414, 335 420, 348 425" stroke="rgba(248,244,236,0.3)" strokeWidth="1.8" fill="none" strokeLinecap="round" />
 
-            {/* === 인증 잎 9개 (가지 끝에 자리) === */}
+            {/* === 인증 잎 9개 (가지 끝에 정확히) === */}
             <g className="leaf leaf-1">
-              <circle cx="200" cy="90" r="34" fill="var(--amber)" stroke="var(--moss)" strokeWidth="2"/>
-              <text x="200" y="96" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="700">QMS</text>
+              <circle cx="252" cy="110" r="40" fill="var(--amber)" stroke="var(--moss)" strokeWidth="2.5"/>
+              <text x="252" y="117" textAnchor="middle" fontSize="16" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="700">QMS</text>
             </g>
             <g className="leaf leaf-2">
-              <circle cx="138" cy="140" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="138" y="145" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">510(k)</text>
+              <circle cx="130" cy="185" r="36" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="130" y="191" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">510(k)</text>
             </g>
             <g className="leaf leaf-3">
-              <circle cx="262" cy="140" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="262" y="145" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">KGMP</text>
+              <circle cx="370" cy="185" r="36" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="370" y="191" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">KGMP</text>
             </g>
             <g className="leaf leaf-4">
-              <circle cx="105" cy="210" r="28" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="105" y="215" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
+              <circle cx="90" cy="290" r="32" fill="var(--amber)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="90" y="296" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="700">CAPA</text>
             </g>
             <g className="leaf leaf-5">
-              <circle cx="295" cy="210" r="28" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="295" y="215" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">MDR</text>
+              <circle cx="410" cy="290" r="32" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="410" y="296" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">MDR</text>
             </g>
             <g className="leaf leaf-6">
-              <circle cx="120" cy="315" r="28" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="120" y="320" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">DMR</text>
+              <circle cx="100" cy="415" r="32" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="100" y="421" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">DMR</text>
             </g>
             <g className="leaf leaf-7">
-              <circle cx="280" cy="315" r="28" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="280" y="320" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
+              <circle cx="400" cy="415" r="32" fill="var(--amber)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="400" y="421" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="700">Risk</text>
             </g>
             <g className="leaf leaf-8">
-              <circle cx="162" cy="385" r="26" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="162" y="390" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">SOP</text>
+              <circle cx="152" cy="530" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="152" y="536" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">SOP</text>
             </g>
             <g className="leaf leaf-9">
-              <circle cx="238" cy="385" r="26" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="1.5"/>
-              <text x="238" y="390" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="600">DHF</text>
+              <circle cx="348" cy="530" r="30" fill="rgba(248,244,236,0.95)" stroke="var(--moss)" strokeWidth="2"/>
+              <text x="348" y="536" textAnchor="middle" fontSize="13" fontFamily="ui-monospace, monospace" fill="var(--moss)" fontWeight="700">DHF</text>
             </g>
           </svg>
         </div>
