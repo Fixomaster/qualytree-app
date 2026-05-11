@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Signup from './pages/Signup'
 import SignupSuccess from './pages/SignupSuccess'
+import OperatorConsole from './pages/OperatorConsole'
 import Dashboard from './pages/Dashboard'
 import Onboarding from './pages/onboarding/Onboarding'
 import WorkOrderQueue from './pages/operations/WorkOrderQueue'
@@ -56,6 +57,7 @@ export default function App() {
           </PublicRoute>
         }
       />
+      <Route path="/operator" element={<OperatorConsole />} />
       <Route
         path="/dashboard"
         element={
