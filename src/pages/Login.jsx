@@ -43,8 +43,8 @@ export default function Login() {
         <div className="w-full max-w-[400px] fade-in">
           <Logo size={32} />
 
-          <h1
-            className="font-display mt-12 leading-tight"
+         <h1
+            className="font-display mt-8 leading-tight"
             style={{ fontSize: 36, fontWeight: 480, color: 'var(--ink)' }}
           >
             로그인
@@ -53,7 +53,7 @@ export default function Login() {
             Qualytree Platform — 의료기기 RA·QMS 통합 SaaS
           </p>
 
-          <form onSubmit={onSubmit} className="mt-10 space-y-4">
+          <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <Field
               label="이메일"
               icon={Mail}
@@ -222,45 +222,38 @@ export default function Login() {
 
       {/* Right: feature panel */}
       <div
-        className="hidden lg:flex flex-col justify-between flex-1 p-12 relative overflow-hidden"
-        style={{ background: 'var(--moss)', color: 'var(--bg)' }}
+        className="hidden lg:flex flex-col justify-between flex-1 p-10 relative overflow-hidden"
+        style={{ background: 'var(--moss)', color: 'var(--bg)', minHeight: '100vh', maxHeight: '100vh' }}
       >
-        <div
           className="absolute inset-0 opacity-30"
           style={{
             background:
               'radial-gradient(600px 300px at 100% 0%, var(--leaf), transparent 60%), radial-gradient(500px 280px at 0% 100%, var(--amber), transparent 60%)',
           }}
         />
-
-        <div className="relative">
-          <div
-            className="font-mono text-[10.5px] tracking-[0.22em] uppercase"
-            style={{ color: 'var(--amber-soft)' }}
-          >
-            QUALYTREE PLATFORM · ENT-001
-          </div>
-        </div>
-        {/* Quality Tree — 잎이 순차적으로 페이드인 (Stage 4 후속 데코) */}
-        <div className="relative flex justify-center" style={{ marginTop: 24, marginBottom: 24 }}>
+        {/* Quality Tree — 우측 상단 배경 (잎 순차 페이드인) */}
+        <div
+          className="absolute pointer-events-none"
+          style={{ top: 60, right: 40, opacity: 0.85 }}
+        >
           <svg
-            width="280"
-            height="320"
+            width="240"
+            height="280"
             viewBox="0 0 280 320"
             xmlns="http://www.w3.org/2000/svg"
             style={{ overflow: 'visible' }}
           >
             {/* 줄기 */}
-            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.55)" strokeWidth="2" strokeLinecap="round" />
+            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.45)" strokeWidth="2" strokeLinecap="round" />
 
-            {/* 가지 (좌우) */}
-            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
-            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            {/* 가지 */}
+            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
+            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.28)" strokeWidth="1.5" />
 
             {/* 잎 (순차 페이드인) */}
             <g className="leaf leaf-1">
@@ -322,6 +315,15 @@ export default function Login() {
           `}</style>
         </div>
 
+        <div className="relative">
+          <div
+            className="font-mono text-[10.5px] tracking-[0.22em] uppercase"
+            style={{ color: 'var(--amber-soft)' }}
+          >
+            QUALYTREE PLATFORM · ENT-001
+          </div>
+        </div>
+      
         <div className="relative max-w-[420px]">
           <div
             className="font-display leading-[1.05]"
