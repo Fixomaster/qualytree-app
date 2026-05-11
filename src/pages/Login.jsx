@@ -241,6 +241,86 @@ export default function Login() {
             QUALYTREE PLATFORM · ENT-001
           </div>
         </div>
+        {/* Quality Tree — 잎이 순차적으로 페이드인 (Stage 4 후속 데코) */}
+        <div className="relative flex justify-center" style={{ marginTop: 24, marginBottom: 24 }}>
+          <svg
+            width="280"
+            height="320"
+            viewBox="0 0 280 320"
+            xmlns="http://www.w3.org/2000/svg"
+            style={{ overflow: 'visible' }}
+          >
+            {/* 줄기 */}
+            <line x1="140" y1="50" x2="140" y2="280" stroke="rgba(248,244,236,0.55)" strokeWidth="2" strokeLinecap="round" />
+
+            {/* 가지 (좌우) */}
+            <line x1="140" y1="90"  x2="90"  y2="80"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="90"  x2="180" y2="75"  stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="120" x2="195" y2="115" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="85"  y2="155" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="155" x2="205" y2="170" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="195" x2="90"  y2="200" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+            <line x1="140" y1="225" x2="195" y2="225" stroke="rgba(248,244,236,0.35)" strokeWidth="1.5" />
+
+            {/* 잎 (순차 페이드인) */}
+            <g className="leaf leaf-1">
+              <circle cx="90"  cy="80"  r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="90"  y="84"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">510(k)</text>
+            </g>
+            <g className="leaf leaf-2">
+              <circle cx="140" cy="55"  r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="140" y="59"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">QMS</text>
+            </g>
+            <g className="leaf leaf-3">
+              <circle cx="180" cy="75"  r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="180" y="79"  textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">KGMP</text>
+            </g>
+            <g className="leaf leaf-4">
+              <circle cx="195" cy="115" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="195" y="119" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">MDR</text>
+            </g>
+            <g className="leaf leaf-5">
+              <circle cx="85"  cy="155" r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="85"  y="159" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">CAPA</text>
+            </g>
+            <g className="leaf leaf-6">
+              <circle cx="205" cy="170" r="20" fill="var(--amber)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="205" y="174" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--bg)" fontWeight="600">Risk</text>
+            </g>
+            <g className="leaf leaf-7">
+              <circle cx="90"  cy="200" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="90"  y="204" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">DMR</text>
+            </g>
+            <g className="leaf leaf-8">
+              <circle cx="195" cy="225" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="195" y="229" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">SOP</text>
+            </g>
+            <g className="leaf leaf-9">
+              <circle cx="90"  cy="250" r="20" fill="rgba(248,244,236,0.92)" stroke="var(--moss)" strokeWidth="1.5"/>
+              <text x="90"  y="254" textAnchor="middle" fontSize="10" fontFamily="ui-monospace, monospace" fill="var(--moss)">DHF</text>
+            </g>
+          </svg>
+
+          <style>{`
+            .leaf {
+              opacity: 0;
+              animation: leafFadeIn 0.6s ease-out forwards;
+            }
+            .leaf-1 { animation-delay: 0.4s; }
+            .leaf-2 { animation-delay: 0.8s; }
+            .leaf-3 { animation-delay: 1.2s; }
+            .leaf-4 { animation-delay: 1.6s; }
+            .leaf-5 { animation-delay: 2.0s; }
+            .leaf-6 { animation-delay: 2.4s; }
+            .leaf-7 { animation-delay: 2.8s; }
+            .leaf-8 { animation-delay: 3.2s; }
+            .leaf-9 { animation-delay: 3.6s; }
+            @keyframes leafFadeIn {
+              from { opacity: 0; }
+              to   { opacity: 1; }
+            }
+          `}</style>
+        </div>
 
         <div className="relative max-w-[420px]">
           <div
