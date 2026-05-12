@@ -135,7 +135,6 @@ export function loadContext() {
     procedures,
     decisionLog,
     ccrLog,
-    products: products,
 
     // 사용자 토글 (옵션 검증 항목)
     toggles: userToggles,
