@@ -1,914 +1,315 @@
-import React, { useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  ArrowRight,
-  Sparkles,
-  Calendar,
-  FileText,
-  GitCommit,
-  CheckCircle2,
-  PackageSearch,
-  ShieldCheck,
-  Workflow,
-  TrendingUp,
-  AlertCircle,
-  RotateCcw,
-} from 'lucide-react'
-import AppLayout from '../components/AppLayout'
-import { auth } from '../lib/auth'
-import { onboarding } from '../lib/onboardingState'
-import { PROCESS_BLOCKS } from '../lib/processBlocks'
-import { REGULATIONS } from '../lib/regulations'
+import { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import gmp, { loadContext, computeAllCards, computeOverallScore, userCanAccessCard, STATUS, FULFILLMENT } from '../lib/gmpProgress';
 
-// 사용자 정의 블록도 합산할 수 있도록 가져오기
-const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
-function loadCustomBlocks() {
-  try {
-    const raw = localStorage.getItem(CUSTOM_BLOCK_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+/**
+ * Tier 1 Dashboard — 12개 GMP/RA 카드 + 4개 하단 패널
+ * 행1 (보라): ①QMS ②설계 ③공급자 ④제조 ⑤QC ⑥NCR/CAPA ⑦내부심사 ⑧교육
+ * 행2 (호박): ⑨인허가 ⑩UDI ⑪PMS ⑫임상평가
+ */
+
+// 색상 임계값 (메모리에 합의된 회색/노랑/빨강 규칙)
+function progressColor(percent, na, locked) {
+  if (locked) return { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-400', bar: 'bg-slate-300' };
+  if (na) return { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-400', bar: 'bg-slate-200' };
+  if (percent >= 90) return { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' };
+  if (percent >= 70) return { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' };
+  return { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', bar: 'bg-rose-500' };
+}
+
+// 행별 액센트 색상 (Integrated Architecture v1.1 체계: 보라=입력/품질, 호박=출력/시판후)
+function rowAccent(row) {
+  return row === 1 ? 'text-violet-600' : 'text-amber-600';
+}
+
+function CardTile({ card, onClick, locked }) {
+  const color = progressColor(card.percent, card.na, locked);
+  const accent = rowAccent(card.cardRow);
+
+  return (
+    <button
+      onClick={() => !locked && !card.na && onClick(card)}
+      disabled={locked}
+      className={`relative w-full text-left p-4 rounded-xl border-2 ${color.border} ${color.bg} transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-70`}
+    >
+      {locked && (
+        <div className="absolute top-2 right-2 flex items-center gap-1 text-xs text-slate-500 bg-white/80 rounded-full px-2 py-0.5">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          권한 필요
+        </div>
+      )}
+      <div className="flex items-baseline gap-1 mb-2">
+        <span className={`text-xs font-bold ${accent}`}>{card.cardIndex.toString().padStart(2, '0')}</span>
+        <span className="text-sm font-semibold text-slate-800 truncate">{card.cardTitle}</span>
+      </div>
+
+      {card.na ? (
+        <div className="py-3 text-center">
+          <div className="text-2xl font-bold text-slate-400">N/A</div>
+          <div className="text-[10px] text-slate-500 mt-1 line-clamp-2">{card.naReason}</div>
+        </div>
+      ) : (
+        <>
+          <div className={`text-3xl font-bold tabular-nums ${color.text}`}>{card.percent}%</div>
+          <div className="mt-2 h-1.5 w-full rounded-full bg-white">
+            <div className={`h-full rounded-full ${color.bar} transition-all`} style={{ width: `${card.percent}%` }} />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-[10px] text-slate-600">
+            <span>필수 <b className="text-slate-800">{card.required.met}/{card.required.total}</b></span>
+            <span>선택 <b className="text-slate-800">{card.optional.met}/{card.optional.total}</b></span>
+            <span>검증 <b className="text-slate-800">{card.verification.met}/{card.verification.total}</b></span>
+          </div>
+        </>
+      )}
+    </button>
+  );
+}
+
+function CertBadge({ label, active }) {
+  return (
+    <span className={`text-[11px] px-2 py-0.5 rounded-full border ${active ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-slate-50 border-slate-200 text-slate-400 line-through'}`}>
+      {label}
+    </span>
+  );
+}
+
+function PanelDecisionLog({ ctx }) {
+  const recent = (ctx.decisionLog ?? []).slice(0, 5);
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-slate-800">결정 일지</h3>
+        <span className="text-[10px] text-slate-400">특허 3</span>
+      </div>
+      {recent.length === 0 ? (
+        <div className="text-xs text-slate-400 py-6 text-center">아직 누적된 결정이 없습니다.</div>
+      ) : (
+        <ul className="space-y-2">
+          {recent.map((d, i) => (
+            <li key={i} className="text-xs border-l-2 border-violet-300 pl-2">
+              <div className="text-slate-700 font-medium">{d.type ?? '결정'}</div>
+              <div className="text-slate-500">{d.timestamp ? new Date(d.timestamp).toLocaleString('ko-KR') : '—'}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PanelDeadlines({ cards, ctx }) {
+  // 모든 카드의 만료/마감 항목 집계 (단순 휴리스틱 — 미충족 검증 항목)
+  const items = [];
+  cards.forEach(c => {
+    if (c.na) return;
+    c.items.forEach(it => {
+      if (it.resolvedStatus === STATUS.VERIFICATION && it.fulfillment === FULFILLMENT.UNMET) {
+        items.push({ card: c.cardTitle, label: it.label, id: it.id });
+      }
+    });
+  });
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-slate-800">임박 마감 · 미충족 검증</h3>
+        <span className="text-[10px] text-slate-400">상위 {Math.min(items.length, 6)}건</span>
+      </div>
+      {items.length === 0 ? (
+        <div className="text-xs text-emerald-600 py-6 text-center">현재 미충족 검증 항목 없음 ✓</div>
+      ) : (
+        <ul className="space-y-1.5">
+          {items.slice(0, 6).map((it, i) => (
+            <li key={i} className="text-xs flex items-start gap-2">
+              <span className="text-[10px] bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded shrink-0">{it.card}</span>
+              <span className="text-slate-600 line-clamp-1">{it.label}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PanelRiskHotspots({ cards }) {
+  // 점수 낮은 카드 상위 3개 = 위험 핫스팟
+  const hotspots = cards
+    .filter(c => !c.na && c.percent !== null)
+    .sort((a, b) => a.percent - b.percent)
+    .slice(0, 3);
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-slate-800">위험관리 핫스팟</h3>
+        <span className="text-[10px] text-slate-400">진행률 하위 3</span>
+      </div>
+      <ul className="space-y-2">
+        {hotspots.map(c => (
+          <li key={c.cardId} className="flex items-center justify-between">
+            <span className="text-xs text-slate-700">
+              <span className={`font-bold ${rowAccent(c.cardRow)}`}>{c.cardIndex.toString().padStart(2, '0')}</span> {c.cardTitle}
+            </span>
+            <span className={`text-xs font-bold ${c.percent < 30 ? 'text-rose-600' : c.percent < 70 ? 'text-amber-600' : 'text-emerald-600'}`}>{c.percent}%</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PanelHandover({ ctx }) {
+  const handleDownload = () => {
+    // 실제 PDF 생성은 후속 작업 — 지금은 결정일지 JSON 다운로드
+    const blob = new Blob([JSON.stringify({
+      generatedAt: new Date().toISOString(),
+      ctx: { company: ctx.company, certifications: ctx.certifications, products: ctx.products.list?.length ?? 0 },
+      decisionLog: ctx.decisionLog,
+    }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qualytree-handover-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-emerald-900">인수인계 패키지</h3>
+        <span className="text-[10px] text-emerald-700">특허 3</span>
+      </div>
+      <p className="text-xs text-emerald-800 mb-3">담당자 변경 시 5분 내 핵심 파악이 가능한 패키지를 다운로드합니다.</p>
+      <button
+        onClick={handleDownload}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium py-2 rounded-lg transition"
+      >
+        패키지 생성·다운로드
+      </button>
+    </div>
+  );
 }
 
 export default function Dashboard() {
-  const nav = useNavigate()
-  const user = auth.current()
-  const onbState = onboarding.load()
+  const navigate = useNavigate();
+  const [ctx, setCtx] = useState(() => loadContext());
+  const [userLevel] = useState(() => {
+    try {
+      const auth = JSON.parse(localStorage.getItem('qualytree.auth') ?? '{}');
+      return auth.level ?? 3; // 기본 Manager/RA
+    } catch { return 3; }
+  });
 
-  // hasCompany: 회사 정보가 채워져 있고 온보딩 1단계 이상 완료
-  const hasCompany = !!(user?.company && onbState.company?.name)
+  // localStorage 변경 감지 — 다른 화면에서 데이터 수정 시 대시보드 갱신
+  useEffect(() => {
+    const handler = () => setCtx(loadContext());
+    window.addEventListener('storage', handler);
+    window.addEventListener('focus', handler);
+    return () => {
+      window.removeEventListener('storage', handler);
+      window.removeEventListener('focus', handler);
+    };
+  }, []);
+
+  const cards = useMemo(() => computeAllCards(ctx), [ctx]);
+  const overall = useMemo(() => computeOverallScore(cards), [cards]);
+
+  const row1 = cards.filter(c => c.cardRow === 1);
+  const row2 = cards.filter(c => c.cardRow === 2);
+
+  const activeCertCount = Object.values(ctx.certifications).filter(Boolean).length;
+  const productCount = ctx.products.list?.length ?? 0;
+
+  const handleCardClick = (card) => {
+    navigate(`/section/${card.cardId}`);
+  };
+  // 라우트는 /section/:cardId — App.jsx에 등록됨
 
   return (
-    <AppLayout
-      user={user}
-      title={`안녕하세요, ${user?.name || ''}님`}
-      subtitle={
-        hasCompany
-          ? onbState.company.name
-          : '품질 시스템을 시작할 준비가 되었습니다'
-      }
-    >
-      <div className="px-6 lg:px-8 py-8 max-w-[1280px] mx-auto">
-        {hasCompany ? (
-          <ActiveDashboard state={onbState} onReset={() => {
-            if (confirm('온보딩 데이터를 모두 지우고 처음부터 다시 시작할까요?')) {
-              onboarding.reset()
-              auth.updateCompany(null)
-              localStorage.removeItem('qualytree.customBlocks')
-              localStorage.removeItem('qualytree.customCategories')
-              window.location.reload()
-            }
-          }} onContinue={() => nav('/onboarding')} />
-        ) : (
-          <FirstTimeDashboard onStart={() => nav('/onboarding')} />
-        )}
-      </div>
-    </AppLayout>
-  )
-}
-
-/* ============================================================
-   첫 진입 — 회사 등록 전
-   ============================================================ */
-function FirstTimeDashboard({ onStart }) {
-  return (
-    <div className="fade-in">
-      <div
-        className="relative rounded-[20px] overflow-hidden p-8 lg:p-10"
-        style={{ background: 'var(--moss)', color: 'var(--bg)' }}
-      >
-        <div
-          className="absolute inset-0 opacity-30 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(500px 240px at 100% 0%, var(--leaf), transparent 60%), radial-gradient(400px 220px at 0% 100%, var(--amber), transparent 60%)',
-          }}
-        />
-        <div className="relative grid lg:grid-cols-12 gap-8 items-center">
-          <div className="lg:col-span-7">
-            <div
-              className="font-mono text-[10.5px] tracking-[0.22em] uppercase mb-3"
-              style={{ color: 'var(--amber-soft)' }}
-            >
-              ⏱ 5분이면 시작됩니다
-            </div>
-            <h1
-              className="font-display leading-[1.05]"
-              style={{ fontSize: 'clamp(28px, 3.4vw, 40px)', fontWeight: 420 }}
-            >
-              회사·제품·공정을 한 번 입력하면,<br />
-              인증별 서류가 자동으로 따라옵니다.
+    <div className="min-h-screen bg-slate-50 px-6 py-6">
+      {/* 상단 — 회사 + 전사 점수 + 활성 인증 + Level */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="flex items-end justify-between flex-wrap gap-4 mb-4">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">
+              Qualytree <span className="text-base font-normal text-slate-500">GMP·RA 대시보드</span>
             </h1>
-            <p
-              className="mt-4 text-[14.5px] leading-relaxed"
-              style={{ color: 'rgba(248,244,236,0.82)', maxWidth: 560 }}
-            >
-              5단계 가이드에 따라 객관식으로 답하시면, ISO 13485 · KGMP · FDA QMSR ·
-              EU MDR 양식이 동시에 채워지기 시작합니다. RA 전공이 아니어도 됩니다.
-            </p>
-            <button
-              onClick={onStart}
-              className="btn-primary mt-7"
-              style={{ background: 'var(--bg)', color: 'var(--moss)' }}
-            >
-              온보딩 시작하기 <ArrowRight size={15} />
-            </button>
-          </div>
-
-          <div className="lg:col-span-5">
-            <div
-              className="rounded-2xl p-5 backdrop-blur"
-              style={{
-                background: 'rgba(248,244,236,0.08)',
-                border: '1px solid rgba(248,244,236,0.16)',
-              }}
-            >
-              <div
-                className="font-mono text-[10px] tracking-[0.22em] uppercase mb-3"
-                style={{ color: 'var(--amber-soft)' }}
-              >
-                ONBOARDING · 5 STEPS
-              </div>
-              <ol className="space-y-2.5 text-[13px]">
-                {[
-                  ['회사 등록', '법인·사이트·인증 보유 현황'],
-                  ['제품 등록', '제품 분류·의도된 사용'],
-                  ['공정 정의', '드래그·드롭으로 공정 순서 구성'],
-                  ['다중 규제 선택', 'FDA·MDR·KGMP 동시 매핑'],
-                  ['역할·자격', '담당자 배정 + Skill Matrix'],
-                ].map(([t, s], i) => (
-                  <li key={i} className="flex items-start gap-3">
-                    <span
-                      className="font-mono text-[11px] mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                      style={{
-                        background: 'var(--amber)',
-                        color: 'var(--ink)',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {i + 1}
-                    </span>
-                    <div>
-                      <div style={{ fontWeight: 500 }}>{t}</div>
-                      <div style={{ color: 'rgba(248,244,236,0.62)', fontSize: 12 }}>
-                        {s}
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+            <div className="text-xs text-slate-500 mt-1">
+              제품 <b className="text-slate-700">{productCount}건</b>
+              <span className="mx-1.5">·</span>
+              활성 인증 <b className="text-slate-700">{activeCertCount}건</b>
+              <span className="mx-1.5">·</span>
+              내 권한 <b className="text-slate-700">Level {userLevel}</b>
             </div>
           </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs text-slate-500">전사 종합</span>
+            <span className={`text-4xl font-bold tabular-nums ${overall >= 90 ? 'text-emerald-600' : overall >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
+              {overall}%
+            </span>
+          </div>
+        </div>
+
+        {/* 인증 뱃지 */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <CertBadge label="ISO 13485" active={ctx.certifications.iso13485} />
+          <CertBadge label="KGMP" active={ctx.certifications.kgmp} />
+          <CertBadge label="FDA QMSR" active={ctx.certifications.fdaQmsr} />
+          <CertBadge label="EU MDR" active={ctx.certifications.euMdr} />
+          <CertBadge label="PMDA" active={ctx.certifications.pmda} />
+          <CertBadge label="NMPA" active={ctx.certifications.nmpa} />
+          <CertBadge label="MDSAP" active={ctx.certifications.mdsap} />
         </div>
       </div>
 
-      <div className="mt-10 grid md:grid-cols-3 gap-4">
-        {[
-          {
-            tag: 'NO RA EXPERTISE',
-            t: 'RA 비전공자도 OK',
-            s: '객관식 + 보조설명 중심. "왜 이걸 입력하는지" 화면에서 즉시 보입니다.',
-          },
-          {
-            tag: 'BIDIRECTIONAL',
-            t: '구조적 무결한 연결',
-            s: '한 번 입력 → 모든 인증 양식·문서·시험에 양방향 자동 연결.',
-          },
-          {
-            tag: 'DECISION LOG',
-            t: '5분 인수인계',
-            s: '결정 일지 자동 누적. 담당자 교체에도 컨텍스트 유실 없음.',
-          },
-        ].map((c, i) => (
-          <div key={i} className="card-base p-5">
-            <div
-              className="font-mono text-[10px] tracking-[0.18em] uppercase"
-              style={{ color: 'var(--amber)' }}
-            >
-              {c.tag}
-            </div>
-            <div
-              className="mt-2 font-display text-[18px] leading-tight"
-              style={{ color: 'var(--ink)', fontWeight: 500 }}
-            >
-              {c.t}
-            </div>
-            <div
-              className="mt-2 text-[13px] leading-relaxed"
-              style={{ color: 'var(--ink-soft)' }}
-            >
-              {c.s}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/* ============================================================
-   활성 대시보드 — 사용자 입력 데이터 기반
-   ============================================================ */
-function ActiveDashboard({ state, onReset, onContinue }) {
-  const nav = useNavigate()
-
-  // 모든 블록(빌트인 + 사용자 정의)
-  const allBlocks = useMemo(
-    () => [...PROCESS_BLOCKS, ...loadCustomBlocks()],
-    []
-  )
-  const findBlock = (id) => allBlocks.find((b) => b.id === id)
-
-  // ---- 통계 계산 ----
-  const productCount = state.product?.name ? 1 : 0
-  const processCount = (state.processes || []).length
-
-  const selectedRegs = useMemo(
-    () =>
-      REGULATIONS.filter((r) => (state.regulations || []).includes(r.id)),
-    [state.regulations]
-  )
-  const regCount = selectedRegs.length
-
-  // 온보딩 완성도 — completedSteps 기준
-  const completion = Math.round(
-    (((state.completedSteps || []).length) / 5) * 100
-  )
-
-  // 공정 → 자동 매핑 카운트
-  const mapping = useMemo(() => {
-    const sopSet = new Set()
-    const inspectionSet = new Set()
-    const standardSet = new Set()
-    const riskSet = new Set()
-    let specialProcessCount = 0
-    ;(state.processes || []).forEach((p) => {
-      const block = findBlock(p.blockId)
-      if (!block) return
-      block.sopAuto?.forEach((s) => sopSet.add(s))
-      block.inspections?.forEach((i) => inspectionSet.add(i))
-      block.standards?.forEach((s) => standardSet.add(s))
-      block.risks?.forEach((r) => riskSet.add(r))
-      if (block.isSpecialProcess) specialProcessCount++
-    })
-    return {
-      sops: Array.from(sopSet),
-      inspections: Array.from(inspectionSet),
-      standards: Array.from(standardSet),
-      risks: Array.from(riskSet),
-      specialProcessCount,
-    }
-  }, [state.processes, allBlocks])
-
-  // 자동 결정 일지 — 온보딩 진행 자체를 일지로
-  const decisionLog = useMemo(() => {
-    const items = []
-    const ts = state.finishedAt
-      ? new Date(state.finishedAt).toLocaleString('ko-KR', {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        })
-      : '방금'
-
-    if (state.completedSteps?.includes(5) && state.roles?.length > 0) {
-      items.push({
-        t: `핵심 역할 ${state.roles.length}개 배정 완료`,
-        by: `${ts} · 시스템`,
-        linkedTo: 'ONB-005',
-      })
-    }
-    if (state.completedSteps?.includes(4) && regCount > 0) {
-      items.push({
-        t: `진출 규제 ${regCount}개 매핑: ${selectedRegs
-          .map((r) => r.name.split(':')[0])
-          .slice(0, 3)
-          .join(', ')}${regCount > 3 ? ` 외 ${regCount - 3}` : ''}`,
-        by: `${ts} · 시스템`,
-        linkedTo: 'ONB-004',
-      })
-    }
-    if (state.completedSteps?.includes(3) && processCount > 0) {
-      items.push({
-        t: `공정 순서 ${processCount}단계 정의${
-          mapping.specialProcessCount > 0
-            ? ` (특별공정 ${mapping.specialProcessCount}개)`
-            : ''
-        }`,
-        by: `${ts} · 시스템`,
-        linkedTo: 'ONB-003',
-      })
-    }
-    if (state.completedSteps?.includes(2) && state.product?.name) {
-      const cls = state.product.classification
-      items.push({
-        t: `제품 등록: ${state.product.name}${
-          cls
-            ? ` (FDA Class ${cls.fdaClass} · MDR ${cls.mdrClass})`
-            : ''
-        }`,
-        by: `${ts} · 시스템`,
-        linkedTo: 'ONB-002',
-      })
-    }
-    if (state.completedSteps?.includes(1) && state.company?.name) {
-      items.push({
-        t: `회사 등록: ${state.company.name}`,
-        by: `${ts} · 시스템`,
-        linkedTo: 'ONB-001',
-      })
-    }
-    return items
-  }, [state, regCount, selectedRegs, processCount, mapping])
-
-  // 임박 일정 — 온보딩 결과로부터 자동 발의된 다음 작업
-  const upcoming = useMemo(() => {
-    const items = []
-    if (mapping.specialProcessCount > 0) {
-      items.push({
-        date: '다음',
-        t: `특별공정 밸리데이션 ${mapping.specialProcessCount}건 (IQ/OQ/PQ)`,
-        tag: 'OPS',
-      })
-    }
-    if (mapping.sops.length > 0) {
-      items.push({
-        date: '다음',
-        t: `SOP 작성 ${mapping.sops.length}건`,
-        tag: 'QMS',
-      })
-    }
-    selectedRegs.forEach((r) => {
-      if (r.id !== 'iso-13485') {
-        items.push({
-          date: '예정',
-          t: `${r.name} 신청 패키지 준비`,
-          tag: 'RA',
-        })
-      }
-    })
-    return items.slice(0, 5)
-  }, [mapping, selectedRegs])
-
-  return (
-    <div className="fade-in">
-      {/* Top stats */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat
-          label="제품"
-          value={String(productCount)}
-          delta={state.product?.name || '—'}
-          icon={PackageSearch}
-          tone="moss"
-        />
-        <Stat
-          label="진출 규제"
-          value={String(regCount)}
-          delta={
-            selectedRegs.length > 0
-              ? selectedRegs
-                  .map((r) => r.name.split(':')[0].replace('FDA ', ''))
-                  .slice(0, 3)
-                  .join(' · ')
-              : '—'
-          }
-          icon={ShieldCheck}
-          tone="amber"
-        />
-        <Stat
-          label="공정 단계"
-          value={String(processCount)}
-          delta={
-            mapping.specialProcessCount > 0
-              ? `특별공정 ${mapping.specialProcessCount}`
-              : '특별공정 0'
-          }
-          icon={Workflow}
-          tone="leaf"
-        />
-        <Stat
-          label="온보딩 완성도"
-          value={`${completion}%`}
-          delta={
-            completion === 100
-              ? '✓ 온보딩 완료'
-              : `${state.step || 1}/5 단계 진행 중`
-          }
-          icon={TrendingUp}
-          tone={completion === 100 ? 'leaf' : 'amber'}
-        />
-      </div>
-
-      <div className="mt-8 grid lg:grid-cols-3 gap-4">
-        {/* 진행 중인 인증 */}
-        <div className="lg:col-span-2 card-base p-5">
-          <SectionHeader
-            title="진출 규제 — 매핑 현황"
-            subtitle="온보딩에서 선택한 인증·규제. 추가 작성을 위해서는 각 영역으로 이동"
-          />
-          {selectedRegs.length === 0 ? (
-            <EmptyHint
-              text="아직 진출 규제가 선택되지 않았습니다."
-              onAction={onContinue}
-              actionLabel="온보딩 4단계로 이동"
+      {/* 행1 — GMP 8개 카드 */}
+      <div className="max-w-7xl mx-auto mb-3">
+        <div className="text-xs font-semibold text-violet-700 mb-2 flex items-center gap-2">
+          <span className="w-1 h-4 bg-violet-500 rounded" />
+          행 1 — GMP 코어 (ISO 13485 / FDA QMSR / KGMP / EU MDR 공통)
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          {row1.map(card => (
+            <CardTile
+              key={card.cardId}
+              card={card}
+              onClick={handleCardClick}
+              locked={!userCanAccessCard(card, userLevel)}
             />
-          ) : (
-            <div className="mt-4 space-y-3">
-              {selectedRegs.map((r) => (
-                <RegRow key={r.id} reg={r} completion={completion} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Side: schedule + log */}
-        <div className="space-y-4">
-          <div className="card-base p-5">
-            <SectionHeader title="다음 작업" icon={Calendar} />
-            {upcoming.length === 0 ? (
-              <EmptyHint text="공정과 규제를 입력하면 다음 작업이 자동으로 발의됩니다." compact />
-            ) : (
-              <ul className="mt-3 space-y-2.5 text-[13px]">
-                {upcoming.map((u, i) => (
-                  <Schedule key={i} {...u} />
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="card-base p-5">
-            <SectionHeader title="결정 일지" icon={GitCommit} />
-            {decisionLog.length === 0 ? (
-              <EmptyHint
-                text="아직 기록된 결정이 없습니다."
-                compact
-              />
-            ) : (
-              <ul className="mt-3 space-y-3 text-[13px]">
-                {decisionLog.map((d, i) => (
-                  <LogItem key={i} {...d} />
-                ))}
-              </ul>
-            )}
-          </div>
+          ))}
         </div>
       </div>
 
-      {/* 자동 매핑 결과 요약 */}
-      {processCount > 0 && (
-        <div className="mt-8 grid sm:grid-cols-3 gap-3">
-          <MapStat
-            icon={FileText}
-            label="자동 매핑 SOP"
-            count={mapping.sops.length}
-            sample={mapping.sops[0]}
-          />
-          <MapStat
-            icon={CheckCircle2}
-            label="자동 매핑 검사"
-            count={mapping.inspections.length}
-            sample={mapping.inspections[0]}
-          />
-          <MapStat
-            icon={ShieldCheck}
-            label="적용 표준"
-            count={mapping.standards.length}
-            sample={mapping.standards[0]}
-          />
+      {/* 행2 — 인허가/시판후 4개 카드 */}
+      <div className="max-w-7xl mx-auto mb-6">
+        <div className="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-2">
+          <span className="w-1 h-4 bg-amber-500 rounded" />
+          행 2 — 인허가 · 시판후 (시장별 차등 적용)
         </div>
-      )}
-
-      {/* Quality Tree — 사용자 입력 기반 */}
-      <div className="mt-8 card-base p-6">
-        <SectionHeader
-          title={`Quality Tree — ${state.product?.name || '제품 미등록'}`}
-          subtitle="제품·인증·문서·위험 항목이 한 그루의 트리로. 곧 클릭해서 탐색 가능."
-        />
-        <QualityTreeViz
-          productName={state.product?.name || 'Product'}
-          regs={selectedRegs}
-          processCount={processCount}
-          riskCount={mapping.risks.length}
-        />
-      </div>
-
-      {/* 온보딩 다시 / 데이터 초기화 */}
-      <div className="mt-10 flex flex-wrap gap-3 justify-end">
-        <button
-          onClick={onContinue}
-          className="btn-ghost text-[13px]"
-        >
-          <RotateCcw size={13} />
-          온보딩 수정하기
-        </button>
-        <button
-          onClick={onReset}
-          className="btn-ghost text-[13px]"
-          style={{ color: 'var(--rust)', borderColor: 'rgba(139,58,31,0.3)' }}
-        >
-          데이터 모두 지우고 처음부터
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ============================================================
-   Sub-components
-   ============================================================ */
-
-function SectionHeader({ title, subtitle, icon: Icon }) {
-  return (
-    <div className="flex items-start justify-between">
-      <div>
-        <div className="flex items-center gap-2">
-          {Icon && (
-            <Icon size={15} style={{ color: 'var(--moss)' }} strokeWidth={1.7} />
-          )}
-          <div
-            className="font-display text-[16px]"
-            style={{ color: 'var(--ink)', fontWeight: 500 }}
-          >
-            {title}
-          </div>
-        </div>
-        {subtitle && (
-          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-            {subtitle}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value, delta, tone = 'moss', icon: Icon }) {
-  const toneMap = {
-    moss: 'var(--moss)',
-    leaf: 'var(--leaf)',
-    amber: 'var(--amber)',
-    rust: 'var(--rust)',
-  }
-  return (
-    <div className="card-base p-5">
-      <div className="flex items-center justify-between">
-        <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-          {label}
-        </div>
-        {Icon && (
-          <Icon
-            size={14}
-            style={{ color: toneMap[tone], opacity: 0.5 }}
-            strokeWidth={1.6}
-          />
-        )}
-      </div>
-      <div
-        className="mt-1.5 font-display"
-        style={{
-          fontSize: 30,
-          fontWeight: 460,
-          color: 'var(--ink)',
-          lineHeight: 1,
-        }}
-      >
-        {value}
-      </div>
-      {delta && (
-        <div
-          className="mt-2 text-[11.5px] truncate"
-          style={{ color: toneMap[tone] }}
-          title={delta}
-        >
-          {delta}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function RegRow({ reg, completion }) {
-  return (
-    <div className="flex items-center gap-4 py-2">
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between gap-3">
-          <div
-            className="text-[13.5px] truncate"
-            style={{ fontWeight: 500 }}
-          >
-            {reg.name}
-          </div>
-          <div
-            className="font-mono text-[11px] shrink-0"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            {reg.region}
-          </div>
-        </div>
-        <div
-          className="mt-2 h-1.5 rounded-full overflow-hidden"
-          style={{ background: 'var(--bg-soft)' }}
-        >
-          <div
-            className="h-full rounded-full transition-all"
-            style={{
-              width: `${completion}%`,
-              background:
-                completion === 100
-                  ? 'linear-gradient(90deg, var(--leaf), var(--moss-mid))'
-                  : 'var(--amber)',
-            }}
-          />
-        </div>
-      </div>
-      <div className="w-20 text-right">
-        <div
-          className="font-mono text-[12px]"
-          style={{ color: 'var(--moss)' }}
-        >
-          온보딩 {completion}%
-        </div>
-        <div
-          className="font-mono text-[10px] mt-0.5"
-          style={{ color: 'var(--ink-faint)' }}
-        >
-          후속 작업 대기
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function Schedule({ date, t, tag }) {
-  return (
-    <li className="flex items-start gap-3">
-      <div
-        className="w-12 shrink-0 font-mono text-[10.5px] uppercase tracking-wider"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        {date}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="leading-snug" style={{ color: 'var(--ink)' }}>
-          {t}
-        </div>
-      </div>
-      <span
-        className="tag"
-        style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}
-      >
-        {tag}
-      </span>
-    </li>
-  )
-}
-
-function LogItem({ t, by, linkedTo }) {
-  return (
-    <li className="flex items-start gap-3">
-      <div className="mt-1.5">
-        <CheckCircle2
-          size={13}
-          style={{ color: 'var(--leaf)' }}
-          strokeWidth={2}
-        />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div
-          className="leading-snug"
-          style={{ color: 'var(--ink)' }}
-        >
-          {t}
-        </div>
-        <div
-          className="mt-0.5 flex items-center gap-2 text-[11px]"
-          style={{ color: 'var(--ink-mute)' }}
-        >
-          <span className="truncate">{by}</span>
-          {linkedTo && (
-            <>
-              <span>·</span>
-              <span className="font-mono shrink-0">{linkedTo}</span>
-            </>
-          )}
-        </div>
-      </div>
-    </li>
-  )
-}
-
-function MapStat({ icon: Icon, label, count, sample }) {
-  return (
-    <div className="card-base p-4">
-      <div className="flex items-center gap-2">
-        <Icon size={13} style={{ color: 'var(--moss)' }} strokeWidth={1.7} />
-        <span
-          className="font-mono text-[10px] tracking-[0.16em] uppercase"
-          style={{ color: 'var(--ink-mute)' }}
-        >
-          {label}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-2 mt-1.5">
-        <span
-          className="font-display"
-          style={{ fontSize: 24, fontWeight: 500, color: 'var(--ink)' }}
-        >
-          {count}
-        </span>
-        {sample && (
-          <span
-            className="text-[11.5px] truncate"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            예: {sample}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function EmptyHint({ text, onAction, actionLabel, compact }) {
-  return (
-    <div
-      className={`mt-${compact ? 3 : 4} px-4 py-${compact ? 3 : 6} rounded-xl text-center`}
-      style={{
-        background: 'var(--bg-soft)',
-        border: '1px dashed var(--line-strong)',
-      }}
-    >
-      <div
-        className="text-[12.5px]"
-        style={{ color: 'var(--ink-mute)' }}
-      >
-        {text}
-      </div>
-      {onAction && actionLabel && (
-        <button
-          onClick={onAction}
-          className="mt-2 text-[12px] underline"
-          style={{ color: 'var(--moss)' }}
-        >
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  )
-}
-
-function QualityTreeViz({ productName, regs, processCount, riskCount }) {
-  // 가지 4개 — 사용자 데이터 기반
-  const branches = [
-    {
-      x: 100,
-      label: 'DHF',
-      en: 'Design',
-      sub: '자동 발행',
-    },
-    {
-      x: 230,
-      label: 'DMR',
-      en: '제조 기준',
-      sub: `공정 ${processCount}`,
-    },
-    {
-      x: 370,
-      label: 'Risk',
-      en: '위험관리',
-      sub: `${riskCount}건`,
-    },
-    {
-      x: 500,
-      label: 'CAPA',
-      en: '시정조치',
-      sub: '대기',
-    },
-  ]
-
-  // 제품 이름은 너무 길면 자르기
-  const displayName =
-    productName && productName.length > 12
-      ? productName.slice(0, 12) + '…'
-      : productName || 'Product'
-
-  return (
-    <div
-      className="mt-4 rounded-2xl p-8 flex items-center justify-center"
-      style={{
-        background:
-          'linear-gradient(135deg, var(--bg-soft), var(--bg))',
-        border: '1px dashed var(--line-strong)',
-        minHeight: 280,
-      }}
-    >
-      <svg viewBox="0 0 600 260" className="w-full max-w-[560px]" fill="none">
-        <line
-          x1="300"
-          y1="20"
-          x2="300"
-          y2="240"
-          stroke="var(--line-strong)"
-          strokeDasharray="3 4"
-        />
-
-        {/* Root: 제품 이름 */}
-        <rect x="220" y="14" width="160" height="32" rx="16" fill="var(--moss)" />
-        <text
-          x="300"
-          y="35"
-          textAnchor="middle"
-          fontFamily="Fraunces, serif"
-          fontSize="13"
-          fill="var(--bg)"
-          fontWeight="500"
-        >
-          {displayName}
-        </text>
-
-        {/* 가지 4개 */}
-        {branches.map((b, i) => (
-          <g key={i}>
-            <path
-              d={`M 300 46 Q ${300} 100 ${b.x} 140`}
-              stroke="var(--line-strong)"
-              strokeWidth="1"
-              fill="none"
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {row2.map(card => (
+            <CardTile
+              key={card.cardId}
+              card={card}
+              onClick={handleCardClick}
+              locked={!userCanAccessCard(card, userLevel)}
             />
-            <rect
-              x={b.x - 42}
-              y="140"
-              width="84"
-              height="50"
-              rx="12"
-              fill="var(--bg-card)"
-              stroke="var(--line-strong)"
-            />
-            <text
-              x={b.x}
-              y="158"
-              textAnchor="middle"
-              fontFamily="Fraunces, serif"
-              fontSize="13"
-              fill="var(--moss)"
-              fontWeight="500"
-            >
-              {b.label}
-            </text>
-            <text
-              x={b.x}
-              y="172"
-              textAnchor="middle"
-              fontFamily="JetBrains Mono, monospace"
-              fontSize="9"
-              fill="var(--ink-mute)"
-            >
-              {b.en}
-            </text>
-            <text
-              x={b.x}
-              y="184"
-              textAnchor="middle"
-              fontFamily="JetBrains Mono, monospace"
-              fontSize="9"
-              fill="var(--amber)"
-              fontWeight="500"
-            >
-              {b.sub}
-            </text>
-          </g>
-        ))}
+          ))}
+        </div>
+      </div>
 
-        {/* 인증 라벨 — 선택한 규제 수 */}
-        <text
-          x="300"
-          y="220"
-          textAnchor="middle"
-          fontFamily="JetBrains Mono, monospace"
-          fontSize="10"
-          fill="var(--ink-mute)"
-          letterSpacing="2"
-        >
-          {regs.length > 0
-            ? regs
-                .map((r) => r.name.split(':')[0].replace('FDA ', ''))
-                .slice(0, 4)
-                .join(' · ')
-                .toUpperCase()
-            : 'NO REGULATIONS SELECTED'}
-        </text>
-        <text
-          x="300"
-          y="238"
-          textAnchor="middle"
-          fontFamily="JetBrains Mono, monospace"
-          fontSize="9"
-          fill="var(--ink-faint)"
-          letterSpacing="2"
-        >
-          ALL NODES ARE BIDIRECTIONALLY LINKED
-        </text>
-      </svg>
+      {/* 하단 4개 패널 */}
+      <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <PanelDecisionLog ctx={ctx} />
+        <PanelDeadlines cards={cards} ctx={ctx} />
+        <PanelRiskHotspots cards={cards} />
+        <PanelHandover ctx={ctx} />
+      </div>
+
+      <div className="max-w-7xl mx-auto text-[10px] text-slate-400 mt-6 text-center">
+        Qualytree · 진행률 = 필수 × 0.6 + 선택 × 0.3 + 검증 × 0.1 (특허 2 청구항 1(c)) · 조건부 항목은 회사·제품·인증 속성에 따라 자동 필수↔N/A 결정
+      </div>
     </div>
-  )
+  );
 }
