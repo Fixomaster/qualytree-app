@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT } from '../../lib/gmpProgress';
+import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../lib/documentLibrary';
 
 /**
  * 12개 카드 공통 상세 페이지 — 카드 ID로 분기
- * 필수/조건부/선택/검증 4개 섹션 + 항목별 충족/미충족/N/A 표시 + 규제 매핑
+ * 5개 섹션: 필수 / 조건부 / 선택 / 검증 / 자동 생성 문서 라이브러리(특허 P13)
  */
 
 function StatusBadge({ status }) {
@@ -70,6 +71,140 @@ function Section({ title, items, isCondition = false, color = 'slate' }) {
   );
 }
 
+const MODE_BADGE = {
+  [DOC_MODE.TEMPLATE]: 'bg-slate-100 text-slate-700 border-slate-300',
+  [DOC_MODE.AUTOFILL]: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+  [DOC_MODE.AI_DRAFT]: 'bg-violet-100 text-violet-800 border-violet-300',
+  [DOC_MODE.GUIDED]: 'bg-sky-100 text-sky-800 border-sky-300',
+};
+
+function DocumentRow({ doc, ctx }) {
+  const ready = isDocumentReady(doc, ctx);
+  const meta = MODE_META[doc.mode];
+
+  const handleGenerate = () => {
+    const payload = {
+      documentId: doc.id,
+      documentName: doc.name,
+      mode: doc.mode,
+      regulations: doc.regulations,
+      sources: doc.sources,
+      generatedAt: new Date().toISOString(),
+      generatedBy: 'Qualytree v0.1 (Phase A — preview)',
+      ...(doc.mode === DOC_MODE.AI_DRAFT && {
+        aiMetadata: {
+          modelId: 'qualytree-doc-gen',
+          modelVersion: '0.1.0-preview',
+          requiresHumanReview: true,
+          reviewerRole: 'Level 3 (Manager/RA) 또는 PRRC',
+          governance: 'Project Instructions §22 — AI Decision Traceability',
+        },
+      }),
+      message: 'Phase A 미리보기 — 실제 PDF/DOCX 자동 생성·SSoT 자동 채움은 Phase B(백엔드 + AI 통합) 단계에서 활성화됩니다.',
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qualytree-${doc.id}-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <li className="py-3 px-3 hover:bg-white/60 rounded-lg transition">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="text-sm font-semibold text-slate-800">{doc.name}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODE_BADGE[doc.mode]} font-semibold`}>
+              {meta.label}
+            </span>
+            {ready ? (
+              <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">생성 가능</span>
+            ) : (
+              <span className="text-[10px] bg-slate-50 text-slate-500 border border-slate-200 px-1.5 py-0.5 rounded">데이터 부족</span>
+            )}
+          </div>
+          <div className="text-xs text-slate-600 mb-1.5">{doc.description}</div>
+          <div className="text-[10px] text-slate-500 mb-1.5">💡 {meta.desc}</div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {doc.regulations.map((r, i) => (
+              <span key={i} className="text-[10px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+                <span className="font-semibold">{r.s}</span> {r.c}
+              </span>
+            ))}
+          </div>
+        </div>
+        <button
+          onClick={handleGenerate}
+          disabled={!ready}
+          className={`shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition ${
+            ready
+              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+          }`}
+        >
+          미리보기
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function DocumentLibrarySection({ cardId, ctx }) {
+  const [filter, setFilter] = useState('all');
+  const docs = getCardDocuments(cardId);
+  if (docs.length === 0) return null;
+
+  const filtered = filter === 'all' ? docs : docs.filter(d => d.mode === filter);
+  const readyCount = docs.filter(d => isDocumentReady(d, ctx)).length;
+
+  const filterOpts = [
+    { v: 'all', l: '전체' },
+    { v: DOC_MODE.AUTOFILL, l: '자동 채움' },
+    { v: DOC_MODE.AI_DRAFT, l: 'AI 초안' },
+    { v: DOC_MODE.GUIDED, l: '가이드' },
+    { v: DOC_MODE.TEMPLATE, l: '양식' },
+  ];
+
+  return (
+    <section className="border border-indigo-200 bg-gradient-to-br from-indigo-50/60 to-violet-50/40 rounded-xl p-4 mb-4">
+      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-indigo-900 flex items-center gap-2 flex-wrap">
+            📄 자동 생성 문서 라이브러리
+            <span className="text-xs font-normal text-indigo-700">({readyCount}/{docs.length} 생성 가능)</span>
+          </h3>
+          <div className="text-[11px] text-indigo-700 mt-0.5">
+            특허 P13 — 다중 인증 동시 자동 문서. SSoT 자동 채움 + AI 초안 + §22 메타데이터 자동 첨부.
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-[11px] flex-wrap">
+          {filterOpts.map(opt => (
+            <button
+              key={opt.v}
+              onClick={() => setFilter(opt.v)}
+              className={`px-2 py-0.5 rounded ${filter === opt.v ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:border-indigo-300'}`}
+            >
+              {opt.l}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ul className="divide-y divide-indigo-100/60">
+        {filtered.map(doc => <DocumentRow key={doc.id} doc={doc} ctx={ctx} />)}
+      </ul>
+
+      <div className="text-[10px] text-indigo-700 mt-3 leading-relaxed">
+        ⓘ Phase A 미리보기 — 양식 메타데이터·적용 규제 매핑·SSoT 출처가 JSON으로 다운로드됩니다.
+        Phase B(백엔드 + AI 통합) 단계에서 실제 PDF/DOCX 자동 생성 + AI 초안 + 결정일지 메타데이터 첨부 활성화.
+      </div>
+    </section>
+  );
+}
+
 export default function GMPSection() {
   const { cardId } = useParams();
   const navigate = useNavigate();
@@ -90,7 +225,6 @@ export default function GMPSection() {
     );
   }
 
-  // 항목을 4개 섹션으로 분리
   const required = card.items.filter(i => !i.condition && i.status === STATUS.REQUIRED);
   const conditional = card.items.filter(i => i.condition);
   const optional = card.items.filter(i => !i.condition && i.status === STATUS.OPTIONAL);
@@ -99,7 +233,6 @@ export default function GMPSection() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto">
-        {/* 헤더 */}
         <button onClick={() => navigate('/dashboard')} className="text-sm text-slate-500 hover:text-slate-800 mb-3">
           ← 대시보드로
         </button>
@@ -144,17 +277,16 @@ export default function GMPSection() {
           )}
         </div>
 
-        {/* 4개 섹션 */}
         <Section title="필수 항목 (가중치 60%)" items={required} color="rose" />
         <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" />
         <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" />
         <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" />
 
-        {/* 안내 */}
+        <DocumentLibrarySection cardId={cardDef.id} ctx={ctx} />
+
         <div className="text-[10px] text-slate-400 mt-4 leading-relaxed">
-          진행률 공식 = 필수충족률 × 0.6 + 선택충족률 × 0.3 + 검증충족률 × 0.1 (특허 2 청구항 1(c)).
-          조건부 항목은 회사·제품·인증 속성에 따라 시스템이 자동으로 필수/선택/N/A 결정. N/A 처리된 항목은 분모에서 제외(페널티 없음).
-          각 항목의 규제 매핑은 ISO 13485 / FDA QMSR / KGMP / EU MDR 등 다중 인증 동시 적용.
+          진행률 = 필수×0.6 + 선택×0.3 + 검증×0.1 (특허 2 청구항 1(c)). 조건부 항목은 회사·제품·인증 속성에 따라 자동 결정.
+          시연 PDF #13(SOP 작성 위치)·#15(문서 라이브러리)·#16(기록 열람)은 본 5번째 섹션이 자연 해결.
         </div>
       </div>
     </div>
