@@ -7,11 +7,12 @@ import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
 
 export default function Login() {
   const nav = useNavigate()
-  const [email, setEmail] = useState('demo@qualytree.app')
-  const [password, setPassword] = useState('qualytree123')
-  const [name, setName] = useState('Demo User')
+    const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
   const [level, setLevel] = useState(LEVELS.MANAGER)
   const [loading, setLoading] = useState(false)
+  const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState(null)
 
   const onSubmit = async (e) => {
@@ -26,9 +27,21 @@ export default function Login() {
       return
     }
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 600))
-    auth.signIn(email, name, level)
+    const res = await auth.signInWithPassword(email, password)
     setLoading(false)
+    if (!res || !res.ok) {
+      setError((res && res.error) || '로그인에 실패했습니다. 이메일·비밀번호를 확인해주세요.')
+      return
+    }
+    nav('/dashboard')
+  }
+
+  const onDemo = async () => {
+    setError(null)
+    setDemoLoading(true)
+    await new Promise((r) => setTimeout(r, 400))
+    auth.signIn(email || 'demo@qualytree.app', name || 'Demo User', level)
+    setDemoLoading(false)
     nav('/dashboard')
   }
 
@@ -181,20 +194,21 @@ export default function Login() {
             </Link>
           </div>
 
-          {/* Demo notice */}
-          <div
-            className="mt-5 p-2.5 rounded-xl text-[11.5px] leading-snug"
-            style={{
-              background: 'var(--amber-soft)',
-              border: '1px solid rgba(200,119,45,0.30)',
-              color: 'var(--ink-soft)',
-            }}
-          >
-            <div className="flex items-center gap-1.5 mb-1 font-medium" style={{ color: 'var(--rust)' }}>
-              <span className="font-mono text-[9.5px] tracking-wider">DEMO MODE</span>
-            </div>
-            데모 환경입니다. 어떤 이메일·비밀번호든 입력하면 로그인됩니다.
-          </div>
+              {/* 데모 둘러보기 */}
+              <button
+                type="button"
+                onClick={onDemo}
+                disabled={demoLoading}
+                className="mt-5 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[12.5px] transition"
+                style={{
+                  background: 'var(--amber-soft)',
+                  border: '1px solid rgba(200,119,45,0.30)',
+                  color: 'var(--ink-soft)',
+                  cursor: 'pointer',
+                }}
+              >
+                {demoLoading ? '데모 준비 중…' : '계정 없이 데모로 둘러보기 →'}
+              </button>
         </div>
       </div>
 
