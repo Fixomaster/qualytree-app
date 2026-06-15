@@ -1,5 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { LogOut } from 'lucide-react';
+import { auth } from '../lib/auth';
 import gmp, { loadContext, computeAllCards, computeOverallScore, userCanAccessCard, STATUS, FULFILLMENT } from '../lib/gmpProgress';
 
 /**
@@ -243,12 +245,22 @@ export default function Dashboard() {
               내 권한 <b className="text-slate-700">Level {userLevel}</b>
             </div>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-xs text-slate-500">전사 종합</span>
-            <span className={`text-4xl font-bold tabular-nums ${overall >= 90 ? 'text-emerald-600' : overall >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
-              {overall}%
-            </span>
-          </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-xs text-slate-500">전사 종합</span>
+                <span className={`text-4xl font-bold tabular-nums ${overall >= 90 ? 'text-emerald-600' : overall >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
+                  {overall}%
+                </span>
+              </div>
+              <button
+                onClick={() => { auth.signOut(); navigate('/login'); }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-sm font-medium transition shrink-0"
+                title="로그아웃"
+              >
+                <LogOut size={15} />
+                로그아웃
+              </button>
+            </div>
         </div>
 
         {/* 인증 뱃지 */}
