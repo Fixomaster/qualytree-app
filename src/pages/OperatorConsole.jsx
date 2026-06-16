@@ -140,6 +140,17 @@ export default function OperatorConsole() {
         account = { error: String(e2?.message || e2) }
       }
       setActionSuccess({ ...(data && typeof data === 'object' ? data : {}), ok: true, action: 'approve', account })
+      try {
+        if (account && account.email && account.temp_password) {
+          await supabase.functions.invoke('send-email', { body: {
+            to: account.email,
+            subject: '[Qualytree] 가입 승인 안내',
+            html: '<p>' + (selectedRequest.company_name || '') + ' 담당자님, 가입이 승인되었습니다.</p>'
+              + '<p>아이디(이메일): <b>' + account.email + '</b><br/>임시 비밀번호: <b>' + account.temp_password + '</b></p>'
+              + '<p>로그인 후 비밀번호를 변경해 주세요.</p>',
+          } })
+        }
+      } catch (e3) { /* 이메일 발송 실패는 승인에 영향 없음 */ }
       await loadRequests(filter)
     } catch (e) {
       setActionError(String(e?.message || e))
@@ -171,6 +182,17 @@ export default function OperatorConsole() {
         return
       }
       setActionSuccess(data || { ok: true, action: 'reject' })
+      try {
+        if (selectedRequest.admin_email) {
+          await supabase.functions.invoke('send-email', { body: {
+            to: selectedRequest.admin_email,
+            subject: '[Qualytree] 가입 신청 결과 안내',
+            html: '<p>' + (selectedRequest.company_name || '') + ' 담당자님, 가입 신청이 반려되었습니다.</p>'
+              + '<p>사유: ' + (rejectionReason || '') + '</p>'
+              + '<p>문의사항은 본 메일에 회신해 주세요.</p>',
+          } })
+        }
+      } catch (e3) { /* 이메일 발송 실패는 처리에 영향 없음 */ }
       await loadRequests(filter)
     } catch (e) {
       setActionError(String(e?.message || e))
