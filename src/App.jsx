@@ -58,7 +58,8 @@ export default function App() {
           </PublicRoute>
         }
       />
-      <Route path="/operator" element={<OperatorConsole />} />
+        <Route path="/operator" element={<OperatorConsole />} />
+        <Route path="/operator/plans" element={<PlanAdmin />} />
       <Route
         path="/dashboard"
         element={
