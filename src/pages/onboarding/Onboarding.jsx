@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Building2, Users, FileText, ClipboardCheck, UserPlus,
-  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles,
+  Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
+  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings,
 } from 'lucide-react'
+import { loadPlans, priceFor, won } from '../../lib/plans'
 
 const STORE_KEY = 'qualytree.onboarding'
 
@@ -29,6 +30,7 @@ const SEED_PROCEDURES = [
 ]
 
 const STEPS = [
+  { key: 'plan', label: '플랜·결제', icon: CreditCard },
   { key: 'info', label: '기본정보·제품·인증', icon: Building2 },
   { key: 'org', label: '조직도', icon: Users },
   { key: 'manual', label: '품질경영매뉴얼', icon: FileText },
@@ -38,6 +40,7 @@ const STEPS = [
 
 function defaultState() {
   return {
+    plan: { id: '', cycle: 'monthly', seats: 0, paid: false },
     company: { name: '', ceo: '', bizNo: '', licenseNo: '', qmRep: '' },
     certs: { kgmp: true, iso13485: false, ce: false, fda: false, mdsap: false },
     products: [],
@@ -45,7 +48,7 @@ function defaultState() {
     manual: { mode: '', confirmed: false },
     procedures: SEED_PROCEDURES.map((n, i) => ({ id: 'p' + i, name: n, applicable: true, custom: false })),
     members: [],
-    done: { info: false, org: false, manual: false, procedures: false, accounts: false },
+    done: { plan: false, info: false, org: false, manual: false, procedures: false, accounts: false },
   }
 }
 
@@ -53,7 +56,9 @@ function loadState() {
   try {
     const raw = localStorage.getItem(STORE_KEY)
     if (!raw) return defaultState()
-    return { ...defaultState(), ...JSON.parse(raw) }
+    const def = defaultState()
+    const saved = JSON.parse(raw)
+    return { ...def, ...saved, done: { ...def.done, ...(saved.done || {}) }, plan: { ...def.plan, ...(saved.plan || {}) } }
   } catch {
     return defaultState()
   }
@@ -66,7 +71,6 @@ export default function Onboarding() {
   const [state, setState] = useState(loadState)
   const [step, setStep] = useState(0)
 
-  // 변경 시 localStorage 저장
   useEffect(() => {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)) } catch { /* ignore */ }
   }, [state])
@@ -88,14 +92,13 @@ export default function Onboarding() {
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-6">
       <div className="max-w-5xl mx-auto">
-        {/* 헤더 */}
         <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">
               온보딩 <span className="text-base font-normal text-slate-500">초기 설정 가이드</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              KGMP 기준으로 회사·제품을 정의하면 필요한 항목이 자동으로 구성됩니다. 단계대로 따라오시면 됩니다.
+              플랜을 정하고 KGMP 기준으로 회사·제품을 정의하면 필요한 항목이 자동으로 구성됩니다. 단계대로 따라오시면 됩니다.
             </p>
           </div>
           <div className="text-right">
@@ -104,13 +107,11 @@ export default function Onboarding() {
           </div>
         </div>
 
-        {/* 진행 바 */}
         <div className="h-2 w-full rounded-full bg-slate-200 mb-4 overflow-hidden">
           <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
         </div>
 
-        {/* 단계 네비 */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
           {STEPS.map((s, i) => {
             const Icon = s.icon
             const active = i === step
@@ -130,7 +131,7 @@ export default function Onboarding() {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-[11px] text-slate-400">STEP {i + 1}</span>
-                  <span className="block text-[12.5px] font-medium text-slate-700 truncate flex items-center gap-1">
+                  <span className="block text-[12px] font-medium text-slate-700 truncate flex items-center gap-1">
                     <Icon size={12} /> {s.label}
                   </span>
                 </span>
@@ -139,8 +140,8 @@ export default function Onboarding() {
           })}
         </div>
 
-        {/* 단계 콘텐츠 */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6">
+          {cur.key === 'plan' && <StepPlan state={state} patch={patch} />}
           {cur.key === 'info' && <StepInfo state={state} patch={patch} setState={setState} />}
           {cur.key === 'org' && <StepOrg state={state} setState={setState} />}
           {cur.key === 'manual' && <StepManual state={state} patch={patch} />}
@@ -148,7 +149,6 @@ export default function Onboarding() {
           {cur.key === 'accounts' && <StepAccounts state={state} setState={setState} />}
         </div>
 
-        {/* 하단 네비 */}
         <div className="flex items-center justify-between mt-5">
           <button
             onClick={goPrev}
@@ -171,12 +171,80 @@ export default function Onboarding() {
   )
 }
 
+// ───────── STEP 0: 플랜 · 결제 · 좌석 ─────────
+function StepPlan({ state, patch }) {
+  const nav = useNavigate()
+  const [plans] = useState(loadPlans)
+  const sel = state.plan
+  const cycle = sel.cycle || 'monthly'
+  const selected = plans.find((p) => p.id === sel.id)
+  const choose = (p) => patch({ plan: { ...sel, id: p.id, seats: p.seats, paid: false } })
+  const setCycle = (c) => patch({ plan: { ...sel, cycle: c } })
+  const pay = () => patch({ plan: { ...sel, paid: true } })
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between flex-wrap gap-2">
+        <Section title="플랜 선택" desc="플랜에 따라 기본 제공 좌석(접속 인원)이 확정됩니다. 결제 후 온보딩을 이어가세요." />
+        <button onClick={() => nav('/operator/plans')} className="flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-800 shrink-0">
+          <Settings size={13} /> 운영자: 플랜·요금 관리
+        </button>
+      </div>
+
+      <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-[13px]">
+        <button onClick={() => setCycle('monthly')} className={`px-3 py-1.5 ${cycle === 'monthly' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>월 결제</button>
+        <button onClick={() => setCycle('annual')} className={`px-3 py-1.5 ${cycle === 'annual' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>연 결제 (할인)</button>
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-3">
+        {plans.map((p) => {
+          const on = sel.id === p.id
+          return (
+            <button key={p.id} onClick={() => choose(p)}
+              className={`relative p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+              {p.recommended && <span className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white">추천</span>}
+              <div className="text-[15px] font-semibold text-slate-900">{p.name}</div>
+              <div className="mt-1 text-[22px] font-bold text-slate-900 tabular-nums">
+                {won(priceFor(p, cycle))}
+                {!p.custom && <span className="text-[12px] font-normal text-slate-400"> / {cycle === 'annual' ? '년' : '월'}</span>}
+              </div>
+              <div className="text-[11.5px] text-slate-500 mt-0.5">좌석 {p.seats > 0 ? p.seats + '명' : '무제한'}</div>
+              <ul className="mt-2 space-y-1">
+                {(p.features || []).map((f, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-[12px] text-slate-600"><Check size={12} className="text-emerald-600 mt-0.5 shrink-0" /> {f}</li>
+                ))}
+              </ul>
+            </button>
+          )
+        })}
+      </div>
+
+      {selected && (
+        <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
+          <div className="text-[13px] text-slate-700">
+            선택: <b className="text-slate-900">{selected.name}</b> · {cycle === 'annual' ? '연 결제' : '월 결제'} <b className="text-slate-900">{won(priceFor(selected, cycle))}</b>
+            {' '}· 좌석 <b className="text-slate-900">{selected.seats > 0 ? selected.seats + '명' : '무제한'}</b>
+          </div>
+          {selected.custom ? (
+            <span className="text-[12.5px] text-slate-500">가격 문의형 — 운영팀이 별도 연락드립니다.</span>
+          ) : sel.paid ? (
+            <span className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium"><Check size={15} /> 결제 완료 (데모)</span>
+          ) : (
+            <button onClick={pay} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">결제하기 (데모)</button>
+          )}
+        </div>
+      )}
+      <Banner>실제 결제(PG) 연동은 다음 업데이트에서 붙습니다. 지금은 플랜 선택과 좌석 확정까지 동작합니다.</Banner>
+    </div>
+  )
+}
+
 // ───────── STEP 1: 기본정보 · 제품 · 인증 ─────────
 function StepInfo({ state, patch, setState }) {
   const c = state.company
   const setC = (k, v) => patch({ company: { ...c, [k]: v } })
   const toggleCert = (id) => {
-    if (id === 'kgmp') return // 기본 필수
+    if (id === 'kgmp') return
     patch({ certs: { ...state.certs, [id]: !state.certs[id] } })
   }
   const addProduct = () => setState((s) => ({
@@ -256,7 +324,7 @@ function StepInfo({ state, patch, setState }) {
           </button>
         </div>
       </Section>
-      <style>{`.input-cell{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;width:100%;background:#fff}.input-cell:focus{outline:none;border-color:#10b981}`}</style>
+      <CellStyle />
     </div>
   )
 }
@@ -289,7 +357,7 @@ function StepOrg({ state, setState }) {
         />
         <button onClick={add} className="flex items-center gap-1 px-3 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
-      <style>{`.input-cell{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;width:100%;background:#fff}.input-cell:focus{outline:none;border-color:#10b981}`}</style>
+      <CellStyle />
     </Section>
   )
 }
@@ -316,9 +384,7 @@ function StepManual({ state, patch }) {
           )
         })}
       </div>
-      <Banner>
-        실제 문서 편집기와 AI 초안은 다음 업데이트에서 연결됩니다. 지금은 시작 방식만 선택해 두세요.
-      </Banner>
+      <Banner>실제 문서 편집기와 AI 초안은 다음 업데이트에서 연결됩니다. 지금은 시작 방식만 선택해 두세요.</Banner>
     </Section>
   )
 }
@@ -368,20 +434,30 @@ function StepProcedures({ state, setState }) {
         <input className="input-cell" placeholder="절차서 직접 추가 (예: 위탁관리 절차서)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCustom()} />
         <button onClick={addCustom} className="flex items-center gap-1 px-3 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
-      <style>{`.input-cell{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;width:100%;background:#fff}.input-cell:focus{outline:none;border-color:#10b981}`}</style>
+      <CellStyle />
     </Section>
   )
 }
 
 // ───────── STEP 5: 계정 발급 ─────────
 function StepAccounts({ state, setState }) {
-  const addMember = () => setState((s) => ({
-    ...s, members: [...s.members, { id: uid(), name: '', dept: s.departments[0]?.name || '', role: 'OPERATOR', email: '' }],
-  }))
+  const seats = state.plan?.id ? state.plan.seats : 0 // 0 => 무제한
+  const used = state.members.length
+  const full = seats > 0 && used >= seats
+  const addMember = () => {
+    if (full) return
+    setState((s) => ({
+      ...s, members: [...s.members, { id: uid(), name: '', dept: s.departments[0]?.name || '', role: 'OPERATOR', email: '' }],
+    }))
+  }
   const setMember = (id, k, v) => setState((s) => ({ ...s, members: s.members.map((m) => (m.id === id ? { ...m, [k]: v } : m)) }))
   const delMember = (id) => setState((s) => ({ ...s, members: s.members.filter((m) => m.id !== id) }))
   return (
     <Section title="구성원 · 계정 발급" desc="구성원을 추가하면 초대와 임시 비밀번호가 발급됩니다. 플랜에 따라 좌석 수가 제한됩니다.">
+      <div className="mb-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 text-[12.5px] text-slate-700">
+        좌석 사용 <b className="text-slate-900">{used}</b> / {seats > 0 ? seats : '무제한'}
+        {full && <span className="text-rose-600">· 좌석이 가득 찼습니다</span>}
+      </div>
       <div className="space-y-2">
         {state.members.length === 0 && (
           <div className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-lg">아직 구성원이 없습니다.</div>
@@ -401,9 +477,9 @@ function StepAccounts({ state, setState }) {
             <button onClick={() => delMember(m.id)} className="col-span-1 flex justify-center text-slate-400 hover:text-rose-600"><Trash2 size={15} /></button>
           </div>
         ))}
-        <button onClick={addMember} className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium mt-1"><Plus size={15} /> 구성원 추가</button>
+        <button onClick={addMember} disabled={full} className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium mt-1 disabled:opacity-40"><Plus size={15} /> 구성원 추가</button>
       </div>
-      <style>{`.input-cell{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;width:100%;background:#fff}.input-cell:focus{outline:none;border-color:#10b981}`}</style>
+      <CellStyle />
     </Section>
   )
 }
@@ -442,4 +518,8 @@ function Banner({ children }) {
       <span>{children}</span>
     </div>
   )
+}
+
+function CellStyle() {
+  return <style>{`.input-cell{border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:13px;width:100%;background:#fff}.input-cell:focus{outline:none;border-color:#10b981}`}</style>
 }
