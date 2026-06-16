@@ -130,7 +130,16 @@ export default function OperatorConsole() {
         setActionError(typeof error.message === 'string' ? error.message : '승인 실패')
         return
       }
-      setActionSuccess(data || { ok: true, action: 'approve' })
+      let account = null
+      try {
+        const prov = await supabase.rpc('provision_company_manager', { p_request_id: selectedRequest.id })
+        account = prov.error
+          ? { error: typeof prov.error.message === 'string' ? prov.error.message : '계정 생성 실패' }
+          : prov.data
+      } catch (e2) {
+        account = { error: String(e2?.message || e2) }
+      }
+      setActionSuccess({ ...(data && typeof data === 'object' ? data : {}), ok: true, action: 'approve', account })
       await loadRequests(filter)
     } catch (e) {
       setActionError(String(e?.message || e))
@@ -338,21 +347,27 @@ export default function OperatorConsole() {
               {actionError && <div style={styles.error}>{actionError}</div>}
 
               {actionSuccess && (
-                <div style={styles.success}>
-                  <div style={styles.successTitle}>
-                    {actionSuccess.action === 'approve' ? '✅ 승인 완료' : '✅ 거절 완료'}
+                <div style={{ marginTop: 16, padding: 16, borderRadius: 10, background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                  <div style={{ fontWeight: 700, color: '#166534', marginBottom: 8 }}>
+                    {actionSuccess.action === 'approve' ? '✓ 승인 완료' : '✓ 거절 처리 완료'}
                   </div>
-                  {actionSuccess.action === 'approve' && (
-                    <div style={styles.successBody}>
-                      <div>회사 ID: <code>{actionSuccess.company_id}</code></div>
-                      <div style={{ marginTop: 8 }}>
-                        <strong>다음 단계:</strong> Supabase 대시보드 → Authentication → Users에서
-                        <br />
-                        <code>{actionSuccess.admin_email}</code> 사용자를 생성한 뒤,
-                        <br />
-                        company_members 테이블에 연결하세요.
+                  {actionSuccess.action === 'approve' && actionSuccess.account && !actionSuccess.account.error && (
+                    <div style={{ fontSize: 13, color: '#14532d', lineHeight: 1.7 }}>
+                      <div>매니저(관리자) 로그인 계정이 생성되었습니다. 아래 정보를 신청자에게 전달하세요.</div>
+                      <div style={{ marginTop: 8, padding: 10, background: '#ffffff', borderRadius: 8, border: '1px solid #d1fae5' }}>
+                        <div>아이디(이메일): <code style={{ fontWeight: 700 }}>{actionSuccess.account.email}</code></div>
+                        <div>임시 비밀번호: <code style={{ fontWeight: 700 }}>{actionSuccess.account.temp_password}</code></div>
                       </div>
+                      <div style={{ marginTop: 6, color: '#15803d' }}>최초 로그인 후 비밀번호를 변경하도록 안내하세요.</div>
                     </div>
+                  )}
+                  {actionSuccess.action === 'approve' && actionSuccess.account && actionSuccess.account.error && (
+                    <div style={{ fontSize: 13, color: '#b91c1c' }}>
+                      회사 승인은 완료됐지만 로그인 계정 생성에 실패했습니다: {actionSuccess.account.error}
+                    </div>
+                  )}
+                  {actionSuccess.action === 'reject' && (
+                    <div style={{ fontSize: 13, color: '#14532d' }}>거절 사유가 기록되었습니다.</div>
                   )}
                 </div>
               )}
