@@ -5,6 +5,7 @@ import Signup from './pages/Signup'
 import SignupSuccess from './pages/SignupSuccess'
 import OperatorConsole from './pages/OperatorConsole'
 import PlanAdmin from './pages/operator/PlanAdmin'
+import MemberAdmin from './pages/manager/MemberAdmin'
 import Dashboard from './pages/Dashboard'
 import GMPSection from './pages/section/GMPSection'
 import Onboarding from './pages/onboarding/Onboarding'
@@ -61,6 +62,7 @@ export default function App() {
       />
         <Route path="/operator" element={<OperatorConsole />} />
         <Route path="/operator/plans" element={<PlanAdmin />} />
+        <Route path="/manager/accounts" element={<MemberAdmin />} />
       <Route
         path="/dashboard"
         element={
