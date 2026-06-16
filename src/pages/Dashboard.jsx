@@ -234,13 +234,13 @@ export default function Dashboard() {
         let n = 0
         try {
           const d = JSON.parse(localStorage.getItem('qualytree.onboarding') || 'null')?.done || {}
-          n = ['info', 'org', 'manual', 'procedures', 'accounts'].filter((k) => d[k]).length
+          n = ['plan', 'info', 'org', 'manual', 'procedures', 'accounts'].filter((k) => d[k]).length
         } catch { n = 0 }
-        if (n >= 5) return null
+        if (n >= 6) return null
         return (
           <div className="max-w-7xl mx-auto mb-4">
             <button onClick={() => navigate('/onboarding')} className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition text-left">
-              <span className="text-sm text-emerald-900"><span className="font-semibold">온보딩 설정을 완료하세요</span> <span className="text-emerald-700">— KGMP 기준 회사·제품·절차서 구성 ({n}/5 단계)</span></span>
+              <span className="text-sm text-emerald-900"><span className="font-semibold">온보딩 설정을 완료하세요</span> <span className="text-emerald-700">— KGMP 기준 회사·제품·절차서 구성 ({n}/6 단계)</span></span>
               <span className="text-emerald-700 text-sm font-medium shrink-0">계속하기 →</span>
             </button>
           </div>
