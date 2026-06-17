@@ -36,13 +36,16 @@ export default function Login() {
     nav('/dashboard')
   }
 
-  const onDemo = async () => {
+  const onDemo = () => {
     setError(null)
     setDemoLoading(true)
-    await new Promise((r) => setTimeout(r, 400))
-    auth.signIn(email || 'demo@qualytree.app', name || 'Demo User', level)
-    setDemoLoading(false)
-    nav('/dashboard')
+    try {
+      auth.signIn(email || 'demo@qualytree.app', name || 'Demo User', level)
+      nav('/dashboard')
+    } catch (e) {
+      setDemoLoading(false)
+      setError('데모 로그인 실패: ' + String((e && e.message) || e))
+    }
   }
 
   return (
