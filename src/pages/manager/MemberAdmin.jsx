@@ -44,7 +44,22 @@ export default function MemberAdmin() {
     }
     const { data, error } = await supabase.rpc('manager_create_member', payload)
     if (error) setErr(typeof error.message === 'string' ? error.message : '생성 실패')
-    else { setCreated(data); setForm({ email: '', name: '', role: form.role, expires_at: '' }); await load() }
+    else {
+      setCreated(data)
+      try {
+        if (data && data.email && data.temp_password) {
+          await supabase.functions.invoke('send-email', { body: {
+            to: data.email,
+            subject: '[Qualytree] 계정이 발급되었습니다',
+            html: '<p>' + (data.role === 'inspector' ? '검사관' : '작업자') + ' 계정이 발급되었습니다.</p>'
+              + '<p>아이디(이메일): <b>' + data.email + '</b><br/>임시 비밀번호: <b>' + data.temp_password + '</b></p>'
+              + '<p>로그인 후 비밀번호를 변경해 주세요.' + (data.status === 'pending' ? ' (관리자 승인 후 활성화됩니다.)' : '') + '</p>',
+          } })
+        }
+      } catch (e2) { /* 이메일 발송 실패는 발급에 영향 없음 */ }
+      setForm({ email: '', name: '', role: form.role, expires_at: '' })
+      await load()
+    }
     setBusy(false)
   }
 
@@ -52,7 +67,19 @@ export default function MemberAdmin() {
     setBusy(true); setErr(''); setRowMsg(null)
     const { data, error } = await supabase.rpc('manager_update_member', { p_member_id: id, p_action: action })
     if (error) setErr(typeof error.message === 'string' ? error.message : '처리 실패')
-    else { if (data && data.temp_password) setRowMsg(data); await load() }
+    else {
+      if (data && data.temp_password) {
+        setRowMsg(data)
+        try {
+          await supabase.functions.invoke('send-email', { body: {
+            to: data.email,
+            subject: '[Qualytree] 비밀번호가 재발급되었습니다',
+            html: '<p>비밀번호가 재발급되었습니다.</p><p>아이디: <b>' + data.email + '</b><br/>새 임시 비밀번호: <b>' + data.temp_password + '</b></p><p>로그인 후 변경해 주세요.</p>',
+          } })
+        } catch (e2) { /* 이메일 발송 실패 무시 */ }
+      }
+      await load()
+    }
     setBusy(false)
   }
 
