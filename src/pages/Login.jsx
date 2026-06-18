@@ -76,14 +76,6 @@ export default function Login() {
               autoFocus
             />
             <Field
-              label="이름"
-              type="text"
-              value={name}
-              onChange={setName}
-              placeholder="홍길동"
-              hint="처음 로그인 시에만 입력"
-            />
-            <Field
               label="비밀번호"
               icon={Lock}
               type="password"
@@ -91,66 +83,6 @@ export default function Login() {
               onChange={setPassword}
               placeholder="••••••••"
             />
-
-            {/* 권한 Level 선택 */}
-            <div>
-              <div className="flex items-baseline justify-between mb-1">
-                <label
-                  className="text-[12px] flex items-center gap-1.5"
-                  style={{ color: 'var(--ink-soft)', fontWeight: 500 }}
-                >
-                  <UserCog size={12} />
-                  권한 Level
-                </label>
-                <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>
-                  ISO 13485 §5.5 · SoD
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {[LEVELS.OPERATOR, LEVELS.INSPECTOR, LEVELS.MANAGER].map((lv) => (
-                  <button
-                    key={lv}
-                    type="button"
-                    onClick={() => setLevel(lv)}
-                    className="py-1.5 px-1.5 rounded-lg text-center transition"
-                    style={{
-                      background: level === lv ? 'var(--moss)' : 'var(--bg-card)',
-                      color: level === lv ? 'var(--bg)' : 'var(--ink)',
-                      border: `1px solid ${
-                        level === lv ? 'var(--moss)' : 'var(--line-strong)'
-                      }`,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <div
-                      className="font-mono text-[9px] tracking-[0.16em] uppercase"
-                      style={{
-                        color: level === lv ? 'var(--amber-soft)' : 'var(--ink-faint)',
-                      }}
-                    >
-                      Lv {lv}
-                    </div>
-                    <div
-                      className="text-[12px] mt-0.5"
-                      style={{ fontWeight: level === lv ? 500 : 400 }}
-                    >
-                      {LEVEL_LABEL[lv].ko}
-                    </div>
-                  </button>
-                ))}
-              </div>
-              <div
-                className="text-[11px] mt-1 leading-snug"
-                style={{ color: 'var(--ink-mute)' }}
-              >
-                {level === LEVELS.OPERATOR &&
-                  '현장 작업: 단계 시작·측정값 입력·전자서명. 정의·발행 불가.'}
-                {level === LEVELS.INSPECTOR &&
-                  '검사관·QA: 작업자 권한 + 검사 결과 검토·재측정 요청.'}
-                {level === LEVELS.MANAGER &&
-                  '매니저·RA: 모든 권한. 정의·발행·삭제 가능.'}
-              </div>
-            </div>
 
             {error && (
               <div
