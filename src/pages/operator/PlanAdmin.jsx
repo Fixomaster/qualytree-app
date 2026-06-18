@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Save, RotateCcw, ArrowLeft, Check } from 'lucide-react'
 import { loadPlans, savePlans, resetPlans, DEFAULT_PLANS, priceFor, won } from '../../lib/plans'
+import { isPlatformOperator } from '../../lib/supabase'
 
 const uid = () => 'plan_' + Math.random().toString(36).slice(2, 8)
 
@@ -9,6 +10,19 @@ export default function PlanAdmin() {
   const nav = useNavigate()
   const [plans, setPlans] = useState(loadPlans)
   const [saved, setSaved] = useState(false)
+  const [authState, setAuthState] = useState('checking')
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const op = await isPlatformOperator()
+        if (alive) setAuthState(op === true ? 'ok' : 'denied')
+      } catch {
+        if (alive) setAuthState('denied')
+      }
+    })()
+    return () => { alive = false }
+  }, [])
 
   const setPlan = (id, k, v) => {
     setSaved(false)
@@ -22,6 +36,20 @@ export default function PlanAdmin() {
   const delPlan = (id) => { setSaved(false); setPlans((ps) => ps.filter((p) => p.id !== id)) }
   const onSave = () => { savePlans(plans); setSaved(true) }
   const onReset = () => { resetPlans(); setPlans(DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features] }))); setSaved(false) }
+
+  if (authState === 'checking') {
+    return <div className="min-h-screen grid place-items-center text-slate-500">권한 확인 중…</div>
+  }
+  if (authState === 'denied') {
+    return (
+      <div className="min-h-screen grid place-items-center px-6">
+        <div className="text-center">
+          <p className="text-slate-700 mb-3">운영자 권한이 필요합니다.</p>
+          <button onClick={() => nav('/operator')} className="text-emerald-700 text-sm">운영자 로그인 →</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-6">
