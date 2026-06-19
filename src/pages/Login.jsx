@@ -1,50 +1,69 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, UserCog } from 'lucide-react'
+import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, User, Hash, KeyRound } from 'lucide-react'
 import Logo from '../components/Logo'
 import { auth } from '../lib/auth'
-import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
+import { supabase } from '../lib/supabase'
 
 export default function Login() {
   const nav = useNavigate()
-    const [email, setEmail] = useState('')
+  const [mode, setMode] = useState('email')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
-  const [level, setLevel] = useState(LEVELS.MANAGER)
+  const [bizNo, setBizNo] = useState('')
+  const [wname, setWname] = useState('')
   const [loading, setLoading] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [resetMsg, setResetMsg] = useState('')
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    setError(null)
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 모두 입력해주세요.')
-      return
-    }
-    if (!email.includes('@')) {
-      setError('올바른 이메일 형식이 아닙니다.')
-      return
-    }
+    setError(null); setResetMsg('')
     setLoading(true)
-    const res = await auth.signInWithPassword(email, password)
-    setLoading(false)
-    if (!res || !res.ok) {
-      setError((res && res.error) || '로그인에 실패했습니다. 이메일·비밀번호를 확인해주세요.')
-      return
+    try {
+      if (mode === 'worker') {
+        if (!bizNo.trim() || !wname.trim() || !password) { setError('사업자번호·이름·비밀번호를 모두 입력해주세요.'); setLoading(false); return }
+        const { data, error: rpcErr } = await supabase.rpc('member_login_email', { p_business_number: bizNo, p_name: wname.trim() })
+        if (rpcErr || !data) { setError('일치하는 계정이 없습니다. 사업자번호·이름·비밀번호를 확인해주세요.'); setLoading(false); return }
+        const res = await auth.signInWithPassword(data, password)
+        setLoading(false)
+        if (!res || !res.ok) { setError('비밀번호가 올바르지 않거나 비활성 계정입니다.'); return }
+        nav('/dashboard'); return
+      }
+      if (!email || !password) { setError('이메일과 비밀번호를 모두 입력해주세요.'); setLoading(false); return }
+      if (!email.includes('@')) { setError('올바른 이메일 형식이 아닙니다.'); setLoading(false); return }
+      const res = await auth.signInWithPassword(email, password)
+      setLoading(false)
+      if (!res || !res.ok) { setError((res && res.error) || '로그인에 실패했습니다. 이메일·비밀번호를 확인해주세요.'); return }
+      nav('/dashboard')
+    } catch (e2) {
+      setLoading(false)
+      setError('로그인 처리 중 오류: ' + String((e2 && e2.message) || e2))
     }
-    nav('/dashboard')
+  }
+
+  const onForgot = async () => {
+    setError(null); setResetMsg('')
+    if (!email || !email.includes('@')) { setError('재설정 메일을 받을 이메일을 먼저 입력해주세요.'); return }
+    try {
+      const { error: rErr } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/login' })
+      if (rErr) { setError('재설정 메일 발송 실패: ' + (rErr.message || '')); return }
+      setResetMsg('비밀번호 재설정 메일을 보냈습니다. 메일함을 확인하세요.')
+    } catch (e3) {
+      setError('재설정 메일 발송 실패: ' + String((e3 && e3.message) || e3))
+    }
   }
 
   const onDemo = () => {
     setError(null)
     setDemoLoading(true)
     try {
-      auth.signIn(email || 'demo@qualytree.app', name || 'Demo User', level)
+      auth.signIn('demo@qualytree.app', 'Demo User', 3)
       nav('/dashboard')
-    } catch (e) {
+    } catch (e4) {
       setDemoLoading(false)
-      setError('데모 로그인 실패: ' + String((e && e.message) || e))
+      setError('데모 로그인 실패: ' + String((e4 && e4.message) || e4))
     }
   }
 
@@ -65,55 +84,52 @@ export default function Login() {
             Qualytree Platform — 의료기기 RA·QMS 통합 SaaS
           </p>
 
-          <form onSubmit={onSubmit} className="mt-5 space-y-3">
-            <Field
-              label="이메일"
-              icon={Mail}
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="you@company.com"
-              autoFocus
-            />
-            <Field
-              label="비밀번호"
-              icon={Lock}
-              type="password"
-              value={password}
-              onChange={setPassword}
-              placeholder="••••••••"
-            />
+          {/* 모드 전환 */}
+          <div className="mt-5 grid grid-cols-2 gap-1.5 p-1 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line-strong)' }}>
+            {[['email', '회사관리자 · 운영자'], ['worker', '작업자']].map(([k, lbl]) => (
+              <button key={k} type="button" onClick={() => { setMode(k); setError(null); setResetMsg('') }}
+                className="py-1.5 rounded-lg text-[12.5px] transition"
+                style={{ background: mode === k ? 'var(--moss)' : 'transparent', color: mode === k ? 'var(--bg)' : 'var(--ink-soft)', fontWeight: mode === k ? 600 : 400, cursor: 'pointer' }}>
+                {lbl}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={onSubmit} className="mt-3 space-y-3">
+            {mode === 'email' ? (
+              <>
+                <Field label="이메일" icon={Mail} type="email" value={email} onChange={setEmail} placeholder="you@company.com" autoFocus />
+                <Field label="비밀번호" icon={Lock} type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+              </>
+            ) : (
+              <>
+                <Field label="사업자등록번호" icon={Hash} type="text" value={bizNo} onChange={setBizNo} placeholder="123-45-67890" autoFocus />
+                <Field label="이름" icon={User} type="text" value={wname} onChange={setWname} placeholder="홍길동" />
+                <Field label="비밀번호" icon={Lock} type="password" value={password} onChange={setPassword} placeholder="••••••••" />
+                <p className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>작업자·검사관은 회사 관리자가 발급한 사업자번호·이름·비밀번호로 로그인합니다.</p>
+              </>
+            )}
 
             {error && (
-              <div
-                className="px-3 py-2 rounded-lg text-[13px]"
-                style={{
-                  background: 'var(--rust-soft)',
-                  color: 'var(--rust)',
-                  border: '1px solid rgba(139,58,31,0.2)',
-                }}
-              >
+              <div className="px-3 py-2 rounded-lg text-[13px]" style={{ background: 'var(--rust-soft)', color: 'var(--rust)', border: '1px solid rgba(139,58,31,0.2)' }}>
                 {error}
               </div>
             )}
+            {resetMsg && (
+              <div className="px-3 py-2 rounded-lg text-[13px]" style={{ background: '#e8f3ea', color: '#3c6e46', border: '1px solid rgba(60,110,70,0.25)' }}>
+                {resetMsg}
+              </div>
+            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full justify-center"
-              style={{ marginTop: 10 }}
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  로그인 중…
-                </>
-              ) : (
-                <>
-                  로그인 <ArrowRight size={15} />
-                </>
-              )}
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center" style={{ marginTop: 10 }}>
+              {loading ? (<><Loader2 size={15} className="animate-spin" /> 로그인 중…</>) : (<>로그인 <ArrowRight size={15} /></>)}
             </button>
+
+            {mode === 'email' && (
+              <button type="button" onClick={onForgot} className="w-full flex items-center justify-center gap-1 text-[12px] mt-1" style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <KeyRound size={12} /> 비밀번호를 잊으셨나요?
+              </button>
+            )}
           </form>
 
           {/* 회사 신청 / 운영자 콘솔 */}
