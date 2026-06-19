@@ -28,6 +28,14 @@ export default function OperatorConsole() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [signingIn, setSigningIn] = useState(false)
+  const [operators, setOperators] = useState([])
+  const [opForm, setOpForm] = useState({ email: '', name: '', password: '' })
+  const [opMsg, setOpMsg] = useState('')
+  const [opBusy, setOpBusy] = useState(false)
+  const [mustChange, setMustChange] = useState(false)
+  const [newPw, setNewPw] = useState('')
+  const [newPw2, setNewPw2] = useState('')
+  const [pwBusy, setPwBusy] = useState(false)
 
   // ── 초기 진입: 운영자 권한 확인 ─────────────────────────
   useEffect(() => {
@@ -49,6 +57,40 @@ export default function OperatorConsole() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const inp = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 8, padding: '9px 11px', fontSize: 13 }
+  const loadOperators = async () => {
+    try { const { data } = await supabase.rpc('list_platform_operators'); setOperators(Array.isArray(data) ? data : []) } catch { setOperators([]) }
+  }
+  const checkMustChange = async () => {
+    try { const { data } = await supabase.rpc('my_operator_must_change'); setMustChange(data === true) } catch { setMustChange(false) }
+  }
+  const createOperator = async (e) => {
+    e?.preventDefault?.()
+    setOpBusy(true); setOpMsg('')
+    const { error } = await supabase.rpc('create_platform_operator', { p_email: opForm.email.trim().toLowerCase(), p_password: opForm.password, p_name: opForm.name.trim() || null })
+    if (error) setOpMsg(typeof error.message === 'string' ? error.message : '추가 실패')
+    else { setOpMsg('운영자가 추가되었습니다. 본인에게 이메일·임시비밀번호를 전달하세요. 첫 로그인 시 비밀번호 변경이 요구됩니다.'); setOpForm({ email: '', name: '', password: '' }); await loadOperators() }
+    setOpBusy(false)
+  }
+  const deleteOperator = async (id) => {
+    setOpBusy(true); setOpMsg('')
+    const { error } = await supabase.rpc('delete_platform_operator', { p_id: id })
+    if (error) setOpMsg(typeof error.message === 'string' ? error.message : '삭제 실패')
+    else await loadOperators()
+    setOpBusy(false)
+  }
+  const changeMyPassword = async (e) => {
+    e?.preventDefault?.()
+    if (!newPw || newPw.length < 6) { setOpMsg('새 비밀번호는 6자 이상이어야 합니다.'); return }
+    if (newPw !== newPw2) { setOpMsg('두 비밀번호가 일치하지 않습니다.'); return }
+    setPwBusy(true); setOpMsg('')
+    const { error } = await supabase.auth.updateUser({ password: newPw })
+    if (error) { setOpMsg(typeof error.message === 'string' ? error.message : '변경 실패'); setPwBusy(false); return }
+    try { await supabase.rpc('clear_operator_pw_flag') } catch { /* */ }
+    setMustChange(false); setNewPw(''); setNewPw2(''); setPwBusy(false)
+  }
+  useEffect(() => { if (isOperator) { loadOperators(); checkMustChange() } /* eslint-disable-next-line */ }, [isOperator])
 
   const loadRequests = async (statusFilter) => {
     try {
@@ -266,6 +308,25 @@ export default function OperatorConsole() {
   }
 
   // 운영자 화면
+  if (mustChange) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f8fafc', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 380, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 24 }}>
+          <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a' }}>Qualytree</div>
+          <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>첫 로그인 — 비밀번호 변경</div>
+          <p style={{ fontSize: 13, color: '#475569', margin: '10px 0 14px' }}>보안을 위해 임시 비밀번호를 새 비밀번호로 변경해 주세요.</p>
+          <form onSubmit={changeMyPassword}>
+            <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="새 비밀번호 (6자 이상)" style={inp} />
+            <input type="password" value={newPw2} onChange={(e) => setNewPw2(e.target.value)} placeholder="새 비밀번호 확인" style={{ ...inp, marginTop: 8 }} />
+            {opMsg && <div style={{ fontSize: 12.5, color: '#b91c1c', marginTop: 8 }}>{opMsg}</div>}
+            <button type="submit" disabled={pwBusy} style={{ width: '100%', marginTop: 12, background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{pwBusy ? '변경 중…' : '비밀번호 변경'}</button>
+          </form>
+          <button onClick={handleSignOut} style={{ marginTop: 12, background: 'none', border: 'none', color: '#64748b', fontSize: 12.5, cursor: 'pointer' }}>로그아웃</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.header}>
@@ -275,6 +336,27 @@ export default function OperatorConsole() {
         </div>
         <button onClick={handleSignOut} style={styles.linkButton}>로그아웃</button>
       </div>
+        {/* 운영자 관리 */}
+        <div style={{ maxWidth: 1100, margin: '0 auto 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>운영자 관리</div>
+          <form onSubmit={createOperator} style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr auto', gap: 8, alignItems: 'end' }}>
+            <label style={{ fontSize: 12, color: '#475569' }}>이메일<input type="email" required value={opForm.email} onChange={(e) => setOpForm({ ...opForm, email: e.target.value })} placeholder="operator@company.com" style={inp} /></label>
+            <label style={{ fontSize: 12, color: '#475569' }}>이름<input type="text" value={opForm.name} onChange={(e) => setOpForm({ ...opForm, name: e.target.value })} placeholder="홍길동" style={inp} /></label>
+            <label style={{ fontSize: 12, color: '#475569' }}>임시 비밀번호<input type="text" required value={opForm.password} onChange={(e) => setOpForm({ ...opForm, password: e.target.value })} placeholder="6자 이상" style={inp} /></label>
+            <button type="submit" disabled={opBusy} style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>운영자 추가</button>
+          </form>
+          {opMsg && <div style={{ fontSize: 12.5, color: '#475569', marginTop: 8 }}>{opMsg}</div>}
+          <div style={{ marginTop: 12, borderTop: '1px solid #f1f5f9' }}>
+            {operators.map((op) => (
+              <div key={op.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13 }}>
+                <span style={{ color: '#0f172a' }}>{op.name || '—'} · {op.email} {op.must_change_password && <span style={{ color: '#b45309', fontSize: 11 }}>(비번변경 대기)</span>}</span>
+                <button onClick={() => deleteOperator(op.id)} disabled={opBusy || operators.length <= 1} title={operators.length <= 1 ? '최소 1명은 남겨야 합니다' : '삭제'} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 10px', fontSize: 12, color: operators.length <= 1 ? '#cbd5e1' : '#dc2626', cursor: operators.length <= 1 ? 'not-allowed' : 'pointer' }}>삭제</button>
+              </div>
+            ))}
+            {operators.length === 0 && <div style={{ fontSize: 12.5, color: '#94a3b8', padding: '8px 0' }}>운영자 목록을 불러오는 중…</div>}
+          </div>
+        </div>
+
 
       <div style={styles.toolbar}>
         <div style={styles.filterRow}>
