@@ -1,6 +1,7 @@
 // src/pages/manager/MemberAdmin.jsx
 // 매니저(관리자) 계정 관리 — 작업자(operator)·검사관(inspector) 생성·승인·관리
-// 백엔드 RPC: manager_context / manager_create_member / manager_update_member
+// 작업자/검사관은 이메일 없이 "사업자번호 + 이름 + 비밀번호"로 로그인한다.
+// 백엔드 RPC: manager_context / manager_create_member(p_name,p_role,p_password,p_expires_at) / manager_update_member
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy } from 'lucide-react'
@@ -19,10 +20,10 @@ export default function MemberAdmin() {
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState('')
   const [ctx, setCtx] = useState(null)
-  const [form, setForm] = useState({ email: '', name: '', role: 'operator', expires_at: '' })
+  const [form, setForm] = useState({ name: '', role: 'operator', password: '', expires_at: '' })
   const [busy, setBusy] = useState(false)
-  const [created, setCreated] = useState(null) // {email, temp_password, role, status}
-  const [rowMsg, setRowMsg] = useState(null) // {email, temp_password}
+  const [created, setCreated] = useState(null) // {name, role, status, business_number, password}
+  const [rowMsg, setRowMsg] = useState(null) // {email?, temp_password}
 
   const load = async () => {
     setErr('')
@@ -37,27 +38,16 @@ export default function MemberAdmin() {
     e?.preventDefault?.()
     setBusy(true); setErr(''); setCreated(null); setRowMsg(null)
     const payload = {
-      p_email: form.email.trim().toLowerCase(),
       p_name: form.name.trim(),
       p_role: form.role,
+      p_password: form.password,
       p_expires_at: form.role === 'inspector' && form.expires_at ? new Date(form.expires_at).toISOString() : null,
     }
     const { data, error } = await supabase.rpc('manager_create_member', payload)
     if (error) setErr(typeof error.message === 'string' ? error.message : '생성 실패')
     else {
-      setCreated(data)
-      try {
-        if (data && data.email && data.temp_password) {
-          await supabase.functions.invoke('send-email', { body: {
-            to: data.email,
-            subject: '[Qualytree] 계정이 발급되었습니다',
-            html: '<p>' + (data.role === 'inspector' ? '검사관' : '작업자') + ' 계정이 발급되었습니다.</p>'
-              + '<p>아이디(이메일): <b>' + data.email + '</b><br/>임시 비밀번호: <b>' + data.temp_password + '</b></p>'
-              + '<p>로그인 후 비밀번호를 변경해 주세요.' + (data.status === 'pending' ? ' (관리자 승인 후 활성화됩니다.)' : '') + '</p>',
-          } })
-        }
-      } catch (e2) { /* 이메일 발송 실패는 발급에 영향 없음 */ }
-      setForm({ email: '', name: '', role: form.role, expires_at: '' })
+      setCreated({ ...(data || {}), password: form.password })
+      setForm({ name: '', role: form.role, password: '', expires_at: '' })
       await load()
     }
     setBusy(false)
@@ -67,23 +57,12 @@ export default function MemberAdmin() {
     setBusy(true); setErr(''); setRowMsg(null)
     const { data, error } = await supabase.rpc('manager_update_member', { p_member_id: id, p_action: action })
     if (error) setErr(typeof error.message === 'string' ? error.message : '처리 실패')
-    else {
-      if (data && data.temp_password) {
-        setRowMsg(data)
-        try {
-          await supabase.functions.invoke('send-email', { body: {
-            to: data.email,
-            subject: '[Qualytree] 비밀번호가 재발급되었습니다',
-            html: '<p>비밀번호가 재발급되었습니다.</p><p>아이디: <b>' + data.email + '</b><br/>새 임시 비밀번호: <b>' + data.temp_password + '</b></p><p>로그인 후 변경해 주세요.</p>',
-          } })
-        } catch (e2) { /* 이메일 발송 실패 무시 */ }
-      }
-      await load()
-    }
+    else { if (data && data.temp_password) setRowMsg(data); await load() }
     setBusy(false)
   }
 
   const copy = (t) => { try { navigator.clipboard.writeText(t) } catch { /* */ } }
+  const bizNo = ctx && ctx.business_number ? ctx.business_number : (created && created.business_number) || ''
 
   if (loading) return <div className="min-h-screen grid place-items-center text-slate-500">불러오는 중...</div>
 
@@ -109,29 +88,32 @@ export default function MemberAdmin() {
           <ArrowLeft size={15} /> 대시보드로
         </button>
 
-        <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
+        <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">계정 관리 <span className="text-base font-normal text-slate-500">{ctx.company_name}</span></h1>
-            <p className="text-xs text-slate-500 mt-1">작업자(작업 입력)·검사관(읽기 전용) 계정을 만들고 관리합니다.</p>
+            <p className="text-xs text-slate-500 mt-1">작업자·검사관은 <b>사업자번호 + 이름 + 비밀번호</b>로 로그인합니다 (이메일 불필요).</p>
           </div>
-          <div className="text-sm text-slate-600">좌석 사용: <b className="text-slate-900">{seatText}</b></div>
+          <div className="text-sm text-slate-600 text-right">
+            <div>좌석 사용: <b className="text-slate-900">{seatText}</b></div>
+            {bizNo && <div className="text-[12px] text-slate-500">회사 사업자번호: <b className="text-slate-700">{bizNo}</b></div>}
+          </div>
         </div>
 
         {err && <div className="mb-3 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">{err}</div>}
 
         {/* 생성 폼 */}
-        <form onSubmit={create} className="bg-white border border-slate-200 rounded-xl p-4 mb-4">
+        <form onSubmit={create} className="bg-white border border-slate-200 rounded-xl p-4 mb-4 mt-2">
           <div className="text-[15px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><UserPlus size={16} /> 계정 발급</div>
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-[12px] font-medium text-slate-600 mb-1">이메일</span>
-              <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" placeholder="user@company.com" />
-            </label>
-            <label className="block">
-              <span className="block text-[12px] font-medium text-slate-600 mb-1">이름</span>
+              <span className="block text-[12px] font-medium text-slate-600 mb-1">이름 (로그인 ID로 사용)</span>
               <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" placeholder="홍길동" />
+            </label>
+            <label className="block">
+              <span className="block text-[12px] font-medium text-slate-600 mb-1">임시 비밀번호 (본인에게 전달)</span>
+              <input type="text" required minLength={4} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" placeholder="4자 이상" />
             </label>
             <label className="block">
               <span className="block text-[12px] font-medium text-slate-600 mb-1">역할</span>
@@ -157,19 +139,24 @@ export default function MemberAdmin() {
           {created && (
             <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900">
               <div className="font-semibold mb-1">✓ {ROLE_LABEL[created.role === 'operator' ? 1 : 2]} 계정이 생성되었습니다 {created.status === 'pending' && '(승인대기)'}</div>
-              <div className="flex items-center gap-2">아이디: <code className="font-bold">{created.email}</code></div>
-              <div className="flex items-center gap-2">임시 비밀번호: <code className="font-bold">{created.temp_password}</code>
-                <button type="button" onClick={() => copy(created.temp_password)} className="text-emerald-700"><Copy size={13} /></button>
+              <div className="mt-1 p-2 rounded bg-white border border-emerald-200 leading-relaxed">
+                <div className="font-medium text-slate-700 mb-0.5">본인에게 아래 로그인 정보를 전달하세요</div>
+                <div>· 사업자번호: <code className="font-bold">{created.business_number || bizNo}</code></div>
+                <div>· 이름: <code className="font-bold">{created.name}</code></div>
+                <div className="flex items-center gap-2">· 비밀번호: <code className="font-bold">{created.password}</code>
+                  <button type="button" onClick={() => copy(created.password)} className="text-emerald-700"><Copy size={13} /></button>
+                </div>
               </div>
-              <div className="text-emerald-700 mt-1">이 정보를 본인에게 전달하세요. {created.status === 'pending' && '아래 목록에서 “승인”해야 로그인이 활성화됩니다.'}</div>
+              <div className="text-emerald-700 mt-1">{created.status === 'pending' && '아래 목록에서 “승인”해야 로그인이 활성화됩니다.'}</div>
             </div>
           )}
           {rowMsg && (
             <div className="mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200 text-[13px] text-sky-900">
               <div className="font-semibold mb-1">비밀번호가 재발급되었습니다</div>
-              <div className="flex items-center gap-2">{rowMsg.email} → <code className="font-bold">{rowMsg.temp_password}</code>
+              <div className="flex items-center gap-2">새 임시 비밀번호: <code className="font-bold">{rowMsg.temp_password}</code>
                 <button type="button" onClick={() => copy(rowMsg.temp_password)} className="text-sky-700"><Copy size={13} /></button>
               </div>
+              <div className="text-sky-700 mt-0.5">본인에게 전달하세요 (사업자번호 + 이름 + 이 비밀번호로 로그인).</div>
             </div>
           )}
         </form>
@@ -180,7 +167,7 @@ export default function MemberAdmin() {
             <div className="text-[14px] font-semibold text-amber-800 mb-2">승인 대기 {pending.length}건</div>
             {pending.map((m) => (
               <div key={m.id} className="flex items-center justify-between py-1.5 text-[13px]">
-                <span className="text-slate-800">{m.name} · {m.email} <span className="text-slate-500">({ROLE_LABEL[m.permission_level]})</span></span>
+                <span className="text-slate-800">{m.name} <span className="text-slate-500">({ROLE_LABEL[m.permission_level]})</span></span>
                 <span className="flex gap-2">
                   <button onClick={() => act(m.id, 'approve')} disabled={busy} className="flex items-center gap-1 px-2.5 py-1 rounded bg-emerald-600 text-white"><Check size={13} /> 승인</button>
                   <button onClick={() => act(m.id, 'remove')} disabled={busy} className="px-2.5 py-1 rounded border border-slate-300 text-slate-600">거절</button>
@@ -195,7 +182,7 @@ export default function MemberAdmin() {
           <table className="w-full text-[13px]">
             <thead className="bg-slate-50 text-slate-500">
               <tr>
-                <th className="text-left font-medium px-4 py-2">이름 / 이메일</th>
+                <th className="text-left font-medium px-4 py-2">이름</th>
                 <th className="text-left font-medium px-3 py-2">역할</th>
                 <th className="text-left font-medium px-3 py-2">상태</th>
                 <th className="text-right font-medium px-4 py-2">관리</th>
@@ -206,7 +193,6 @@ export default function MemberAdmin() {
                 <tr key={m.id} className="border-t border-slate-100">
                   <td className="px-4 py-2.5">
                     <div className="text-slate-900 font-medium">{m.name}</div>
-                    <div className="text-slate-500">{m.email}</div>
                   </td>
                   <td className="px-3 py-2.5 text-slate-700">{ROLE_LABEL[m.permission_level]}{m.is_admin && ' (관리자)'}{m.expires_at && <div className="text-[11px] text-slate-400">~{String(m.expires_at).slice(0, 10)}</div>}</td>
                   <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS_COLOR[m.status] || 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[m.status] || m.status}</span></td>
