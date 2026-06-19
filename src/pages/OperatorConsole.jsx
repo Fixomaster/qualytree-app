@@ -33,6 +33,7 @@ export default function OperatorConsole() {
   const [opMsg, setOpMsg] = useState('')
   const [opBusy, setOpBusy] = useState(false)
   const [mustChange, setMustChange] = useState(false)
+  const [mustChecked, setMustChecked] = useState(false)
   const [newPw, setNewPw] = useState('')
   const [newPw2, setNewPw2] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
@@ -63,7 +64,7 @@ export default function OperatorConsole() {
     try { const { data } = await supabase.rpc('list_platform_operators'); setOperators(Array.isArray(data) ? data : []) } catch { setOperators([]) }
   }
   const checkMustChange = async () => {
-    try { const { data } = await supabase.rpc('my_operator_must_change'); setMustChange(data === true) } catch { setMustChange(false) }
+    try { const { data } = await supabase.rpc('my_operator_must_change'); setMustChange(data === true) } catch { setMustChange(false) } finally { setMustChecked(true) }
   }
   const createOperator = async (e) => {
     e?.preventDefault?.()
@@ -308,6 +309,11 @@ export default function OperatorConsole() {
   }
 
   // 운영자 화면
+  if (isOperator && !mustChecked) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f8fafc', color: '#64748b', fontSize: 14 }}>확인 중…</div>
+    )
+  }
   if (mustChange) {
     return (
       <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f8fafc', padding: 24 }}>
