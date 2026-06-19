@@ -34,6 +34,8 @@ export default function OperatorConsole() {
   const [opBusy, setOpBusy] = useState(false)
   const [mustChange, setMustChange] = useState(false)
   const [mustChecked, setMustChecked] = useState(false)
+  const [stats, setStats] = useState(null)
+  const [statsView, setStatsView] = useState('month')
   const [newPw, setNewPw] = useState('')
   const [newPw2, setNewPw2] = useState('')
   const [pwBusy, setPwBusy] = useState(false)
@@ -91,7 +93,7 @@ export default function OperatorConsole() {
     try { await supabase.rpc('clear_operator_pw_flag') } catch { /* */ }
     setMustChange(false); setNewPw(''); setNewPw2(''); setPwBusy(false)
   }
-  useEffect(() => { if (isOperator) { loadOperators(); checkMustChange() } /* eslint-disable-next-line */ }, [isOperator])
+  useEffect(() => { if (isOperator) { loadOperators(); checkMustChange(); loadStats() } /* eslint-disable-next-line */ }, [isOperator])
 
   const loadRequests = async (statusFilter) => {
     try {
@@ -156,6 +158,18 @@ export default function OperatorConsole() {
   }
 
   // ── 승인 ────────────────────────────────────────────
+  const loadStats = async () => {
+    try { const { data } = await supabase.rpc('signup_request_stats'); setStats(data || null) } catch { setStats(null) }
+  }
+  const handleDeleteRequest = async (r) => {
+    if (!r) return
+    if (!window.confirm('이 도입신청서를 영구 삭제할까요? 되돌릴 수 없습니다.')) return
+    setActionLoading(true); setActionError('')
+    const { error } = await supabase.rpc('delete_signup_request', { p_id: r.id })
+    setActionLoading(false)
+    if (error) { setActionError(typeof error.message === 'string' ? error.message : '삭제 실패'); return }
+    setSelectedRequest(null); loadRequests(filter); loadStats()
+  }
   const handleApprove = async () => {
     if (!selectedRequest) return
     setActionLoading(true)
@@ -389,6 +403,45 @@ export default function OperatorConsole() {
 
       {authError && <div style={styles.error}>{authError}</div>}
 
+      {stats && (
+        <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:12, padding:16, marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <div style={{ fontWeight:700, color:'#0f172a' }}>도입신청 통계</div>
+            <div style={{ display:'flex', gap:6 }}>
+              <button onClick={() => setStatsView('month')} style={{ padding:'5px 10px', borderRadius:7, fontSize:12, cursor:'pointer', border:'1px solid '+(statsView==='month'?'#1f4d38':'#cbd5e1'), background:statsView==='month'?'#1f4d38':'#fff', color:statsView==='month'?'#fff':'#475569' }}>월간</button>
+              <button onClick={() => setStatsView('year')} style={{ padding:'5px 10px', borderRadius:7, fontSize:12, cursor:'pointer', border:'1px solid '+(statsView==='year'?'#1f4d38':'#cbd5e1'), background:statsView==='year'?'#1f4d38':'#fff', color:statsView==='year'?'#fff':'#475569' }}>연간</button>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:12 }}>
+            <span style={{ fontSize:12.5, background:'#f1f5f9', borderRadius:999, padding:'4px 10px' }}>전체 {stats.totals?.total||0}</span>
+            <span style={{ fontSize:12.5, background:'#f0fdf4', color:'#15803d', borderRadius:999, padding:'4px 10px' }}>승인 {stats.totals?.approved||0}</span>
+            <span style={{ fontSize:12.5, background:'#fef2f2', color:'#b91c1c', borderRadius:999, padding:'4px 10px' }}>거절 {stats.totals?.rejected||0}</span>
+            <span style={{ fontSize:12.5, background:'#fffbeb', color:'#92600e', borderRadius:999, padding:'4px 10px' }}>대기 {stats.totals?.pending||0}</span>
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:'#64748b', marginBottom:6 }}>{statsView==='month'?'월별':'연도별'} 추이</div>
+              {((statsView==='month'?stats.monthly:stats.yearly)||[]).map((m) => (
+                <div key={m.ym||m.y} style={{ display:'flex', gap:8, fontSize:12.5, padding:'3px 0' }}>
+                  <span style={{ width:64, color:'#475569' }}>{m.ym||m.y}</span>
+                  <span style={{ flex:1 }}>신청 {m.total} · <span style={{ color:'#15803d' }}>승인 {m.approved}</span> · <span style={{ color:'#b91c1c' }}>거절 {m.rejected}</span></span>
+                </div>
+              ))}
+              {((statsView==='month'?stats.monthly:stats.yearly)||[]).length===0 && <div style={{ fontSize:12.5, color:'#94a3b8' }}>데이터 없음</div>}
+            </div>
+            <div>
+              <div style={{ fontSize:12, fontWeight:700, color:'#64748b', marginBottom:6 }}>가입 종류 (요금제)</div>
+              {(stats.by_plan||[]).map((p) => (
+                <div key={p.plan} style={{ display:'flex', fontSize:12.5, padding:'3px 0' }}><span style={{ flex:1, color:'#475569' }}>{p.plan}</span><span style={{ fontWeight:700 }}>{p.cnt}</span></div>
+              ))}
+              <div style={{ fontSize:12, fontWeight:700, color:'#64748b', margin:'10px 0 6px' }}>결제 주기</div>
+              {(stats.by_billing||[]).map((b) => (
+                <div key={b.cycle} style={{ display:'flex', fontSize:12.5, padding:'3px 0' }}><span style={{ flex:1, color:'#475569' }}>{b.cycle}</span><span style={{ fontWeight:700 }}>{b.cnt}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       <div style={styles.layout}>
         {/* 좌측: 요청 목록 */}
         <div style={styles.listColumn}>
@@ -519,6 +572,11 @@ export default function OperatorConsole() {
                       {actionLoading ? '...' : '승인'}
                     </button>
                   </div>
+                </div>
+              )}
+              {selectedRequest && (
+                <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #eee', textAlign:'right' }}>
+                  <button onClick={() => handleDeleteRequest(selectedRequest)} disabled={actionLoading} style={{ background:'none', border:'1px solid #fca5a5', color:'#b91c1c', borderRadius:8, padding:'7px 12px', fontSize:12.5, cursor:'pointer' }}>이 신청서 삭제</button>
                 </div>
               )}
             </div>
