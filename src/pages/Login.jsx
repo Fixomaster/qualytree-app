@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { ArrowRight, ShieldCheck, Lock, Mail, Loader2, User, Hash, KeyRound } from 'lucide-react'
 import Logo from '../components/Logo'
@@ -16,6 +16,30 @@ export default function Login() {
   const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState(null)
   const [resetMsg, setResetMsg] = useState('')
+  const [recovery, setRecovery] = useState(false)
+  const [rcvPw, setRcvPw] = useState('')
+  const [rcvPw2, setRcvPw2] = useState('')
+  const [rcvBusy, setRcvBusy] = useState(false)
+  const [rcvDone, setRcvDone] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && /type=recovery/.test(window.location.hash || '')) setRecovery(true)
+    const sub = supabase.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') setRecovery(true) })
+    return () => { try { sub.data.subscription.unsubscribe() } catch { /* */ } }
+  }, [])
+
+  const onSetNewPassword = async (e) => {
+    e?.preventDefault?.()
+    setError(null)
+    if (!rcvPw || rcvPw.length < 6) { setError('새 비밀번호는 6자 이상이어야 합니다.'); return }
+    if (rcvPw !== rcvPw2) { setError('두 비밀번호가 일치하지 않습니다.'); return }
+    setRcvBusy(true)
+    const { error: uErr } = await supabase.auth.updateUser({ password: rcvPw })
+    setRcvBusy(false)
+    if (uErr) { setError('변경 실패: ' + (uErr.message || '')); return }
+    try { await supabase.auth.signOut() } catch { /* */ }
+    setRcvDone(true)
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -65,6 +89,30 @@ export default function Login() {
       setDemoLoading(false)
       setError('데모 로그인 실패: ' + String((e4 && e4.message) || e4))
     }
+  }
+
+  if (recovery) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)', padding: 24 }}>
+        <div style={{ width: '100%', maxWidth: 380, background: 'var(--bg-card)', border: '1px solid var(--line-strong)', borderRadius: 14, padding: 24 }}>
+          <Logo size={24} />
+          <h1 className="font-display mt-4" style={{ fontSize: 22, color: 'var(--ink)' }}>비밀번호 재설정</h1>
+          {rcvDone ? (
+            <>
+              <p className="mt-2 text-[13px]" style={{ color: 'var(--ink-mute)' }}>비밀번호가 변경되었습니다. 새 비밀번호로 로그인하세요.</p>
+              <button onClick={() => { setRecovery(false); setRcvDone(false) }} className="btn-primary w-full justify-center" style={{ marginTop: 14 }}>로그인하러 가기</button>
+            </>
+          ) : (
+            <form onSubmit={onSetNewPassword} className="mt-4 space-y-3">
+              <Field label="새 비밀번호" icon={Lock} type="password" value={rcvPw} onChange={setRcvPw} placeholder="6자 이상" autoFocus />
+              <Field label="새 비밀번호 확인" icon={Lock} type="password" value={rcvPw2} onChange={setRcvPw2} placeholder="다시 입력" />
+              {error && (<div className="px-3 py-2 rounded-lg text-[13px]" style={{ background: 'var(--rust-soft)', color: 'var(--rust)', border: '1px solid rgba(139,58,31,0.2)' }}>{error}</div>)}
+              <button type="submit" disabled={rcvBusy} className="btn-primary w-full justify-center" style={{ marginTop: 6 }}>{rcvBusy ? '변경 중…' : '비밀번호 변경'}</button>
+            </form>
+          )}
+        </div>
+      </div>
+    )
   }
 
   return (
