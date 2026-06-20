@@ -11,6 +11,7 @@ import {
   Package,
   ChevronRight,
   XCircle,
+  HelpCircle,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -26,6 +27,7 @@ export default function QualityHub() {
   const [tab, setTab] = useState('ncr') // ncr | capa | quarantine
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(null)
+  const [showHelp, setShowHelp] = useState(false)
 
   const allNcrs = ncr.loadAll()
   const allCapas = capa.loadAll()
@@ -99,6 +101,31 @@ export default function QualityHub() {
             onClick={() => setTab('quarantine')}
             active={tab === 'quarantine'}
           />
+        </div>
+
+        {/* 용어 안내 */}
+        <div className="mb-5 rounded-lg border border-slate-200 bg-white">
+          <button onClick={() => setShowHelp((v) => !v)} className="w-full flex items-center gap-2 px-4 py-2.5 text-left">
+            <HelpCircle size={15} className="text-emerald-600" />
+            <span className="text-[13px] font-medium text-slate-700">용어 안내 — NCR · CAPA가 무엇인가요?</span>
+            <span className="ml-auto text-[12px] text-slate-400">{showHelp ? '닫기' : '열기'}</span>
+          </button>
+          {showHelp && (
+            <div className="px-4 pb-3 grid sm:grid-cols-2 gap-2 text-[12.5px]">
+              {[
+                ['부적합 (NC)', '제품·공정·시스템이 정해진 기준(규격·절차)을 만족하지 못한 상태. "기준에서 벗어남".'],
+                ['NCR (부적합 보고서)', '부적합이 발견됐을 때 무엇이·왜 벗어났는지 기록하고 처리(폐기·재작업·특채)를 결정하는 문서.'],
+                ['CAPA (시정·예방 조치)', '부적합의 근본원인을 찾아 재발을 막고(시정), 비슷한 문제를 미리 막는(예방) 활동.'],
+                ['격리 (Quarantine)', '부적합(의심) 제품을 정상품과 분리·보관해 잘못 사용·출고되지 않도록 막아두는 것.'],
+              ].map(([t, d]) => (
+                <div key={t} className="rounded-md bg-slate-50 border border-slate-100 p-2.5">
+                  <div className="font-semibold text-slate-800">{t}</div>
+                  <div className="text-slate-600 mt-0.5 leading-relaxed">{d}</div>
+                </div>
+              ))}
+              <div className="sm:col-span-2 text-[11.5px] text-slate-400">절차서·품질매뉴얼을 작성하려면 좌측 메뉴의 <b>품질 문서</b>로 이동하세요.</div>
+            </div>
+          )}
         </div>
 
         {/* 탭별 콘텐츠 */}
