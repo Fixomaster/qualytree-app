@@ -99,6 +99,7 @@ function genProc(name, ctx) {
 
 export default function Documents() {
   const user = auth.current()
+  const me = (user && (user.name || user.email)) || '사용자'
   const ob = (() => { try { return JSON.parse(localStorage.getItem(OB_KEY) || '{}') } catch { return {} } })()
   const ctx = getCtx()
   const manualChapters = (ob.manual && Array.isArray(ob.manual.chapters)) ? ob.manual.chapters.filter((c) => c.included !== false) : []
@@ -110,15 +111,22 @@ export default function Documents() {
   const [tab, setTab] = useState('manual')
   const [openId, setOpenId] = useState(null)
 
-  const setContent = (id, v) => setDocs((d) => ({ ...d, [id]: { ...(d[id] || {}), content: v, updatedAt: Date.now() } }))
-  const toggleDone = (id) => setDocs((d) => ({ ...d, [id]: { ...(d[id] || {}), status: (d[id]?.status === 'done' ? 'draft' : 'done'), updatedAt: Date.now() } }))
+  const today = () => new Date().toISOString().slice(0, 10)
+  const patchDoc = (id, fn) => setDocs((d) => { const cur = d[id] || { status: 'draft', rev: 0, history: [] }; return { ...d, [id]: fn({ ...cur }) } })
+  const hist = (r, action) => ([...(r.history || []), { rev: r.rev || 0, action, by: me, at: today() }])
+
+  const setContent = (id, v) => patchDoc(id, (r) => ({ ...r, content: v, updatedAt: Date.now(), author: r.author || me, status: r.status || 'draft' }))
+  const submitReview = (id) => patchDoc(id, (r) => ({ ...r, status: 'review', history: hist(r, '검토 요청') }))
+  const reject = (id) => patchDoc(id, (r) => ({ ...r, status: 'draft', history: hist(r, '반려') }))
+  const approve = (id) => patchDoc(id, (r) => ({ ...r, status: 'effective', approvedBy: me, approvedAt: today(), history: hist(r, '승인·발효') }))
+  const revise = (id) => patchDoc(id, (r) => { const nr = (r.rev || 0) + 1; return { ...r, status: 'draft', rev: nr, approvedBy: null, approvedAt: null, history: [...(r.history || []), { rev: nr, action: '개정 시작', by: me, at: today() }] } })
 
   const items = tab === 'manual'
     ? manualChapters.map((c) => ({ id: 'M-' + c.id, label: (c.c ? c.c + '. ' : '') + c.name, c: c.c, name: c.name, kind: 'manual' }))
     : tab === 'procedures'
       ? procedures.map((p) => ({ id: 'P-' + p.id, label: p.name, name: p.name, kind: 'proc' }))
       : []
-  const doneCount = items.filter((it) => docs[it.id]?.status === 'done').length
+  const effCount = items.filter((it) => docs[it.id]?.status === 'effective').length
 
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
   const genOne = (it) => {
@@ -127,9 +135,16 @@ export default function Documents() {
   }
   const genAllEmpty = () => {
     const targets = items.filter((it) => !docs[it.id]?.content)
-    if (targets.length === 0) { window.alert('비어있는 항목이 없습니다. (이미 작성된 항목은 덮어쓰지 않습니다)'); return }
+    if (targets.length === 0) { window.alert('비어있는 항목이 없습니다.'); return }
     if (!window.confirm(`비어있는 ${targets.length}개 항목에 AI 기본 초안을 생성합니다. 진행할까요?`)) return
-    setDocs((d) => { const n = { ...d }; targets.forEach((it) => { n[it.id] = { ...(n[it.id] || {}), content: draftFor(it), updatedAt: Date.now() } }); return n })
+    setDocs((d) => { const n = { ...d }; targets.forEach((it) => { const cur = n[it.id] || { status: 'draft', rev: 0, history: [] }; n[it.id] = { ...cur, content: draftFor(it), author: cur.author || me, updatedAt: Date.now() } }); return n })
+  }
+
+  const badge = (r) => {
+    if (!r || !r.content) return ['미작성', 'bg-slate-100 text-slate-400']
+    if (r.status === 'effective') return ['발효 Rev.' + (r.rev || 0), 'bg-emerald-100 text-emerald-700']
+    if (r.status === 'review') return ['검토중', 'bg-amber-100 text-amber-700']
+    return ['작성중', 'bg-slate-100 text-slate-500']
   }
 
   const tabs = [
@@ -139,11 +154,11 @@ export default function Documents() {
   ]
 
   return (
-    <AppLayout user={user} title="품질 문서" subtitle="품질매뉴얼 · 절차서 작성">
+    <AppLayout user={user} title="품질 문서" subtitle="품질매뉴얼 · 절차서 작성·승인">
       <div className="px-6 py-6 max-w-5xl mx-auto">
         <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-sky-50 border border-sky-200 text-[12.5px] text-sky-800">
           <Info size={15} className="shrink-0 mt-0.5" />
-          <span>온보딩에서 고른 <b>매뉴얼 목차</b>와 <b>절차서</b>가 항목으로 나타납니다. <b>AI 초안 생성</b>을 누르면 ISO 13485 / KGMP 조항 구조에 맞춘 기본 초안이 회사 정보와 함께 채워집니다. 초안은 <b>근거 조항</b>이 표기되며, 반드시 최신 고시 원문과 대조해 확정하세요. 작성하면 자동 저장됩니다.</span>
+          <span><b>작성 흐름</b>: 작성중 → <b>검토 요청</b> → <b>승인·발효</b>(Rev.0). 발효되면 편집이 잠기고, 고치려면 <b>개정</b>(Rev.1↑)을 시작합니다. AI 초안은 ISO 13485 / KGMP 조항 근거와 함께 채워지며, 반드시 최신 고시 원문과 대조해 확정하세요.</span>
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -179,42 +194,77 @@ export default function Documents() {
             ) : (
               <>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <div className="text-[12.5px] text-slate-500">작성 완료 <b className="text-emerald-700">{doneCount}</b> / {items.length}</div>
+                  <div className="text-[12.5px] text-slate-500">발효 완료 <b className="text-emerald-700">{effCount}</b> / {items.length}</div>
                   <button onClick={genAllEmpty} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">
                     <Sparkles size={14} /> 비어있는 항목 AI 초안 일괄 생성
                   </button>
                 </div>
                 <div className="grid gap-2">
                   {items.map((it) => {
-                    const rec = docs[it.id] || {}
+                    const r = docs[it.id] || {}
                     const open = openId === it.id
-                    const done = rec.status === 'done'
+                    const [bLabel, bCls] = badge(r)
+                    const eff = r.status === 'effective'
+                    const editable = !eff
                     return (
-                      <div key={it.id} className={`rounded-lg border bg-white ${done ? 'border-emerald-200' : 'border-slate-200'}`}>
+                      <div key={it.id} className={`rounded-lg border bg-white ${eff ? 'border-emerald-200' : 'border-slate-200'}`}>
                         <button onClick={() => setOpenId(open ? null : it.id)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
                           {open ? <ChevronDown size={15} className="text-slate-400" /> : <ChevronRight size={15} className="text-slate-400" />}
-                          <span className={`w-5 h-5 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold ${done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>{done ? <Check size={12} /> : ''}</span>
                           <span className="flex-1 text-[13px] font-medium text-slate-800">{it.label}</span>
-                          {rec.content ? <span className="text-[10.5px] text-slate-400">{done ? '완료' : '작성중'}</span> : <span className="text-[10.5px] text-slate-300">미작성</span>}
+                          <span className={`text-[10.5px] px-2 py-0.5 rounded-full ${bCls}`}>{bLabel}</span>
                         </button>
                         {open && (
                           <div className="px-3 pb-3">
-                            <div className="flex justify-end mb-2">
-                              <button onClick={() => genOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50">
-                                <Sparkles size={13} /> AI 초안 생성
-                              </button>
-                            </div>
+                            {!eff && (
+                              <div className="flex justify-end mb-2">
+                                <button onClick={() => genOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50">
+                                  <Sparkles size={13} /> AI 초안 생성
+                                </button>
+                              </div>
+                            )}
                             <textarea
-                              value={rec.content || ''}
-                              onChange={(e) => setContent(it.id, e.target.value)}
-                              placeholder={'내용을 직접 작성하거나, 위 "AI 초안 생성"으로 기본 초안을 채운 뒤 수정하세요.'}
+                              value={r.content || ''}
+                              onChange={(e) => editable && setContent(it.id, e.target.value)}
+                              readOnly={!editable}
+                              placeholder={'내용을 직접 작성하거나, "AI 초안 생성"으로 기본 초안을 채운 뒤 수정하세요.'}
                               rows={14}
-                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[12.5px] leading-relaxed focus:outline-none focus:border-emerald-500 resize-y font-mono"
+                              className={`w-full rounded-lg border px-3 py-2 text-[12.5px] leading-relaxed focus:outline-none resize-y font-mono ${editable ? 'border-slate-200 focus:border-emerald-500' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
                             />
-                            <div className="flex items-center justify-between mt-2">
-                              <span className="text-[11px] text-slate-400">{rec.updatedAt ? '자동 저장됨' : '작성하면 자동 저장됩니다'}</span>
-                              <button onClick={() => toggleDone(it.id)} className={`text-[12px] font-medium px-3 py-1.5 rounded-lg ${done ? 'border border-slate-300 text-slate-600 hover:bg-slate-50' : 'bg-emerald-600 text-white hover:bg-emerald-700'}`}>{done ? '완료 취소' : '작성 완료로 표시'}</button>
+
+                            {eff && (
+                              <div className="mt-2 text-[11.5px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                                발효본 Rev.{r.rev || 0} · 발효일 {r.approvedAt} · 승인자 {r.approvedBy}  (편집하려면 개정을 시작하세요)
+                              </div>
+                            )}
+
+                            <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
+                              <span className="text-[11px] text-slate-400">{r.updatedAt ? '자동 저장됨' : '작성하면 자동 저장됩니다'}{r.author ? ` · 작성자 ${r.author}` : ''}</span>
+                              <div className="flex items-center gap-2">
+                                {(!r.status || r.status === 'draft') && (
+                                  <button onClick={() => submitReview(it.id)} disabled={!r.content} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">검토 요청 →</button>
+                                )}
+                                {r.status === 'review' && (
+                                  <>
+                                    <button onClick={() => reject(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
+                                    <button onClick={() => approve(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">승인 · 발효</button>
+                                  </>
+                                )}
+                                {eff && (
+                                  <button onClick={() => revise(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">개정 시작 (Rev.{(r.rev || 0) + 1})</button>
+                                )}
+                              </div>
                             </div>
+
+                            {Array.isArray(r.history) && r.history.length > 0 && (
+                              <div className="mt-3 border-t border-slate-100 pt-2">
+                                <div className="text-[11px] font-medium text-slate-500 mb-1">개정 이력</div>
+                                <div className="grid gap-0.5">
+                                  {r.history.slice().reverse().map((h, i) => (
+                                    <div key={i} className="text-[11px] text-slate-500 tabular-nums">Rev.{h.rev} · {h.action} · {h.by} · {h.at}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
