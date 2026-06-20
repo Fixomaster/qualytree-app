@@ -112,21 +112,24 @@ export default function Documents() {
   const [openId, setOpenId] = useState(null)
 
   const today = () => new Date().toISOString().slice(0, 10)
+  // 레거시 상태(done 등) 정규화 — review/pending/effective 외에는 모두 작성중(draft)
+  const norm = (r) => { const st = r && r.status; return (st === 'review' || st === 'pending' || st === 'effective') ? st : 'draft' }
   const patchDoc = (id, fn) => setDocs((d) => { const cur = d[id] || { status: 'draft', rev: 0, history: [] }; return { ...d, [id]: fn({ ...cur }) } })
   const hist = (r, action) => ([...(r.history || []), { rev: r.rev || 0, action, by: me, at: today() }])
 
-  const setContent = (id, v) => patchDoc(id, (r) => ({ ...r, content: v, updatedAt: Date.now(), author: r.author || me, status: r.status || 'draft' }))
-  const submitReview = (id) => patchDoc(id, (r) => ({ ...r, status: 'review', history: hist(r, '검토 요청') }))
+  const setContent = (id, v) => patchDoc(id, (r) => ({ ...r, content: v, updatedAt: Date.now(), author: r.author || me, status: norm(r) === 'draft' ? 'draft' : r.status }))
+  const submitReview = (id) => patchDoc(id, (r) => ({ ...r, status: 'review', author: r.author || me, history: hist(r, '검토 요청') }))
   const reject = (id) => patchDoc(id, (r) => ({ ...r, status: 'draft', history: hist(r, '반려') }))
-  const approve = (id) => patchDoc(id, (r) => ({ ...r, status: 'effective', approvedBy: me, approvedAt: today(), history: hist(r, '승인·발효') }))
-  const revise = (id) => patchDoc(id, (r) => { const nr = (r.rev || 0) + 1; return { ...r, status: 'draft', rev: nr, approvedBy: null, approvedAt: null, history: [...(r.history || []), { rev: nr, action: '개정 시작', by: me, at: today() }] } })
+  const reviewDone = (id) => patchDoc(id, (r) => ({ ...r, status: 'pending', reviewedBy: me, reviewedAt: today(), history: hist(r, '검토 완료 · 승인 상신') }))
+  const approve = (id) => patchDoc(id, (r) => ({ ...r, status: 'effective', approvedBy: me, approvedAt: today(), history: hist(r, '승인 · 발효') }))
+  const revise = (id) => patchDoc(id, (r) => { const nr = (r.rev || 0) + 1; return { ...r, status: 'draft', rev: nr, reviewedBy: null, reviewedAt: null, approvedBy: null, approvedAt: null, history: [...(r.history || []), { rev: nr, action: '개정 시작', by: me, at: today() }] } })
 
   const items = tab === 'manual'
     ? manualChapters.map((c) => ({ id: 'M-' + c.id, label: (c.c ? c.c + '. ' : '') + c.name, c: c.c, name: c.name, kind: 'manual' }))
     : tab === 'procedures'
       ? procedures.map((p) => ({ id: 'P-' + p.id, label: p.name, name: p.name, kind: 'proc' }))
       : []
-  const effCount = items.filter((it) => docs[it.id]?.status === 'effective').length
+  const effCount = items.filter((it) => norm(docs[it.id] || {}) === 'effective').length
 
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
   const genOne = (it) => {
@@ -142,9 +145,32 @@ export default function Documents() {
 
   const badge = (r) => {
     if (!r || !r.content) return ['미작성', 'bg-slate-100 text-slate-400']
-    if (r.status === 'effective') return ['발효 Rev.' + (r.rev || 0), 'bg-emerald-100 text-emerald-700']
-    if (r.status === 'review') return ['검토중', 'bg-amber-100 text-amber-700']
-    return ['작성중', 'bg-slate-100 text-slate-500']
+    const st = norm(r)
+    if (st === 'effective') return ['발효 Rev.' + (r.rev || 0), 'bg-emerald-100 text-emerald-700']
+    if (st === 'pending') return ['승인 대기', 'bg-violet-100 text-violet-700']
+    if (st === 'review') return ['검토 중', 'bg-amber-100 text-amber-700']
+    return ['작성 중', 'bg-slate-100 text-slate-500']
+  }
+
+  // 결재선 노드
+  const ApprovalLine = ({ r }) => {
+    const st = norm(r)
+    const node = (label, who, date, active, done) => (
+      <div className={`flex-1 rounded-lg border px-2.5 py-1.5 text-center ${done ? 'border-emerald-300 bg-emerald-50' : active ? 'border-amber-300 bg-amber-50' : 'border-slate-200 bg-white'}`}>
+        <div className="text-[10px] text-slate-400">{label}</div>
+        <div className={`text-[12px] font-medium ${done ? 'text-emerald-700' : active ? 'text-amber-700' : 'text-slate-400'}`}>{who || (active ? '진행 중' : '대기')}</div>
+        {date && <div className="text-[10px] text-slate-400">{date}</div>}
+      </div>
+    )
+    return (
+      <div className="flex items-stretch gap-1.5 my-2 text-left">
+        {node('작성', r.author, null, st === 'draft', !!r.author && st !== 'draft')}
+        <div className="self-center text-slate-300">›</div>
+        {node('검토', r.reviewedBy, r.reviewedAt, st === 'review', st === 'pending' || st === 'effective')}
+        <div className="self-center text-slate-300">›</div>
+        {node('승인(발효)', r.approvedBy, r.approvedAt, st === 'pending', st === 'effective')}
+      </div>
+    )
   }
 
   const tabs = [
@@ -154,11 +180,11 @@ export default function Documents() {
   ]
 
   return (
-    <AppLayout user={user} title="품질 문서" subtitle="품질매뉴얼 · 절차서 작성·승인">
+    <AppLayout user={user} title="품질 문서" subtitle="품질매뉴얼 · 절차서 작성·결재">
       <div className="px-6 py-6 max-w-5xl mx-auto">
         <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-sky-50 border border-sky-200 text-[12.5px] text-sky-800">
           <Info size={15} className="shrink-0 mt-0.5" />
-          <span><b>작성 흐름</b>: 작성중 → <b>검토 요청</b> → <b>승인·발효</b>(Rev.0). 발효되면 편집이 잠기고, 고치려면 <b>개정</b>(Rev.1↑)을 시작합니다. AI 초안은 ISO 13485 / KGMP 조항 근거와 함께 채워지며, 반드시 최신 고시 원문과 대조해 확정하세요.</span>
+          <span><b>결재선</b>: 작성 → <b>검토 요청</b> → <b>검토 완료·승인 상신</b> → <b>대표 승인·발효</b>(Rev.0). 발효되면 편집이 잠기고, 고치려면 <b>개정</b>(Rev.1↑)을 시작합니다. AI 초안은 ISO 13485 / KGMP 조항 근거와 함께 채워지며, 최신 고시 원문과 대조해 확정하세요.</span>
         </div>
 
         <div className="flex gap-2 mb-4">
@@ -204,8 +230,9 @@ export default function Documents() {
                     const r = docs[it.id] || {}
                     const open = openId === it.id
                     const [bLabel, bCls] = badge(r)
-                    const eff = r.status === 'effective'
-                    const editable = !eff
+                    const st = norm(r)
+                    const eff = st === 'effective'
+                    const editable = st === 'draft'
                     return (
                       <div key={it.id} className={`rounded-lg border bg-white ${eff ? 'border-emerald-200' : 'border-slate-200'}`}>
                         <button onClick={() => setOpenId(open ? null : it.id)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left">
@@ -215,7 +242,8 @@ export default function Documents() {
                         </button>
                         {open && (
                           <div className="px-3 pb-3">
-                            {!eff && (
+                            {r.content && <ApprovalLine r={r} />}
+                            {editable && (
                               <div className="flex justify-end mb-2">
                                 <button onClick={() => genOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50">
                                   <Sparkles size={13} /> AI 초안 생성
@@ -238,15 +266,21 @@ export default function Documents() {
                             )}
 
                             <div className="flex items-center justify-between mt-2 flex-wrap gap-2">
-                              <span className="text-[11px] text-slate-400">{r.updatedAt ? '자동 저장됨' : '작성하면 자동 저장됩니다'}{r.author ? ` · 작성자 ${r.author}` : ''}</span>
+                              <span className="text-[11px] text-slate-400">{r.updatedAt ? '자동 저장됨' : '작성하면 자동 저장됩니다'}</span>
                               <div className="flex items-center gap-2">
-                                {(!r.status || r.status === 'draft') && (
+                                {st === 'draft' && (
                                   <button onClick={() => submitReview(it.id)} disabled={!r.content} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">검토 요청 →</button>
                                 )}
-                                {r.status === 'review' && (
+                                {st === 'review' && (
                                   <>
                                     <button onClick={() => reject(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
-                                    <button onClick={() => approve(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">승인 · 발효</button>
+                                    <button onClick={() => reviewDone(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">검토 완료 · 승인 상신 →</button>
+                                  </>
+                                )}
+                                {st === 'pending' && (
+                                  <>
+                                    <button onClick={() => reject(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
+                                    <button onClick={() => approve(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">대표 승인 · 발효</button>
                                   </>
                                 )}
                                 {eff && (
@@ -257,7 +291,7 @@ export default function Documents() {
 
                             {Array.isArray(r.history) && r.history.length > 0 && (
                               <div className="mt-3 border-t border-slate-100 pt-2">
-                                <div className="text-[11px] font-medium text-slate-500 mb-1">개정 이력</div>
+                                <div className="text-[11px] font-medium text-slate-500 mb-1">결재 이력</div>
                                 <div className="grid gap-0.5">
                                   {r.history.slice().reverse().map((h, i) => (
                                     <div key={i} className="text-[11px] text-slate-500 tabular-nums">Rev.{h.rev} · {h.action} · {h.by} · {h.at}</div>
