@@ -354,7 +354,10 @@ export default function OperatorConsole() {
           <div style={styles.brand}>Qualytree · 운영자 콘솔</div>
           <div style={styles.subtitle}>가입 요청 관리</div>
         </div>
-        <button onClick={handleSignOut} style={styles.linkButton}>로그아웃</button>
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={() => navigate('/preview')} style={styles.linkButton}>페이지 미리보기 →</button>
+          <button onClick={handleSignOut} style={styles.linkButton}>로그아웃</button>
+        </div>
       </div>
         {/* 운영자 관리 */}
         <div style={{ maxWidth: 1100, margin: '0 auto 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
