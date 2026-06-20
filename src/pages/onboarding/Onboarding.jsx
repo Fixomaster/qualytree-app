@@ -130,17 +130,18 @@ export default function Onboarding() {
 
   const patch = (p) => setState((s) => ({ ...s, ...p }))
   const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: true } }))
+  const markAllDone = () => setState((s) => ({ ...s, done: STEPS.reduce((o, st) => ((o[st.key] = true), o), {}) }))
 
   const doneCount = STEPS.filter((s) => state.done[s.key]).length
   const progress = Math.round((doneCount / STEPS.length) * 100)
   const cur = STEPS[step]
 
+  const goStep = (i) => { markDone(cur.key); setStep(i) }
   const goNext = () => {
-    markDone(cur.key)
-    if (step < STEPS.length - 1) setStep(step + 1)
-    else nav('/dashboard')
+    if (step < STEPS.length - 1) { markDone(cur.key); setStep(step + 1) }
+    else { markAllDone(); nav('/dashboard') }
   }
-  const goPrev = () => step > 0 && setStep(step - 1)
+  const goPrev = () => { if (step > 0) { markDone(cur.key); setStep(step - 1) } }
 
   return (
     <div className="min-h-screen bg-slate-50 px-6 py-6">
@@ -172,7 +173,7 @@ export default function Onboarding() {
             return (
               <button
                 key={s.key}
-                onClick={() => setStep(i)}
+                onClick={() => goStep(i)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition ${
                   active ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
