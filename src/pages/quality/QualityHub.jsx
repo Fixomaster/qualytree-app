@@ -28,6 +28,8 @@ export default function QualityHub() {
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(null)
   const [showHelp, setShowHelp] = useState(false)
+  const [, setRefresh] = useState(0)
+  const refresh = () => setRefresh((t) => t + 1)
 
   const allNcrs = ncr.loadAll()
   const allCapas = capa.loadAll()
@@ -128,6 +130,8 @@ export default function QualityHub() {
           )}
         </div>
 
+        <CreateForm tab={tab} onCreated={refresh} />
+
         {/* 탭별 콘텐츠 */}
         {tab === 'ncr' && (
           <NcrList
@@ -142,6 +146,48 @@ export default function QualityHub() {
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} />}
       </div>
     </AppLayout>
+  )
+}
+
+/* ================================================================ */
+function CreateForm({ tab, onCreated }) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [desc, setDesc] = useState('')
+  const [sev, setSev] = useState(NCR_SEVERITY.MAJOR)
+  if (tab !== 'ncr' && tab !== 'capa') return null
+  const isNcr = tab === 'ncr'
+  const submit = () => {
+    if (!title.trim()) return
+    if (isNcr) ncr.raise({ title: title.trim(), description: desc.trim(), severity: sev, source: { type: 'manual' } })
+    else capa.raise({ title: title.trim(), description: desc.trim(), trigger: 'manual', triggerReason: '수동 발의' })
+    setTitle(''); setDesc(''); setSev(NCR_SEVERITY.MAJOR); setOpen(false); onCreated && onCreated()
+  }
+  return (
+    <div className="mb-4">
+      {!open ? (
+        <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-[13px] font-medium px-3 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900">
+          + 새 {isNcr ? '부적합 보고서(NCR)' : '시정·예방 조치(CAPA)'} 작성
+        </button>
+      ) : (
+        <div className="rounded-lg border border-slate-200 bg-white p-3 grid gap-2 max-w-2xl">
+          <div className="text-[13px] font-semibold text-slate-800">새 {isNcr ? '부적합 보고서(NCR)' : '시정·예방 조치(CAPA)'} 작성</div>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isNcr ? '제목 (예: 멸균 공정 온도 이탈)' : '제목 (예: 멸균 온도 이탈 재발 방지)'} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" />
+          {isNcr && (
+            <select value={sev} onChange={(e) => setSev(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-emerald-500">
+              <option value={NCR_SEVERITY.CRITICAL}>심각도: Critical (중대)</option>
+              <option value={NCR_SEVERITY.MAJOR}>심각도: Major (주요)</option>
+              <option value={NCR_SEVERITY.MINOR}>심각도: Minor (경미)</option>
+            </select>
+          )}
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder={isNcr ? '무엇이 / 어디서 / 왜 기준을 벗어났는지 기술 (ISO 13485 §8.3)' : '근본원인·조치 사유를 기술 (ISO 13485 §8.5.2/§8.5.3)'} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] leading-relaxed resize-y focus:outline-none focus:border-emerald-500" />
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => { setOpen(false); setTitle(''); setDesc('') }} className="text-[12.5px] px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">취소</button>
+            <button onClick={submit} disabled={!title.trim()} className="text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40">발의</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
