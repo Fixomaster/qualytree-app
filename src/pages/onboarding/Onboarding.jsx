@@ -69,6 +69,19 @@ const SEED_PROCEDURES = [
   '프로세스 관리 절차서',
 ]
 
+// 품질경영매뉴얼 목차 시드 — ISO 13485:2016 / KGMP 조항 구조
+const SEED_MANUAL = [
+  { c: '0', name: '회사 소개 · 적용 범위' },
+  { c: '1', name: '품질방침 및 품질목표' },
+  { c: '2', name: '조직도 및 책임과 권한' },
+  { c: '3', name: '인용 규격 · 용어와 정의' },
+  { c: '4', name: '품질경영시스템 (문서화 요구사항)' },
+  { c: '5', name: '경영 책임 (경영검토)' },
+  { c: '6', name: '자원 관리 (인적자원·기반시설·작업환경)' },
+  { c: '7', name: '제품 실현 (설계·구매·생산·서비스)' },
+  { c: '8', name: '측정 · 분석 및 개선' },
+]
+
 const STEPS = [
   { key: 'plan', label: '플랜·결제', icon: CreditCard },
   { key: 'info', label: '기본정보·제품·인증', icon: Building2 },
@@ -85,7 +98,7 @@ function defaultState() {
     certs: (() => { const sg = readSignup(); const m = { 'KGMP': 'kgmp', 'ISO 13485': 'iso13485', 'FDA QMSR': 'fda', 'EU MDR': 'ce', 'MDSAP': 'mdsap' }; const b = { kgmp: true, iso13485: false, ce: false, fda: false, mdsap: false }; (sg.certs || []).forEach((c) => { const k = m[c]; if (k) b[k] = true }); return b })(),
     products: [],
     departments: DEFAULT_ORG.map((n) => ({ ...n })),
-    manual: { mode: '', confirmed: false },
+    manual: { mode: '', confirmed: false, chapters: SEED_MANUAL.map((m, i) => ({ id: 'm' + i, c: m.c, name: m.name, included: true, custom: false })) },
     procedures: SEED_PROCEDURES.map((n, i) => ({ id: 'p' + i, name: n, applicable: true, custom: false })),
     members: [],
     done: { plan: false, info: false, org: false, manual: false, procedures: false, accounts: false },
@@ -436,13 +449,37 @@ function StepOrg({ state, setState }) {
 
 // ───────── STEP 3: 품질경영매뉴얼 ─────────
 function StepManual({ state, patch }) {
-  const m = state.manual
-  const set = (k, v) => patch({ manual: { ...m, [k]: v } })
+  const m = state.manual || {}
+  const [name, setName] = useState('')
+  const chapters = Array.isArray(m.chapters) && m.chapters.length
+    ? m.chapters
+    : SEED_MANUAL.map((s, i) => ({ id: 'm' + i, c: s.c, name: s.name, included: true, custom: false }))
+  const set = (k, v) => patch({ manual: { ...m, chapters, [k]: v } })
+  const setChapters = (next) => patch({ manual: { ...m, chapters: next } })
+  const toggle = (id, v) => setChapters(chapters.map((c) => (c.id === id ? { ...c, included: v } : c)))
+  const addCustom = () => {
+    const n = name.trim()
+    if (!n) return
+    setChapters([...chapters, { id: uid(), c: '+', name: n, included: true, custom: true }])
+    setName('')
+  }
+  const del = (id) => setChapters(chapters.filter((c) => c.id !== id))
+
+  const included = chapters.filter((c) => c.included).length
+  const certNames = Object.entries(state.certs || {}).filter(([, v]) => v)
+    .map(([k]) => ({ kgmp: 'KGMP', iso13485: 'ISO 13485', ce: 'CE MDR', fda: 'FDA', mdsap: 'MDSAP' }[k] || k))
+  const ctx = [
+    `회사 ${state.company?.name || '미입력'}`,
+    `제품 ${(state.products || []).length}개`,
+    `부서 ${(state.departments || []).length}개`,
+    `인증 ${certNames.length ? certNames.join('·') : '없음'}`,
+  ]
+
   return (
-    <Section title="품질경영매뉴얼" desc="ISO 13485 / KGMP 조항 구조로 작성합니다. 시작 방식을 선택하세요.">
+    <Section title="품질경영매뉴얼" desc="ISO 13485 / KGMP 조항 구조로 작성합니다. 시작 방식을 고르고, 우리 회사 매뉴얼에 포함할 장(章)을 구성하세요.">
       <div className="grid sm:grid-cols-2 gap-3 mb-4">
         {[
-          { id: 'ai', icon: Sparkles, title: 'AI 초안으로 시작', desc: '조직도·제품 정보를 바탕으로 초안을 자동 작성합니다. 검토만 하면 됩니다.' },
+          { id: 'ai', icon: Sparkles, title: 'AI 초안으로 시작', desc: '조직도·제품·인증 정보를 바탕으로 초안을 자동 작성합니다. 검토만 하면 됩니다.' },
           { id: 'manual', icon: FileText, title: '직접 작성', desc: '빈 템플릿에서 직접 작성합니다.' },
         ].map((o) => {
           const Icon = o.icon
@@ -456,7 +493,46 @@ function StepManual({ state, patch }) {
           )
         })}
       </div>
-      <Banner>실제 문서 편집기와 AI 초안은 다음 업데이트에서 연결됩니다. 지금은 시작 방식만 선택해 두세요.</Banner>
+
+      <div className="mb-3 flex flex-wrap items-center gap-1.5">
+        <span className="text-[11.5px] text-slate-400 mr-1">초안 참조:</span>
+        {ctx.map((t, i) => (
+          <span key={i} className="text-[11.5px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3 mb-2 text-[12.5px]">
+        <span className="font-medium text-slate-700">매뉴얼 목차</span>
+        <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">포함 {included}</span>
+        <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">제외 {chapters.length - included}</span>
+      </div>
+
+      <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+        {chapters.map((ch) => (
+          <div key={ch.id} className={`flex items-center gap-3 px-3 py-2 ${ch.included ? '' : 'opacity-50'}`}>
+            <span className="text-[11px] text-slate-400 w-6 text-center tabular-nums">{ch.c}</span>
+            <span className="flex-1 text-[13px] text-slate-800">
+              {ch.name}
+              {ch.custom && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">추가</span>}
+            </span>
+            <div className="flex rounded-lg overflow-hidden border border-slate-200 text-[12px]">
+              <button onClick={() => toggle(ch.id, true)} className={`px-2.5 py-1 ${ch.included ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'}`}>포함</button>
+              <button onClick={() => toggle(ch.id, false)} className={`px-2.5 py-1 ${!ch.included ? 'bg-slate-500 text-white' : 'bg-white text-slate-500'}`}>제외</button>
+            </div>
+            {ch.custom && (
+              <button onClick={() => del(ch.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2 max-w-md mt-3">
+        <input className="input-cell" placeholder="장(章) 직접 추가 (예: 부록 - 멸균 밸리데이션)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addCustom()} />
+        <button onClick={addCustom} className="flex items-center gap-1 px-3 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
+      </div>
+
+      <div className="mt-4"><Banner>실제 문서 편집기와 AI 초안 생성은 다음 업데이트에서 연결됩니다. 지금은 시작 방식과 목차 구성을 저장해 두면, 연결 시 그대로 초안에 반영됩니다.</Banner></div>
+      <CellStyle />
     </Section>
   )
 }
