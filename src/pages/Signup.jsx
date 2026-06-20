@@ -12,10 +12,10 @@ import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../lib/auth'
 
 const PLANS = [
-  { code: 'starter',      label: 'Starter',      desc: '1~10인 · 5시트 · KGMP 1' },
-  { code: 'standard',     label: 'Standard',     desc: '11~30인 · 10시트 · KGMP 1' },
-  { code: 'professional', label: 'Professional', desc: '31인+ · 20시트 · 인증 2' },
-  { code: 'founding',     label: 'Founding',     desc: '베타 무료 (법인 설립 후 첫 청구)' },
+  { code: 'kgmp',     label: 'KGMP only',         desc: '국내 GMP 품질시스템 · 월 250,000원~' },
+  { code: 'iso',      label: 'ISO 13485 only',    desc: '국제 QMS 표준 · 월 320,000원~' },
+  { code: 'bundle',   label: 'KGMP + ISO 13485',  desc: '통합 운영 · 15% OFF · 월 500,000원~' },
+  { code: 'founding', label: 'Founding (베타 무료)', desc: '베타 무료 (법인 설립 후 첫 청구)' },
 ]
 
 const EMPLOYEE_BANDS = [
@@ -119,7 +119,7 @@ export default function Signup() {
 
   return (
     <div style={styles.page}>
-      <div style={styles.card}>
+      <div style={{ ...styles.card, ...(step === 2 ? styles.cardWide : {}) }}>
         <div style={styles.header}>
           <div style={styles.brand}>Qualytree</div>
           <div style={styles.subtitle}>도입 신청</div>
@@ -196,6 +196,18 @@ export default function Signup() {
 
         {step === 2 && (
           <div style={styles.form}>
+            <div style={styles.calcWrap}>
+              <div style={styles.calcHead}>
+                <span style={styles.calcTitle}>요금 계산기</span>
+                <span style={styles.calcHint}>구성을 바꿔보며 예상 견적을 확인한 뒤, 아래에서 희망 플랜을 선택하세요.</span>
+              </div>
+              <iframe
+                src="/pricing-calculator.html"
+                title="Qualytree 요금 계산기"
+                style={styles.calcFrame}
+              />
+            </div>
+
             <Field label="희망 플랜 *">
               <div style={styles.planGrid}>
                 {PLANS.map((p) => (
@@ -232,7 +244,7 @@ export default function Signup() {
                     value="annual"
                     checked={desiredBillingCycle === 'annual'}
                     onChange={(e) => setDesiredBillingCycle(e.target.value)}
-                  /> 연납 (20% 할인)
+                  /> 연납 (15% 할인)
                 </label>
               </div>
             </Field>
@@ -366,6 +378,20 @@ const styles = {
     fontSize: 14, fontFamily: 'inherit', outline: 'none',
   },
   divider: { height: 1, background: '#e7e5e4', margin: '8px 0' },
+  cardWide: { maxWidth: 960 },
+  calcWrap: {
+    border: '1px solid #e7e5e4', borderRadius: 12, overflow: 'hidden',
+    background: '#f6f8f6', marginBottom: 4,
+  },
+  calcHead: {
+    display: 'flex', flexDirection: 'column', gap: 2,
+    padding: '12px 16px', borderBottom: '1px solid #e7e5e4', background: '#fff',
+  },
+  calcTitle: { fontSize: 14, fontWeight: 600, color: '#16352b' },
+  calcHint: { fontSize: 12, color: '#78716c' },
+  calcFrame: {
+    width: '100%', height: 880, border: 'none', display: 'block', background: '#f6f8f6',
+  },
   planGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
   planCard: {
     padding: 12, border: '1px solid #d6d3d1', borderRadius: 8,
