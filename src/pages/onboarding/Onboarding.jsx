@@ -267,12 +267,17 @@ function StepInfo({ state, patch, setState }) {
     if (id === 'kgmp') return
     patch({ certs: { ...state.certs, [id]: !state.certs[id] } })
   }
-  const addProduct = () => setState((s) => ({
-    ...s, products: [...s.products, { id: uid(), name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' }],
-  }))
-  const setProduct = (id, k, v) => setState((s) => ({
-    ...s, products: s.products.map((p) => (p.id === id ? { ...p, [k]: v } : p)),
-  }))
+  const [form, setForm] = useState({ name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' })
+  const setF = (k, v) => setForm((ff) => ({ ...ff, [k]: v }))
+  const saveProduct = () => {
+    if (!form.name.trim()) return
+    setState((s) => ({ ...s, products: [...s.products, { id: uid(), ...form, name: form.name.trim() }] }))
+    setForm({ name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' })
+  }
+  const editProduct = (p) => {
+    setForm({ name: p.name || '', grade: p.grade || '2', cat1: p.cat1 || '', cat2: p.cat2 || '', etc: p.etc || '', classNo: p.classNo || '' })
+    setState((s) => ({ ...s, products: s.products.filter((x) => x.id !== p.id) }))
+  }
   const delProduct = (id) => setState((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }))
 
   return (
@@ -317,42 +322,58 @@ function StepInfo({ state, patch, setState }) {
         )}
       </Section>
 
-      <Section title="제품 등록" desc="제품과 인허가 업종(대분류·중분류)·등급을 정하면 그에 맞는 기술문서·절차서 항목이 자동 구성됩니다. 해당 업종이 없으면 '기타'를 선택해 직접 입력하세요.">
-        <div className="space-y-3">
-          {state.products.length === 0 && (
-            <div className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-lg">아직 등록된 제품이 없습니다. 아래 버튼으로 추가하세요.</div>
+      <Section title="제품 등록" desc="제품명·등급·인허가 업종(대분류·중분류)·분류번호를 입력하고 '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정하거나 삭제하세요. 해당 업종이 없으면 '기타'를 선택해 직접 입력하세요.">
+        <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+          <div className="grid grid-cols-12 gap-2 items-center">
+            <input className="col-span-6 input-cell" placeholder="제품명 (예: 골절합용 나사)" value={form.name} onChange={(e) => setF('name', e.target.value)} />
+            <select className="col-span-3 input-cell" value={form.grade} onChange={(e) => setF('grade', e.target.value)}>
+              <option value="1">1등급</option><option value="2">2등급</option><option value="3">3등급</option><option value="4">4등급</option>
+            </select>
+            <input className="col-span-3 input-cell" placeholder="분류번호 (예: A11010.01)" value={form.classNo} onChange={(e) => setF('classNo', e.target.value)} />
+          </div>
+          <div className="grid grid-cols-12 gap-2 items-center">
+            <select className="col-span-4 input-cell" value={form.cat1} onChange={(e) => setF('cat1', e.target.value)}>
+              <option value="">대분류 선택</option>
+              {MDCAT1.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+            </select>
+            <select className="col-span-4 input-cell" value={form.cat2} onChange={(e) => setF('cat2', e.target.value)} disabled={!form.cat1 || form.cat1 === '기타'}>
+              <option value="">중분류 선택</option>
+              {(MDCAT[form.cat1] || []).map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+            </select>
+            {(form.cat1 === '기타' || form.cat2 === '기타') ? (
+              <input className="col-span-4 input-cell" placeholder="기타 업종 직접 입력" value={form.etc} onChange={(e) => setF('etc', e.target.value)} />
+            ) : (
+              <div className="col-span-4 text-[11px] text-slate-400 self-center">인허가 업종 분류</div>
+            )}
+          </div>
+          <div className="flex justify-end">
+            <button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> 저장</button>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <div className="text-[12px] text-slate-500 mb-1.5">저장된 제품 {state.products.length}건</div>
+          {state.products.length === 0 ? (
+            <div className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-lg">아직 저장된 제품이 없습니다. 위에서 입력 후 저장하세요.</div>
+          ) : (
+            <div className="border border-slate-200 rounded-lg divide-y divide-slate-100">
+              {state.products.map((p) => {
+                const cat = (p.cat1 === '기타' || p.cat2 === '기타') ? (p.etc || '기타') : [p.cat1, p.cat2].filter(Boolean).join(' › ')
+                return (
+                  <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-[13px]">
+                    <button onClick={() => editProduct(p)} className="flex-1 text-left min-w-0">
+                      <span className="font-medium text-slate-800">{p.name || '(이름없음)'}</span>
+                      <span className="text-slate-400"> · {p.grade}등급</span>
+                      {cat && <span className="text-slate-500"> · {cat}</span>}
+                      {p.classNo && <span className="text-slate-400"> · {p.classNo}</span>}
+                    </button>
+                    <span className="text-[10px] text-slate-300 shrink-0">클릭=수정</span>
+                    <button onClick={() => delProduct(p.id)} className="text-slate-400 hover:text-rose-600 shrink-0"><Trash2 size={15} /></button>
+                  </div>
+                )
+              })}
+            </div>
           )}
-          {state.products.map((p) => {
-            const etcMode = p.cat1 === '기타' || p.cat2 === '기타'
-            return (
-              <div key={p.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <input className="col-span-6 input-cell" placeholder="제품명 (예: 골절합용 나사)" value={p.name} onChange={(e) => setProduct(p.id, 'name', e.target.value)} />
-                  <select className="col-span-3 input-cell" value={p.grade} onChange={(e) => setProduct(p.id, 'grade', e.target.value)}>
-                    <option value="1">1등급</option><option value="2">2등급</option><option value="3">3등급</option><option value="4">4등급</option>
-                  </select>
-                  <input className="col-span-2 input-cell" placeholder="분류번호" value={p.classNo} onChange={(e) => setProduct(p.id, 'classNo', e.target.value)} />
-                  <button onClick={() => delProduct(p.id)} className="col-span-1 flex justify-center text-slate-400 hover:text-rose-600"><Trash2 size={15} /></button>
-                </div>
-                <div className="grid grid-cols-12 gap-2 items-center">
-                  <select className="col-span-4 input-cell" value={p.cat1 || ''} onChange={(e) => setProduct(p.id, 'cat1', e.target.value)}>
-                    <option value="">대분류 선택</option>
-                    {MDCAT1.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
-                  </select>
-                  <select className="col-span-4 input-cell" value={p.cat2 || ''} onChange={(e) => setProduct(p.id, 'cat2', e.target.value)} disabled={!p.cat1 || p.cat1 === '기타'}>
-                    <option value="">중분류 선택</option>
-                    {(MDCAT[p.cat1] || []).map((cc) => <option key={cc} value={cc}>{cc}</option>)}
-                  </select>
-                  {etcMode ? (
-                    <input className="col-span-4 input-cell" placeholder="기타 업종 직접 입력" value={p.etc || ''} onChange={(e) => setProduct(p.id, 'etc', e.target.value)} />
-                  ) : (
-                    <div className="col-span-4 text-[11px] text-slate-400 self-center">인허가 업종 분류</div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-          <button onClick={addProduct} className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium mt-1"><Plus size={15} /> 제품 추가</button>
         </div>
       </Section>
       <CellStyle />
