@@ -45,6 +45,15 @@ function loadCustomBlocks() {
  * - 21 CFR 820.30 (Design Controls), §820.40 (Document Controls)
  * - Project Instructions §9 SSoT, §13.15 구성 관리
  */
+const DEFAULT_CHAIN = [
+  { blockId: 'visual-inspection', customName: '수입검사(IQC)' },
+  { blockId: 'manual-assembly', customName: '주공정' },
+  { blockId: 'cmm-inspection', customName: '공정검사(IPQC)' },
+  { blockId: 'functional-test', customName: '최종검사(OQC)' },
+  { blockId: 'primary-packaging', customName: '포장' },
+  { blockId: 'labeling', customName: '라벨링' },
+]
+
 export default function ProductsHub() {
   const nav = useNavigate()
   const user = auth.current()
@@ -60,10 +69,10 @@ export default function ProductsHub() {
   // 온보딩 데이터에서 회사·제품 추출
   const ob = onboarding.load() || {}
   const company = ob.company
-  const product = ob.product
+  const product = ob.product || (Array.isArray(ob.products) && ob.products[0]) || null
   const processes = ob.processes || []
 
-  const hasOnboarding = !!(company?.name && product?.name)
+  const hasOnboarding = !!(company?.name) || !!(product && product.name) || (Array.isArray(ob.products) && ob.products.length > 0)
 
   return (
     <AppLayout
@@ -173,7 +182,7 @@ export default function ProductsHub() {
               <ProductPanel product={product} company={company} onAction={showToast} />
             )}
             {tab === 'process' && (
-              <ProcessPanel processes={processes} onAction={showToast} />
+              <ProcessPanel onAction={showToast} />
             )}
             {tab === 'inspection' && (
               <InspectionPanel onAction={showToast} />
@@ -427,117 +436,92 @@ const CONTACT_LABELS = {
 /* ================================================================
    PROD-002 공정 패널
    ================================================================ */
-function ProcessPanel({ processes, onAction }) {
-  const nav = useNavigate()
-  const allBlocks = useMemo(
-    () => [...PROCESS_BLOCKS, ...loadCustomBlocks()],
-    []
-  )
+function ProcessPanel({ onAction }) {
+  const allBlocks = useMemo(() => [...PROCESS_BLOCKS, ...loadCustomBlocks()], [])
   const findBlock = (id) => allBlocks.find((b) => b.id === id)
-
-  const [search, setSearch] = useState('')
-
-  // 사용 중인 공정 + 자동 매핑 통계
-  const stats = useMemo(() => {
-    const sopSet = new Set()
-    const inspectionSet = new Set()
-    const standardSet = new Set()
-    const riskSet = new Set()
-    processes.forEach((p) => {
-      const block = findBlock(p.blockId)
-      if (!block) return
-      block.sopAuto?.forEach((s) => sopSet.add(s))
-      block.inspections?.forEach((i) => inspectionSet.add(i))
-      block.standards?.forEach((s) => standardSet.add(s))
-      block.risks?.forEach((r) => riskSet.add(r))
-    })
-    return {
-      sops: sopSet.size,
-      inspections: inspectionSet.size,
-      standards: standardSet.size,
-      risks: riskSet.size,
-    }
-  }, [processes, allBlocks])
-
-  const filteredProcesses = processes.filter((p) => {
-    if (!search) return true
-    const block = findBlock(p.blockId)
-    const q = search.toLowerCase()
-    return (
-      block?.name?.toLowerCase().includes(q) ||
-      block?.en?.toLowerCase().includes(q) ||
-      p.customName?.toLowerCase().includes(q)
-    )
+  const [list, setList] = useState(() => {
+    const ob = onboarding.load()
+    return (ob.processes || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))
   })
+  const [picking, setPicking] = useState(false)
+  const [q, setQ] = useState('')
+
+  const persist = (next) => {
+    const ordered = next.map((p, i) => ({ ...p, order: i + 1 }))
+    setList(ordered)
+    const ob = onboarding.load()
+    onboarding.save({ ...ob, processes: ordered })
+    onAction && onAction('공정 순서가 저장되었습니다')
+  }
+  const addBlock = (b) => { persist([...list, { id: 'p' + Date.now(), blockId: b.id, order: list.length + 1 }]); setPicking(false); setQ('') }
+  const del = (id) => persist(list.filter((p) => p.id !== id))
+  const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= list.length) return; const n = list.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; persist(n) }
+  const loadDefault = () => { if (list.length && !window.confirm('현재 공정을 기본 6단계 체인으로 대체할까요?')) return; persist(DEFAULT_CHAIN.map((b, i) => ({ id: 'p' + Date.now() + '-' + i, blockId: b.blockId, order: i + 1, customName: b.customName }))) }
+
+  const stats = useMemo(() => {
+    const S = { sop: new Set(), insp: new Set(), std: new Set(), risk: new Set() }
+    list.forEach((p) => { const b = findBlock(p.blockId); if (!b) return; b.sopAuto?.forEach((x) => S.sop.add(x)); b.inspections?.forEach((x) => S.insp.add(x)); b.standards?.forEach((x) => S.std.add(x)); b.risks?.forEach((x) => S.risk.add(x)) })
+    return { sops: S.sop.size, inspections: S.insp.size, standards: S.std.size, risks: S.risk.size }
+  }, [list]) // eslint-disable-line
+
+  const blockChoices = allBlocks.filter((b) => !q || (b.name || '').toLowerCase().includes(q.toLowerCase()) || (b.en || '').toLowerCase().includes(q.toLowerCase()))
 
   return (
     <div className="space-y-4">
-      {/* 자동 매핑 통계 */}
       <div className="grid md:grid-cols-4 gap-3">
         <StatCard label="SOP 자동" value={stats.sops} hint="자동 매핑된 표준작업" />
-        <StatCard
-          label="검사 항목 (자동)"
-          value={stats.inspections}
-          hint="블록별 매핑"
-        />
+        <StatCard label="검사 항목 (자동)" value={stats.inspections} hint="블록별 매핑" />
         <StatCard label="표준" value={stats.standards} hint="ISO/FDA 인용 조항" />
         <StatCard label="위험 ID" value={stats.risks} hint="ISO 14971 항목" />
       </div>
 
-      {/* 검색 + 추가 안내 */}
       <div className="card-base p-3">
-        <div className="flex items-center gap-2 mb-2">
-          <div
-            className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md"
-            style={{ background: 'var(--bg-soft)' }}
-          >
-            <Search size={13} style={{ color: 'var(--ink-faint)' }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="공정 검색…"
-              className="bg-transparent outline-none text-[12.5px] flex-1"
-            />
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>제조·검사 공정 순서 ({list.length}단계)</div>
+          <div className="flex gap-2">
+            <button onClick={loadDefault} className="btn-ghost text-[12px]">기본 공정체인 불러오기</button>
+            <button onClick={() => setPicking((v) => !v)} className="btn-primary text-[12px]" style={{ background: 'var(--rust)' }}>+ 공정 추가</button>
           </div>
-          <button
-            onClick={() => nav('/onboarding')}
-            className="btn-ghost text-[12px]"
-          >
-            <Edit3 size={12} /> 온보딩에서 캔버스 편집
-          </button>
         </div>
-        <div
-          className="text-[11.5px] px-1"
-          style={{ color: 'var(--ink-mute)' }}
-        >
-          공정 순서·추가·삭제는 온보딩 ONB-003 캔버스에서 드래그·드롭으로
-          진행합니다. 변경 시 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다 (시간 잠금).
-        </div>
+        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>여기서 정의한 순서대로 작업 지시 단계가 발급됩니다. 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다(시간 잠금).</div>
+        {picking && (
+          <div className="rounded-md p-2" style={{ background: 'var(--bg-soft)' }}>
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="공정 블록 검색…" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
+            <div className="grid sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto">
+              {blockChoices.map((b) => {
+                const cat = PROCESS_CATEGORIES.find((c) => c.id === b.category)
+                return (
+                  <button key={b.id} onClick={() => addBlock(b)} className="text-left px-2.5 py-1.5 rounded-md text-[12px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                    <span style={{ color: 'var(--ink)' }}>{b.name}</span>
+                    {cat && <span className="ml-1.5" style={{ color: 'var(--ink-faint)' }}>· {cat.name}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* 공정 목록 */}
       <div className="space-y-2">
-        {filteredProcesses.length === 0 ? (
-          <div
-            className="card-base p-6 text-center text-[13px]"
-            style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}
-          >
-            {search ? '검색 결과 없음' : '등록된 공정이 없습니다'}
+        {list.length === 0 ? (
+          <div className="card-base p-6 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
+            등록된 공정이 없습니다. "기본 공정체인 불러오기" 또는 "공정 추가"로 시작하세요.
           </div>
         ) : (
-          filteredProcesses.map((p, idx) => {
+          list.map((p, idx) => {
             const block = findBlock(p.blockId)
-            if (!block) return null
-            const cat = PROCESS_CATEGORIES.find((c) => c.id === block.category)
+            const cat = block && PROCESS_CATEGORIES.find((c) => c.id === block.category)
             return (
-              <ProcessRow
-                key={p.id || idx}
-                index={idx + 1}
-                process={p}
-                block={block}
-                category={cat}
-              />
+              <div key={p.id || idx} className="card-base p-3 flex items-center gap-3">
+                <span className="font-mono text-[12px] w-6 text-center" style={{ color: 'var(--rust)' }}>{idx + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] truncate" style={{ color: 'var(--ink)' }}>{p.customName || block?.name || p.blockId}{p.customName && block ? ' · ' + block.name : ''}</div>
+                  {cat && <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{cat.name}{block?.standards?.length ? ' · ' + block.standards.join(', ') : ''}</div>}
+                </div>
+                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>▲</button>
+                <button onClick={() => move(idx, 1)} disabled={idx === list.length - 1} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>▼</button>
+                <button onClick={() => del(p.id)} className="px-2 py-1 rounded-md text-[12px]" style={{ color: 'var(--rust)', border: '1px solid var(--line)' }}>삭제</button>
+              </div>
             )
           })
         )}
