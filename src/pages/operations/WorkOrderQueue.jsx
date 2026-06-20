@@ -772,6 +772,19 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
     }
   })
 
+  const [models, setModels] = useState(() => (Array.isArray(onbState.products) ? onbState.products : []))
+  const [q, setQ] = useState('')
+  const pickModel = (p) => setForm((ff) => ({ ...ff, productName: p.name || '', productModel: p.classNo || p.modelNumber || '' }))
+  const registerModel = () => {
+    const name = (form.productName || '').trim()
+    if (!name) { alert('제품명을 입력한 뒤 등록하세요.'); return }
+    if (models.some((m) => m.name === name && (m.classNo || '') === (form.productModel || ''))) { alert('이미 등록된 모델입니다.'); return }
+    const rec = { id: 'pm' + Date.now(), name, classNo: form.productModel || '', grade: '', cat1: '', cat2: '' }
+    const next = [...models, rec]
+    setModels(next)
+    try { const ob = onboarding.load(); onboarding.save({ ...ob, products: next }) } catch { /* */ }
+  }
+
   const procs = (onbState.processes && onbState.processes.length) ? onbState.processes : DEFAULT_PROCESSES
   const processCount = procs.length
 
@@ -839,6 +852,43 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
             <strong>온보딩 공정 {processCount}단계</strong>가 그대로 단계
             체인으로 발급됩니다. 첫 단계만 진입 가능, 이후 단계는 순차 잠금
             해제됩니다.
+          </div>
+        </div>
+
+        {/* 모델 검색·선택 */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>모델 선택 (등록 {models.length}건)</span>
+            <button onClick={registerModel} className="text-[11.5px]" style={{ color: 'var(--rust)' }}>+ 현재 제품명/모델을 새 모델로 등록</button>
+          </div>
+          <input
+            className="input-base mb-1"
+            placeholder="모델명·분류번호 검색…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <div className="rounded-md max-h-40 overflow-auto" style={{ border: '1px solid var(--line)' }}>
+            {models.length === 0 ? (
+              <div className="px-2.5 py-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                등록된 모델이 없습니다. 아래에 제품명·모델을 입력하고 "새 모델로 등록"을 누르면 다음부터 검색·선택할 수 있습니다.
+              </div>
+            ) : (
+              models
+                .filter((p) => { const t = (q || '').toLowerCase(); return !t || (p.name || '').toLowerCase().includes(t) || (p.classNo || '').toLowerCase().includes(t) })
+                .slice(0, 300)
+                .map((p) => (
+                  <button
+                    key={p.id || p.name}
+                    onClick={() => pickModel(p)}
+                    className="w-full text-left px-2.5 py-1.5 text-[12.5px]"
+                    style={{ borderBottom: '1px solid var(--line)', background: (form.productName === p.name && (form.productModel || '') === (p.classNo || '')) ? 'var(--leaf-soft)' : 'transparent', color: 'var(--ink)' }}
+                  >
+                    {p.name}
+                    {p.classNo ? <span style={{ color: 'var(--ink-faint)' }}> · {p.classNo}</span> : null}
+                    {p.grade ? <span style={{ color: 'var(--ink-faint)' }}> · {p.grade}등급</span> : null}
+                  </button>
+                ))
+            )}
           </div>
         </div>
 
