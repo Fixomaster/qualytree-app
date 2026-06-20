@@ -62,7 +62,7 @@ export default function PreviewHub() {
         <h1 style={S.h1}>페이지 미리보기 <span style={S.tag}>운영자 전용</span></h1>
         <div style={S.row}>
           <span style={S.badge}>세션: {signedIn ? (kind || 'demo') : '없음'}</span>
-          <span style={S.badge}>권한: {lv ? (LEVEL_LABEL[lv] || lv) : '-'}</span>
+          <span style={S.badge}>권한: {lv ? (LEVEL_LABEL[lv] ? LEVEL_LABEL[lv].ko : lv) : '-'}</span>
         </div>
 
         <div style={S.card}>
@@ -81,7 +81,7 @@ export default function PreviewHub() {
           <div style={S.btnRow}>
             {[LEVELS.OPERATOR, LEVELS.INSPECTOR, LEVELS.MANAGER].map((l) => (
               <button key={l} onClick={() => setLevel(l)} style={{ ...S.btn, ...(lv === l ? S.btnOn : {}) }}>
-                {LEVEL_LABEL[l] || l}
+                {LEVEL_LABEL[l] ? LEVEL_LABEL[l].ko : l}
               </button>
             ))}
           </div>
