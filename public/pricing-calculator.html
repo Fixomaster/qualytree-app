@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qualitree 요금 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pine:#16352b;
+    --pine-2:#1f4a3b;
+    --sage:#5c8374;
+    --eucalyptus:#9ec1b4;
+    --amber:#c98b1d;
+    --amber-soft:#f1e2c4;
+    --paper:#f6f8f6;
+    --card:#ffffff;
+    --ink:#16201c;
+    --muted:#5d6b65;
+    --line:#dfe7e2;
+    --shadow:0 1px 2px rgba(22,53,43,.06),0 8px 30px rgba(22,53,43,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Inter',system-ui,sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding:28px 18px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* Header */
+  header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:38px;height:38px;flex:none}
+  .wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:26px;letter-spacing:-.01em;color:var(--pine)}
+  .wordmark span{color:var(--sage)}
+  .tagline{font-size:12.5px;color:var(--muted);margin-top:2px;letter-spacing:.01em}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-weight:700}
+  .htitle{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:19px;color:var(--pine);margin-top:3px}
+
+  /* Layout */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:22px 22px 24px}
+  .panel h2{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--pine);text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+  .panel h2::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--amber)}
+
+  .field{margin-bottom:20px}
+  .field:last-child{margin-bottom:0}
+  .flabel{font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:9px;display:flex;justify-content:space-between;align-items:baseline}
+  .flabel .hint{font-weight:400;font-size:11.5px;color:var(--sage)}
+
+  /* Plan cards */
+  .plans{display:flex;flex-direction:column;gap:9px}
+  .plan{position:relative;border:1.5px solid var(--line);border-radius:11px;padding:13px 14px;cursor:pointer;transition:.16s;display:flex;justify-content:space-between;align-items:center}
+  .plan:hover{border-color:var(--eucalyptus)}
+  .plan.sel{border-color:var(--pine);background:#f1f6f3}
+  .plan .pname{font-weight:600;font-size:14.5px;color:var(--ink)}
+  .plan .pdesc{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .plan .pbase{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px;color:var(--pine);text-align:right;white-space:nowrap}
+  .plan .pbase small{display:block;font-weight:500;font-size:10px;color:var(--muted);letter-spacing:.02em}
+  .plan input{position:absolute;opacity:0}
+  .badge{position:absolute;top:-9px;right:12px;background:var(--amber);color:#fff;font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:20px;font-family:'JetBrains Mono',monospace}
+
+  /* Toggle */
+  .toggle{display:flex;background:#eef3f0;border-radius:10px;padding:4px;gap:4px}
+  .toggle button{flex:1;border:none;background:none;padding:9px;border-radius:7px;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;transition:.16s}
+  .toggle button.on{background:#fff;color:var(--pine);box-shadow:0 1px 3px rgba(22,53,43,.12)}
+  .toggle button .save{font-size:10px;color:var(--amber);font-weight:700;margin-left:4px}
+
+  /* Steppers */
+  .stepper{display:flex;align-items:center;gap:0;border:1.5px solid var(--line);border-radius:10px;width:fit-content;overflow:hidden}
+  .stepper button{width:42px;height:40px;border:none;background:#f4f7f5;font-size:20px;color:var(--pine);cursor:pointer;font-weight:600;transition:.12s}
+  .stepper button:hover{background:#e7efea}
+  .stepper button:disabled{color:#c2cdc7;cursor:not-allowed}
+  .stepper .val{width:64px;text-align:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px;color:var(--ink)}
+  .substat{font-size:11.5px;color:var(--sage);margin-top:7px;font-family:'JetBrains Mono',monospace}
+
+  /* Modules */
+  .mod{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1.5px solid var(--line);border-radius:10px;cursor:pointer;margin-bottom:8px;transition:.14s}
+  .mod:hover{border-color:var(--eucalyptus)}
+  .mod.on{border-color:var(--sage);background:#f3f7f5}
+  .mod input{width:17px;height:17px;accent-color:var(--pine);flex:none}
+  .mod .mtext{flex:1}
+  .mod .mname{font-size:13.5px;font-weight:600}
+  .mod .adesc{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.35}
+  .mod .mprice{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;color:var(--pine)}
+
+  /* Ledger summary */
+  .ledger{font-family:'JetBrains Mono',monospace}
+  .lrow{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
+  .lrow .lname{font-family:'Inter',sans-serif;color:var(--muted);font-weight:500}
+  .lrow .lval{font-weight:500;color:var(--ink)}
+  .lrow.muted .lname,.lrow.muted .lval{color:#9aa8a2}
+
+  .total{margin-top:18px;background:var(--pine);border-radius:14px;padding:18px 20px;color:#fff}
+  .total .trow{display:flex;justify-content:space-between;align-items:baseline}
+  .total .tlabel{font-size:12.5px;color:var(--eucalyptus);font-weight:500}
+  .total .tbig{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:30px;letter-spacing:-.01em}
+  .total .tunit{font-size:14px;font-weight:500;color:var(--eucalyptus)}
+  .total .tsub{display:flex;justify-content:space-between;margin-top:11px;padding-top:11px;border-top:1px solid rgba(255,255,255,.15);font-size:12px;color:#cfe0d8}
+  .total .tsub b{font-family:'JetBrains Mono',monospace;color:#fff;font-weight:700}
+  .savepill{display:inline-block;background:var(--amber);color:#fff;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;padding:3px 9px;border-radius:20px;margin-top:10px}
+
+  /* Comparison */
+  .cmp{margin-top:18px;border:1px solid var(--line);border-radius:14px;padding:18px}
+  .cmp h3{font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--pine);margin-bottom:3px}
+  .cmp .csub{font-size:11px;color:var(--muted);margin-bottom:15px}
+  .bar{margin-bottom:13px}
+  .bar .blabel{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px}
+  .bar .blabel .bn{font-weight:600}
+  .bar .blabel .bv{font-family:'JetBrains Mono',monospace;font-weight:700}
+  .track{height:14px;background:#eef3f0;border-radius:8px;overflow:hidden}
+  .fill{height:100%;border-radius:8px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+  .fill.q{background:linear-gradient(90deg,var(--pine-2),var(--sage))}
+  .fill.c{background:repeating-linear-gradient(45deg,#c7d2cc,#c7d2cc 6px,#bcc8c1 6px,#bcc8c1 12px)}
+  .cmp .verdict{margin-top:14px;padding:13px 15px;background:var(--amber-soft);border-radius:10px;font-size:13px;color:#6b4e12;line-height:1.45}
+  .cmp .verdict b{color:#3d2d09;font-family:'JetBrains Mono',monospace}
+  .eqms-toggle{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:var(--muted);line-height:1.4;cursor:pointer;background:var(--paper);border:1px solid var(--line);border-radius:9px;padding:10px 12px}
+  .eqms-toggle input{width:16px;height:16px;accent-color:var(--pine);flex:none;margin-top:1px}
+  .eqms-toggle b{color:var(--pine)}
+  .altbreak{margin-top:11px;padding:11px 13px;background:#f6f8f6;border-radius:9px;border:1px dashed var(--line)}
+  .altrow{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);padding:3px 0}
+  .altrow span:last-child{font-family:'JetBrains Mono',monospace;font-weight:600;color:#46544e}
+
+  .foot{margin-top:22px;font-size:11px;color:var(--muted);line-height:1.6}
+  .foot b{color:var(--pine)}
+  a.btn{display:inline-block;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="10" fill="#16352b"/>
+        <path d="M20 8c-3.6 0-6 2.7-6 5.6 0 1.2.4 2.2 1.1 3-1.8.5-3.1 2.1-3.1 4 0 1.5.8 2.8 2 3.5-1 .7-1.6 1.8-1.6 3 0 2.4 2.5 4.1 5.6 4.1h4c3.1 0 5.6-1.7 5.6-4.1 0-1.2-.6-2.3-1.6-3 1.2-.7 2-2 2-3.5 0-1.9-1.3-3.5-3.1-4 .7-.8 1.1-1.8 1.1-3C26 10.7 23.6 8 20 8z" fill="#9ec1b4"/>
+        <rect x="18.8" y="20" width="2.4" height="13" rx="1.2" fill="#16352b"/>
+      </svg>
+      <div>
+        <div class="wordmark">Quali<span>tree</span></div>
+        <div class="tagline">의lp롌기기 규제·품질 운영 자동화 플랚폼</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div class="eyebrow">Pricing</div>
+      <div class="htitle">원금 계산기</div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: controls -->
+    <div class="panel">
+      <h2>구성 선택</h2>
+
+      <div class="field">
+        <div class="flabel">서비스 플랜</div>
+        <div class="plans" id="plans">
+          <label class="plan" data-plan="kgmp">
+            <input type="radio" name="plan" value="kgmp">
+            <div><div class="pname">KGMP only</div><div class="pdesc">국내 GMP 품질시스템 운영</div></div>
+            <div class="pbase">250,000<small>원 / 월 기본</small></div>
+          </label>
+          <label class="plan" data-plan="iso">
+            <input type="radio" name="plan" value="iso">
+            <div><div class="pname">ISO 13485 only</div><div class="pdesc">구제 QMS 표준 운영</div></div>
+            <div class="pbase">320,000<small>원 / 월 기본</small></div>
+          </label>
+          <label class="plan sel" data-plan="bundle">
+            <span class="badge">15% OFF</span>
+            <input type="radio" name="plan" value="bundle" checked>
+            <div><div class="pname">KGMP + ISO 13485</div><div class="pdesc">통합 운영 · 중복 요구사항 단일화</div></div>
+            <div class="pbase">500,000<small>원 / 월 기본</small></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="flabel">결제 주기</div>
+        <div class="toggle" id="billing">
+          <button data-cycle="monthly">월계 결제</button>
+          <button data-cycle="annual" class="on">연계 선결제<span class="save">−15%</span></button>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="flabel">Pro 좌석 <span class="hint">QA·RA / 작성ᷲ승인 권한 · 기본 1석 포함</span></div>
+        <div class="stepper">
+          <button id="proMinus">−</button>
+          <div class="val" id="proVal">1</div>
+          <button id="proPlus">+</button>
+        </div>
+        <div class="substat" id="proStat">기본 포함 1석 · 추가 0석</div>
+      </div>
+
+      <div class="field">
+        <div class="flabel">작업자 좌석 <span class="hint">SOP 조회 / 교육 / 전자서명 · 5인 단위 블록</span></div>
+        <div class="stepper">
+          <button id="wkMinus">−</button>
+          <div class="val" id="wkVal">0</div>
+          <button id="wkPlus">+</button>
+        </div>
+        <div class="substat" id="wkStat">0명 · 블록 0개</div>
+      </div>
+
+      <div class="field">
+        <div class="flabel">확장 모듈 <span class="hint">선택 · 글로벌 인증</span></div>
+        <label class="mod" data-mod="cemdr">
+          <input type="checkbox">
+          <div class="mtext"><div class="mname">CE MDR 기술문서</div></div>
+          <div class="mprice">+250,000</div>
+        </label>
+        <label class="mod" data-mod="fda">
+          <input type="checkbox">
+          <div class="mtext"><div class="mname">FDA 510(k) / QMSR</div></div>
+          <div class="mprice">+300,000</div>
+        </label>
+        <label class="mod" data-mod="mdsap">
+          <input type="checkbox">
+          <div class="mtext"><div class="mname">MDSAP 통합</div></div>
+          <div class="mprice">+200,000</div>
+        </label>
+      </div>
+
+      <div class="field">
+        <div class="flabel">심사대응 지원 <span class="hint">관리형 서비스 · 사람 동행</span></div>
+        <label class="mod" id="auditOpt" data-mod="audit">
+          <input type="checkbox" id="auditChk">
+          <div class="mtext"><div class="mname">정기·사후심사 대응 지원</div><div class="adesc" id="auditDesc">선택한 플랜·모듈의 심사 동행·대응을 Qualitree가 수행</div></div>
+          <div class="mprice" id="auditPrice">+0</div>
+        </label>
+      </div>
+    </div>
+
+    <!-- RIGHT: summary -->
+    <div class="panel">
+      <h2>견적 요약</h2>
+      <div class="ledger" id="ledger"></div>
+
+      <div class="total">
+        <div class="trow">
+          <span class="tlabel" id="totalLabel">월 청구액</span>
+        </div>
+        <div class="trow" style="margin-top:2px">
+          <span class="tbig" id="totalBig">0</span>
+          <span class="tunit" id="totalUnit">원 / 월</span>
+        </div>
+        <div class="tsub" id="totalSub"></div>
+        <div id="savePill"></div>
+      </div>
+
+      <div class="cmp">
+        <h3>대안 대비 — 3년 누적 비용</h3>
+        <div class="csub">Qualitree 없이 동일 범위를 구성할 때(외부 컨설팅 + eQMS)와 비교. 왼쪽에서 <b>심사대응 지원</b>을 켜면 컨설팅의 심사대응분도 함께 더해져 항상 같은 범위끼리 비교됩니다.</div>
+        <label class="eqms-toggle"><input type="checkbox" id="eqmsChk" checked><span>비교 대안에 <b>글로벌 eQMS 구독</b> 포함 — Qualitree는 eQMS 기능을 구독료에 기본 포함</span></label>
+        <div class="bar" style="margin-top:14px">
+          <div class="blabel"><span class="bn" style="color:var(--pine)">Qualitree (연 선결제)</span><span class="bv" id="qVal" style="color:var(--pine)"></span></div>
+          <div class="track"><div class="fill q" id="qFill" style="width:0%"></div></div>
+        </div>
+        <div class="bar">
+          <div class="blabel"><span class="bn" style="color:var(--muted)">컨설팅 + eQMS 대안</span><span class="bv" id="cVal" style="color:var(--muted)"></span></div>
+          <div class="track"><div class="fill c" id="cFill" style="width:0%"></div></div>
+        </div>
+        <div class="altbreak" id="altBreak"></div>
+        <div class="verdict" id="verdict"></div>
+      </div>
+
+      <div class="foot">
+        <b>산정 기준</b> · 기본료에 Pro 1석 포함, 추가 Pro·작업자 블록(5인)·모듈이 더해집니다. <b>심사대응 지원</b>은 사람이 정기/사후심사에 동행·대응하는 관리형 서비스로, 켜면 Qualitree 월 요금에 더해집니다(플랜 KGMP 10만·ISO 12만·통합 18만 + 모듈 CE 15만·FDA 13만·MDSAP 15만/월). <b>비교 대안(3년)</b>은 ① 구축 컨설팅(KGMP 800만·ISO 1,600만·통합 1,900만 + 모듈 CE 1,600만·FDA 2,200만·MDSAP 1,200만) ② 심사대응 컨설팅(심사대응 지원 선택 시 / KGMP 400만·ISO 800만·통합 900만 + 모듈 CE 900만·FDA 800만·MDSAP 1,000만) ③ 글로벌 eQMS 구독(연 1,200만 + Pro 추가 1석당 연 150만)의 합입니다. 모두 시장 대표 추정치이며, 인증기관 심사료·NB 적합성업가비·FDA user fee 등 외부 법정비용은 양쪽 모두에서 제외됩니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // base/pro/block: Qualitree 월 요금 · setup3y/audit3y: 동일 범위 외부 컨설팅 3년 누적(구축/심사대응 분리) · audAdd: Qualitree 심사대응 서비스 월 add-on
+  const PRICING = {
+    kgmp:   { base:250000, pro:100000, block:30000, name:'KGMP only',        setup3y:8000000,  audit3y:4000000, audAdd:100000 },
+    iso:    { base:320000, pro:120000, block:35000, name:'ISO 13485 only',   setup3y:16000000, audit3y:8000000, audAdd:120000 },
+    bundle: { base:500000, pro:150000, block:45000, name:'KGMP + ISO 13485', setup3y:19000000, audit3y:9000000, audAdd:180000 },
+  };
+  // p: 월 구독료 · setup3y/audit3y: 컨설팅 3년 누적(구축/심사대응) · audAdd: 심사대응 서비스 월 add-on
+  const MODULES = {
+    cemdr:{p:250000, setup3y:16000000, audit3y:9000000,  audAdd:150000, n:'CE MDR 기술문서'},
+    fda:  {p:300000, setup3y:22000000, audit3y:8000000,  audAdd:130000, n:'FDA 510(k)/QMSR'},
+    mdsap:{p:200000, setup3y:12000000, audit3y:10000000, audAdd:150000, n:'MDSAP 통합'},
+  };
+  const DISCOUNT = 0.15;
+  // 글로벌 eQMS 구독(연) — Pro 좌석 수에 따라 증가. Qualitree는 eQMS 기능을 구독료에 이미 포함
+  const EQMS_BASE = 12000000, EQMS_PER_PRO = 1500000;
+
+  const state = { plan:'bundle', cycle:'annual', pro:1, workers:0, mods:{cemdr:false,fda:false,mdsap:false}, audit:false, eqms:true };
+
+  const won = n => n.toLocaleString('ko-KR');
+  const $ = id => document.getElementById(id);
+
+  function blocks(w){ return Math.ceil(w/5); }
+
+  function compute(){
+    const p = PRICING[state.plan];
+    const extraPro = Math.max(0, state.pro-1);
+    const proCost = extraPro * p.pro;
+    const nBlocks = blocks(state.workers);
+    const blockCost = nBlocks * p.block;
+    let modCost = 0; const modLines=[];
+    for(const k in state.mods){ if(state.mods[k]){ modCost += MODULES[k].p; modLines.push({n:MODULES[k].n,v:MODULES[k].p}); } }
+    // 심사대응 지원 (관리형 서비스 add-on): 플랜 + 활성 모듈 합산
+    let auditCost = 0;
+    if(state.audit){
+      auditCost += p.audAdd;
+      for(const k in state.mods){ if(state.mods[k]) auditCost += MODULES[k].audAdd; }
+    }
+    const monthly = p.base + proCost + blockCost + modCost + auditCost;
+    return { p, extraPro, proCost, nBlocks, blockCost, modCost, modLines, auditCost, monthly };
+  }
+
+  function render(){
+    // sync UI selection states
+    document.querySelectorAll('.plan').forEach(el=>el.classList.toggle('sel', el.dataset.plan===state.plan));
+    document.querySelectorAll('#billing button').forEach(b=>b.classList.toggle('on', b.dataset.cycle===state.cycle));
+    document.querySelectorAll('.mod').forEach(el=>el.classList.toggle('on', state.mods[el.dataset.mod]));
+    $('auditOpt').classList.toggle('on', state.audit);
+    $('proVal').textContent = state.pro;
+    $('wkVal').textContent = state.workers;
+    $('proMinus').disabled = state.pro<=1;
+    $('wkMinus').disabled = state.workers<=0;
+    $('proStat').textContent = `기본 포함 1석 · 추가 ${Math.max(0,state.pro-1)}석`;
+    $('wkStat').textContent = `${state.workers}명 · 블록 ${blocks(state.workers)}개`;
+
+    const c = compute();
+    // audit add-on price label (플랜 + 활성 모듈)
+    let audPreview = PRICING[state.plan].audAdd;
+    for(const k in state.mods){ if(state.mods[k]) audPreview += MODULES[k].audAdd; }
+    $('auditPrice').textContent = '+'+won(audPreview);
+
+    // ledger
+    let rows = `<div class="lrow"><span class="lname">${c.p.name} 기본 (Pro 1석 포함)</span><span class="lval">${won(c.p.base)}</span></div>`;
+    rows += `<div class="lrow ${c.extraPro?'':'muted'}"><span class="lname">Pro 좌석 추가 ${c.extraPro}석</span><span class="lval">${won(c.proCost)}</span></div>`;
+    rows += `<div class="lrow ${c.nBlocks?'':'muted'}"><span class="lname">작업자 블록 ${c.nBlocks}개 (${state.workers}명)</span><span class="lval">${won(c.blockCost)}</span></div>`;
+    c.modLines.forEach(m=> rows += `<div class="lrow"><span class="lname">${m.n}</span><span class="lval">${won(m.v)}</span></div>`);
+    rows += `<div class="lrow ${c.auditCost?'':'muted'}"><span class="lname">심사대응 지원 (관리형 서비스)</span><span class="lval">${won(c.auditCost)}</span></div>`;
+    $('ledger').innerHTML = rows;
+
+    // totals
+    const annual = Math.round(c.monthly*12*(1-DISCOUNT));
+    const effMonthly = Math.round(annual/12);
+    if(state.cycle==='annual'){
+      $('totalLabel').textContent='연계 선결제액';
+      $('totalBig').textContent = won(annual);
+      $('totalUnit').textContent='원 / 년';
+      const saved = c.monthly*12 - annual;
+      $('totalSub').innerHTML = `<span>실효 월단가</span><b>${won(effMonthly)} 원</b>`;
+      $('savePill').innerHTML = `<span class="savepill">연 ${won(saved)}원 절감 · 셋업비 면제</span>`;
+    } else {
+      $('totalLabel').textContent='월 청구액';
+      $('totalBig').textContent = won(c.monthly);
+      $('totalUnit').textContent='원 / 월';
+      $('totalSub').innerHTML = `<span>연 환산</span><b>${won(c.monthly*12)} 원</b>`;
+      $('savePill').innerHTML = `<span class="savepill" style="background:#9aa8a2">연 결제 전환 시 15% 절감</span>`;
+    }
+
+    // comparison (3 year) — 동일 범위를 Qualitree 없이 구성할 때의 비용
+    const q3 = annual*3;  // Qualitree는 연 선결제 런레이트 기준
+    const altLines = [];
+    let cons = 0;
+    // ① 초기 구축 컨설팅 (항상 포함)
+    let setupSum = c.p.setup3y;
+    for(const k in state.mods){ if(state.mods[k]) setupSum += MODULES[k].setup3y; }
+    cons += setupSum;
+    altLines.push({n:`구축 컨설팅 (3년 · 플랜+모듈)`, v:setupSum});
+    // ② 심사대응 컨설팅 (심사대응 지원 선택 시에만)
+    if(state.audit){
+      let auditSum = c.p.audit3y;
+      for(const k in state.mods){ if(state.mods[k]) auditSum += MODULES[k].audit3y; }
+      cons += auditSum;
+      altLines.push({n:`심사대응 컨설팅 (3년 · 정기/사후심사)`, v:auditSum});
+    }
+    // ③ 글로벌 eQMS 구독 (토글 시)
+    if(state.eqms){
+      const eqms3y = (EQMS_BASE + Math.max(0,state.pro-1)*EQMS_PER_PRO) * 3;
+      cons += eqms3y;
+      altLines.push({n:`글로벌 eQMS 구독 (3년 · Pro ${state.pro}석)`, v:eqms3y});
+    }
+    const max = Math.max(q3, cons);
+    let altHtml = '';
+    altLines.forEach(l=> altHtml += `<div class="altrow"><span>${l.n}</span><span>${won(l.v)}</span></div>`);
+    $('altBreak').innerHTML = altHtml;
+    $('qVal').textContent = won(q3)+'원';
+    $('cVal').textContent = won(cons)+'원';
+    $('qFill').style.width = (q3/max*100)+'%';
+    $('cFill').style.width = (cons/max*100)+'%';
+    const diff = cons - q3;
+    const scope = `컨설팅${state.audit?'(구축+심사대응)':'(구축)'}${state.eqms?' + eQMS':''}`;
+    if(diff>0){
+      const pct = Math.round(diff/cons*100);
+      $('verdict').innerHTML = `동일 범위를 ${scope}으로 구성하는 것보다 3년 기준 <b>${won(diff)}원</b> 저렴 (약 ${pct}% 절감). ${state.audit?'심사대응까지 포함한 같은 범위 비교':'심사대응 미포함 — 같은 범위(소프트웨어/구축)끼리 비교'}입니다.`;
+    } else {
+      $('verdict').innerHTML = `현재 구성은 비교 대안보다 <b>${won(Math.abs(diff))}원</b> 높습니다. 심사대응·eQMS 포함 여부와 좌석·모듈을 조정해 비교해 보세요.`;
+    }
+  }
+
+  // events
+  document.querySelectorAll('input[name=plan]').forEach(r=> r.addEventListener('change', e=>{ state.plan=e.target.value; render(); }));
+  document.querySelectorAll('#billing button').forEach(b=> b.addEventListener('click', ()=>{ state.cycle=b.dataset.cycle; render(); }));
+  $('proPlus').addEventListener('click', ()=>{ state.pro++; render(); });
+  $('proMinus').addEventListener('click', ()=>{ if(state.pro>1){state.pro--; render();} });
+  $('wkPlus').addEventListener('click', ()=>{ state.workers+=5; render(); });
+  $('wkMinus').addEventListener('click', ()=>{ state.workers=Math.max(0,state.workers-5); render(); });
+  document.querySelectorAll('.mod input').forEach((cb,i)=>{
+    const key = cb.closest('.mod').dataset.mod;
+    if(key==='audit') return; // 심사대응은 별도 처리
+    cb.addEventListener('change', ()=>{ state.mods[key]=cb.checked; render(); });
+  });
+  $('auditChk').addEventListener('change', e=>{ state.audit=e.target.checked; render(); });
+  $('eqmsChk').addEventListener('change', e=>{ state.eqms=e.target.checked; render(); });
+
+  render();
+})();
+</script>
+</body>
+</html>
