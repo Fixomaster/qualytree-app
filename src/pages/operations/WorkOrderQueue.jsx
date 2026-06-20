@@ -35,14 +35,28 @@ function loadCustomBlocks() {
   }
 }
 
+// 공정 정의가 없을 때 사용할 표준 기본 공정 체인 (KGMP 일반 제조·검사 흐름)
+const DEFAULT_PROCESSES = [
+  { id: 'def-1', blockId: 'visual-inspection', order: 1, customName: '수입검사(IQC)' },
+  { id: 'def-2', blockId: 'manual-assembly', order: 2, customName: '주공정' },
+  { id: 'def-3', blockId: 'cmm-inspection', order: 3, customName: '공정검사(IPQC)' },
+  { id: 'def-4', blockId: 'functional-test', order: 4, customName: '최종검사(OQC)' },
+  { id: 'def-5', blockId: 'primary-packaging', order: 5, customName: '포장' },
+  { id: 'def-6', blockId: 'labeling', order: 6, customName: '라벨링' },
+]
+
 export default function WorkOrderQueue() {
   const nav = useNavigate()
   const user = auth.current()
   const onbState = onboarding.load()
 
   // 온보딩 미완료 가드
+  const procFor = (onb) => (onb.processes && onb.processes.length ? onb.processes : DEFAULT_PROCESSES)
+  const newOnbReady =
+    (onbState.done && Object.values(onbState.done).filter(Boolean).length >= 6) ||
+    (Array.isArray(onbState.products) && onbState.products.length > 0)
   const onboardingComplete =
-    onbState.completedSteps?.includes(3) && (onbState.processes || []).length > 0
+    (onbState.completedSteps?.includes(3) && (onbState.processes || []).length > 0) || newOnbReady
 
   const [opState, setOpState] = useState(() => operations.load())
   const [filter, setFilter] = useState('all') // all | pending | in_progress | completed
@@ -56,7 +70,14 @@ export default function WorkOrderQueue() {
     if (!onboardingComplete) return
     const cur = operations.load()
     if (cur.workOrders.length === 0) {
-      operations.seedDemo(onbState)
+      operations.seedDemo({
+        ...onbState,
+        processes: procFor(onbState),
+        product: onbState.product || {
+          name: onbState.products?.[0]?.name || ((onbState.company?.name || '') + ' 제품').trim(),
+          modelNumber: onbState.products?.[0]?.classNo || 'MODEL-001',
+        },
+      })
       reload()
     }
   }, [onboardingComplete])
@@ -742,8 +763,8 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
     const lotPrefix = today.toISOString().slice(2, 10).replace(/-/g, '')
     const seq = String(operations.load().nextWoSeq).padStart(3, '0')
     return {
-      productName: onbState.product?.name || '',
-      productModel: onbState.product?.modelNumber || '',
+      productName: onbState.product?.name || onbState.products?.[0]?.name || '',
+      productModel: onbState.product?.modelNumber || onbState.products?.[0]?.classNo || '',
       lotNumber: `L${lotPrefix}-${seq}`,
       quantity: 50,
       dueDate: due.toISOString().slice(0, 10),
@@ -751,7 +772,8 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
     }
   })
 
-  const processCount = (onbState.processes || []).length
+  const procs = (onbState.processes && onbState.processes.length) ? onbState.processes : DEFAULT_PROCESSES
+  const processCount = procs.length
 
   const submit = () => {
     if (!form.productName || !form.lotNumber || !form.quantity || !form.dueDate) {
@@ -760,7 +782,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
     }
     const wo = operations.createWorkOrder({
       ...form,
-      onboardingProcesses: onbState.processes || [],
+      onboardingProcesses: procs,
     })
     onCreated(wo)
   }
