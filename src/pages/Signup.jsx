@@ -7,7 +7,7 @@
 //  - 모든 에러는 문자열로만 state에 저장 (React error #31 차단)
 //  - 제출 버튼 외에는 어떤 비동기 호출도 없음
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -80,7 +80,7 @@ export default function Signup() {
   const [employeeCountBand, setEmployeeCountBand] = useState('1-10')
 
   // Step 2 — 플랜·관리자
-  const [desiredPlan, setDesiredPlan] = useState('founding')
+  const [desiredPlan, setDesiredPlan] = useState('bundle')
   const [desiredBillingCycle, setDesiredBillingCycle] = useState('monthly')
   const [desiredCertifications, setDesiredCertifications] = useState(['KGMP'])
   const [adminEmail, setAdminEmail] = useState('')
@@ -92,6 +92,9 @@ export default function Signup() {
   const [paying, setPaying] = useState(false)
   const [payNotice, setPayNotice] = useState('')
   const [vaInfo, setVaInfo] = useState(null)
+  const [quoteAmount, setQuoteAmount] = useState(0)
+  const [quoteUnit, setQuoteUnit] = useState('원 / 월')
+  const calcRef = useRef(null)
 
   const validateStep1 = () => {
     if (!companyName.trim()) return '회사명을 입력해주세요.'
@@ -104,7 +107,6 @@ export default function Signup() {
     if (!adminEmail.trim()) return '관리자 이메일을 입력해주세요.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return '이메일 형식이 올바르지 않습니다.'
     if (!adminName.trim()) return '관리자 이름을 입력해주세요.'
-    if (desiredCertifications.length === 0) return '희망 인증을 최소 1개 선택해주세요.'
     return ''
   }
 
@@ -166,9 +168,36 @@ export default function Signup() {
     })
   }
 
+  const readCalc = () => {
+    try {
+      const doc = calcRef.current && calcRef.current.contentDocument
+      if (!doc) return null
+      const planEl = doc.querySelector('.plan.sel')
+      const cycleBtn = doc.querySelector('#billing button.on')
+      const plan = planEl && planEl.dataset.plan
+      const cycle = (cycleBtn && cycleBtn.dataset.cycle) || 'monthly'
+      const big = (doc.getElementById('totalBig') || {}).textContent || '0'
+      const amount = parseInt(big.replace(/[^0-9]/g, ''), 10) || 0
+      const unit = (((doc.getElementById('totalUnit') || {}).textContent) || '원 / 월').trim()
+      return { plan, cycle, amount, unit }
+    } catch (e) {
+      return null
+    }
+  }
+
+  const CERT_BY_PLAN = { kgmp: ['KGMP'], iso: ['ISO 13485'], bundle: ['KGMP', 'ISO 13485'] }
+
   const handleToStep3 = () => {
-    const msg = validateStep2()
-    if (msg) { setError(msg); return }
+    const q = readCalc()
+    if (!q || !q.plan) { setError('위 요금제 계산기에서 플랜을 선택해주세요.'); return }
+    setDesiredPlan(q.plan)
+    setDesiredBillingCycle(q.cycle)
+    setQuoteAmount(q.amount)
+    setQuoteUnit(q.unit)
+    setDesiredCertifications(CERT_BY_PLAN[q.plan] || ['KGMP'])
+    if (!adminEmail.trim()) { setError('관리자 이메일을 입력해주세요.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) { setError('이메일 형식이 올바르지 않습니다.'); return }
+    if (!adminName.trim()) { setError('관리자 이름을 입력해주세요.'); return }
     setError('')
     setPayNotice('')
     setStep(3)
@@ -199,7 +228,7 @@ export default function Signup() {
             billingKey: res.billingKey,
             plan: desiredPlan,
             cycle: desiredBillingCycle,
-            amount: priceFor(desiredPlan, desiredBillingCycle).amount,
+            amount: quoteAmount,
             company: companyName.trim(),
             admin: { name: adminName.trim(), email: adminEmail.trim().toLowerCase(), phone: adminPhone.trim() },
           },
@@ -222,7 +251,7 @@ export default function Signup() {
         channelKey: PORTONE_CHANNEL_KEY,
         paymentId: randomId(),
         orderName: `Qualytree ${planLabel(desiredPlan)} (${desiredBillingCycle === 'annual' ? '연납' : '월납'})`,
-        totalAmount: p.amount,
+        totalAmount: quoteAmount,
         currency: 'CURRENCY_KRW',
         payMethod: 'VIRTUAL_ACCOUNT',
         virtualAccount: { accountExpiry: { validHours: 72 } },
@@ -326,69 +355,15 @@ export default function Signup() {
             <div style={styles.calcWrap}>
               <div style={styles.calcHead}>
                 <span style={styles.calcTitle}>요금제 선택</span>
-                <span style={styles.calcHint}>구성을 바꿔보며 예상 견적을 확인한 뒤, 아래에서 희망 플랜을 선택하세요.</span>
+                <span style={styles.calcHint}>원하는 구성을 선택하면 비용이 자동 계산됩니다. 아래 담당자 정보를 입력하고 결제로 진행하세요.</span>
               </div>
               <iframe
+                ref={calcRef}
                 src="/pricing-calculator.html"
                 title="Qualytree 요금 계산기"
                 style={styles.calcFrame}
               />
             </div>
-
-            <Field label="희망 플랜 *">
-              <div style={styles.planGrid}>
-                {PLANS.map((p) => (
-                  <div
-                    key={p.code}
-                    onClick={() => setDesiredPlan(p.code)}
-                    style={{
-                      ...styles.planCard,
-                      ...(desiredPlan === p.code ? styles.planCardActive : {}),
-                    }}
-                  >
-                    <div style={styles.planLabel}>{p.label}</div>
-                    <div style={styles.planDesc}>{p.desc}</div>
-                  </div>
-                ))}
-              </div>
-            </Field>
-
-            <Field label="결제 주기">
-              <div style={styles.radioRow}>
-                <label style={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="cycle"
-                    value="monthly"
-                    checked={desiredBillingCycle === 'monthly'}
-                    onChange={(e) => setDesiredBillingCycle(e.target.value)}
-                  /> 월납
-                </label>
-                <label style={styles.radioLabel}>
-                  <input
-                    type="radio"
-                    name="cycle"
-                    value="annual"
-                    checked={desiredBillingCycle === 'annual'}
-                    onChange={(e) => setDesiredBillingCycle(e.target.value)}
-                  /> 연납 (15% 할인)
-                </label>
-              </div>
-            </Field>
-
-            <Field label="희망 인증 * (복수 선택 가능)">
-              <div style={styles.certRow}>
-                {CERTS.map((c) => (
-                  <label key={c} style={styles.certChip}>
-                    <input
-                      type="checkbox"
-                      checked={desiredCertifications.includes(c)}
-                      onChange={() => toggleCert(c)}
-                    /> {c}
-                  </label>
-                ))}
-              </div>
-            </Field>
 
             <div style={styles.divider} />
 
@@ -440,11 +415,7 @@ export default function Signup() {
               <div style={styles.sumRow}><span>결제 주기</span><b>{desiredBillingCycle === 'annual' ? '연납 (15% 할인)' : '월납'}</b></div>
               <div style={styles.sumTotal}>
                 <span>결제 금액</span>
-                <b>
-                  {priceFor(desiredPlan, desiredBillingCycle).amount === 0
-                    ? '무료'
-                    : won(priceFor(desiredPlan, desiredBillingCycle).amount) + ' ' + priceFor(desiredPlan, desiredBillingCycle).unit}
-                </b>
+                <b>{quoteAmount === 0 ? '무료' : won(quoteAmount) + ' ' + quoteUnit}</b>
               </div>
             </div>
 
