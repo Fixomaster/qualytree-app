@@ -28,7 +28,7 @@ const EMPLOYEE_BANDS = [
 
 const CERTS = ['KGMP', 'ISO 13485', 'FDA QMSR', 'EU MDR', 'MDSAP']
 
-// 요금제 가격 (계산기 모똸 기준)
+// 요금제 가격 (계산기 모델 기준)
 const PLAN_PRICE = { kgmp: 250000, iso: 320000, bundle: 500000, founding: 0 }
 const ANNUAL_DISCOUNT = 0.15
 const PORTONE_STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID
@@ -100,7 +100,7 @@ export default function Signup() {
   }
 
   const validateStep2 = () => {
-    if (!desiredPlan) return '희망 플랜을 선탙해주세요.'
+    if (!desiredPlan) return '희망 플랜을 선택해주세요.'
     if (!adminEmail.trim()) return '관리자 이메일을 입력해주세요.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return '이메일 형식이 올바르지 않습니다.'
     if (!adminName.trim()) return '관리자 이름을 입력해주세요.'
@@ -452,7 +452,7 @@ export default function Signup() {
 
             {desiredPlan === 'founding' ? (
               <div style={styles.payInfo}>
-                Founding(베타 무료) 플랜은 결제 없이 바로 시작됩니다. 정식 청구는 법인 설립 후 변도 안내드립니다.
+                Founding(베타 무료) 플랜은 결제 없이 바로 시작됩니다. 정식 청구는 법인 설립 후 별도 안내드립니다.
               </div>
             ) : (
               <>
