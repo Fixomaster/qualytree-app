@@ -207,7 +207,7 @@ function NextSteps({ navigate, firstCardId }) {
   const steps = [
     { k: 'products', title: '제품 등록', desc: '생산·인증 대상 제품을 등록·확인합니다.', cta: '제품 관리', go: () => navigate('/products'), auto: productCount > 0, autoLabel: productCount + '건' },
     { k: 'members', title: '구성원·권한 배정', desc: '담당자를 추가하고 작업자/검사관/매니저 권한을 지정합니다.', cta: '계정 관리', go: () => navigate('/manager/accounts'), auto: memberCount > 0, autoLabel: memberCount + '명' },
-    { k: 'docs', title: '품질매뉴얼·절차서 작성', desc: '온보딩에서 고른 목차를 실제 문서 내용으로 채웁니다.', cta: '품질 문서', go: () => navigate('/quality') },
+    { k: 'docs', title: '품질매뉴얼·절차서 작성', desc: '온보딩에서 고른 목차를 실제 문서 내용으로 채웁니다.', cta: '품질 문서', go: () => navigate('/documents') },
     { k: 'gmp', title: 'GMP 필수항목 채우기', desc: '각 영역의 미흡(빨강) 항목부터 작성해 점수를 올립니다.', cta: '첫 항목 시작', go: () => navigate(firstCardId ? ('/section/' + firstCardId) : '/dashboard') },
     { k: 'ops', title: '운영 기록 시작', desc: '작업지시 → 배치기록 → 검사 → 부적합(NCR/CAPA) 순으로 기록합니다.', cta: '운영으로', go: () => navigate('/operations') },
     { k: 'audit', title: '내부심사·교육·경영검토', desc: '시스템이 실제로 가동된다는 증빙을 남깁니다. (심사 핵심)', cta: '품질 영역', go: () => navigate('/quality') },
