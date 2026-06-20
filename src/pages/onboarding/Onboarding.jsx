@@ -17,7 +17,47 @@ const CERT_OPTIONS = [
   { id: 'mdsap', label: 'MDSAP', sub: '5개국 단일심사 (준비중)' },
 ]
 
-const DEFAULT_DEPARTMENTS = ['경영', '품질관리(QA)', '품질검사(QC)', '생산/제조', '자재/구매', '인허가(RA)']
+const DEFAULT_ORG = [
+  { id: 'ceo', name: '대표이사', parentId: null },
+  { id: 'rnd', name: '연구개발', parentId: 'ceo' },
+  { id: 'ra', name: 'RA', parentId: 'rnd' },
+  { id: 'qa', name: 'QA', parentId: 'rnd' },
+  { id: 'acc', name: '회계', parentId: 'ceo' },
+  { id: 'sales', name: '영업부', parentId: 'ceo' },
+  { id: 'sdom', name: '국내영업부', parentId: 'sales' },
+  { id: 'sovs', name: '해외영업부', parentId: 'sales' },
+  { id: 'mfg', name: '제조부', parentId: 'ceo' },
+  { id: 'mct', name: 'MCT사업부', parentId: 'mfg' },
+  { id: 'qc', name: 'QC', parentId: 'mfg' },
+  { id: 'purch', name: '구매부', parentId: 'ceo' },
+]
+
+// 식약처 분류 기반 인허가 업종 (대분류 → 중분류)
+const MDCAT = {
+  '기구·기계': ['진료용 기기', '수술용 기기', '정형용품', '영상진단장치', '측정·감시장치', '물리치료·재활기기', '안과용 기기', '내시경·광학기기', '기타'],
+  '의료용품': ['주사기·주사침', '카테터·튜브', '봉합사·결찰재', '수액·수혈세트', '거즈·드레싱', '콘택트렌즈', '기타'],
+  '체외진단의료기기': ['생화학 검사', '면역 검사', '분자진단(NAT)', '혈액·혈당 검사', '자가검사', '기타'],
+  '치과재료': ['충전·수복재료', '인상재', '의치·교정재료', '임플란트', '기타'],
+  '소프트웨어·디지털(SaMD)': ['진단보조 SW', 'AI 영상분석', '환자 모니터링', '디지털치료기기(DTx)', '기타'],
+  '기타': [],
+}
+const MDCAT1 = Object.keys(MDCAT)
+
+// 요금제 (가입 계산기와 동일 모델)
+const ONB_PLANS = [
+  { id: 'kgmp', name: 'KGMP only', monthly: 250000 },
+  { id: 'iso', name: 'ISO 13485 only', monthly: 320000 },
+  { id: 'bundle', name: 'KGMP + ISO 13485', monthly: 500000 },
+]
+const planAmount = (id, cycle) => {
+  const p = ONB_PLANS.find((x) => x.id === id)
+  if (!p) return 0
+  return cycle === 'annual' ? Math.round(p.monthly * 12 * 0.85) : p.monthly
+}
+const planName = (id) => (ONB_PLANS.find((x) => x.id === id) || {}).name || id
+function readSignup() {
+  try { return JSON.parse(localStorage.getItem('qualytree.signup') || '{}') } catch { return {} }
+}
 
 // 절차서 시드 — 회사마다 이름·순서가 다르고 추가/제외될 수 있음
 const SEED_PROCEDURES = [
@@ -40,11 +80,11 @@ const STEPS = [
 
 function defaultState() {
   return {
-    plan: { id: '', cycle: 'monthly', seats: 0, paid: false },
+    plan: (() => { const sg = readSignup(); return { id: sg.plan || '', cycle: sg.cycle || 'monthly' } })(),
     company: { name: '', ceo: '', bizNo: '', licenseNo: '', qmRep: '' },
-    certs: { kgmp: true, iso13485: false, ce: false, fda: false, mdsap: false },
+    certs: (() => { const sg = readSignup(); const m = { 'KGMP': 'kgmp', 'ISO 13485': 'iso13485', 'FDA QMSR': 'fda', 'EU MDR': 'ce', 'MDSAP': 'mdsap' }; const b = { kgmp: true, iso13485: false, ce: false, fda: false, mdsap: false }; (sg.certs || []).forEach((c) => { const k = m[c]; if (k) b[k] = true }); return b })(),
     products: [],
-    departments: DEFAULT_DEPARTMENTS.map((n, i) => ({ id: 'd' + i, name: n })),
+    departments: DEFAULT_ORG.map((n) => ({ ...n })),
     manual: { mode: '', confirmed: false },
     procedures: SEED_PROCEDURES.map((n, i) => ({ id: 'p' + i, name: n, applicable: true, custom: false })),
     members: [],
@@ -171,70 +211,49 @@ export default function Onboarding() {
   )
 }
 
-// ───────── STEP 0: 플랜 · 결제 · 좌석 ─────────
+// ───────── STEP 0: 플랜 (가입 선택값 표시 · 수정 가능) ─────────
 function StepPlan({ state, patch }) {
-  const nav = useNavigate()
-  const [plans] = useState(loadPlans)
-  const sel = state.plan
-  const cycle = sel.cycle || 'monthly'
-  const selected = plans.find((p) => p.id === sel.id)
-  const choose = (p) => patch({ plan: { ...sel, id: p.id, seats: p.seats, paid: false } })
-  const setCycle = (c) => patch({ plan: { ...sel, cycle: c } })
-  const pay = () => patch({ plan: { ...sel, paid: true } })
+  const sel = state.plan || {}
+  const sg = readSignup()
+  const planId = sel.id || sg.plan || 'bundle'
+  const cycle = sel.cycle || sg.cycle || 'monthly'
+  const [editing, setEditing] = useState(!planId)
+  const choose = (id) => patch({ plan: { ...sel, id, cycle } })
+  const setCycle = (c) => patch({ plan: { ...sel, id: planId, cycle: c } })
+  const amount = planAmount(planId, cycle)
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between flex-wrap gap-2">
-        <Section title="플랜 선택" desc="플랜에 따라 기본 제공 좌석(접속 인원)이 확정됩니다. 결제 후 온보딩을 이어가세요." />
-        <button onClick={() => nav('/operator/plans')} className="flex items-center gap-1.5 text-[12px] text-slate-500 hover:text-slate-800 shrink-0">
-          <Settings size={13} /> 운영자: 플랜·요금 관리
-        </button>
-      </div>
-
-      <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-[13px]">
-        <button onClick={() => setCycle('monthly')} className={`px-3 py-1.5 ${cycle === 'monthly' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>월 결제</button>
-        <button onClick={() => setCycle('annual')} className={`px-3 py-1.5 ${cycle === 'annual' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>연 결제 (할인)</button>
-      </div>
-
-      <div className="grid sm:grid-cols-3 gap-3">
-        {plans.map((p) => {
-          const on = sel.id === p.id
-          return (
-            <button key={p.id} onClick={() => choose(p)}
-              className={`relative p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-              {p.recommended && <span className="absolute top-3 right-3 text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white">추천</span>}
-              <div className="text-[15px] font-semibold text-slate-900">{p.name}</div>
-              <div className="mt-1 text-[22px] font-bold text-slate-900 tabular-nums">
-                {won(priceFor(p, cycle))}
-                {!p.custom && <span className="text-[12px] font-normal text-slate-400"> / {cycle === 'annual' ? '년' : '월'}</span>}
-              </div>
-              <div className="text-[11.5px] text-slate-500 mt-0.5">좌석 {p.seats > 0 ? p.seats + '명' : '무제한'}</div>
-              <ul className="mt-2 space-y-1">
-                {(p.features || []).map((f, i) => (
-                  <li key={i} className="flex items-start gap-1.5 text-[12px] text-slate-600"><Check size={12} className="text-emerald-600 mt-0.5 shrink-0" /> {f}</li>
-                ))}
-              </ul>
-            </button>
-          )
-        })}
-      </div>
-
-      {selected && (
+      <Section title="플랜" desc="가입 신청 시 선택한 요금제입니다. 변경이 필요하면 수정하세요. (실제 결제·청구는 가입 신청 단계에서 진행됩니다)" />
+      {!editing ? (
         <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
           <div className="text-[13px] text-slate-700">
-            선택: <b className="text-slate-900">{selected.name}</b> · {cycle === 'annual' ? '연 결제' : '월 결제'} <b className="text-slate-900">{won(priceFor(selected, cycle))}</b>
-            {' '}· 좌석 <b className="text-slate-900">{selected.seats > 0 ? selected.seats + '명' : '무제한'}</b>
+            선택한 플랜: <b className="text-slate-900">{planName(planId)}</b> · {cycle === 'annual' ? '연 결제 (15% 할인)' : '월 결제'} · <b className="text-slate-900">{won(amount)}{cycle === 'annual' ? ' / 년' : ' / 월'}</b>
           </div>
-          {selected.custom ? (
-            <span className="text-[12.5px] text-slate-500">가격 문의형 — 운영팀이 별도 연락드립니다.</span>
-          ) : sel.paid ? (
-            <span className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium"><Check size={15} /> 결제 완료 (데모)</span>
-          ) : (
-            <button onClick={pay} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">결제하기 (데모)</button>
-          )}
+          <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-[13px] font-medium text-slate-700">플랜 수정</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-[13px]">
+            <button onClick={() => setCycle('monthly')} className={`px-3 py-1.5 ${cycle === 'monthly' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>월 결제</button>
+            <button onClick={() => setCycle('annual')} className={`px-3 py-1.5 ${cycle === 'annual' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>연 결제 (15% 할인)</button>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {ONB_PLANS.map((p) => {
+              const on = planId === p.id
+              return (
+                <button key={p.id} onClick={() => choose(p.id)}
+                  className={`p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+                  <div className="text-[15px] font-semibold text-slate-900">{p.name}</div>
+                  <div className="mt-1 text-[20px] font-bold text-slate-900 tabular-nums">{won(planAmount(p.id, cycle))}<span className="text-[12px] font-normal text-slate-400"> / {cycle === 'annual' ? '년' : '월'}</span></div>
+                </button>
+              )
+            })}
+          </div>
+          <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">선택 완료</button>
         </div>
       )}
-      <Banner>실제 결제(PG) 연동은 다음 업데이트에서 붙습니다. 지금은 플랜 선택과 좌석 확정까지 동작합니다.</Banner>
+      <Banner>플랜 변경은 다음 결제 주기부터 반영됩니다.</Banner>
     </div>
   )
 }
@@ -243,12 +262,13 @@ function StepPlan({ state, patch }) {
 function StepInfo({ state, patch, setState }) {
   const c = state.company
   const setC = (k, v) => patch({ company: { ...c, [k]: v } })
+  const [editCerts, setEditCerts] = useState(false)
   const toggleCert = (id) => {
     if (id === 'kgmp') return
     patch({ certs: { ...state.certs, [id]: !state.certs[id] } })
   }
   const addProduct = () => setState((s) => ({
-    ...s, products: [...s.products, { id: uid(), name: '', grade: '2', type: '', classNo: '' }],
+    ...s, products: [...s.products, { id: uid(), name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' }],
   }))
   const setProduct = (id, k, v) => setState((s) => ({
     ...s, products: s.products.map((p) => (p.id === id ? { ...p, [k]: v } : p)),
@@ -267,61 +287,72 @@ function StepInfo({ state, patch, setState }) {
         </div>
       </Section>
 
-      <Section title="인증 선택" desc="KGMP가 기본입니다. 추가로 받을 인증을 선택하면 항목이 자동으로 더해집니다.">
-        <div className="grid sm:grid-cols-2 gap-2">
-          {CERT_OPTIONS.map((ct) => {
-            const on = state.certs[ct.id]
-            return (
-              <button
-                key={ct.id}
-                onClick={() => toggleCert(ct.id)}
-                disabled={ct.required}
-                className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition ${
-                  on ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'
-                } ${ct.required ? 'cursor-default' : ''}`}
-              >
-                <span className={`w-5 h-5 rounded flex items-center justify-center ${on ? 'bg-emerald-500 text-white' : 'border border-slate-300'}`}>
-                  {on && <Check size={13} />}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-medium text-slate-800 flex items-center gap-1.5">
-                    {ct.label}
-                    {ct.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white">기본</span>}
-                  </span>
-                  <span className="block text-[11px] text-slate-500">{ct.sub}</span>
-                </span>
-              </button>
-            )
-          })}
-        </div>
+      <Section title="인증" desc="가입 시 선택한 인증입니다. 추가·변경이 필요하면 수정하세요.">
+        {!editCerts ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {CERT_OPTIONS.filter((ct) => state.certs[ct.id]).map((ct) => (
+              <span key={ct.id} className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800">{ct.label}</span>
+            ))}
+            <button onClick={() => setEditCerts(true)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-[13px] text-slate-700">수정</button>
+          </div>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {CERT_OPTIONS.map((ct) => {
+                const on = state.certs[ct.id]
+                return (
+                  <button key={ct.id} onClick={() => toggleCert(ct.id)} disabled={ct.required}
+                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'} ${ct.required ? 'cursor-default' : ''}`}>
+                    <span className={`w-5 h-5 rounded flex items-center justify-center ${on ? 'bg-emerald-500 text-white' : 'border border-slate-300'}`}>{on && <Check size={13} />}</span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-medium text-slate-800 flex items-center gap-1.5">{ct.label}{ct.required && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-600 text-white">기본</span>}</span>
+                      <span className="block text-[11px] text-slate-500">{ct.sub}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <button onClick={() => setEditCerts(false)} className="mt-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[13px]">완료</button>
+          </>
+        )}
       </Section>
 
-      <Section title="제품 등록" desc="제품과 등급을 먼저 정하면, 그에 맞는 기술문서·절차서 항목이 자동으로 구성됩니다.">
-        <div className="space-y-2">
+      <Section title="제품 등록" desc="제품과 인허가 업종(대분류·중분류)·등급을 정하면 그에 맞는 기술문서·절차서 항목이 자동 구성됩니다. 해당 업종이 없으면 '기타'를 선택해 직접 입력하세요.">
+        <div className="space-y-3">
           {state.products.length === 0 && (
-            <div className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-lg">
-              아직 등록된 제품이 없습니다. 아래 버튼으로 추가하세요.
-            </div>
+            <div className="text-xs text-slate-400 py-3 text-center border border-dashed border-slate-200 rounded-lg">아직 등록된 제품이 없습니다. 아래 버튼으로 추가하세요.</div>
           )}
-          {state.products.map((p) => (
-            <div key={p.id} className="grid grid-cols-12 gap-2 items-center">
-              <input className="col-span-4 input-cell" placeholder="제품명 (예: 골절합용 나사)" value={p.name} onChange={(e) => setProduct(p.id, 'name', e.target.value)} />
-              <select className="col-span-2 input-cell" value={p.grade} onChange={(e) => setProduct(p.id, 'grade', e.target.value)}>
-                <option value="1">1등급</option>
-                <option value="2">2등급</option>
-                <option value="3">3등급</option>
-                <option value="4">4등급</option>
-              </select>
-              <input className="col-span-3 input-cell" placeholder="유형 (예: 인체이식형)" value={p.type} onChange={(e) => setProduct(p.id, 'type', e.target.value)} />
-              <input className="col-span-2 input-cell" placeholder="분류번호" value={p.classNo} onChange={(e) => setProduct(p.id, 'classNo', e.target.value)} />
-              <button onClick={() => delProduct(p.id)} className="col-span-1 flex justify-center text-slate-400 hover:text-rose-600">
-                <Trash2 size={15} />
-              </button>
-            </div>
-          ))}
-          <button onClick={addProduct} className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium mt-1">
-            <Plus size={15} /> 제품 추가
-          </button>
+          {state.products.map((p) => {
+            const etcMode = p.cat1 === '기타' || p.cat2 === '기타'
+            return (
+              <div key={p.id} className="border border-slate-200 rounded-lg p-3 space-y-2">
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <input className="col-span-6 input-cell" placeholder="제품명 (예: 골절합용 나사)" value={p.name} onChange={(e) => setProduct(p.id, 'name', e.target.value)} />
+                  <select className="col-span-3 input-cell" value={p.grade} onChange={(e) => setProduct(p.id, 'grade', e.target.value)}>
+                    <option value="1">1등급</option><option value="2">2등급</option><option value="3">3등급</option><option value="4">4등급</option>
+                  </select>
+                  <input className="col-span-2 input-cell" placeholder="분류번호" value={p.classNo} onChange={(e) => setProduct(p.id, 'classNo', e.target.value)} />
+                  <button onClick={() => delProduct(p.id)} className="col-span-1 flex justify-center text-slate-400 hover:text-rose-600"><Trash2 size={15} /></button>
+                </div>
+                <div className="grid grid-cols-12 gap-2 items-center">
+                  <select className="col-span-4 input-cell" value={p.cat1 || ''} onChange={(e) => setProduct(p.id, 'cat1', e.target.value)}>
+                    <option value="">대분류 선택</option>
+                    {MDCAT1.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+                  </select>
+                  <select className="col-span-4 input-cell" value={p.cat2 || ''} onChange={(e) => setProduct(p.id, 'cat2', e.target.value)} disabled={!p.cat1 || p.cat1 === '기타'}>
+                    <option value="">중분류 선택</option>
+                    {(MDCAT[p.cat1] || []).map((cc) => <option key={cc} value={cc}>{cc}</option>)}
+                  </select>
+                  {etcMode ? (
+                    <input className="col-span-4 input-cell" placeholder="기타 업종 직접 입력" value={p.etc || ''} onChange={(e) => setProduct(p.id, 'etc', e.target.value)} />
+                  ) : (
+                    <div className="col-span-4 text-[11px] text-slate-400 self-center">인허가 업종 분류</div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          <button onClick={addProduct} className="flex items-center gap-1.5 text-[13px] text-emerald-700 font-medium mt-1"><Plus size={15} /> 제품 추가</button>
         </div>
       </Section>
       <CellStyle />
@@ -329,33 +360,53 @@ function StepInfo({ state, patch, setState }) {
   )
 }
 
-// ───────── STEP 2: 조직도 ─────────
+// ───────── STEP 2: 조직도 (계층형) ─────────
 function StepOrg({ state, setState }) {
+  const nodes = state.departments || []
   const [name, setName] = useState('')
+  const [parentId, setParentId] = useState(() => (nodes[0] ? nodes[0].id : ''))
   const add = () => {
     const n = name.trim()
     if (!n) return
-    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n }] }))
+    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: parentId || null }] }))
     setName('')
   }
-  const del = (id) => setState((s) => ({ ...s, departments: s.departments.filter((d) => d.id !== id) }))
-  return (
-    <Section title="조직도 · 부서" desc="부서를 등록하면 권한 매트릭스와 역할별 대시보드가 이 부서 기준으로 구성됩니다.">
-      <div className="flex flex-wrap gap-2 mb-3">
-        {state.departments.map((d) => (
-          <span key={d.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-50 border border-violet-200 text-[13px] text-violet-800">
-            {d.name}
-            <button onClick={() => del(d.id)} className="text-violet-400 hover:text-rose-600"><Trash2 size={13} /></button>
-          </span>
-        ))}
+  const del = (id) => setState((s) => {
+    const toDel = new Set([id])
+    let changed = true
+    while (changed) {
+      changed = false
+      s.departments.forEach((d) => { if (d.parentId && toDel.has(d.parentId) && !toDel.has(d.id)) { toDel.add(d.id); changed = true } })
+    }
+    return { ...s, departments: s.departments.filter((d) => !toDel.has(d.id)) }
+  })
+  const roots = nodes.filter((d) => !d.parentId)
+  const childrenOf = (pid) => nodes.filter((d) => d.parentId === pid)
+  const renderNode = (d, depth) => (
+    <div key={d.id}>
+      <div className="flex items-center gap-2 py-1" style={{ paddingLeft: depth * 22 }}>
+        {depth > 0 && <span className="text-slate-300 text-[13px]">└</span>}
+        <span className="px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-[13px] text-violet-800">{d.name}</span>
+        <button onClick={() => del(d.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={13} /></button>
       </div>
-      <div className="flex gap-2 max-w-md">
-        <input
-          className="input-cell" placeholder="부서명 추가 (예: 연구개발)"
-          value={name} onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-        />
-        <button onClick={add} className="flex items-center gap-1 px-3 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
+      {childrenOf(d.id).map((cc) => renderNode(cc, depth + 1))}
+    </div>
+  )
+
+  return (
+    <Section title="조직도" desc="상위 부서를 선택하고 하위 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
+      <div className="border border-slate-200 rounded-lg p-3 mb-4 bg-white">
+        {roots.length === 0 ? (
+          <div className="text-xs text-slate-400 text-center py-3">조직도가 비어 있습니다. 아래에서 최상위 부서부터 추가하세요.</div>
+        ) : roots.map((r) => renderNode(r, 0))}
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <select className="input-cell" style={{ maxWidth: 220 }} value={parentId} onChange={(e) => setParentId(e.target.value)}>
+          <option value="">최상위 (부모 없음)</option>
+          {nodes.map((d) => <option key={d.id} value={d.id}>{d.name} 하위</option>)}
+        </select>
+        <input className="input-cell" style={{ maxWidth: 240 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <button onClick={add} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
       <CellStyle />
     </Section>
