@@ -193,6 +193,75 @@ function PanelHandover({ ctx }) {
   );
 }
 
+function NextSteps({ navigate, firstCardId }) {
+  const [g, setG] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('qualytree.guide') || '{}') } catch { return {} }
+  });
+  const save = (next) => { setG(next); try { localStorage.setItem('qualytree.guide', JSON.stringify(next)) } catch { /* ignore */ } };
+  const ob = (() => { try { return JSON.parse(localStorage.getItem('qualytree.onboarding') || '{}') } catch { return {} } })();
+  const productCount = (ob.products || []).length;
+  const memberCount = (ob.members || []).length;
+  const checks = g.checks || {};
+  const toggle = (k) => save({ ...g, checks: { ...checks, [k]: !checks[k] } });
+
+  const steps = [
+    { k: 'products', title: '제품 등록', desc: '생산·인증 대상 제품을 등록·확인합니다.', cta: '제품 관리', go: () => navigate('/products'), auto: productCount > 0, autoLabel: productCount + '건' },
+    { k: 'members', title: '구성원·권한 배정', desc: '담당자를 추가하고 작업자/검사관/매니저 권한을 지정합니다.', cta: '계정 관리', go: () => navigate('/manager/accounts'), auto: memberCount > 0, autoLabel: memberCount + '명' },
+    { k: 'docs', title: '품질매뉴얼·절차서 작성', desc: '온보딩에서 고른 목차를 실제 문서 내용으로 채웁니다.', cta: '품질 문서', go: () => navigate('/quality') },
+    { k: 'gmp', title: 'GMP 필수항목 채우기', desc: '각 영역의 미흡(빨강) 항목부터 작성해 점수를 올립니다.', cta: '첫 항목 시작', go: () => navigate(firstCardId ? ('/section/' + firstCardId) : '/dashboard') },
+    { k: 'ops', title: '운영 기록 시작', desc: '작업지시 → 배치기록 → 검사 → 부적합(NCR/CAPA) 순으로 기록합니다.', cta: '운영으로', go: () => navigate('/operations') },
+    { k: 'audit', title: '내부심사·교육·경영검토', desc: '시스템이 실제로 가동된다는 증빙을 남깁니다. (심사 핵심)', cta: '품질 영역', go: () => navigate('/quality') },
+  ];
+  const isDone = (st) => st.auto || !!checks[st.k];
+  const doneN = steps.filter(isDone).length;
+  const nextIdx = steps.findIndex((st) => !isDone(st));
+
+  if (g.hidden) {
+    return (
+      <div className="max-w-7xl mx-auto mb-4 text-right">
+        <button onClick={() => save({ ...g, hidden: false })} className="text-xs text-emerald-700 hover:underline">시작 가이드 다시 보기 ({doneN}/{steps.length}) →</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto mb-5 rounded-xl border border-emerald-200 bg-emerald-50/60 p-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <div className="text-sm font-semibold text-emerald-900">시작 가이드 · 다음 할 일</div>
+          <div className="text-xs text-emerald-700 mt-0.5">온보딩 다음 단계입니다. 위에서부터 차례로 진행하세요. ({doneN}/{steps.length} 완료)</div>
+        </div>
+        <button onClick={() => save({ ...g, hidden: true })} className="text-xs text-emerald-700 hover:underline shrink-0">숨기기</button>
+      </div>
+      <div className="h-1.5 w-full rounded-full bg-emerald-100 mb-3 overflow-hidden">
+        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: Math.round((doneN / steps.length) * 100) + '%' }} />
+      </div>
+      <div className="grid gap-2">
+        {steps.map((st, i) => {
+          const done = isDone(st);
+          const isNext = i === nextIdx;
+          return (
+            <div key={st.k} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 bg-white ${done ? 'border-emerald-200' : isNext ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-slate-200'}`}>
+              <button onClick={() => !st.auto && toggle(st.k)} title={st.auto ? '자동 완료' : '완료 표시'} className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'} ${st.auto ? 'cursor-default' : ''}`}>
+                {done ? '✓' : i + 1}
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="text-[13px] font-medium text-slate-800 flex items-center gap-2 flex-wrap">
+                  {st.title}
+                  {isNext && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">지금 할 차례</span>}
+                  {st.auto && done && <span className="text-[10px] text-emerald-600">{st.autoLabel}</span>}
+                </div>
+                <div className="text-[11.5px] text-slate-500 mt-0.5">{st.desc}</div>
+              </div>
+              <button onClick={st.go} className={`shrink-0 text-[12px] font-medium px-3 py-1.5 rounded-lg ${isNext ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-slate-300 text-slate-700 hover:bg-slate-50'}`}>{st.cta} →</button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [ctx, setCtx] = useState(() => loadContext());
@@ -236,7 +305,7 @@ export default function Dashboard() {
           const d = JSON.parse(localStorage.getItem('qualytree.onboarding') || 'null')?.done || {}
           n = ['plan', 'info', 'org', 'manual', 'procedures', 'accounts'].filter((k) => d[k]).length
         } catch { n = 0 }
-        if (n >= 6) return null
+        if (n >= 6) return <NextSteps navigate={navigate} firstCardId={row1[0]?.cardId} />
         return (
           <div className="max-w-7xl mx-auto mb-4">
             <button onClick={() => navigate('/onboarding')} className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 transition text-left">
