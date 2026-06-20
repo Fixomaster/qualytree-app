@@ -16,6 +16,7 @@ import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
 import ProductsHub from './pages/products/ProductsHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
+import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
 import { auth } from './lib/auth'
 
@@ -141,6 +142,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <RegulatoryHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/documents"
+        element={
+          <ProtectedRoute>
+            <Documents />
           </ProtectedRoute>
         }
       />
