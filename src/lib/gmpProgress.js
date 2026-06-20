@@ -60,8 +60,12 @@ export function loadContext() {
   };
 
   const onboarding = safe('onboarding', {});
-  const products = safe('products', []);
-  const certs = safe('certifications', []);
+  const ob = safe('qualytree.onboarding', {});           // 실제 온보딩 저장소
+  const obCerts = ob.certs || {};                         // { kgmp, iso13485, ce, fda, mdsap } 불리언
+  const members = Array.isArray(ob.members) ? ob.members : [];
+  const products = (Array.isArray(ob.products) && ob.products.length) ? ob.products : safe('products', []);
+  const certs = safe('certifications', []);               // 레거시 호환
+  const certOn = (k, tag) => obCerts[k] === true || certs.includes(tag);
   const procedures = safe('procedures', {});
   const decisionLog = safe('decisionLog', []);
   const ccrLog = safe('ccrLog', []);
@@ -70,7 +74,7 @@ export function loadContext() {
   return {
     // 회사 속성 (①QMS C 활성화 트리거)
     company: {
-      employeeCount: onboarding.employeeCount ?? 0,
+      employeeCount: onboarding.employeeCount ?? members.length ?? 0,
       sites: onboarding.sites ?? [],
       multiSite: (onboarding.sites?.length ?? 0) > 1,
       usesOutsourcedProcess: onboarding.outsourcing?.uses ?? null, // null | true | false
@@ -81,29 +85,29 @@ export function loadContext() {
 
     // 인증 선택 (대부분 C 활성화 트리거)
     certifications: {
-      iso13485: certs.includes('ISO13485'),
-      fdaQmsr: certs.includes('FDA_QMSR'),
-      kgmp: certs.includes('KGMP'),
-      euMdr: certs.includes('EU_MDR'),
-      pmda: certs.includes('PMDA'),
-      nmpa: certs.includes('NMPA'),
-      mdsap: certs.includes('MDSAP'),
+      iso13485: certOn('iso13485', 'ISO13485'),
+      fdaQmsr: certOn('fda', 'FDA_QMSR'),
+      kgmp: certOn('kgmp', 'KGMP'),
+      euMdr: certOn('ce', 'EU_MDR'),
+      pmda: certOn('pmda', 'PMDA'),
+      nmpa: certOn('nmpa', 'NMPA'),
+      mdsap: certOn('mdsap', 'MDSAP'),
     },
 
     // 제품 속성 집계 (조건부 트리거)
     products: {
       list: products,
-      hasImplant: products.some(p => p.category === 'implant'),
+      hasImplant: products.some(p => p.category === 'implant' || /임플란트/.test(p.cat2 || '')),
       hasSterile: products.some(p => p.sterile === true),
       hasCleanRoom: products.some(p => p.cleanRoom === true),
-      hasSoftware: products.some(p => p.hasSoftware === true),
-      hasAI: products.some(p => p.aiMl === true),
+      hasSoftware: products.some(p => p.hasSoftware === true || /(소프트웨어|SaMD|SW)/i.test(p.cat1 || '')),
+      hasAI: products.some(p => p.aiMl === true || /AI/i.test((p.cat1 || '') + (p.cat2 || ''))),
       hasNetworking: products.some(p => p.networkConnected === true),
       hasInstallation: products.some(p => p.requiresInstallation === true),
       hasServicing: products.some(p => p.requiresServicing === true),
       hasPatientContact: products.some(p => p.patientContact === true),
       hasUserInterface: products.some(p => p.hasUserInterface !== false), // 기본값 true
-      hasClassIII: products.some(p => p.fdaClass === 'III'),
+      hasClassIII: products.some(p => p.fdaClass === 'III' || p.grade === '4'),
       hasClassIIa_plus: products.some(p => ['IIa', 'IIb', 'III'].includes(p.mdrClass)),
       hasFDAClassI_DesignExempt: products.some(p => p.fdaClass === 'I' && p.designControlExempt === true),
       anyProductRequiresClinicalTrial: products.some(p => p.requiresClinicalTrial === true),
