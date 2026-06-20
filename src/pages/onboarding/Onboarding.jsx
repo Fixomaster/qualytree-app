@@ -130,7 +130,12 @@ export default function Onboarding() {
 
   const patch = (p) => setState((s) => ({ ...s, ...p }))
   const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: true } }))
-  const markAllDone = () => setState((s) => ({ ...s, done: STEPS.reduce((o, st) => ((o[st.key] = true), o), {}) }))
+  const finishOnboarding = () => {
+    const ns = { ...state, done: STEPS.reduce((o, st) => ((o[st.key] = true), o), {}) }
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(ns)) } catch { /* ignore */ }
+    setState(ns)
+    nav('/dashboard')
+  }
 
   const doneCount = STEPS.filter((s) => state.done[s.key]).length
   const progress = Math.round((doneCount / STEPS.length) * 100)
@@ -139,7 +144,7 @@ export default function Onboarding() {
   const goStep = (i) => { markDone(cur.key); setStep(i) }
   const goNext = () => {
     if (step < STEPS.length - 1) { markDone(cur.key); setStep(step + 1) }
-    else { markAllDone(); nav('/dashboard') }
+    else finishOnboarding()
   }
   const goPrev = () => { if (step > 0) { markDone(cur.key); setStep(step - 1) } }
 
