@@ -16,6 +16,7 @@ import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
 import ProductsHub from './pages/products/ProductsHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
+import PreviewHub from './pages/PreviewHub'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -143,6 +144,7 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/preview" element={<PreviewHub />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
