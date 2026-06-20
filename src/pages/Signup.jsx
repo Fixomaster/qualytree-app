@@ -158,6 +158,7 @@ export default function Signup() {
       return
     }
 
+    try { localStorage.setItem('qualytree.signup', JSON.stringify({ plan: desiredPlan, cycle: desiredBillingCycle, certs: desiredCertifications })) } catch (e) {}
     navigate('/signup/success', {
       state: {
         companyName: companyName.trim(),
