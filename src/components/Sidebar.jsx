@@ -6,6 +6,7 @@ import {
   Workflow,
   ShieldCheck,
   FileCheck2,
+  FileText,
   HelpCircle,
   Settings,
   GitBranch,
@@ -19,6 +20,7 @@ const NAV = [
   { to: '/products', label: '제품·공정', en: 'Products & Processes', icon: PackageSearch, area: 'ONB' },
   { to: '/operations', label: '현장 운영', en: 'Operations', icon: Workflow, area: 'OPS' },
   { to: '/quality', label: '품질·NCR', en: 'Quality & NCR', icon: ShieldCheck, area: 'QMS' },
+  { to: '/documents', label: '품질 문서', en: 'Documents', icon: FileText, area: 'DOC' },
   { to: '/regulatory', label: '인허가', en: 'Regulatory', icon: FileCheck2, area: 'RA' },
   { to: '/tree', label: 'Quality Tree', en: 'Quality Tree', icon: GitBranch, area: 'TREE' },
 ]
