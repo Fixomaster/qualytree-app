@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download } from 'lucide-react'
+import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload } from 'lucide-react'
 import { translateToEn } from '../lib/translate'
 
 const OB_KEY = 'qualytree.onboarding'
@@ -34,6 +34,18 @@ function bilingualDocHtml(title, sections) {
   return "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>" +
     escHtml(title) + "</title></head><body><h1 style=\"font-family:Malgun Gothic,sans-serif;font-size:16pt;color:#16352b\">" + escHtml(title) + "</h1>" + body + "</body></html>"
 }
+// .docx 텍스트 추출용 mammoth — CDN 런타임 로드(번들/의존성 불필요)
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve(window.mammoth)
+  return new Promise((resolve, reject) => {
+    const sc = document.createElement('script')
+    sc.src = 'https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js'
+    sc.onload = () => resolve(window.mammoth)
+    sc.onerror = () => reject(new Error('문서 변환 모듈(mammoth) 로드 실패 — 네트워크를 확인하세요.'))
+    document.head.appendChild(sc)
+  })
+}
+
 function downloadDoc(filename, html) {
   const blob = new Blob(['﻿' + html], { type: 'application/msword' })
   const url = URL.createObjectURL(blob)
@@ -203,6 +215,26 @@ export default function Documents() {
     window.alert(list.length + '개 장을 각각의 .doc 파일로 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
   }
 
+  // 기존 문서 업로드 → 본문(한글)에 채움 (.docx는 mammoth로 텍스트 추출). 이후 편집·번역·내보내기·영문일괄에 그대로 포함.
+  const onUpload = async (it, file) => {
+    const r = docs[it.id] || {}
+    if (r.content && !window.confirm('이미 작성된 내용이 있습니다. 업로드한 문서로 덮어쓸까요?')) return
+    try {
+      let text = ''
+      if (/\.docx$/i.test(file.name)) {
+        const mammoth = await loadMammoth()
+        const ab = await file.arrayBuffer()
+        const res = await mammoth.extractRawText({ arrayBuffer: ab })
+        text = (res && res.value) || ''
+      } else {
+        text = await file.text()
+      }
+      if (!text.trim()) { window.alert('문서에서 텍스트를 추출하지 못했습니다.\n지원: .docx / .txt / .md (구버전 .doc·.hwp·스캔 PDF는 미지원 — .docx로 저장 후 올려주세요)'); return }
+      setContent(it.id, text); setOpenId(it.id)
+      window.alert('업로드 완료. 내용을 검토·수정한 뒤, 상단 "영문 일괄 생성·갱신" 또는 문서별 "영문 생성"으로 영문을 만들 수 있어요.')
+    } catch (e) { window.alert('업로드 처리 실패: ' + ((e && e.message) || e)) }
+  }
+
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
   const genOne = (it) => {
     if (docs[it.id]?.content && !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
@@ -324,7 +356,11 @@ export default function Documents() {
                           <div className="px-3 pb-3">
                             {r.content && <ApprovalLine r={r} />}
                             {editable && (
-                              <div className="flex justify-end mb-2">
+                              <div className="flex justify-end gap-2 mb-2">
+                                <label className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer">
+                                  <Upload size={13} /> 기존 문서 업로드
+                                  <input type="file" accept=".docx,.txt,.md,.text,text/plain" className="hidden" onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) onUpload(it, f); e.target.value = '' }} />
+                                </label>
                                 <button onClick={() => genOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50">
                                   <Sparkles size={13} /> AI 초안 생성
                                 </button>
