@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Save, RotateCcw, ArrowLeft, Check } from 'lucide-react'
-import { loadPlans, savePlans, resetPlans, DEFAULT_PLANS, priceFor, won, CERT_DEFS } from '../../lib/plans'
+import { loadPlans, savePlans, resetPlans, DEFAULT_PLANS, priceFor, won, CERT_DEFS, syncPlansFromServer, savePlansToServer } from '../../lib/plans'
 import { isPlatformOperator } from '../../lib/supabase'
 
 const uid = () => 'plan_' + Math.random().toString(36).slice(2, 8)
@@ -17,6 +17,7 @@ export default function PlanAdmin() {
       try {
         const op = await isPlatformOperator()
         if (alive) setAuthState(op === true ? 'ok' : 'denied')
+        try { const sp = await syncPlansFromServer(); if (alive && Array.isArray(sp)) setPlans(sp) } catch { /* ignore */ }
       } catch {
         if (alive) setAuthState('denied')
       }
@@ -34,7 +35,11 @@ export default function PlanAdmin() {
     setPlans((ps) => [...ps, { id: uid(), name: '새 플랜', monthly: 0, annualDiscountPct: 0, seats: 1, certs: [], recommended: false, custom: false, features: [] }])
   }
   const delPlan = (id) => { setSaved(false); setPlans((ps) => ps.filter((p) => p.id !== id)) }
-  const onSave = () => { savePlans(plans); setSaved(true) }
+  const onSave = async () => {
+    savePlans(plans); setSaved(true)
+    const ok = await savePlansToServer(plans)
+    if (!ok) window.alert('로컬에는 저장됐지만 서버 저장에 실패했습니다.\n운영자 로그인 상태·네트워크를 확인하세요. (전 고객 공유에는 서버 저장이 필요합니다)')
+  }
   const onReset = () => { resetPlans(); setPlans(DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features], certs: [...(p.certs || [])] }))); setSaved(false) }
 
   if (authState === 'checking') {

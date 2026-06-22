@@ -4,7 +4,7 @@ import {
   Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
   Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search,
 } from 'lucide-react'
-import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_CERT_IDS, certMapForPlan, planForCertIds, planById } from '../../lib/plans'
+import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_CERT_IDS, certMapForPlan, planForCertIds, planById, syncPlansFromServer } from '../../lib/plans'
 import { mfds } from '../../lib/mfds'
 
 const STORE_KEY = 'qualytree.onboarding'
@@ -119,6 +119,10 @@ export default function Onboarding() {
   useEffect(() => {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)) } catch { /* ignore */ }
   }, [state])
+
+  // 서버(Supabase)에서 최신 플랜을 받아 캐시 갱신 후 재렌더 (운영자 편집 전 고객 반영)
+  const [, setPlanSync] = useState(0)
+  useEffect(() => { syncPlansFromServer().then(() => setPlanSync((x) => x + 1)).catch(() => {}) }, [])
 
   const patch = (p) => setState((s) => ({ ...s, ...p }))
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
