@@ -4,45 +4,84 @@
 
 const STORE_KEY = 'qualytree.plans'
 
+// 고객 플랜 단일 소스 (가입·온보딩·운영자 편집이 모두 이걸 사용)
+// certs: 플랜에 포함된 인증 id 목록 (CERT_DEFS 참조). 플랜↔인증 연동의 근거.
 export const DEFAULT_PLANS = [
   {
-    id: 'starter',
-    name: 'Starter',
-    monthly: 99000,
-    annualDiscountPct: 20,
+    id: 'kgmp',
+    name: 'KGMP only',
+    monthly: 250000,
+    annualDiscountPct: 15,
     seats: 5,
+    certs: ['kgmp'],
     recommended: false,
     custom: false,
-    features: ['QMS 문서 (AI 초안)', 'GMP 기록 전체', '데이터 이전 (셀프)'],
+    features: ['KGMP 품질시스템 전체', 'GMP 기록·전자배치기록', '문서 AI 초안'],
   },
   {
-    id: 'pro',
-    name: 'Professional',
-    monthly: 249000,
-    annualDiscountPct: 20,
-    seats: 20,
+    id: 'iso',
+    name: 'ISO 13485 only',
+    monthly: 320000,
+    annualDiscountPct: 15,
+    seats: 5,
+    certs: ['iso13485'],
+    recommended: false,
+    custom: false,
+    features: ['ISO 13485 QMS 전체', 'GMP 기록·전자배치기록', '문서 AI 초안'],
+  },
+  {
+    id: 'bundle',
+    name: 'KGMP + ISO 13485',
+    monthly: 500000,
+    annualDiscountPct: 15,
+    seats: 10,
+    certs: ['kgmp', 'iso13485'],
     recommended: true,
     custom: false,
-    features: ['Starter 전체', '인허가 기술문서', 'GMP 심사관 열람'],
+    features: ['KGMP + ISO 13485 통합 매핑', '인허가 기술문서', 'GMP 심사관 열람 모드'],
   },
   {
-    id: 'enterprise',
-    name: 'Enterprise',
+    id: 'founding',
+    name: 'Founding (베타 무료)',
     monthly: 0,
     annualDiscountPct: 0,
-    seats: 0, // 0 = 무제한
+    seats: 10,
+    certs: ['kgmp', 'iso13485'],
     recommended: false,
-    custom: true, // 가격 문의형
-    features: ['Professional 전체', '데이터 이전 (대행)', 'CE/FDA 모듈(예정)', '전담 컨설턴트', 'SLA 보장'],
+    custom: false,
+    features: ['베타 기간 무료', '법인 설립 후 첫 청구', '전 기능 체험'],
   },
 ]
+
+// 인증 정의 — 플랜에 편입 가능한 인증(planAvailable)과 준비중 인증 구분
+export const CERT_DEFS = [
+  { id: 'kgmp', label: 'KGMP (의료기기 GMP)', sub: '식약처 · 기본', planAvailable: true },
+  { id: 'iso13485', label: 'ISO 13485:2016', sub: '국제 품질경영시스템', planAvailable: true },
+  { id: 'ce', label: 'CE MDR', sub: '유럽 (준비중)', planAvailable: false },
+  { id: 'fda', label: 'FDA QMSR', sub: '미국 (준비중)', planAvailable: false },
+  { id: 'mdsap', label: 'MDSAP', sub: '5개국 단일심사 (준비중)', planAvailable: false },
+]
+
+// 가입(Signup) 저장값 등에서 쓰는 라벨 → id 매핑
+export const CERT_LABEL_TO_ID = {
+  'KGMP': 'kgmp',
+  'ISO 13485': 'iso13485',
+  'ISO 13485:2016': 'iso13485',
+  'FDA QMSR': 'fda',
+  'FDA 510(k)': 'fda',
+  'EU MDR': 'ce',
+  'CE MDR': 'ce',
+  'MDSAP': 'mdsap',
+}
+export const PLAN_AVAILABLE_CERT_IDS = CERT_DEFS.filter((c) => c.planAvailable).map((c) => c.id)
 
 export function loadPlans() {
   try {
     const raw = localStorage.getItem(STORE_KEY)
     if (raw) {
       const p = JSON.parse(raw)
-      if (Array.isArray(p) && p.length) return p
+      // certs 필드가 있는 신모델만 사용(구 starter/pro/enterprise 저장본은 무시하고 기본값으로 마이그레이션)
+      if (Array.isArray(p) && p.length && p.every((x) => Array.isArray(x.certs))) return p
     }
   } catch { /* ignore */ }
   return DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features] }))
@@ -72,4 +111,31 @@ export function won(n) {
 export function seatLabel(plan) {
   if (!plan) return '-'
   return plan.seats > 0 ? `${plan.seats}명` : '무제한'
+}
+
+// ── 플랜 ↔ 인증 연동 헬퍼 ──────────────────────────────────────────────
+
+// 플랜이 포함하는 인증을 불리언 맵으로 (모든 CERT_DEFS 키 포함; 준비중은 false)
+export function certMapForPlan(plan) {
+  const on = new Set((plan && plan.certs) || [])
+  const m = {}
+  CERT_DEFS.forEach((c) => { m[c.id] = on.has(c.id) })
+  return m
+}
+
+// 켜진 인증 id 집합에 정확히 부합하는 플랜 찾기(플랜편입 가능 인증 기준). 없으면 null
+export function planForCertIds(idsOn, plans) {
+  const avail = new Set(PLAN_AVAILABLE_CERT_IDS)
+  const want = new Set((idsOn || []).filter((id) => avail.has(id)))
+  const list = plans || loadPlans()
+  return (
+    list.find((p) => {
+      const pc = (p.certs || []).filter((id) => avail.has(id))
+      return pc.length === want.size && pc.every((id) => want.has(id))
+    }) || null
+  )
+}
+
+export function planById(id, plans) {
+  return (plans || loadPlans()).find((p) => p.id === id) || null
 }

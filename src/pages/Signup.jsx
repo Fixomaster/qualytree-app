@@ -11,13 +11,10 @@ import { useState, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { DEFAULT_PLANS } from '../lib/plans'
 
-const PLANS = [
-  { code: 'kgmp',     label: 'KGMP only',         desc: '국내 GMP 품질시스템 · 월 250,000원~' },
-  { code: 'iso',      label: 'ISO 13485 only',    desc: '국제 QMS 표준 · 월 320,000원~' },
-  { code: 'bundle',   label: 'KGMP + ISO 13485',  desc: '통합 운영 · 15% OFF · 월 500,000원~' },
-  { code: 'founding', label: 'Founding (베타 무료)', desc: '베타 무료 (법인 설립 후 첫 청구)' },
-]
+// 플랜은 lib/plans 단일 소스에서 도출 (운영자/온보딩과 동일 모델)
+const PLANS = DEFAULT_PLANS.map((p) => ({ code: p.id, label: p.name, desc: (p.features || []).join(' · ') }))
 
 const EMPLOYEE_BANDS = [
   { code: '1-10',  label: '1~10명' },
@@ -29,7 +26,7 @@ const EMPLOYEE_BANDS = [
 const CERTS = ['KGMP', 'ISO 13485', 'FDA QMSR', 'EU MDR', 'MDSAP']
 
 // 요금제 가격 (계산기 모델 기준)
-const PLAN_PRICE = { kgmp: 250000, iso: 320000, bundle: 500000, founding: 0 }
+const PLAN_PRICE = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.id, p.monthly]))
 const ANNUAL_DISCOUNT = 0.15
 const PORTONE_STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID
 const PORTONE_CHANNEL_KEY = import.meta.env.VITE_PORTONE_CHANNEL_KEY
@@ -186,7 +183,8 @@ export default function Signup() {
     }
   }
 
-  const CERT_BY_PLAN = { kgmp: ['KGMP'], iso: ['ISO 13485'], bundle: ['KGMP', 'ISO 13485'] }
+  const CERT_SHORT = { kgmp: 'KGMP', iso13485: 'ISO 13485', ce: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
+  const CERT_BY_PLAN = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.id, (p.certs || []).map((cid) => CERT_SHORT[cid] || cid)]))
 
   const handleToStep3 = () => {
     const q = readCalc()

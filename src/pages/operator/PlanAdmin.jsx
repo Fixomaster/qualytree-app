@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Trash2, Save, RotateCcw, ArrowLeft, Check } from 'lucide-react'
-import { loadPlans, savePlans, resetPlans, DEFAULT_PLANS, priceFor, won } from '../../lib/plans'
+import { loadPlans, savePlans, resetPlans, DEFAULT_PLANS, priceFor, won, CERT_DEFS } from '../../lib/plans'
 import { isPlatformOperator } from '../../lib/supabase'
 
 const uid = () => 'plan_' + Math.random().toString(36).slice(2, 8)
@@ -31,11 +31,11 @@ export default function PlanAdmin() {
   const setFeatures = (id, text) => setPlan(id, 'features', text.split('\n').map((s) => s.trim()).filter(Boolean))
   const addPlan = () => {
     setSaved(false)
-    setPlans((ps) => [...ps, { id: uid(), name: '새 플랜', monthly: 0, annualDiscountPct: 0, seats: 1, recommended: false, custom: false, features: [] }])
+    setPlans((ps) => [...ps, { id: uid(), name: '새 플랜', monthly: 0, annualDiscountPct: 0, seats: 1, certs: [], recommended: false, custom: false, features: [] }])
   }
   const delPlan = (id) => { setSaved(false); setPlans((ps) => ps.filter((p) => p.id !== id)) }
   const onSave = () => { savePlans(plans); setSaved(true) }
-  const onReset = () => { resetPlans(); setPlans(DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features] }))); setSaved(false) }
+  const onReset = () => { resetPlans(); setPlans(DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features], certs: [...(p.certs || [])] }))); setSaved(false) }
 
   if (authState === 'checking') {
     return <div className="min-h-screen grid place-items-center text-slate-500">권한 확인 중…</div>
@@ -99,6 +99,22 @@ export default function PlanAdmin() {
                   <label className="flex items-center gap-1.5 text-[12.5px] text-slate-600">
                     <input type="checkbox" checked={!!p.custom} onChange={(e) => setPlan(p.id, 'custom', e.target.checked)} /> 가격 문의형
                   </label>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <span className="block text-[12px] font-medium text-slate-600 mb-1.5">포함 인증 (온보딩 인증·플랜 연동)</span>
+                <div className="flex flex-wrap gap-2">
+                  {CERT_DEFS.filter((cd) => cd.planAvailable).map((cd) => {
+                    const on = (p.certs || []).includes(cd.id)
+                    return (
+                      <button key={cd.id} type="button"
+                        onClick={() => setPlan(p.id, 'certs', on ? (p.certs || []).filter((x) => x !== cd.id) : [...(p.certs || []), cd.id])}
+                        className={`px-3 py-1.5 rounded-lg border text-[12.5px] ${on ? 'border-emerald-500 bg-emerald-50 text-emerald-800' : 'border-slate-200 bg-white text-slate-600'}`}>
+                        {on ? '✓ ' : ''}{cd.label}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 

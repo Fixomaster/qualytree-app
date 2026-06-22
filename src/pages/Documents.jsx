@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles } from 'lucide-react'
+import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages } from 'lucide-react'
+import { translateToEn } from '../lib/translate'
 
 const OB_KEY = 'qualytree.onboarding'
 const DOC_KEY = 'qualytree.documents'
@@ -131,6 +132,38 @@ export default function Documents() {
       : []
   const effCount = items.filter((it) => norm(docs[it.id] || {}) === 'effective').length
 
+  // ── 한→영 번역 (용어집 주입, 버튼식 수동 갱신 + 스탈 + 수동수정 잠금) ──
+  const glossaryPairs = GLOSSARY.map((g) => ({ ko: g.t, en: g.en }))
+  const [translating, setTranslating] = useState(null)
+  const setContentEn = (id, v) => patchDoc(id, (r) => ({ ...r, contentEn: v, enEdited: true, enUpdatedAt: Date.now(), enSrcAt: r.updatedAt || Date.now() }))
+  const isStale = (r) => !!r.contentEn && (r.updatedAt || 0) > (r.enSrcAt || 0)
+  const doTranslate = async (id) => {
+    const r = docs[id] || {}
+    if (!r.content) { window.alert('먼저 한글 내용을 작성하세요.'); return }
+    if (r.contentEn && r.enEdited && !window.confirm('직접 수정한 영문이 있습니다. 자동 번역으로 덮어쓸까요?')) return
+    setTranslating(id)
+    try {
+      const en = await translateToEn(r.content, glossaryPairs)
+      patchDoc(id, (rr) => ({ ...rr, contentEn: en, enEdited: false, enUpdatedAt: Date.now(), enSrcAt: rr.updatedAt || Date.now() }))
+    } catch (e) {
+      window.alert('영문 번역 실패: ' + ((e && e.message) || e) + '\n운영자에게 ANTHROPIC_API_KEY 환경변수 설정을 확인 요청하세요.')
+    } finally { setTranslating(null) }
+  }
+  const translateAllNeeded = async () => {
+    const targets = items.filter((it) => { const r = docs[it.id] || {}; return r.content && norm(r) !== 'effective' && (!r.contentEn || isStale(r)) })
+    if (targets.length === 0) { window.alert('영문 생성/갱신이 필요한 항목이 없습니다.'); return }
+    if (!window.confirm(targets.length + '개 항목의 영문을 생성/갱신합니다. 진행할까요?')) return
+    for (const it of targets) {
+      setTranslating(it.id)
+      try {
+        const r = docs[it.id]
+        const en = await translateToEn(r.content, glossaryPairs)
+        patchDoc(it.id, (rr) => ({ ...rr, contentEn: en, enEdited: false, enUpdatedAt: Date.now(), enSrcAt: rr.updatedAt || Date.now() }))
+      } catch (e) { window.alert('번역 실패 (' + it.label + '): ' + ((e && e.message) || e)); break }
+    }
+    setTranslating(null)
+  }
+
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
   const genOne = (it) => {
     if (docs[it.id]?.content && !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
@@ -221,9 +254,14 @@ export default function Documents() {
               <>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="text-[12.5px] text-slate-500">발효 완료 <b className="text-emerald-700">{effCount}</b> / {items.length}</div>
-                  <button onClick={genAllEmpty} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">
-                    <Sparkles size={14} /> 비어있는 항목 AI 초안 일괄 생성
-                  </button>
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={translateAllNeeded} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50">
+                      <Languages size={14} /> 영문 일괄 생성·갱신
+                    </button>
+                    <button onClick={genAllEmpty} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">
+                      <Sparkles size={14} /> 비어있는 항목 AI 초안 일괄 생성
+                    </button>
+                  </div>
                 </div>
                 <div className="grid gap-2">
                   {items.map((it) => {
@@ -258,6 +296,30 @@ export default function Documents() {
                               rows={14}
                               className={`w-full rounded-lg border px-3 py-2 text-[12.5px] leading-relaxed focus:outline-none resize-y font-mono ${editable ? 'border-slate-200 focus:border-emerald-500' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
                             />
+
+                            <div className="mt-3 rounded-lg border border-slate-200">
+                              <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 border-b border-slate-200 flex-wrap">
+                                <span className="text-[12px] font-medium text-slate-600 flex items-center gap-1.5">
+                                  <Languages size={13} /> English (국제 인증용)
+                                  {isStale(r) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">원문 변경됨 · 갱신 필요</span>}
+                                  {r.enEdited && !isStale(r) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">직접 수정함</span>}
+                                </span>
+                                {editable && (
+                                  <button onClick={() => doTranslate(it.id)} disabled={translating === it.id || !r.content}
+                                    className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-40">
+                                    <Languages size={13} /> {translating === it.id ? '번역 중…' : (r.contentEn ? '영문 갱신' : '영문 생성')}
+                                  </button>
+                                )}
+                              </div>
+                              <textarea
+                                value={r.contentEn || ''}
+                                onChange={(e) => editable && setContentEn(it.id, e.target.value)}
+                                readOnly={!editable}
+                                placeholder={'"영문 생성"을 누르면 한글 내용이 용어집 기반으로 자동 번역됩니다. 직접 수정할 수도 있어요.'}
+                                rows={12}
+                                className={`w-full px-3 py-2 text-[12.5px] leading-relaxed focus:outline-none resize-y font-mono rounded-b-lg ${editable ? 'focus:border-emerald-500' : 'bg-slate-50 text-slate-600'}`}
+                              />
+                            </div>
 
                             {eff && (
                               <div className="mt-2 text-[11.5px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
