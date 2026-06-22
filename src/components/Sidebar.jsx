@@ -77,22 +77,11 @@ export default function Sidebar() {
               icon={Crown}
               area="OPS-ADMIN"
             />
-          </>
-        )}
-
-        {auth.identityKind() === 'operator' && (
-          <>
-            <div
-              className="px-3 mt-6 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase"
-              style={{ color: 'var(--ink-faint)' }}
-            >
-              Operator
-            </div>
             <SidebarItem
-              to="/operator"
-              label="운영자 콘솔"
+              to="/operator/plans"
+              label="플랜·요금 관리"
               icon={Crown}
-              area="OPS-ADMIN"
+              area="OPS-PLAN"
             />
           </>
         )}
