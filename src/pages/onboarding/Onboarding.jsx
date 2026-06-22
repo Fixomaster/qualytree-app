@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
-  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings,
+  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search,
 } from 'lucide-react'
 import { loadPlans, priceFor, won } from '../../lib/plans'
+import { mfds } from '../../lib/mfds'
 
 const STORE_KEY = 'qualytree.onboarding'
 
@@ -129,11 +130,28 @@ export default function Onboarding() {
   }, [state])
 
   const patch = (p) => setState((s) => ({ ...s, ...p }))
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: true } }))
+  // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
+  const stepValid = (s, key) => {
+    if (key === 'plan') return !!(s.plan && s.plan.id)
+    if (key === 'info') return !!(s.company?.name?.trim()) && (s.products || []).length > 0
+    if (key === 'org') return (s.departments || []).length > 0
+    if (key === 'manual') return !!(s.manual?.mode)
+    if (key === 'procedures') return (s.procedures || []).some((p) => p.applicable)
+    if (key === 'accounts') return (s.members || []).length > 0
+    return true
+  }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } }))
   const finishOnboarding = () => {
-    const ns = { ...state, done: STEPS.reduce((o, st) => ((o[st.key] = true), o), {}) }
+    const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
+    const ns = { ...state, done }
     try { localStorage.setItem(STORE_KEY, JSON.stringify(ns)) } catch { /* ignore */ }
     setState(ns)
+    const missing = STEPS.filter((st) => !done[st.key])
+    if (missing.length) {
+      alert('아직 입력이 완료되지 않은 단계가 있습니다:\n· ' + missing.map((st) => st.label).join('\n· ') + '\n\n해당 단계를 완료한 뒤 다시 시도하세요.')
+      setStep(STEPS.findIndex((st) => !done[st.key]))
+      return
+    }
     nav('/dashboard')
   }
 
@@ -286,15 +304,34 @@ function StepInfo({ state, patch, setState }) {
     if (id === 'kgmp') return
     patch({ certs: { ...state.certs, [id]: !state.certs[id] } })
   }
-  const [form, setForm] = useState({ name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' })
+  const EMPTY = { name: '', itemName: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '', track: 'N', grp: '', contact: 'none', sterile: false, software: 'none' }
+  const [form, setForm] = useState(EMPTY)
   const setF = (k, v) => setForm((ff) => ({ ...ff, [k]: v }))
+  // 식약처(MFDS) 분류번호 자동입력
+  const [mfdsReady, setMfdsReady] = useState(mfds.isReady())
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState([])
+  useEffect(() => { mfds.load().then((list) => setMfdsReady((list || []).length > 0)) }, [])
+  const onSearch = (v) => { setQ(v); setResults(v.trim() ? mfds.search(v) : []) }
+  const pickItem = (it) => {
+    setForm((ff) => ({
+      ...ff,
+      name: ff.name.trim() ? ff.name : it.name,
+      itemName: it.name,
+      classNo: it.no,
+      grade: it.grade || ff.grade,
+      track: it.track || 'N',
+      grp: it.grp || '',
+    }))
+    setQ(''); setResults([])
+  }
   const saveProduct = () => {
     if (!form.name.trim()) return
     setState((s) => ({ ...s, products: [...s.products, { id: uid(), ...form, name: form.name.trim() }] }))
-    setForm({ name: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '' })
+    setForm(EMPTY)
   }
   const editProduct = (p) => {
-    setForm({ name: p.name || '', grade: p.grade || '2', cat1: p.cat1 || '', cat2: p.cat2 || '', etc: p.etc || '', classNo: p.classNo || '' })
+    setForm({ ...EMPTY, ...p })
     setState((s) => ({ ...s, products: s.products.filter((x) => x.id !== p.id) }))
   }
   const delProduct = (id) => setState((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }))
@@ -341,8 +378,30 @@ function StepInfo({ state, patch, setState }) {
         )}
       </Section>
 
-      <Section title="제품 등록" desc="제품명·등급·인허가 업종(대분류·중분류)·분류번호를 입력하고 '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정하거나 삭제하세요. 해당 업종이 없으면 '기타'를 선택해 직접 입력하세요.">
+      <Section title="제품 등록" desc="식약처 품목 검색으로 분류번호·등급을 자동 입력하거나 직접 입력하세요. '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정·삭제할 수 있습니다.">
         <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
+          {/* 식약처 품목 검색 → 분류번호·등급 자동입력 */}
+          <div className="relative">
+            <div className="flex items-center gap-1.5 text-[11.5px] text-slate-500 mb-1">
+              <Search size={12} /> 식약처 품목 검색
+              {mfdsReady
+                ? <span className="text-emerald-600">· 선택하면 분류번호·등급이 자동 입력됩니다</span>
+                : <span className="text-slate-400">· 품목 데이터를 불러오는 중…</span>}
+            </div>
+            <input className="input-cell" placeholder="품목명으로 검색 (예: 휠체어, 골절합용 나사, 카테터)" value={q} onChange={(e) => onSearch(e.target.value)} />
+            {results.length > 0 && (
+              <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100">
+                {results.map((it) => (
+                  <button key={it.no} type="button" onClick={() => pickItem(it)} className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-[12.5px]">
+                    <span className="font-medium text-slate-800">{it.name}</span>
+                    <span className="text-slate-400"> · {it.grade}등급</span>
+                    <span className="font-mono text-[11px] text-slate-400"> · {it.no}</span>
+                    {it.track === 'Y' && <span className="ml-1 text-[10px] px-1 rounded bg-amber-100 text-amber-700">추적관리</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="grid grid-cols-12 gap-2 items-center">
             <input className="col-span-6 input-cell" placeholder="제품명 (예: 골절합용 나사)" value={form.name} onChange={(e) => setF('name', e.target.value)} />
             <select className="col-span-3 input-cell" value={form.grade} onChange={(e) => setF('grade', e.target.value)}>
@@ -364,6 +423,22 @@ function StepInfo({ state, patch, setState }) {
             ) : (
               <div className="col-span-4 text-[11px] text-slate-400 self-center">인허가 업종 분류</div>
             )}
+          </div>
+          <div className="grid grid-cols-12 gap-2 items-center">
+            <select className="col-span-4 input-cell" value={form.contact} onChange={(e) => setF('contact', e.target.value)}>
+              <option value="none">신체 비접촉</option>
+              <option value="surface">피부·점막 접촉</option>
+              <option value="external">체내 통신(혈류 등)</option>
+              <option value="implantable">임플란트(이식)</option>
+            </select>
+            <select className="col-span-4 input-cell" value={form.software} onChange={(e) => setF('software', e.target.value)}>
+              <option value="none">SW 없음</option>
+              <option value="embedded">내장 SW</option>
+              <option value="samd">독립형 SW (SaMD)</option>
+            </select>
+            <label className="col-span-4 flex items-center gap-2 text-[12px] text-slate-600 px-1">
+              <input type="checkbox" checked={form.sterile} onChange={(e) => setF('sterile', e.target.checked)} /> 멸균 제품
+            </label>
           </div>
           <div className="flex justify-end">
             <button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> 저장</button>
@@ -537,7 +612,7 @@ function StepManual({ state, patch }) {
         <button onClick={addCustom} className="flex items-center gap-1 px-3 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
 
-      <div className="mt-4"><Banner>실제 문서 편집기와 AI 초안 생성은 다음 업데이트에서 연결됩니다. 지금은 시작 방식과 목차 구성을 저장해 두면, 연결 시 그대로 초안에 반영됩니다.</Banner></div>
+      <div className="mt-4"><Banner>여기서 정한 시작 방식과 목차는 온보딩 후 <b>품질 문서</b> 화면(/documents)에서 실제 내용·AI 초안으로 채울 수 있습니다.</Banner></div>
       <CellStyle />
     </Section>
   )
@@ -595,7 +670,7 @@ function StepProcedures({ state, setState }) {
 
 // ───────── STEP 5: 계정 발급 ─────────
 function StepAccounts({ state, setState }) {
-  const seats = state.plan?.id ? state.plan.seats : 0 // 0 => 무제한
+  const seats = Number(state.plan?.seats) || 0 // 0 => 무제한 (플랜에 좌석 제한이 설정된 경우에만 적용)
   const used = state.members.length
   const full = seats > 0 && used >= seats
   const addMember = () => {

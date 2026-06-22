@@ -97,21 +97,21 @@ export function loadContext() {
     // 제품 속성 집계 (조건부 트리거)
     products: {
       list: products,
-      hasImplant: products.some(p => p.category === 'implant' || /임플란트/.test(p.cat2 || '')),
+      hasImplant: products.some(p => p.category === 'implant' || p.implant === true || p.contact === 'implantable' || /임플란트/.test(p.cat2 || '')),
       hasSterile: products.some(p => p.sterile === true),
-      hasCleanRoom: products.some(p => p.cleanRoom === true),
-      hasSoftware: products.some(p => p.hasSoftware === true || /(소프트웨어|SaMD|SW)/i.test(p.cat1 || '')),
+      hasCleanRoom: products.some(p => p.cleanRoom === true || p.sterile === true),
+      hasSoftware: products.some(p => p.hasSoftware === true || (p.software && p.software !== 'none') || /(소프트웨어|SaMD|SW)/i.test(p.cat1 || '')),
       hasAI: products.some(p => p.aiMl === true || /AI/i.test((p.cat1 || '') + (p.cat2 || ''))),
       hasNetworking: products.some(p => p.networkConnected === true),
       hasInstallation: products.some(p => p.requiresInstallation === true),
       hasServicing: products.some(p => p.requiresServicing === true),
-      hasPatientContact: products.some(p => p.patientContact === true),
+      hasPatientContact: products.some(p => p.patientContact === true || (p.contact && p.contact !== 'none')),
       hasUserInterface: products.some(p => p.hasUserInterface !== false), // 기본값 true
       hasClassIII: products.some(p => p.fdaClass === 'III' || p.grade === '4'),
-      hasClassIIa_plus: products.some(p => ['IIa', 'IIb', 'III'].includes(p.mdrClass)),
+      hasClassIIa_plus: products.some(p => ['IIa', 'IIb', 'III'].includes(p.mdrClass) || ['3', '4'].includes(String(p.grade))),
       hasFDAClassI_DesignExempt: products.some(p => p.fdaClass === 'I' && p.designControlExempt === true),
       anyProductRequiresClinicalTrial: products.some(p => p.requiresClinicalTrial === true),
-      koreaPostMarketTrackingMandatory: products.some(p => p.koreaPostMarketTracking === true),
+      koreaPostMarketTrackingMandatory: products.some(p => p.koreaPostMarketTracking === true || p.track === 'Y'),
       hasReceivingInspection: true, // 거의 모든 회사 해당
     },
 

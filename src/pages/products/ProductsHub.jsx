@@ -66,13 +66,17 @@ export default function ProductsHub() {
     setTimeout(() => setToast(null), 2400)
   }
 
-  // 온보딩 데이터에서 회사·제품 추출
+  // 온보딩 데이터에서 회사·제품 추출 (다중 제품 지원)
   const ob = onboarding.load() || {}
   const company = ob.company
-  const product = ob.product || (Array.isArray(ob.products) && ob.products[0]) || null
+  const products = (Array.isArray(ob.products) && ob.products.length)
+    ? ob.products
+    : (ob.product && ob.product.name ? [ob.product] : [])
+  const [selId, setSelId] = useState(null)
+  const product = products.find((p) => (p.id || 'main') === selId) || products[0] || null
   const processes = ob.processes || []
 
-  const hasOnboarding = !!(company?.name) || !!(product && product.name) || (Array.isArray(ob.products) && ob.products.length > 0)
+  const hasOnboarding = !!(company?.name) || products.length > 0
 
   return (
     <AppLayout
@@ -157,7 +161,7 @@ export default function ProductsHub() {
                 icon={PackageSearch}
                 label="제품"
                 en="PROD-001"
-                count={product ? 1 : 0}
+                count={products.length}
               />
               <TabButton
                 active={tab === 'process'}
@@ -179,7 +183,29 @@ export default function ProductsHub() {
 
             {/* 탭 내용 */}
             {tab === 'product' && (
-              <ProductPanel product={product} company={company} onAction={showToast} />
+              <div className="space-y-3">
+                {products.length > 1 && (
+                  <div className="flex gap-1.5 flex-wrap">
+                    {products.map((p) => {
+                      const on = (p.id || 'main') === (product?.id || 'main')
+                      return (
+                        <button
+                          key={p.id || 'main'}
+                          onClick={() => setSelId(p.id || 'main')}
+                          className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
+                          style={{
+                            background: on ? 'var(--moss)' : 'var(--bg-soft)',
+                            color: on ? 'var(--bg)' : 'var(--ink-mute)',
+                          }}
+                        >
+                          {p.name || '(이름없음)'}{p.grade ? ' · ' + p.grade + '등급' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />
+              </div>
             )}
             {tab === 'process' && (
               <ProcessPanel onAction={showToast} />
@@ -248,7 +274,7 @@ function ProductPanel({ product, company, onAction }) {
 
   const productEid = eid(
     ENTITY_TYPES.PRODUCT,
-    product?.modelNumber || 'main'
+    product?.id || product?.classNo || product?.modelNumber || 'main'
   )
 
   const ccrs = useMemo(
@@ -277,9 +303,13 @@ function ProductPanel({ product, company, onAction }) {
     const before = { ...product }
     const next = { ...product, ...draft }
 
-    // 온보딩 상태 업데이트
+    // 온보딩 상태 업데이트 (제품 배열에서 해당 제품만 갱신)
     const ob = onboarding.load()
-    onboarding.save({ ...ob, product: next })
+    const list = Array.isArray(ob.products) ? ob.products.slice() : []
+    const idx = list.findIndex((p) => (p.id || 'main') === (product.id || 'main'))
+    if (idx >= 0) list[idx] = next
+    else list.push(next.id ? next : { ...next, id: 'main' })
+    onboarding.save({ ...ob, products: list })
 
     // CCR 자동 발의
     commitChange({
@@ -320,7 +350,7 @@ function ProductPanel({ product, company, onAction }) {
                 className="font-mono text-[12px] mt-0.5"
                 style={{ color: 'var(--ink-mute)' }}
               >
-                {product.modelNumber} · {company.name}
+                {[product.classNo, company?.name].filter(Boolean).join(' · ')}
               </div>
             </div>
             {!editing && canEdit && (
@@ -336,13 +366,24 @@ function ProductPanel({ product, company, onAction }) {
                 className="grid md:grid-cols-2 gap-4 pt-3"
                 style={{ borderTop: '1px solid var(--line)' }}
               >
-                <Field label="의도된 사용" value={product.intendedUse || '-'} />
+                <Field label="품목명 (식약처)" value={product.itemName || product.name || '-'} />
+                <Field label="분류번호" value={product.classNo || '-'} />
                 <Field
-                  label="분류 (Classification)"
+                  label="등급 (Class)"
                   value={
-                    product.classification
+                    product.grade
+                      ? `${product.grade}등급`
+                      : product.classification
                       ? `Class ${product.classification}`
                       : '미분류'
+                  }
+                />
+                <Field
+                  label="인허가 업종"
+                  value={
+                    [product.cat1, product.cat2].filter(Boolean).join(' › ') ||
+                    product.etc ||
+                    '-'
                   }
                 />
                 <Field
@@ -350,21 +391,16 @@ function ProductPanel({ product, company, onAction }) {
                   value={CONTACT_LABELS[product.contact] || '-'}
                 />
                 <Field
-                  label="전기 사용"
-                  value={
-                    product.electricity === 'none'
-                      ? '비전기 (수동)'
-                      : product.electricity || '-'
-                  }
+                  label="소프트웨어"
+                  value={SW_LABELS[product.software] || product.software || '-'}
                 />
                 <Field
-                  label="소프트웨어"
-                  value={
-                    product.software === 'none'
-                      ? 'SW 없음'
-                      : product.software || '-'
-                  }
+                  label="추적관리 대상"
+                  value={product.track === 'Y' ? '대상 (Y)' : '비대상'}
                 />
+                {product.intendedUse && (
+                  <Field label="의도된 사용" value={product.intendedUse} />
+                )}
               </div>
             </>
           ) : (
@@ -431,6 +467,12 @@ const CONTACT_LABELS = {
   surface: '피부·점막 접촉 (Surface)',
   external: '외부 통신 (External Communicating)',
   implantable: '임플란트 (Implantable)',
+}
+
+const SW_LABELS = {
+  none: 'SW 없음',
+  embedded: '내장 SW',
+  samd: '독립형 SW (SaMD)',
 }
 
 /* ================================================================
