@@ -53,6 +53,48 @@ function downloadDoc(filename, html) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+// ── 정식 KGMP 관리문서 양식 (문서관리 헤더 + 결재란 + 본문, 테두리 포함) ──
+function fmtDate(x) { return x || new Date().toISOString().slice(0, 10) }
+function docNumber(it, idx) {
+  if (it && it.kind === 'manual') return 'QM' + (it.c != null && it.c !== '' ? '-' + it.c : '')
+  return 'QP-' + String((idx || 0) + 1).padStart(2, '0')
+}
+function controlledSection(title, docNo, ctx, r, bodyText) {
+  const rev = (r && r.rev) || 0
+  const est = fmtDate(r && r.approvedAt)
+  const author = (r && r.author) || ''
+  const reviewer = (r && r.reviewedBy) || ''
+  const approver = (r && r.approvedBy) || ''
+  const rdate = (r && r.reviewedAt) || ''
+  const adate = (r && r.approvedAt) || ''
+  const F = 'font-family:Malgun Gothic,sans-serif'
+  return (
+    '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%;' + F + ';font-size:10pt;margin-bottom:4px">' +
+    '<tr>' +
+    '<td rowspan="3" style="width:22%;text-align:center;font-size:13pt;font-weight:bold;vertical-align:middle">' + escHtml(ctx.name || '(회사명)') + '</td>' +
+    '<td rowspan="3" style="width:46%;text-align:center;font-size:14pt;font-weight:bold;vertical-align:middle">' + escHtml(title) + '</td>' +
+    '<td style="width:16%;background:#f1f6f3">문서번호</td><td style="width:16%">' + escHtml(docNo) + '</td></tr>' +
+    '<tr><td style="background:#f1f6f3">개정번호</td><td>Rev.' + String(rev).padStart(2, '0') + '</td></tr>' +
+    '<tr><td style="background:#f1f6f3">제·개정일</td><td>' + escHtml(est) + '</td></tr>' +
+    '</table>' +
+    '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse:collapse;width:100%;' + F + ';font-size:10pt;margin-bottom:12px;text-align:center">' +
+    '<tr style="background:#f1f6f3"><td style="width:16%">구분</td><td style="width:28%">작성</td><td style="width:28%">검토</td><td style="width:28%">승인</td></tr>' +
+    '<tr style="height:44px"><td style="background:#f1f6f3">담당</td><td>' + escHtml(author) + '</td><td>' + escHtml(reviewer) + '</td><td>' + escHtml(approver) + '</td></tr>' +
+    '<tr><td style="background:#f1f6f3">일자</td><td>' + (author ? escHtml(est) : '') + '</td><td>' + escHtml(rdate) + '</td><td>' + escHtml(adate) + '</td></tr>' +
+    '</table>' +
+    '<div style="' + F + ';font-size:10.5pt;white-space:pre-wrap;line-height:1.6">' + escHtml(bodyText || '(내용 미작성)') + '</div>'
+  )
+}
+function controlledDocHtml(title, docNo, ctx, r) {
+  let inner = controlledSection(title, docNo, ctx, r, r && r.content)
+  if (r && r.contentEn) {
+    inner += '<br clear="all" style="page-break-before:always" />' +
+      controlledSection(title + ' (English)', docNo, ctx, { ...r, content: r.contentEn }, r.contentEn)
+  }
+  return "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>" +
+    escHtml(title) + "</title></head><body>" + inner + "</body></html>"
+}
+
 // ── 회사 컨텍스트 ──
 function getCtx() {
   let ob = {}
@@ -105,7 +147,7 @@ const PCLAUSE = [
   [/문서/, '§4.2.4', 'KGMP §4.2.4'], [/기록/, '§4.2.5', 'KGMP §4.2.5'],
   [/경영검토|경영 검토/, '§5.6', 'KGMP §5.6'], [/교육|훈련|역량|인적/, '§6.2', 'KGMP §6.2'],
   [/장비|설비|시설|기반/, '§6.3', 'KGMP §6.3'], [/작업환경|환경관리|오염|청정/, '§6.4', 'KGMP §6.4'],
-  [/위험|리스크/, '§7.1 (ISO 14971 연계)', 'KGMP §7.1'], [/불만|고객/, '§7.2 / §8.2.1~2', 'KGMP §7.2/§8.2'],
+  [/위험|리스크/, '§7.1 (ISO 14971 연계)', 'KGMP §7.1'], [/불만|고객/, '§7.2 / §8.2.1~2', 'KGMP §7.2/§8.2'], [/계약/, '§7.2', 'KGMP §7.2'], [/자재/, '§7.5.11 / §7.4.3', 'KGMP §7.5.11'],
   [/설계|개발/, '§7.3', 'KGMP §7.3'], [/구매/, '§7.4', 'KGMP §7.4'],
   [/멸균/, '§7.5.7', 'KGMP §7.5.7'], [/밸리데이션|유효성/, '§7.5.6', 'KGMP §7.5.6'],
   [/공정|생산|제조|프로세스/, '§7.5.1', 'KGMP §7.5'], [/식별|추적|UDI/, '§7.5.8~9 / 의료기기법 UDI', 'KGMP §7.5.8'],
@@ -196,23 +238,28 @@ export default function Documents() {
     setTranslating(null)
   }
 
-  const exportOne = (it) => {
+  const exportOne = (it, idx) => {
     const r = docs[it.id] || {}
     if (!r.content) { window.alert('내보낼 내용이 없습니다.'); return }
-    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '_한영.doc', bilingualDocHtml(it.label, [{ label: it.label, ko: r.content, en: r.contentEn }]))
+    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, r))
+  }
+  const openPreview = (it, idx) => {
+    const r = docs[it.id] || {}
+    if (!r.content) { window.alert('미리볼 내용이 없습니다. 먼저 작성하거나 업로드하세요.'); return }
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(controlledDocHtml(it.label, docNumber(it, idx), ctx, r)); w.document.close() }
+    else window.alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.')
   }
   const exportAll = () => {
-    const list = items.filter((it) => (docs[it.id] || {}).content)
-    if (list.length === 0) { window.alert('내보낼 문서가 없습니다.'); return }
-    // 각 장(章)을 개별 .doc 파일로 내보낸다 (짧아도 장마다 별도 문서)
-    list.forEach((it, i) => {
+    const targets = items.map((it, idx) => ({ it, idx })).filter(({ it }) => (docs[it.id] || {}).content)
+    if (targets.length === 0) { window.alert('내보낼 문서가 없습니다.'); return }
+    targets.forEach(({ it, idx }, i) => {
       setTimeout(() => {
         const r = docs[it.id] || {}
-        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '_한영.doc',
-          bilingualDocHtml(it.label, [{ label: it.label, ko: r.content, en: r.contentEn }]))
-      }, i * 500)
+        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, r))
+      }, i * 400)
     })
-    window.alert(list.length + '개 장을 각각의 .doc 파일로 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
+    window.alert(targets.length + '개 문서를 정식 양식 .doc로 각각 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
   }
 
   // 기존 문서 업로드 → 본문(한글)에 채움 (.docx는 mammoth로 텍스트 추출). 이후 편집·번역·내보내기·영문일괄에 그대로 포함.
@@ -327,7 +374,7 @@ export default function Documents() {
                   <div className="text-[12.5px] text-slate-500">발효 완료 <b className="text-emerald-700">{effCount}</b> / {items.length}</div>
                   <div className="flex gap-2 flex-wrap">
                     <button onClick={exportAll} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
-                      <Download size={14} /> 장별 .doc 일괄 내보내기
+                      <Download size={14} /> 정식 양식 .doc 일괄
                     </button>
                     <button onClick={translateAllNeeded} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50">
                       <Languages size={14} /> 영문 일괄 생성·갱신
@@ -338,7 +385,7 @@ export default function Documents() {
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  {items.map((it) => {
+                  {items.map((it, idx) => {
                     const r = docs[it.id] || {}
                     const open = openId === it.id
                     const [bLabel, bCls] = badge(r)
@@ -384,8 +431,13 @@ export default function Documents() {
                                 </span>
                                 <div className="flex items-center gap-1.5">
                                   {r.content && (
-                                    <button onClick={() => exportOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">
-                                      <Download size={13} /> 한·영 .doc
+                                    <button onClick={() => openPreview(it, idx)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">
+                                      미리보기
+                                    </button>
+                                  )}
+                                  {r.content && (
+                                    <button onClick={() => exportOne(it, idx)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">
+                                      <Download size={13} /> 양식 .doc
                                     </button>
                                   )}
                                   {editable && (
