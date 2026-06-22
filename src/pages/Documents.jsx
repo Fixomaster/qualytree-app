@@ -190,10 +190,17 @@ export default function Documents() {
     downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '_한영.doc', bilingualDocHtml(it.label, [{ label: it.label, ko: r.content, en: r.contentEn }]))
   }
   const exportAll = () => {
-    const list = items.filter((it) => (docs[it.id] || {}).content).map((it) => ({ label: it.label, ko: docs[it.id].content, en: docs[it.id].contentEn }))
+    const list = items.filter((it) => (docs[it.id] || {}).content)
     if (list.length === 0) { window.alert('내보낼 문서가 없습니다.'); return }
-    const title = tab === 'manual' ? '품질매뉴얼 (한·영 대조)' : '절차서 (한·영 대조)'
-    downloadDoc(title.replace(/[ ·()]/g, '_') + '.doc', bilingualDocHtml(title, list))
+    // 각 장(章)을 개별 .doc 파일로 내보낸다 (짧아도 장마다 별도 문서)
+    list.forEach((it, i) => {
+      setTimeout(() => {
+        const r = docs[it.id] || {}
+        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '_한영.doc',
+          bilingualDocHtml(it.label, [{ label: it.label, ko: r.content, en: r.contentEn }]))
+      }, i * 500)
+    })
+    window.alert(list.length + '개 장을 각각의 .doc 파일로 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
   }
 
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
@@ -288,7 +295,7 @@ export default function Documents() {
                   <div className="text-[12.5px] text-slate-500">발효 완료 <b className="text-emerald-700">{effCount}</b> / {items.length}</div>
                   <div className="flex gap-2 flex-wrap">
                     <button onClick={exportAll} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
-                      <Download size={14} /> 한·영 .doc 내보내기
+                      <Download size={14} /> 장별 .doc 일괄 내보내기
                     </button>
                     <button onClick={translateAllNeeded} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50">
                       <Languages size={14} /> 영문 일괄 생성·갱신
