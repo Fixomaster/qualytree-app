@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages } from 'lucide-react'
+import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download } from 'lucide-react'
 import { translateToEn } from '../lib/translate'
 
 const OB_KEY = 'qualytree.onboarding'
@@ -20,6 +20,26 @@ const GLOSSARY = [
   { t: '격리', en: 'Quarantine', d: '부적합(의심) 제품을 정상품과 분리·보관해 잘못 사용·출고되지 않도록 막아두는 것.' },
   { t: 'KGMP', en: 'Korea GMP', d: '의료기기 제조 및 품질관리 기준(식약처 고시). ISO 13485:2016 구조(§4~§8)를 채택하고 있습니다.' },
 ]
+
+// ── 한·영 대조 .doc 내보내기 (NB 제출용, 의존성 없음 · Word 호환) ──
+function escHtml(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }
+function bilingualDocHtml(title, sections) {
+  const body = sections.map((s) =>
+    '<h2 style="font-family:Malgun Gothic,sans-serif;font-size:13pt;color:#16352b">' + escHtml(s.label) + '</h2>' +
+    '<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%;font-size:10pt;table-layout:fixed">' +
+    '<tr><th style="width:50%;background:#f1f6f3;text-align:left">한국어</th><th style="width:50%;background:#f1f6f3;text-align:left">English</th></tr>' +
+    '<tr><td style="vertical-align:top;white-space:pre-wrap;font-family:Malgun Gothic,sans-serif">' + escHtml(s.ko) + '</td>' +
+    '<td style="vertical-align:top;white-space:pre-wrap;font-family:Calibri,sans-serif">' + (s.en ? escHtml(s.en) : '<i style="color:#999">(영문 미생성)</i>') + '</td></tr></table><br/>'
+  ).join('')
+  return "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>" +
+    escHtml(title) + "</title></head><body><h1 style=\"font-family:Malgun Gothic,sans-serif;font-size:16pt;color:#16352b\">" + escHtml(title) + "</h1>" + body + "</body></html>"
+}
+function downloadDoc(filename, html) {
+  const blob = new Blob(['﻿' + html], { type: 'application/msword' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
 
 // ── 회사 컨텍스트 ──
 function getCtx() {
@@ -164,6 +184,18 @@ export default function Documents() {
     setTranslating(null)
   }
 
+  const exportOne = (it) => {
+    const r = docs[it.id] || {}
+    if (!r.content) { window.alert('내보낼 내용이 없습니다.'); return }
+    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '_한영.doc', bilingualDocHtml(it.label, [{ label: it.label, ko: r.content, en: r.contentEn }]))
+  }
+  const exportAll = () => {
+    const list = items.filter((it) => (docs[it.id] || {}).content).map((it) => ({ label: it.label, ko: docs[it.id].content, en: docs[it.id].contentEn }))
+    if (list.length === 0) { window.alert('내보낼 문서가 없습니다.'); return }
+    const title = tab === 'manual' ? '품질매뉴얼 (한·영 대조)' : '절차서 (한·영 대조)'
+    downloadDoc(title.replace(/[ ·()]/g, '_') + '.doc', bilingualDocHtml(title, list))
+  }
+
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
   const genOne = (it) => {
     if (docs[it.id]?.content && !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
@@ -255,6 +287,9 @@ export default function Documents() {
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="text-[12.5px] text-slate-500">발효 완료 <b className="text-emerald-700">{effCount}</b> / {items.length}</div>
                   <div className="flex gap-2 flex-wrap">
+                    <button onClick={exportAll} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">
+                      <Download size={14} /> 한·영 .doc 내보내기
+                    </button>
                     <button onClick={translateAllNeeded} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50">
                       <Languages size={14} /> 영문 일괄 생성·갱신
                     </button>
@@ -304,12 +339,19 @@ export default function Documents() {
                                   {isStale(r) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">원문 변경됨 · 갱신 필요</span>}
                                   {r.enEdited && !isStale(r) && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">직접 수정함</span>}
                                 </span>
-                                {editable && (
-                                  <button onClick={() => doTranslate(it.id)} disabled={translating === it.id || !r.content}
-                                    className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-40">
-                                    <Languages size={13} /> {translating === it.id ? '번역 중…' : (r.contentEn ? '영문 갱신' : '영문 생성')}
-                                  </button>
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  {r.content && (
+                                    <button onClick={() => exportOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">
+                                      <Download size={13} /> 한·영 .doc
+                                    </button>
+                                  )}
+                                  {editable && (
+                                    <button onClick={() => doTranslate(it.id)} disabled={translating === it.id || !r.content}
+                                      className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50 disabled:opacity-40">
+                                      <Languages size={13} /> {translating === it.id ? '번역 중…' : (r.contentEn ? '영문 갱신' : '영문 생성')}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               <textarea
                                 value={r.contentEn || ''}

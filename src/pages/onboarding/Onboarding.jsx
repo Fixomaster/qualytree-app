@@ -10,14 +10,6 @@ import { mfds } from '../../lib/mfds'
 const STORE_KEY = 'qualytree.onboarding'
 
 // ───────── 시드 데이터 (KGMP 기준 · 품질관리 항목 정리.xlsx 기반) ─────────
-const CERT_OPTIONS = [
-  { id: 'kgmp', label: 'KGMP (의료기기 GMP)', sub: '식약처 · 기본', required: true },
-  { id: 'iso13485', label: 'ISO 13485:2016', sub: '품질경영시스템' },
-  { id: 'ce', label: 'CE MDR', sub: '유럽 (준비중)' },
-  { id: 'fda', label: 'FDA 510(k)', sub: '미국 (준비중)' },
-  { id: 'mdsap', label: 'MDSAP', sub: '5개국 단일심사 (준비중)' },
-]
-
 const DEFAULT_ORG = [
   { id: 'ceo', name: '대표이사', parentId: null },
   { id: 'rnd', name: '연구개발', parentId: 'ceo' },
