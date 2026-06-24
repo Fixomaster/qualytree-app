@@ -8,6 +8,16 @@ import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../li
  * 5개 섹션: 필수 / 조건부 / 선택 / 검증 / 자동 생성 문서 라이브러리(특허 P13)
  */
 
+const TOGGLE_KEY = 'userToggles';
+function readToggles() {
+  try { return JSON.parse(localStorage.getItem(TOGGLE_KEY) || '{}'); } catch { return {}; }
+}
+function writeToggle(path, value) {
+  const t = readToggles();
+  if (value === null) delete t[path]; else t[path] = value;
+  try { localStorage.setItem(TOGGLE_KEY, JSON.stringify(t)); } catch { /* */ }
+}
+
 function StatusBadge({ status }) {
   const map = {
     [STATUS.REQUIRED]: { label: '필수', cls: 'bg-rose-100 text-rose-700 border-rose-200' },
@@ -26,8 +36,10 @@ function FulfillmentIcon({ fulfillment, isNa }) {
   return <span className="text-rose-400 text-lg">✗</span>;
 }
 
-function ItemRow({ item, isCondition }) {
+function ItemRow({ item, isCondition, cardId, toggles, onToggle }) {
   const isNa = item.resolvedStatus === STATUS.NA;
+  const togglePath = `${cardId}.${item.id}`;
+  const excluded = toggles?.[togglePath] === false;
   return (
     <li className={`flex items-start gap-3 py-2.5 px-3 rounded-lg ${isNa ? 'bg-slate-50' : 'hover:bg-slate-50'} transition`}>
       <div className="w-6 shrink-0 pt-0.5"><FulfillmentIcon fulfillment={item.fulfillment} isNa={isNa} /></div>
@@ -47,11 +59,19 @@ function ItemRow({ item, isCondition }) {
           ))}
         </div>
       </div>
+      {item.togglable && (
+        <div className="shrink-0 flex rounded-lg overflow-hidden border border-slate-200 text-[11px]">
+          <button onClick={() => onToggle(togglePath, true)}
+            className={`px-2 py-1 ${!excluded ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'}`}>해당</button>
+          <button onClick={() => onToggle(togglePath, false)}
+            className={`px-2 py-1 ${excluded ? 'bg-slate-500 text-white' : 'bg-white text-slate-500'}`}>제외(N/A)</button>
+        </div>
+      )}
     </li>
   );
 }
 
-function Section({ title, items, isCondition = false, color = 'slate' }) {
+function Section({ title, items, isCondition = false, color = 'slate', cardId, toggles, onToggle }) {
   if (items.length === 0) return null;
   const colorMap = {
     rose: 'border-rose-200 bg-rose-50/40',
@@ -65,7 +85,7 @@ function Section({ title, items, isCondition = false, color = 'slate' }) {
         {title} <span className="text-xs font-normal text-slate-500">({items.length}개)</span>
       </h3>
       <ul className="divide-y divide-slate-100">
-        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} />)}
+        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} cardId={cardId} toggles={toggles} onToggle={onToggle} />)}
       </ul>
     </section>
   );
@@ -78,48 +98,16 @@ const MODE_BADGE = {
   [DOC_MODE.GUIDED]: 'bg-sky-100 text-sky-800 border-sky-300',
 };
 
-function DocumentRow({ doc, ctx }) {
+function DocumentRow({ doc, ctx, onPreview }) {
   const ready = isDocumentReady(doc, ctx);
   const meta = MODE_META[doc.mode];
-
-  const handleGenerate = () => {
-    const payload = {
-      documentId: doc.id,
-      documentName: doc.name,
-      mode: doc.mode,
-      regulations: doc.regulations,
-      sources: doc.sources,
-      generatedAt: new Date().toISOString(),
-      generatedBy: 'Qualytree v0.1 (Phase A — preview)',
-      ...(doc.mode === DOC_MODE.AI_DRAFT && {
-        aiMetadata: {
-          modelId: 'qualytree-doc-gen',
-          modelVersion: '0.1.0-preview',
-          requiresHumanReview: true,
-          reviewerRole: 'Level 3 (Manager/RA) 또는 PRRC',
-          governance: 'Project Instructions §22 — AI Decision Traceability',
-        },
-      }),
-      message: 'Phase A 미리보기 — 실제 PDF/DOCX 자동 생성·SSoT 자동 채움은 Phase B(백엔드 + AI 통합) 단계에서 활성화됩니다.',
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `qualytree-${doc.id}-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <li className="py-3 px-3 hover:bg-white/60 rounded-lg transition">
       <div className="flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="text-sm font-semibold text-slate-800">{doc.name}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODE_BADGE[doc.mode]} font-semibold`}>
-              {meta.label}
-            </span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODE_BADGE[doc.mode]} font-semibold`}>{meta.label}</span>
             {ready ? (
               <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">생성 가능</span>
             ) : (
@@ -137,13 +125,8 @@ function DocumentRow({ doc, ctx }) {
           </div>
         </div>
         <button
-          onClick={handleGenerate}
-          disabled={!ready}
-          className={`shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition ${
-            ready
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-          }`}
+          onClick={() => onPreview(doc)}
+          className="shrink-0 text-xs px-3 py-1.5 rounded-lg font-medium transition bg-indigo-600 hover:bg-indigo-700 text-white"
         >
           미리보기
         </button>
@@ -152,7 +135,7 @@ function DocumentRow({ doc, ctx }) {
   );
 }
 
-function DocumentLibrarySection({ cardId, ctx }) {
+function DocumentLibrarySection({ cardId, ctx, onPreview }) {
   const [filter, setFilter] = useState('all');
   const docs = getCardDocuments(cardId);
   if (docs.length === 0) return null;
@@ -177,7 +160,7 @@ function DocumentLibrarySection({ cardId, ctx }) {
             <span className="text-xs font-normal text-indigo-700">({readyCount}/{docs.length} 생성 가능)</span>
           </h3>
           <div className="text-[11px] text-indigo-700 mt-0.5">
-            특허 P13 — 다중 인증 동시 자동 문서. SSoT 자동 채움 + AI 초안 + §22 메타데이터 자동 첨부.
+            특허 P13 — 다중 인증 동시 자동 문서. 실제 작성·결재는 좌측 <b>품질 문서</b> 화면에서 진행됩니다.
           </div>
         </div>
         <div className="flex items-center gap-1 text-[11px] flex-wrap">
@@ -194,14 +177,57 @@ function DocumentLibrarySection({ cardId, ctx }) {
       </div>
 
       <ul className="divide-y divide-indigo-100/60">
-        {filtered.map(doc => <DocumentRow key={doc.id} doc={doc} ctx={ctx} />)}
+        {filtered.map(doc => <DocumentRow key={doc.id} doc={doc} ctx={ctx} onPreview={onPreview} />)}
       </ul>
-
-      <div className="text-[10px] text-indigo-700 mt-3 leading-relaxed">
-        ⓘ Phase A 미리보기 — 양식 메타데이터·적용 규제 매핑·SSoT 출처가 JSON으로 다운로드됩니다.
-        Phase B(백엔드 + AI 통합) 단계에서 실제 PDF/DOCX 자동 생성 + AI 초안 + 결정일지 메타데이터 첨부 활성화.
-      </div>
     </section>
+  );
+}
+
+function PreviewModal({ doc, onClose, onGoDocuments }) {
+  if (!doc) return null;
+  const meta = MODE_META[doc.mode];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 mb-2">
+          <h3 className="text-[16px] font-bold text-slate-900">{doc.name}</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-700 text-xl leading-none">×</button>
+        </div>
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${MODE_BADGE[doc.mode]} font-semibold`}>{meta.label}</span>
+          <span className="text-[11px] text-slate-500">{meta.desc}</span>
+        </div>
+        <div className="text-[13px] text-slate-700 mb-3 leading-relaxed">{doc.description}</div>
+
+        <div className="mb-3">
+          <div className="text-[11px] font-semibold text-slate-500 mb-1">적용 규제</div>
+          <div className="flex flex-wrap gap-1">
+            {doc.regulations.map((r, i) => (
+              <span key={i} className="text-[11px] bg-slate-50 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded">
+                <b>{r.s}</b> {r.c}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {Array.isArray(doc.sources) && doc.sources.length > 0 && (
+          <div className="mb-3">
+            <div className="text-[11px] font-semibold text-slate-500 mb-1">자동 채움 출처 (SSoT)</div>
+            <ul className="text-[12px] text-slate-600 list-disc pl-4">
+              {doc.sources.map((s, i) => <li key={i}>{typeof s === 'string' ? s : (s.label || s.key || JSON.stringify(s))}</li>)}
+            </ul>
+          </div>
+        )}
+
+        <div className="flex items-start gap-2 p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-800 mb-4">
+          <span>ⓘ 이 문서의 실제 작성·AI 초안·결재·정식 양식 다운로드는 <b>품질 문서</b> 화면에서 진행합니다. (여기는 어떤 문서가 필요한지 보여주는 안내입니다)</span>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm">닫기</button>
+          <button onClick={onGoDocuments} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">품질 문서로 이동 →</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -209,9 +235,20 @@ export default function GMPSection() {
   const { cardId } = useParams();
   const navigate = useNavigate();
 
-  const ctx = useMemo(() => loadContext(), []);
+  const [tick, setTick] = useState(0);
+  const [previewDoc, setPreviewDoc] = useState(null);
+
+  const ctx = useMemo(() => loadContext(), [tick]);
   const cardDef = useMemo(() => CARDS.find(c => c.id === cardId), [cardId]);
   const card = useMemo(() => cardDef ? computeCardProgress(cardDef, ctx) : null, [cardDef, ctx]);
+  const toggles = ctx.toggles || {};
+
+  const onToggle = (path, value) => {
+    const cur = readToggles()[path];
+    // 같은 값 다시 누르면 해제(기본값으로)
+    writeToggle(path, cur === value ? null : value);
+    setTick(t => t + 1);
+  };
 
   if (!cardDef || !card) {
     return (
@@ -277,18 +314,23 @@ export default function GMPSection() {
           )}
         </div>
 
-        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" />
-        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" />
-        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" />
-        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" />
+        <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-[12px] text-slate-600">
+          <span>ⓘ <b>✓</b> 충족 · <b>◐</b> 부분 · <b>✗</b> 미충족. "토글 가능" 항목은 <b>해당/제외</b>로 직접 적용 여부를 정할 수 있어요(제외하면 N/A로 빠져 점수에 반영). 그 외 항목은 품질문서·운영기록 등 실제 활동이 쌓이면 자동으로 충족 처리됩니다.</span>
+        </div>
 
-        <DocumentLibrarySection cardId={cardDef.id} ctx={ctx} />
+        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
+        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
+        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
+        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
+
+        <DocumentLibrarySection cardId={cardDef.id} ctx={ctx} onPreview={setPreviewDoc} />
 
         <div className="text-[10px] text-slate-400 mt-4 leading-relaxed">
           진행률 = 필수×0.6 + 선택×0.3 + 검증×0.1 (특허 2 청구항 1(c)). 조건부 항목은 회사·제품·인증 속성에 따라 자동 결정.
-          시연 PDF #13(SOP 작성 위치)·#15(문서 라이브러리)·#16(기록 열람)은 본 5번째 섹션이 자연 해결.
         </div>
       </div>
+
+      <PreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} onGoDocuments={() => navigate('/documents')} />
     </div>
   );
 }
