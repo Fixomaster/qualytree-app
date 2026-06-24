@@ -1281,11 +1281,36 @@ export const CARDS = [
 /**
  * 한 항목의 실제 상태 결정 — 조건부 항목은 동적으로 평가
  */
+// citation 표준 → 인증 키 분류 (일반 표준은 null = 항상 적용)
+function citationCertKey(standard) {
+  const s = String(standard || '');
+  if (/EU MDR|EUDAMED|MDCG|MEDDEV|EU AI Act|2017\/745|\bMDR\b/i.test(s)) return 'euMdr';
+  if (/FDA|21 CFR|GUDID|510\(k\)|\bPMA\b|QMSR|\bQSR\b/i.test(s)) return 'fdaQmsr';
+  if (/PMDA|J-MDN|J-UDI|Pharmaceutical Affairs/i.test(s)) return 'pmda';
+  if (/NMPA/i.test(s)) return 'nmpa';
+  if (/KGMP|MFDS|식약처|의료기기법|의료기기 표시|고시|KGCP|별표/i.test(s)) return 'kgmp';
+  if (/ISO 13485/i.test(s)) return 'iso13485';
+  return null;
+}
+// 선택한 인증(또는 일반 표준)에 해당하는 인용인가
+export function isCitationApplicable(citation, certs) {
+  const k = citationCertKey(citation && citation.standard);
+  if (!k) return true;
+  return !!(certs && certs[k]);
+}
+// 고정 항목이 선택 인증에 적용되는가 (인용이 전부 비선택 인증이면 false)
+export function itemCertApplicable(item, certs) {
+  if (!item || !Array.isArray(item.citations) || item.citations.length === 0) return true;
+  return item.citations.some(c => isCitationApplicable(c, certs));
+}
+
 function resolveItemStatus(item, ctx) {
   if (item.condition) {
     const result = item.condition(ctx);
     return result; // 'required' | 'optional' | 'na'
   }
+  // 조건 없는 고정 항목: 선택한 인증에 해당하는 인용이 하나도 없으면 N/A
+  if (!itemCertApplicable(item, ctx.certifications)) return STATUS.NA;
   return item.status;
 }
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT } from '../../lib/gmpProgress';
+import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT, isCitationApplicable } from '../../lib/gmpProgress';
 import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../lib/documentLibrary';
 
 /**
@@ -36,7 +36,8 @@ function FulfillmentIcon({ fulfillment, isNa }) {
   return <span className="text-rose-400 text-lg">✗</span>;
 }
 
-function ItemRow({ item, isCondition, cardId, toggles, onToggle }) {
+function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs }) {
+  const cites = (item.citations || []).filter(c => isCitationApplicable(c, certs));
   const isNa = item.resolvedStatus === STATUS.NA;
   const togglePath = `${cardId}.${item.id}`;
   const excluded = toggles?.[togglePath] === false;
@@ -52,7 +53,7 @@ function ItemRow({ item, isCondition, cardId, toggles, onToggle }) {
         </div>
         <div className={`text-sm ${isNa ? 'text-slate-400' : 'text-slate-800'}`}>{item.label}</div>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-          {item.citations.map((c, i) => (
+          {cites.map((c, i) => (
             <span key={i} className="text-[10px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
               <span className="font-semibold">{c.standard}</span> {c.clause}
             </span>
@@ -71,7 +72,7 @@ function ItemRow({ item, isCondition, cardId, toggles, onToggle }) {
   );
 }
 
-function Section({ title, items, isCondition = false, color = 'slate', cardId, toggles, onToggle }) {
+function Section({ title, items, isCondition = false, color = 'slate', cardId, toggles, onToggle, certs }) {
   if (items.length === 0) return null;
   const colorMap = {
     rose: 'border-rose-200 bg-rose-50/40',
@@ -85,7 +86,7 @@ function Section({ title, items, isCondition = false, color = 'slate', cardId, t
         {title} <span className="text-xs font-normal text-slate-500">({items.length}개)</span>
       </h3>
       <ul className="divide-y divide-slate-100">
-        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} cardId={cardId} toggles={toggles} onToggle={onToggle} />)}
+        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} cardId={cardId} toggles={toggles} onToggle={onToggle} certs={certs} />)}
       </ul>
     </section>
   );
@@ -220,7 +221,7 @@ function PreviewModal({ doc, onClose, onGoDocuments }) {
         )}
 
         <div className="flex items-start gap-2 p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-800 mb-4">
-          <span>ⓘ 이 문서의 실제 작성·AI 초안·결재·정식 양식 다운로드는 <b>품질 문서</b> 화면에서 진행합니다. (여기는 어떤 문서가 필요한지 보여주는 안내입니다)</span>
+          <span>ⓘ <b>매뉴얼·절차서</b>는 <b>품질 문서</b> 화면에서 작성·결재·정식양식 다운로드합니다. <b>등록표·대장 등 전용 양식</b>(예: UDI-DI 등록표)은 아직 품질문서에 없고 추후 <b>'품질양식' 모듈</b>에서 제공될 예정이라, 지금은 안내용입니다.</span>
         </div>
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm">닫기</button>
@@ -262,10 +263,11 @@ export default function GMPSection() {
     );
   }
 
-  const required = card.items.filter(i => !i.condition && i.status === STATUS.REQUIRED);
+  const certs = ctx.certifications || {};
+  const required = card.items.filter(i => !i.condition && i.status === STATUS.REQUIRED && i.resolvedStatus !== STATUS.NA);
   const conditional = card.items.filter(i => i.condition);
-  const optional = card.items.filter(i => !i.condition && i.status === STATUS.OPTIONAL);
-  const verification = card.items.filter(i => !i.condition && i.status === STATUS.VERIFICATION);
+  const optional = card.items.filter(i => !i.condition && i.status === STATUS.OPTIONAL && i.resolvedStatus !== STATUS.NA);
+  const verification = card.items.filter(i => !i.condition && i.status === STATUS.VERIFICATION && i.resolvedStatus !== STATUS.NA);
 
   return (
     <div className="min-h-screen bg-slate-50 p-6">
@@ -318,10 +320,10 @@ export default function GMPSection() {
           <span>ⓘ <b>✓</b> 충족 · <b>◐</b> 부분 · <b>✗</b> 미충족. "토글 가능" 항목은 <b>해당/제외</b>로 직접 적용 여부를 정할 수 있어요(제외하면 N/A로 빠져 점수에 반영). 그 외 항목은 품질문서·운영기록 등 실제 활동이 쌓이면 자동으로 충족 처리됩니다.</span>
         </div>
 
-        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
-        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
-        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
-        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} />
+        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
+        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
+        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
+        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
 
         <DocumentLibrarySection cardId={cardDef.id} ctx={ctx} onPreview={setPreviewDoc} />
 
