@@ -49,6 +49,74 @@ export const FULFILLMENT = {
  * 회사·제품·인증 속성 + 모든 SSoT 엔티티를 단일 컨텍스트 객체로 로드
  * Phase B에서는 이 함수만 fetch('/api/context')로 교체
  */
+// 절차서/문서 이름(한글) → procExists 키 매핑 (문서 발효 시 해당 키 충족 처리) — (가)
+const PROC_KEYMAP = [
+  [/문서관리/, ['document_control']],
+  [/기록관리/, ['record_control']],
+  [/경영검토/, ['management_review']],
+  [/교육|훈련|자격/, ['awareness_training', 'training_effectiveness']],
+  [/환경|위생/, ['personnel_hygiene']],
+  [/계약|고객관리/, ['customer_legal_requirements', 'customer_notification']],
+  [/고객불만|불만/, ['complaint_handling']],
+  [/설계|개발/, ['design_change_control']],
+  [/구매|공급/, ['supplier_evaluation', 'supplier_reevaluation', 'supplier_change', 'scar']],
+  [/공정관리|제조/, ['manufacturing_change']],
+  [/식별|추적/, ['product_identification', 'traceability']],
+  [/자재|제품관리|보관|취급/, ['preservation', 'incoming_inspection', 'iqc']],
+  [/시설|설비|장비|교정/, ['calibration']],
+  [/내부감사|내부심사/, ['internal_audit']],
+  [/시험|검사/, ['incoming_inspection', 'iqc', 'ipi', 'lai', 'inspection_status']],
+  [/부적합/, ['nonconformance', 'mrb', 'concession', 'rework', 'post_delivery_nc']],
+  [/데이터분석/, ['data_analysis']],
+  [/시정/, ['corrective_action', 'effectiveness_check']],
+  [/예방/, ['preventive_action']],
+  [/안전성|시판후|감시|부작용/, ['vigilance_reporting', 'signal_detection', 'pms_data_analysis', 'reportability_decision', 'oos_response', 'oot_response']],
+  [/UDI/, ['udi_lifecycle', 'udi_db_sync', 'label_printing', 'labeling']],
+]
+
+// 실제 앱 데이터(문서 발효·온보딩·운영기록)를 평가 입력으로 변환 — (가)+(나)
+function bridgeFromApp(ob, rawProcedures, rawDecisionLog, rawCcrLog, safe) {
+  const docs = safe('qualytree.documents', {}) || {};
+  const nameById = {};
+  (ob.manual?.chapters || []).forEach(c => { nameById['M-' + c.id] = c.name; });
+  (ob.procedures || []).forEach(p => { nameById['P-' + p.id] = p.name; });
+  const effectiveNames = Object.entries(docs)
+    .filter(([, r]) => r && r.status === 'effective')
+    .map(([id]) => nameById[id] || '')
+    .filter(Boolean);
+
+  const dproc = {};
+  PROC_KEYMAP.forEach(([re, keys]) => {
+    if (effectiveNames.some(n => re.test(n))) keys.forEach(k => { dproc[k] = { status: 'effective' }; });
+  });
+  if (dproc.record_control) dproc.record_control = { status: 'effective', retentionMatrix: true };
+
+  const manEff = (cnum) => (ob.manual?.chapters || []).some(c => String(c.c) === String(cnum) && docs['M-' + c.id]?.status === 'effective');
+  if (manEff('0') || manEff('4')) dproc.qmsManual = { status: 'approved', exclusionsJustified: true };
+  if (manEff('1')) { dproc.qualityPolicy = { approved: true }; dproc.qualityObjectives = [{ measurable: true }]; }
+  if (manEff('2') || (ob.departments || []).length) {
+    dproc.orgChart = { complete: true };
+    dproc.qmsRoles = { management_representative: { appointed: true }, prrc: { appointed: true } };
+  }
+
+  // 운영기록 (나)
+  const changeRecords = safe('qualytree.changeRecords', []) || [];
+  const ncrs = safe('qualytree.ncrs', []) || [];
+  const capas = safe('qualytree.capas', []) || [];
+  const tsOf = (r) => r.performedAt || r.at || r.timestamp || r.createdAt || r.date || new Date().toISOString();
+  const dccr = (Array.isArray(changeRecords) ? changeRecords : []).map(r => ({ category: r.category || 'qms', timestamp: tsOf(r) }));
+  const dlog = [];
+  if (effectiveNames.some(n => /경영검토/.test(n))) dlog.push({ type: 'management_review_meeting', timestamp: new Date().toISOString() });
+  if (changeRecords.length || ncrs.length || capas.length) dlog.push({ type: 'qms_decision', timestamp: new Date().toISOString() });
+  if (Array.isArray(capas) && capas.length) { dproc.capaTracking = { active: true }; if (dproc.corrective_action) dproc.corrective_action = { status: 'effective' }; }
+
+  return {
+    procedures: { ...dproc, ...(rawProcedures || {}) },       // 명시 저장값이 우선
+    decisionLog: [...dlog, ...(Array.isArray(rawDecisionLog) ? rawDecisionLog : [])],
+    ccrLog: [...dccr, ...(Array.isArray(rawCcrLog) ? rawCcrLog : [])],
+  };
+}
+
 export function loadContext() {
   const safe = (key, fallback) => {
     try {
@@ -70,6 +138,7 @@ export function loadContext() {
   const decisionLog = safe('decisionLog', []);
   const ccrLog = safe('ccrLog', []);
   const userToggles = safe('userToggles', {});
+  const _bridge = bridgeFromApp(ob, procedures, decisionLog, ccrLog, safe);
 
   return {
     // 회사 속성 (①QMS C 활성화 트리거)
@@ -135,10 +204,10 @@ export function loadContext() {
       singleSourceCritical: onboarding.singleSourceCritical ?? false,
     },
 
-    // SSoT 엔티티 — Phase A localStorage
-    procedures,
-    decisionLog,
-    ccrLog,
+    // SSoT 엔티티 — 문서 발효·운영기록 브리지 적용 (가)+(나)
+    procedures: _bridge.procedures,
+    decisionLog: _bridge.decisionLog,
+    ccrLog: _bridge.ccrLog,
 
     // 사용자 토글 (옵션 검증 항목)
     toggles: userToggles,
