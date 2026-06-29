@@ -83,3 +83,4 @@ qualytree-app/
 - `--leaf`: `#4A7C59` — 성공·OK 상태
 - `--amber`: `#C8772D` — 임박·주의
 - `--rust`: `#8B3A1F` — 위험·에러
+이석호
