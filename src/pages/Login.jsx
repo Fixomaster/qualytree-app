@@ -462,7 +462,7 @@ export default function Login() {
           >
             품질은
             <br />
-            <em style={{ fontWeight: 320 }}>나무처럼</em> 자랍니다.
+            <em style={{ fontWeight: 320 }}>나무처럼</em> 자랍니다
           </div>
           <div
             className="font-display italic mt-2"
