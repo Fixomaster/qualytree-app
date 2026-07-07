@@ -95,7 +95,7 @@ export default function Signup() {
 
   const validateStep1 = () => {
     if (!companyName.trim()) return '회사명을 입력해주세요.'
-    if (!employeeCountBand) return '직원 수 구간을 선택해주세요.'
+    if (!businessNumber.trim()) return '사업자등록번호를 입력해주세요.'; if (!representative.trim()) return '대표자명을 입력해주세요.'; if (!employeeCountBand) return '직원 수 구간을 선택해주세요.'
     return ''
   }
 
@@ -304,7 +304,7 @@ export default function Signup() {
                 autoFocus
               />
             </Field>
-            <Field label="사업자등록번호">
+            <Field label="사업자등록번호 *">
               <input
                 type="text"
                 value={businessNumber}
@@ -313,7 +313,7 @@ export default function Signup() {
                 style={styles.input}
               />
             </Field>
-            <Field label="대표자명">
+            <Field label="대표자명 *">
               <input
                 type="text"
                 value={representative}
