@@ -144,13 +144,13 @@
         <rect x="18.8" y="20" width="2.4" height="13" rx="1.2" fill="#16352b"/>
       </svg>
       <div>
-        <div class="wordmark">Quali<span>tree</span></div>
-        <div class="tagline">의lp롌기기 규제·품질 운영 자동화 플랚폼</div>
+        <div class="wordmark">Qualy<span>tree</span></div>
+        <div class="tagline">의료기기 규제·품질 운영 자동화 플랫폼</div>
       </div>
     </div>
     <div style="text-align:right">
       <div class="eyebrow">Pricing</div>
-      <div class="htitle">원금 계산기</div>
+      <div class="htitle">요금 계산기</div>
     </div>
   </header>
 
@@ -169,7 +169,7 @@
           </label>
           <label class="plan" data-plan="iso">
             <input type="radio" name="plan" value="iso">
-            <div><div class="pname">ISO 13485 only</div><div class="pdesc">구제 QMS 표준 운영</div></div>
+            <div><div class="pname">ISO 13485 only</div><div class="pdesc">국제 QMS 표준 운영</div></div>
             <div class="pbase">320,000<small>원 / 월 기본</small></div>
           </label>
           <label class="plan sel" data-plan="bundle">
@@ -184,8 +184,8 @@
       <div class="field">
         <div class="flabel">결제 주기</div>
         <div class="toggle" id="billing">
-          <button data-cycle="monthly">월계 결제</button>
-          <button data-cycle="annual" class="on">연계 선결제<span class="save">−15%</span></button>
+          <button data-cycle="monthly">월 결제</button>
+          <button data-cycle="annual" class="on">연 선결제<span class="save">−15%</span></button>
         </div>
       </div>
 
@@ -272,7 +272,7 @@
       </div>
 
       <div class="foot">
-        <b>산정 기준</b> · 기본료에 Pro 1석 포함, 추가 Pro·작업자 블록(5인)·모듈이 더해집니다. <b>심사대응 지원</b>은 사람이 정기/사후심사에 동행·대응하는 관리형 서비스로, 켜면 Qualytree 월 요금에 더해집니다(플랜 KGMP 10만·ISO 12만·통합 18만 + 모듈 CE 15만·FDA 13만·MDSAP 15만/월). <b>비교 대안(3년)</b>은 ① 구축 컨설팅(KGMP 800만·ISO 1,600만·통합 1,900만 + 모듈 CE 1,600만·FDA 2,200만·MDSAP 1,200만) ② 심사대응 컨설팅(심사대응 지원 선택 시 / KGMP 400만·ISO 800만·통합 900만 + 모듈 CE 900만·FDA 800만·MDSAP 1,000만) ③ 글로벌 eQMS 구독(연 1,200만 + Pro 추가 1석당 연 150만)의 합입니다. 모두 시장 대표 추정치이며, 인증기관 심사료·NB 적합성업가비·FDA user fee 등 외부 법정비용은 양쪽 모두에서 제외됩니다.
+        <b>산정 기준</b> · 기본료에 Pro 1석 포함, 추가 Pro·작업자 블록(5인)·모듈이 더해집니다. <b>심사대응 지원</b>은 사람이 정기/사후심사에 동행·대응하는 관리형 서비스로, 켜면 Qualytree 월 요금에 더해집니다(플랜 KGMP 10만·ISO 12만·통합 18만 + 모듈 CE 15만·FDA 13만·MDSAP 15만/월). <b>비교 대안(3년)</b>은 ① 구축 컨설팅(KGMP 800만·ISO 1,600만·통합 1,900만 + 모듈 CE 1,600만·FDA 2,200만·MDSAP 1,200만) ② 심사대응 컨설팅(심사대응 지원 선택 시 / KGMP 400만·ISO 800만·통합 900만 + 모듈 CE 900만·FDA 800만·MDSAP 1,000만) ③ 글로벌 eQMS 구독(연 1,200만 + Pro 추가 1석당 연 150만)의 합입니다. 모두 시장 대표 추정치이며, 인증기관 심사료·NB 적합성평가비·FDA user fee 등 외부 법정비용은 양쪽 모두에서 제외됩니다.
       </div>
     </div>
   </div>
@@ -352,7 +352,7 @@
     const annual = Math.round(c.monthly*12*(1-DISCOUNT));
     const effMonthly = Math.round(annual/12);
     if(state.cycle==='annual'){
-      $('totalLabel').textContent='연계 선결제액';
+      $('totalLabel').textContent='연 선결제액';
       $('totalBig').textContent = won(annual);
       $('totalUnit').textContent='원 / 년';
       const saved = c.monthly*12 - annual;
