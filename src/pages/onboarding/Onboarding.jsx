@@ -54,7 +54,7 @@ const SEED_PROCEDURES = [
   '계약검토 절차서', '제품식별 및 추적성 절차서', '자재관리 절차서', '품질방침 및 목표관리 절차서', '조직 및 운영관리 절차서',
 ]
 
-// 품질경영매뉴얼 목차 시드 — ISO 13485:2016 / KGMP 조항 구조
+// 품질매뉴얼 목차 시드 — ISO 13485:2016 / KGMP 조항 구조
 const SEED_MANUAL = [
   { c: '0', name: '회사 소개 · 적용 범위' },
   { c: '1', name: '품질방침 및 품질목표' },
@@ -71,7 +71,7 @@ const STEPS = [
   { key: 'plan', label: '플랜·결제', icon: CreditCard },
   { key: 'info', label: '기본정보·제품·인증', icon: Building2 },
   { key: 'org', label: '조직도', icon: Users },
-  { key: 'manual', label: '품질경영매뉴얼', icon: FileText },
+  { key: 'manual', label: '품질매뉴얼', icon: FileText },
   { key: 'procedures', label: '절차서', icon: ClipboardCheck },
   { key: 'accounts', label: '계정 발급', icon: UserPlus },
 ]
@@ -136,7 +136,7 @@ export default function Onboarding() {
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '회사명과 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질경영매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '회사명과 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -577,7 +577,7 @@ function StepOrg({ state, setState }) {
   )
 }
 
-// ───────── STEP 3: 품질경영매뉴얼 ─────────
+// ───────── STEP 3: 품질매뉴얼 ─────────
 function StepManual({ state, patch }) {
   const m = state.manual || {}
   const [name, setName] = useState('')
@@ -606,7 +606,7 @@ function StepManual({ state, patch }) {
   ]
 
   return (
-    <Section title="품질경영매뉴얼" desc="ISO 13485 / KGMP 조항 구조로 작성합니다. 시작 방식을 고르고, 우리 회사 매뉴얼에 포함할 장(章)을 구성하세요.">
+    <Section title="품질매뉴얼" desc="ISO 13485 / KGMP 조항 구조로 작성합니다. 시작 방식을 고르고, 우리 회사 매뉴얼에 포함할 장(章)을 구성하세요.">
       <div className="grid sm:grid-cols-2 gap-3 mb-4">
         {[
           { id: 'ai', icon: Sparkles, title: 'AI 초안으로 시작', desc: '조직도·제품·인증 정보를 바탕으로 초안을 자동 작성합니다. 검토만 하면 됩니다.' },
