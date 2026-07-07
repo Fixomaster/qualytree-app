@@ -70,13 +70,13 @@ export const mfds = {
   // 동기 검색(이미 로드된 메모리/캐시 기준). q로 품목명·분류번호 부분일치, 최대 limit개
   search(q, limit = 30) {
     const list = MEM || (readCache() || {}).items || []
-    const s = (q || '').trim().toLowerCase()
+    const norm = (x) => (x || '').toLowerCase().replace(/\s+/g, ''); const s = norm(q)
     if (!s) return []
     const starts = []
     const includes = []
     for (const it of list) {
-      const name = (it.name || '').toLowerCase()
-      const no = (it.no || '').toLowerCase()
+      const name = norm(it.name)
+      const no = norm(it.no)
       if (name.startsWith(s) || no.startsWith(s)) starts.push(it)
       else if (name.includes(s) || no.includes(s)) includes.push(it)
       if (starts.length >= limit) break
