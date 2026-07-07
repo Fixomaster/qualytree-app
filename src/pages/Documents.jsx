@@ -194,7 +194,7 @@ export default function Documents() {
 
   const setContent = (id, v) => patchDoc(id, (r) => ({ ...r, content: v, updatedAt: Date.now(), author: r.author || me, status: norm(r) === 'draft' ? 'draft' : r.status }))
   const submitReview = (id) => patchDoc(id, (r) => ({ ...r, status: 'review', author: r.author || me, history: hist(r, '검토 요청') }))
-  const reject = (id) => patchDoc(id, (r) => ({ ...r, status: 'draft', history: hist(r, '반려') }))
+  const reject = (id) => patchDoc(id, (r) => ({ ...r, status: 'draft', reviewedBy: me, reviewedAt: today(), history: hist(r, '반려') }))
   const reviewDone = (id) => patchDoc(id, (r) => ({ ...r, status: 'pending', reviewedBy: me, reviewedAt: today(), history: hist(r, '검토 완료 · 승인 상신') }))
   const approve = (id) => patchDoc(id, (r) => ({ ...r, status: 'effective', approvedBy: me, approvedAt: today(), history: hist(r, '승인 · 발효') }))
   const revise = (id) => patchDoc(id, (r) => { const nr = (r.rev || 0) + 1; return { ...r, status: 'draft', rev: nr, reviewedBy: null, reviewedAt: null, approvedBy: null, approvedAt: null, history: [...(r.history || []), { rev: nr, action: '개정 시작', by: me, at: today() }] } })
@@ -204,7 +204,7 @@ export default function Documents() {
     : tab === 'procedures'
       ? procedures.map((p) => ({ id: 'P-' + p.id, label: p.name, name: p.name, kind: 'proc' }))
       : []
-  const effCount = items.filter((it) => norm(docs[it.id] || {}) === 'effective').length
+  const statusId = (it) => (it.kind === 'manual' ? 'MANUAL' : it.id); const effCount = items.filter((it) => norm(docs[statusId(it)] || {}) === 'effective').length
 
   // ── 한→영 번역 (용어집 주입, 버튼식 수동 갱신 + 스탈 + 수동수정 잠금) ──
   const glossaryPairs = GLOSSARY.map((g) => ({ ko: g.t, en: g.en }))
@@ -224,7 +224,7 @@ export default function Documents() {
     } finally { setTranslating(null) }
   }
   const translateAllNeeded = async () => {
-    const targets = items.filter((it) => { const r = docs[it.id] || {}; return r.content && norm(r) !== 'effective' && (!r.contentEn || isStale(r)) })
+    const targets = items.filter((it) => { const r = docs[it.id] || {}; const sr = docs[statusId(it)] || {}; return r.content && norm(sr) !== 'effective' && (!r.contentEn || isStale(r)) })
     if (targets.length === 0) { window.alert('영문 생성/갱신이 필요한 항목이 없습니다.'); return }
     if (!window.confirm(targets.length + '개 항목의 영문을 생성/갱신합니다. 진행할까요?')) return
     for (const it of targets) {
@@ -241,13 +241,13 @@ export default function Documents() {
   const exportOne = (it, idx) => {
     const r = docs[it.id] || {}
     if (!r.content) { window.alert('내보낼 내용이 없습니다.'); return }
-    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, r))
+    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }))
   }
   const openPreview = (it, idx) => {
     const r = docs[it.id] || {}
     if (!r.content) { window.alert('미리볼 내용이 없습니다. 먼저 작성하거나 업로드하세요.'); return }
     const w = window.open('', '_blank')
-    if (w) { w.document.write(controlledDocHtml(it.label, docNumber(it, idx), ctx, r)); w.document.close() }
+    if (w) { w.document.write(controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) })); w.document.close() }
     else window.alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.')
   }
   const exportAll = () => {
@@ -256,7 +256,7 @@ export default function Documents() {
     targets.forEach(({ it, idx }, i) => {
       setTimeout(() => {
         const r = docs[it.id] || {}
-        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, r))
+        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }))
       }, i * 400)
     })
     window.alert(targets.length + '개 문서를 정식 양식 .doc로 각각 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
@@ -386,10 +386,10 @@ export default function Documents() {
                 </div>
                 <div className="grid gap-2">
                   {items.map((it, idx) => {
-                    const r = docs[it.id] || {}
+                    const r = docs[it.id] || {}; const sr = docs[statusId(it)] || {}
                     const open = openId === it.id
-                    const [bLabel, bCls] = badge(r)
-                    const st = norm(r)
+                    const [bLabel, bCls] = badge({ ...sr, content: r.content })
+                    const st = norm(sr)
                     const eff = st === 'effective'
                     const editable = st === 'draft'
                     return (
@@ -401,7 +401,7 @@ export default function Documents() {
                         </button>
                         {open && (
                           <div className="px-3 pb-3">
-                            {r.content && <ApprovalLine r={r} />}
+                            {r.content && <ApprovalLine r={sr} />}
                             {editable && (
                               <div className="flex justify-end gap-2 mb-2">
                                 <label className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50 cursor-pointer">
@@ -460,7 +460,7 @@ export default function Documents() {
 
                             {eff && (
                               <div className="mt-2 text-[11.5px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                                발효본 Rev.{r.rev || 0} · 발효일 {r.approvedAt} · 승인자 {r.approvedBy}  (편집하려면 개정을 시작하세요)
+                                발효본 Rev.{sr.rev || 0} · 발효일 {sr.approvedAt} · 승인자 {sr.approvedBy}  (편집하려면 개정을 시작하세요)
                               </div>
                             )}
 
@@ -468,31 +468,31 @@ export default function Documents() {
                               <span className="text-[11px] text-slate-400">{r.updatedAt ? '자동 저장됨' : '작성하면 자동 저장됩니다'}</span>
                               <div className="flex items-center gap-2">
                                 {st === 'draft' && (
-                                  <button onClick={() => submitReview(it.id)} disabled={!r.content} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">검토 요청 →</button>
+                                  <button onClick={() => submitReview(statusId(it))} disabled={!r.content} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40">검토 요청 →</button>
                                 )}
                                 {st === 'review' && (
                                   <>
-                                    <button onClick={() => reject(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
-                                    <button onClick={() => reviewDone(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">검토 완료 · 승인 상신 →</button>
+                                    <button onClick={() => reject(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
+                                    <button onClick={() => reviewDone(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">검토 완료 · 승인 상신 →</button>
                                   </>
                                 )}
                                 {st === 'pending' && (
                                   <>
-                                    <button onClick={() => reject(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
-                                    <button onClick={() => approve(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">대표 승인 · 발효</button>
+                                    <button onClick={() => reject(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">반려</button>
+                                    <button onClick={() => approve(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">대표 승인 · 발효</button>
                                   </>
                                 )}
                                 {eff && (
-                                  <button onClick={() => revise(it.id)} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">개정 시작 (Rev.{(r.rev || 0) + 1})</button>
+                                  <button onClick={() => revise(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">개정 시작 (Rev.{(sr.rev || 0) + 1})</button>
                                 )}
                               </div>
                             </div>
 
-                            {Array.isArray(r.history) && r.history.length > 0 && (
+                            {Array.isArray(sr.history) && sr.history.length > 0 && (
                               <div className="mt-3 border-t border-slate-100 pt-2">
                                 <div className="text-[11px] font-medium text-slate-500 mb-1">결재 이력</div>
                                 <div className="grid gap-0.5">
-                                  {r.history.slice().reverse().map((h, i) => (
+                                  {sr.history.slice().reverse().map((h, i) => (
                                     <div key={i} className="text-[11px] text-slate-500 tabular-nums">Rev.{h.rev} · {h.action} · {h.by} · {h.at}</div>
                                   ))}
                                 </div>
