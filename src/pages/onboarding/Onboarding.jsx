@@ -322,7 +322,7 @@ function StepInfo({ state, patch, setState }) {
     setPlanChange(null)
   }
   const EMPTY = { name: '', itemName: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '', track: 'N', grp: '', contact: 'none', sterile: false, software: 'none' }
-  const [form, setForm] = useState(EMPTY)
+  const [form, setForm] = useState(EMPTY); const [editingId, setEditingId] = useState(null)
   const setF = (k, v) => setForm((ff) => ({ ...ff, [k]: v }))
   // 식약처(MFDS) 분류번호 자동입력
   const [mfdsReady, setMfdsReady] = useState(mfds.isReady())
@@ -344,12 +344,12 @@ function StepInfo({ state, patch, setState }) {
   }
   const saveProduct = () => {
     if (!form.name.trim()) return
-    setState((s) => ({ ...s, products: [...s.products, { id: uid(), ...form, name: form.name.trim() }] }))
+    if (editingId) { setState((s) => ({ ...s, products: s.products.map((p) => p.id === editingId ? { ...form, id: editingId, name: form.name.trim() } : p) })); setEditingId(null) } else { setState((s) => ({ ...s, products: [...s.products, { id: uid(), ...form, name: form.name.trim() }] })) }
     setForm(EMPTY)
   }
   const editProduct = (p) => {
     setForm({ ...EMPTY, ...p })
-    setState((s) => ({ ...s, products: s.products.filter((x) => x.id !== p.id) }))
+    setEditingId(p.id)
   }
   const delProduct = (id) => setState((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }))
 
@@ -489,8 +489,8 @@ function StepInfo({ state, patch, setState }) {
               <input type="checkbox" checked={form.sterile} onChange={(e) => setF('sterile', e.target.checked)} /> 멸균 제품
             </label>
           </div>
-          <div className="flex justify-end">
-            <button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> 저장</button>
+          <div className="flex items-center justify-end gap-2">
+            {editingId && (<button onClick={() => { setForm(EMPTY); setEditingId(null) }} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-medium">취소</button>)}<button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> {editingId ? '수정 저장' : '저장'}</button>
           </div>
         </div>
 
@@ -503,14 +503,14 @@ function StepInfo({ state, patch, setState }) {
               {state.products.map((p) => {
                 const cat = (p.cat1 === '기타' || p.cat2 === '기타') ? (p.etc || '기타') : [p.cat1, p.cat2].filter(Boolean).join(' › ')
                 return (
-                  <div key={p.id} className="flex items-center gap-2 px-3 py-2 text-[13px]">
+                  <div key={p.id} className={`flex items-center gap-2 px-3 py-2 text-[13px] ${p.id === editingId ? 'bg-emerald-50' : ''}`}>
                     <button onClick={() => editProduct(p)} className="flex-1 text-left min-w-0">
                       <span className="font-medium text-slate-800">{p.name || '(이름없음)'}</span>
                       <span className="text-slate-400"> · {p.grade}등급</span>
                       {cat && <span className="text-slate-500"> · {cat}</span>}
                       {p.classNo && <span className="text-slate-400"> · {p.classNo}</span>}
                     </button>
-                    <span className="text-[10px] text-slate-300 shrink-0">클릭=수정</span>
+                    <span className="text-[10px] text-slate-300 shrink-0">{p.id === editingId ? '수정 중' : '클릭=수정'}</span>
                     <button onClick={() => delProduct(p.id)} className="text-slate-400 hover:text-rose-600 shrink-0"><Trash2 size={15} /></button>
                   </div>
                 )
