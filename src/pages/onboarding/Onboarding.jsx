@@ -528,11 +528,11 @@ function StepInfo({ state, patch, setState }) {
 function StepOrg({ state, setState }) {
   const nodes = state.departments || []
   const [name, setName] = useState('')
-  const [parentId, setParentId] = useState(() => (nodes[0] ? nodes[0].id : ''))
+  const [baseId, setBaseId] = useState(() => (nodes[0] ? nodes[0].id : '')); const [addMode, setAddMode] = useState('child'); const baseNode = nodes.find((d) => d.id === baseId) || null; const effMode = baseNode ? addMode : 'child'
   const add = () => {
     const n = name.trim()
     if (!n) return
-    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: parentId || null }] }))
+    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: baseNode ? (effMode === 'child' ? baseNode.id : (baseNode.parentId || null)) : null }] }))
     setName('')
   }
   const del = (id) => setState((s) => {
@@ -546,30 +546,30 @@ function StepOrg({ state, setState }) {
   })
   const roots = nodes.filter((d) => !d.parentId)
   const childrenOf = (pid) => nodes.filter((d) => d.parentId === pid)
-  const renderNode = (d, depth) => (
+  const renderNode = (d) => (
     <div key={d.id}>
-      <div className="flex items-center gap-2 py-1" style={{ paddingLeft: depth * 22 }}>
-        {depth > 0 && <span className="text-slate-300 text-[13px]">└</span>}
-        <span className="px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-[13px] text-violet-800">{d.name}</span>
-        <button onClick={() => del(d.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={13} /></button>
+      <div className="org-box">
+        <span>{d.name}</span>
+        <button onClick={() => del(d.id)} className="org-del" title="삭제">
+          <Trash2 size={12} /></button>
       </div>
-      {childrenOf(d.id).map((cc) => renderNode(cc, depth + 1))}
+      {childrenOf(d.id).length > 0 && <ul>{childrenOf(d.id).map((cc) => renderNode(cc))}</ul>}
     </div>
   )
 
   return (
-    <Section title="조직도" desc="상위 부서를 선택하고 하위 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
-      <div className="border border-slate-200 rounded-lg p-3 mb-4 bg-white">
+    <Section title="조직도" desc="기준 부서를 고르고 하위(세로) 또는 동일 레벨(가로)로 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
+      <div className="border border-slate-200 rounded-lg p-4 mb-4 bg-white overflow-x-auto">
         {roots.length === 0 ? (
           <div className="text-xs text-slate-400 text-center py-3">조직도가 비어 있습니다. 아래에서 최상위 부서부터 추가하세요.</div>
-        ) : roots.map((r) => renderNode(r, 0))}
+        ) : (<ul className="org-tree">{roots.map((r) => renderNode(r))}</ul>)}
       </div>
-      <div className="flex flex-wrap gap-2 items-center">
-        <select className="input-cell" style={{ maxWidth: 220 }} value={parentId} onChange={(e) => setParentId(e.target.value)}>
-          <option value="">최상위 (부모 없음)</option>
-          {nodes.map((d) => <option key={d.id} value={d.id}>{d.name} 하위</option>)}
+      <div className="flex flex-wrap gap-2 items-center"><style>{`.org-tree,.org-tree ul{display:flex;list-style:none;margin:0;padding:0}.org-tree ul{padding-top:24px}.org-tree li{display:flex;flex-direction:column;align-items:center;padding:24px 10px 0 10px;position:relative}.org-tree li::before,.org-tree li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #cbd5e1;width:50%;height:24px}.org-tree li::after{right:auto;left:50%;border-left:2px solid #cbd5e1}.org-tree li:only-child::before,.org-tree li:only-child::after{display:none}.org-tree li:only-child{padding-top:0}.org-tree li:first-child::before{border:none}.org-tree li:last-child::after{border:none}.org-tree li:last-child::before{border-right:2px solid #cbd5e1;border-radius:0 8px 0 0}.org-tree li:first-child::after{border-radius:8px 0 0 0}.org-tree>li{padding-top:0}.org-tree>li::before,.org-tree>li::after{display:none}.org-tree ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #cbd5e1;width:0;height:24px}.org-box{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:12.5px;font-weight:500;white-space:nowrap}.org-del{color:#cbd5e1;display:inline-flex}.org-del:hover{color:#e11d48}`}</style>
+        <select className="input-cell" style={{ maxWidth: 200 }} value={baseId} onChange={(e) => setBaseId(e.target.value)}>
+          <option value="">(기준 없음 · 최상위)</option>
+          {nodes.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <input className="input-cell" style={{ maxWidth: 240 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[12.5px] shrink-0"><button type="button" onClick={() => setAddMode('child')} className={`px-2.5 py-2 ${effMode === 'child' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}>하위로 추가 ↓</button><button type="button" onClick={() => setAddMode('sibling')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'sibling' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>동일 레벨 추가 ↔</button></div><input className="input-cell" style={{ maxWidth: 200 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button onClick={add} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
       <CellStyle />
