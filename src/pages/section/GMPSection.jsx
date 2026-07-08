@@ -8,6 +8,75 @@ import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../li
  * 5개 섹션: 필수 / 조건부 / 선택 / 검증 / 자동 생성 문서 라이브러리(특허 P13)
  */
 
+// ── 자동 생성 문서 라이브러리 ↔ 실제 생성된 품질문서 연결 + PDF 다운로드 (신규 의존성 없음) ──
+const OB_KEY = "qualytree.onboarding";
+const DOC_KEY = "qualytree.documents";
+function readOnboardingLS() {
+  try { return JSON.parse(localStorage.getItem(OB_KEY) || "{}"); } catch { return {}; }
+}
+function readDocsStoreLS() {
+  try { return JSON.parse(localStorage.getItem(DOC_KEY) || "{}"); } catch { return {}; }
+}
+function getCompanyCtxLite() {
+  const ob = readOnboardingLS();
+  const c = ob.company || {};
+  return { name: c.name || "(회사명)" };
+}
+function normStatusLite(r) {
+  const st = r && r.status;
+  return (st === "review" || st === "pending" || st === "effective") ? st : "draft";
+}
+function escHtmlLite(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function docSectionHtml(title, ctx, r) {
+  const rev = (r && r.rev) || 0;
+  const st = normStatusLite(r);
+  const stLabel = st === "effective" ? ("발효 Rev." + rev) : st === "pending" ? "승인 대기" : st === "review" ? "검토 중" : "작성 중 Rev." + rev;
+  const approver = (r && r.approvedBy) || "";
+  const approvedAt = (r && r.approvedAt) || "";
+  const body = escHtmlLite((r && r.content) || "(내용 없음)").replace(/\n/g, "<br/>");
+  const meta = "<div style='font-family:sans-serif;font-size:11pt;color:#555;margin:6px 0 14px'>" + "회사: " + escHtmlLite(ctx.name) + " &nbsp;|&nbsp; 상태: " + stLabel + (approver ? (" &nbsp;|&nbsp; 승인자: " + escHtmlLite(approver) + " (" + escHtmlLite(approvedAt) + ")") : "") + "</div>";
+  return "<h1 style='font-size:16pt;border-bottom:2px solid #333;padding-bottom:6px;margin-top:28px'>" + escHtmlLite(title) + "</h1>" + meta + "<div style='font-size:11pt;line-height:1.7'>" + body + "</div>";
+}
+function wrapHtmlDocLite(title, inner) {
+  return "<html><head><meta charset='utf-8'><title>" + escHtmlLite(title) + "</title></head><body style='font-family:sans-serif;padding:24px;max-width:760px;margin:0 auto'>" + inner + "</body></html>";
+}
+function findGeneratedInstance(doc) {
+  const ob = readOnboardingLS();
+  const store = readDocsStoreLS();
+  if (doc.id === "quality_manual") {
+    const chapters = (ob.manual && Array.isArray(ob.manual.chapters)) ? ob.manual.chapters.filter((c) => c.included !== false) : [];
+    const hasContent = chapters.some((c) => (store["M-" + c.id] || {}).content);
+    if (!hasContent) return null;
+    const shared = store.MANUAL || {};
+    return {
+      status: normStatusLite(shared), rev: shared.rev || 0, approvedBy: shared.approvedBy, approvedAt: shared.approvedAt,
+      buildHtml: (ctx) => wrapHtmlDocLite("품질매뉴얼", chapters.map((c) => {
+        const r = { ...(store["M-" + c.id] || {}), ...shared };
+        const title = (c.c ? c.c + ". " : "") + c.name;
+        return docSectionHtml(title, ctx, r);
+      }).join("")),
+    };
+  }
+  const procedures = Array.isArray(ob.procedures) ? ob.procedures.filter((p) => p.applicable !== false) : [];
+  const match = procedures.find((p) => (p.name || "").trim() === (doc.name || "").trim());
+  if (match) {
+    const r = store["P-" + match.id] || {};
+    if (!r.content) return null;
+    return {
+      status: normStatusLite(r), rev: r.rev || 0, approvedBy: r.approvedBy, approvedAt: r.approvedAt,
+      buildHtml: (ctx) => wrapHtmlDocLite(match.name, docSectionHtml(match.name, ctx, r)),
+    };
+  }
+  return null;
+}
+function downloadAsPdf(html) {
+  const w = window.open("", "_blank");
+  if (!w) { window.alert("팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도하세요."); return; }
+  const withPrint = html.replace("</body>", "<script>window.onload=function(){setTimeout(function(){window.print()},350)}<\/script></body>");
+  w.document.write(withPrint);
+  w.document.close();
+}
+
 const TOGGLE_KEY = 'userToggles';
 function readToggles() {
   try { return JSON.parse(localStorage.getItem(TOGGLE_KEY) || '{}'); } catch { return {}; }
@@ -187,6 +256,7 @@ function DocumentLibrarySection({ cardId, ctx, onPreview }) {
 function PreviewModal({ doc, onClose, onGoDocuments }) {
   if (!doc) return null;
   const meta = MODE_META[doc.mode];
+  const linked = findGeneratedInstance(doc);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-5 max-h-[85vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
@@ -223,8 +293,13 @@ function PreviewModal({ doc, onClose, onGoDocuments }) {
         <div className="flex items-start gap-2 p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-800 mb-4">
           <span>ⓘ <b>매뉴얼·절차서</b>는 <b>품질 문서</b> 화면에서 작성·결재·정식양식 다운로드합니다. <b>등록표·대장 등 전용 양식</b>(예: UDI-DI 등록표)은 아직 품질문서에 없고 추후 <b>'품질양식' 모듈</b>에서 제공될 예정이라, 지금은 안내용입니다.</span>
         </div>
-        <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm">닫기</button>
+        {linked && (
+      <div className="flex items-center gap-2 mb-3 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-800">
+      <span>{linked.status === 'effective' ? ('발효 Rev.' + linked.rev + (linked.approvedAt ? (' · 승인일 ' + linked.approvedAt) : '')) : '작성된 문서가 있습니다'} — PDF로 다운로드할 수 있습니다.</span>
+      </div>
+      )}
+      <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm">닫기</button>{linked && (<button onClick={() => downloadAsPdf(linked.buildHtml(getCompanyCtxLite()))} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium">PDF 다운로드</button>)}
           <button onClick={onGoDocuments} className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium">품질 문서로 이동 →</button>
         </div>
       </div>
