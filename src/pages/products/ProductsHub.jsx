@@ -34,6 +34,17 @@ function loadCustomBlocks() {
   }
 }
 
+// 식약처 분류 기반 인허가 업종 (대분류 → 중분류)
+const MDCAT = {
+  '기구·기계': ['진료용 기기', '수술용 기기', '정형용품', '영상진단장치', '측정·감시장치', '물리치료·재활기기', '안과용 기기', '내시경·광학기기', '기타'],
+  '의료용품': ['주사기·주사침', '카테터·튜브', '봉합사·결찰재', '수액·수혈세트', '거즈·드레싱', '콘택트렌즈', '기타'],
+  '체외진단의료기기': ['생화학 검사', '면역 검사', '분자진단(NAT)', '혈액·혈당 검사', '자가검사', '기타'],
+  '치과재료': ['충전·수복재료', '인상재', '의치·교정재료', '임플란트', '기타'],
+  '소프트웨어·디지털(SaMD)': ['진단보조 SW', 'AI 영상분석', '환자 모니터링', '디지털치료기기(DTx)', '기타'],
+  '기타': [],
+}
+const MDCAT1 = Object.keys(MDCAT)
+
 /**
  * PROD-001 제품 라이브러리 (메인)
  *   - 탭 1: 제품 마스터 (PROD-001)
@@ -77,6 +88,8 @@ export default function ProductsHub() {
   const processes = ob.processes || []
 
   const hasOnboarding = !!(company?.name) || products.length > 0
+  const canEditProduct = permissions.can('onb.product.edit')
+  const [addingProduct, setAddingProduct] = useState(false)
 
   return (
     <AppLayout
@@ -184,27 +197,54 @@ export default function ProductsHub() {
             {/* 탭 내용 */}
             {tab === 'product' && (
               <div className="space-y-3">
-                {products.length > 1 && (
-                  <div className="flex gap-1.5 flex-wrap">
-                    {products.map((p) => {
-                      const on = (p.id || 'main') === (product?.id || 'main')
-                      return (
-                        <button
-                          key={p.id || 'main'}
-                          onClick={() => setSelId(p.id || 'main')}
-                          className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
-                          style={{
-                            background: on ? 'var(--moss)' : 'var(--bg-soft)',
-                            color: on ? 'var(--bg)' : 'var(--ink-mute)',
-                          }}
-                        >
-                          {p.name || '(이름없음)'}{p.grade ? ' · ' + p.grade + '등급' : ''}
-                        </button>
-                      )
-                    })}
-                  </div>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  {products.length > 1 ? (
+                    <div className="flex gap-1.5 flex-wrap">
+                      {products.map((p) => {
+                        const on = (p.id || 'main') === (product?.id || 'main')
+                        return (
+                          <button
+                            key={p.id || 'main'}
+                            onClick={() => { setSelId(p.id || 'main'); setAddingProduct(false) }}
+                            className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
+                            style={{
+                              background: on ? 'var(--moss)' : 'var(--bg-soft)',
+                              color: on ? 'var(--bg)' : 'var(--ink-mute)',
+                            }}
+                          >
+                            {p.name || '(이름없음)'}{p.grade ? ' · ' + p.grade + '등급' : ''}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ) : <div />}
+                  {canEditProduct && !addingProduct && (
+                    <button onClick={() => setAddingProduct(true)} className="btn-ghost text-[12px]">
+                      <Plus size={12} /> 제품 추가
+                    </button>
+                  )}
+                </div>
+                {addingProduct && (
+                  <AddProductPanel
+                    onCancel={() => setAddingProduct(false)}
+                    onSaved={() => {
+                      setAddingProduct(false)
+                      showToast('제품이 추가되었습니다 · CCR 자동 발의')
+                      setTimeout(() => window.location.reload(), 600)
+                    }}
+                  />
                 )}
-                <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />
+                {!addingProduct && (
+                  product ? (
+                    <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />
+                  ) : (
+                    <div className="card-base p-6 text-center" style={{ borderStyle: 'dashed' }}>
+                      <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
+                      <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>등록된 제품이 없습니다</div>
+                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>위의 '제품 추가' 버튼으로 첫 제품을 등록하세요.</div>
+                    </div>
+                  )
+                )}
               </div>
             )}
             {tab === 'process' && (
@@ -266,6 +306,122 @@ function TabButton({ active, onClick, icon: Icon, label, en, count }) {
 /* ================================================================
    PROD-001 제품 패널
    ================================================================ */
+function AddProductPanel({ onCancel, onSaved }) {
+  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '' }
+  const [form, setForm] = useState(EMPTY)
+  const [reason, setReason] = useState('')
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const save = () => {
+    if (!form.name.trim()) {
+      alert('제품명은 필수입니다.')
+      return
+    }
+    if (!reason.trim()) {
+      alert('추가 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
+      return
+    }
+    const newProduct = { ...form, id: 'prod-' + Date.now(), name: form.name.trim() }
+
+    const ob = onboarding.load()
+    const list = Array.isArray(ob.products) ? ob.products.slice() : []
+    list.push(newProduct)
+    onboarding.save({ ...ob, products: list })
+
+    commitChange({
+      targetEid: eid(ENTITY_TYPES.PRODUCT, newProduct.id),
+      action: CHANGE_ACTIONS.CREATE,
+      before: null,
+      after: newProduct,
+      reason: reason.trim(),
+    })
+
+    onSaved(newProduct)
+  }
+
+  return (
+    <div className="card-base p-5">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <span
+          className="font-mono text-[10px] tracking-[0.18em] uppercase"
+          style={{ color: 'var(--moss)' }}
+        >
+          PRODUCT MASTER · 신규 등록
+        </span>
+        <button onClick={onCancel} className="btn-ghost text-[12px]">
+          취소
+        </button>
+      </div>
+
+      <div
+        className="grid md:grid-cols-2 gap-4 pt-3"
+        style={{ borderTop: '1px solid var(--line)' }}
+      >
+        <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 골절합용 나사" required />
+        <FieldEdit label="품목명 (식약처)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="식약처 품목명" />
+        <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
+        <FieldEdit label="분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" />
+        <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
+        <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
+        <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
+        <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+        {(form.cat1 === '기타' || form.cat2 === '기타') && (
+          <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
+        )}
+        <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
+        <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
+        <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+      </div>
+
+      <div className="pt-3">
+        <FieldEdit
+          label="추가 사유 (CCR 필수 — ISO 13485 §4.2.4)"
+          value={reason}
+          onChange={setReason}
+          placeholder="예: 신규 라인업 출시 / 제품 포트폴리오 확장"
+          required
+        />
+      </div>
+
+      <div className="flex justify-end gap-2 pt-3">
+        <button onClick={onCancel} className="btn-ghost">
+          취소
+        </button>
+        <button onClick={save} className="btn-primary">
+          추가 · CCR 발의
+        </button>
+      </div>
+
+      <ComplianceFooter
+        regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']}
+      />
+    </div>
+  )
+}
+
+function SelectEdit({ label, value, onChange, options, disabled }) {
+  return (
+    <div>
+      <label
+        className="font-mono text-[10px] tracking-[0.16em] uppercase"
+        style={{ color: 'var(--ink-mute)' }}
+      >
+        {label}
+      </label>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="input-base mt-1 w-full text-[13px]"
+      >
+        {options.map(([v, l]) => (
+          <option key={v} value={v}>{l}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function ProductPanel({ product, company, onAction }) {
   const canEdit = permissions.can('onb.product.edit')
   const [editing, setEditing] = useState(false)
