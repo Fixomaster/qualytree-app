@@ -49,7 +49,7 @@ export async function isPlatformOperator() {
 }
 
 // ── 헬퍼: 현재 사용자의 회사 정보 + 권한 ──────────────────────────
-export async function getCompanyMembership() {
+export async function getPlatformOperatorProfile() { const user = await getSupabaseUser(); if (!user) return null; const { data, error } = await supabase.from('platform_operators').select('id, role, name').eq('user_id', user.id).maybeSingle(); if (error) { console.error('[Qualytree] getPlatformOperatorProfile error:', error); return null } return data } export async function getCompanyMembership() {
   const user = await getSupabaseUser()
   if (!user) return null
   const { data, error } = await supabase
