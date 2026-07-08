@@ -136,7 +136,7 @@ export default function Onboarding() {
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '회사명과 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명과 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -155,9 +155,9 @@ export default function Onboarding() {
   const progress = Math.round((doneCount / STEPS.length) * 100)
   const cur = STEPS[step]
 
-  const goStep = (i) => { if (i > step && step > 0 && !stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); markDone(cur.key); setStep(i) }
+  const goStep = (i) => { if (i > step && !stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); markDone(cur.key); setStep(i) }
   const goNext = () => {
-    if (step > 0 && !stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); if (step < STEPS.length - 1) { markDone(cur.key); setStep(step + 1) }
+    if (!stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); if (step < STEPS.length - 1) { markDone(cur.key); setStep(step + 1) }
     else finishOnboarding()
   }
   const goPrev = () => { setStepError(''); if (step > 0) { markDone(cur.key); setStep(step - 1) } }
