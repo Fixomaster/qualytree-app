@@ -6,7 +6,7 @@ import { permissions, LEVELS } from './permissions'
 import {
   supabase,
   getSupabaseUser,
-  isPlatformOperator,
+  isPlatformOperator, getPlatformOperatorProfile,
   getCompanyMembership,
   signInWithEmail,
   signOutSupabase,
@@ -35,7 +35,7 @@ async function safeIsOperator() {
   }
 }
 
-async function safeMembership() {
+async function safeOperatorProfile() { try { return await getPlatformOperatorProfile() } catch (e) { console.warn('[auth] getPlatformOperatorProfile soft-failed:', String(e?.message || e)); return null } } async function safeMembership() {
   try {
     const m = await getCompanyMembership()
     return m && typeof m === 'object' ? m : null
@@ -148,11 +148,11 @@ export const auth = {
     const user = await safeUser()
     if (!user) return null
 
-    const isOp = await safeIsOperator()
-    if (isOp) {
+    const opProfile = await safeOperatorProfile()
+    if (opProfile) {
       const session = {
         email: user.email,
-        name: user.email?.split('@')[0] || 'Operator',
+        name: opProfile.name || user.email?.split('@')[0] || 'Operator',
         level: LEVELS.MANAGER,
         company: null,
         signedAt: new Date().toISOString(),
