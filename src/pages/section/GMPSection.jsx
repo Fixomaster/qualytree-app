@@ -105,13 +105,26 @@ function FulfillmentIcon({ fulfillment, isNa }) {
   return <span className="text-rose-400 text-lg">✗</span>;
 }
 
-function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs }) {
+const GMP_DOC_LINKED_KEYS = ['document_control','record_control','management_review','awareness_training','training_effectiveness','personnel_hygiene','customer_legal_requirements','customer_notification','complaint_handling','design_change_control','supplier_evaluation','supplier_reevaluation','supplier_change','scar','manufacturing_change','product_identification','traceability','preservation','incoming_inspection','iqc','calibration','internal_audit','ipi','lai','inspection_status','nonconformance','mrb','concession','rework','post_delivery_nc','data_analysis','corrective_action','effectiveness_check','preventive_action','vigilance_reporting','signal_detection','pms_data_analysis','reportability_decision','oos_response','oot_response','udi_lifecycle','udi_db_sync','label_printing','labeling','qmsManual','qualityPolicy','qualityObjectives','orgChart','qmsRoles'];
+const GMP_QUALITY_LINKED_KEYS = ['capaTracking'];
+function resolveItemRoute(item) {
+  let src = '';
+  try { src = item && item.evaluate ? item.evaluate.toString() : ''; } catch (e) { src = ''; }
+  if (!src) return null;
+  for (const key of GMP_QUALITY_LINKED_KEYS) { if (src.indexOf(key) !== -1) return '/quality'; }
+  for (const key of GMP_DOC_LINKED_KEYS) { if (src.indexOf(key) !== -1) return '/documents'; }
+  return null;
+}
+function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs, navigate }) {
   const cites = (item.citations || []).filter(c => isCitationApplicable(c, certs));
   const isNa = item.resolvedStatus === STATUS.NA;
   const togglePath = `${cardId}.${item.id}`;
   const excluded = toggles?.[togglePath] === false;
+  const fulfilled = item.fulfillment === FULFILLMENT.MET;
+  const gmpRoute = (!fulfilled && !isNa) ? resolveItemRoute(item) : null;
+  const rowHint = (!fulfilled && !isNa && !gmpRoute);
   return (
-    <li className={`flex items-start gap-3 py-2.5 px-3 rounded-lg ${isNa ? 'bg-slate-50' : 'hover:bg-slate-50'} transition`}>
+    <li onClick={() => { if (gmpRoute && navigate) { navigate(gmpRoute + '?returnTo=' + encodeURIComponent('/section/' + cardId)) } else if (rowHint) { window.alert('이 항목은 아직 특정 입력 화면과 직접 연결되어 있지 않습니다. 관련 절차서를 작성·발효하거나 실제 운영 기록이 쌓이면 자동으로 반영됩니다.') } }} title={gmpRoute ? '클릭하면 관련 화면으로 이동합니다' : (rowHint ? '아직 연결된 입력 화면이 없습니다' : undefined)} className={`flex items-start gap-3 py-2.5 px-3 rounded-lg ${isNa ? 'bg-slate-50' : (gmpRoute ? 'hover:bg-indigo-50 cursor-pointer' : (rowHint ? 'hover:bg-slate-50 cursor-help' : 'hover:bg-slate-50'))} transition`}>
       <div className="w-6 shrink-0 pt-0.5"><FulfillmentIcon fulfillment={item.fulfillment} isNa={isNa} /></div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5 flex-wrap">
@@ -120,7 +133,7 @@ function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs }) {
           {isCondition && <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 rounded">자동 판정</span>}
           {item.togglable && <span className="text-[9px] bg-slate-100 text-slate-600 border border-slate-200 px-1 rounded">토글 가능</span>}
         </div>
-        <div className={`text-sm ${isNa ? 'text-slate-400' : 'text-slate-800'}`}>{item.label}</div>
+        <div className={`text-sm ${isNa ? 'text-slate-400' : 'text-slate-800'}`}>{item.label}{gmpRoute && <span className="ml-1.5 text-indigo-500 text-xs font-medium">→ 입력하러 가기</span>}</div>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {cites.map((c, i) => (
             <span key={i} className="text-[10px] bg-white border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
@@ -131,9 +144,9 @@ function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs }) {
       </div>
       {item.togglable && (
         <div className="shrink-0 flex rounded-lg overflow-hidden border border-slate-200 text-[11px]">
-          <button onClick={() => onToggle(togglePath, true)}
+          <button onClick={(e) => { e.stopPropagation(); onToggle(togglePath, true) }}
             className={`px-2 py-1 ${!excluded ? 'bg-emerald-500 text-white' : 'bg-white text-slate-500'}`}>해당</button>
-          <button onClick={() => onToggle(togglePath, false)}
+          <button onClick={(e) => { e.stopPropagation(); onToggle(togglePath, false) }}
             className={`px-2 py-1 ${excluded ? 'bg-slate-500 text-white' : 'bg-white text-slate-500'}`}>제외(N/A)</button>
         </div>
       )}
@@ -141,7 +154,7 @@ function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs }) {
   );
 }
 
-function Section({ title, items, isCondition = false, color = 'slate', cardId, toggles, onToggle, certs }) {
+function Section({ title, items, isCondition = false, color = 'slate', cardId, toggles, onToggle, certs, navigate }) {
   if (items.length === 0) return null;
   const colorMap = {
     rose: 'border-rose-200 bg-rose-50/40',
@@ -155,7 +168,7 @@ function Section({ title, items, isCondition = false, color = 'slate', cardId, t
         {title} <span className="text-xs font-normal text-slate-500">({items.length}개)</span>
       </h3>
       <ul className="divide-y divide-slate-100">
-        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} cardId={cardId} toggles={toggles} onToggle={onToggle} certs={certs} />)}
+        {items.map(item => <ItemRow key={item.id} item={item} isCondition={isCondition} cardId={cardId} toggles={toggles} onToggle={onToggle} certs={certs} navigate={navigate} />)}
       </ul>
     </section>
   );
@@ -395,10 +408,10 @@ export default function GMPSection() {
           <span>ⓘ <b>✓</b> 충족 · <b>◐</b> 부분 · <b>✗</b> 미충족. "토글 가능" 항목은 <b>해당/제외</b>로 직접 적용 여부를 정할 수 있어요(제외하면 N/A로 빠져 점수에 반영). 그 외 항목은 품질문서·운영기록 등 실제 활동이 쌓이면 자동으로 충족 처리됩니다.</span>
         </div>
 
-        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
-        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
-        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
-        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} />
+        <Section title="필수 항목 (가중치 60%)" items={required} color="rose" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} navigate={navigate} />
+        <Section title="조건부 항목 (자동 필수↔N/A 판정)" items={conditional} isCondition color="amber" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} navigate={navigate} />
+        <Section title="선택 항목 (가중치 30%)" items={optional} color="sky" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} navigate={navigate} />
+        <Section title="검증 항목 (가중치 10%)" items={verification} color="violet" cardId={cardDef.id} toggles={toggles} onToggle={onToggle} certs={certs} navigate={navigate} />
 
         <DocumentLibrarySection cardId={cardDef.id} ctx={ctx} onPreview={setPreviewDoc} />
 
