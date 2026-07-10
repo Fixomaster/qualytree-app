@@ -34,6 +34,12 @@ function loadCustomBlocks() {
   }
 }
 
+function saveCustomBlocks(blocks) {
+  try {
+    localStorage.setItem(CUSTOM_BLOCK_KEY, JSON.stringify(blocks))
+  } catch {}
+}
+
 // 식약처 분류 기반 인허가 업종 (대분류 → 중분류)
 const MDCAT = {
   '기구·기계': ['진료용 기기', '수술용 기기', '정형용품', '영상진단장치', '측정·감시장치', '물리치료·재활기기', '안과용 기기', '내시경·광학기기', '기타'],
@@ -635,7 +641,9 @@ const SW_LABELS = {
    PROD-002 공정 패널
    ================================================================ */
 function ProcessPanel({ onAction }) {
-  const allBlocks = useMemo(() => [...PROCESS_BLOCKS, ...loadCustomBlocks()], [])
+  const [customList, setCustomList] = useState(() => loadCustomBlocks())
+  const [customCat, setCustomCat] = useState('')
+  const allBlocks = useMemo(() => [...PROCESS_BLOCKS, ...customList], [customList])
   const findBlock = (id) => allBlocks.find((b) => b.id === id)
   const [list, setList] = useState(() => {
     const ob = onboarding.load()
@@ -652,6 +660,17 @@ function ProcessPanel({ onAction }) {
     onAction && onAction('공정 순서가 저장되었습니다')
   }
   const addBlock = (b) => { persist([...list, { id: 'p' + Date.now(), blockId: b.id, order: list.length + 1 }]); setPicking(false); setQ('') }
+  const addCustomBlock = () => {
+    const name = q.trim()
+    if (!name) return
+    if (!requirePermission('onb.process.addBlock')) return
+    const nb = { id: 'custom-' + Date.now(), name, en: '', category: customCat || undefined, desc: '사용자 정의 공정', custom: true, sopAuto: [], inspections: [], standards: [], risks: [] }
+    const nextCustom = [...customList, nb]
+    setCustomList(nextCustom)
+    saveCustomBlocks(nextCustom)
+    addBlock(nb)
+    setCustomCat('')
+  }
   const del = (id) => persist(list.filter((p) => p.id !== id))
   const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= list.length) return; const n = list.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; persist(n) }
   const loadDefault = () => { if (list.length && !window.confirm('현재 공정을 기본 6단계 체인으로 대체할까요?')) return; persist(DEFAULT_CHAIN.map((b, i) => ({ id: 'p' + Date.now() + '-' + i, blockId: b.blockId, order: i + 1, customName: b.customName }))) }
@@ -684,17 +703,30 @@ function ProcessPanel({ onAction }) {
         <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>여기서 정의한 순서대로 작업 지시 단계가 발급됩니다. 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다(시간 잠금).</div>
         {picking && (
           <div className="rounded-md p-2" style={{ background: 'var(--bg-soft)' }}>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="공정 블록 검색…" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="공정 블록 검색… (목록에 없으면 아래에서 직접 추가)" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
             <div className="grid sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto">
               {blockChoices.map((b) => {
                 const cat = PROCESS_CATEGORIES.find((c) => c.id === b.category)
                 return (
                   <button key={b.id} onClick={() => addBlock(b)} className="text-left px-2.5 py-1.5 rounded-md text-[12px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                     <span style={{ color: 'var(--ink)' }}>{b.name}</span>
+                    {b.custom && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>직접 추가</span>}
                     {cat && <span className="ml-1.5" style={{ color: 'var(--ink-faint)' }}>· {cat.name}</span>}
                   </button>
                 )
               })}
+            </div>
+            {blockChoices.length === 0 && q.trim() && (
+              <div className="text-[11.5px] mt-2 px-1" style={{ color: 'var(--ink-mute)' }}>'{q.trim()}' 검색 결과가 없습니다. 아래에서 목록에 없는 공정으로 직접 추가할 수 있습니다.</div>
+            )}
+            <div className="mt-2 pt-2 flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid var(--line)' }}>
+              <select value={customCat} onChange={(e) => setCustomCat(e.target.value)} className="input-base text-[12px]" style={{ width: 'auto', padding: '5px 8px' }}>
+                <option value="">분류 선택 안 함</option>
+                {PROCESS_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button onClick={addCustomBlock} disabled={!q.trim()} className="btn-primary text-[12px] disabled:opacity-40" style={{ padding: '5px 10px' }}>
+                + '{q.trim() || '…'}' 목록에 없는 공정으로 추가
+              </button>
             </div>
           </div>
         )}
