@@ -28,6 +28,11 @@ export const PERMISSIONS = {
   'onb.regulations.edit': LEVELS.MANAGER, // 다중 규제 변경
   'onb.roles.edit': LEVELS.MANAGER, // 역할 정의
 
+  // ===== EQP 영역 (설비 · 시험장비 · 교정) =====
+  'eq.equipment.edit': LEVELS.MANAGER, // 설비대장·예방보전계획·점검기록 변경
+  'eq.testEquipment.edit': LEVELS.MANAGER, // 시험장비대장 변경
+  'eq.calibration.edit': LEVELS.MANAGER, // 교정계획·교정성적서 변경
+
   // ===== OPS 영역 =====
   'ops.workOrder.create': LEVELS.MANAGER, // 새 작업 지시 발행
   'ops.workOrder.cancel': LEVELS.MANAGER, // 작업 지시 취소·보류
