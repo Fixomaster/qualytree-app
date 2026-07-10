@@ -15,6 +15,7 @@ import InspectionStages from './pages/operations/InspectionStages'
 import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
 import ProductsHub from './pages/products/ProductsHub'
+import EquipmentHub from './pages/equipment/EquipmentHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
@@ -134,6 +135,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <ProductsHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/equipment"
+        element={
+          <ProtectedRoute>
+            <EquipmentHub />
           </ProtectedRoute>
         }
       />
