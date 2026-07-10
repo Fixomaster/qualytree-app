@@ -24,13 +24,65 @@ const DEFAULT = {
     classification: null, // computed
   },
   // Step 3 — 공정
-  processes: [], // [{ id, blockId, order, customName? }]
+  processes: [], // [{ id, blockId, order, customName? }] — 레거시(단일) 공정 목록, 하위 호환용
+  productProcesses: {}, // { [productId]: [{ id, blockId, order, customName? }] } — 제품별 공정 목록
   // Step 4 — 다중 규제
   regulations: ['iso-13485'], // 항상 포함
   targetMarkets: [], // ['korea', 'us', 'eu', ...]
   // Step 5 — 역할
   roles: [], // [{ roleId, personName, email, ... }]
   finishedAt: null,
+}
+
+/**
+ * 제품 키 계산 — 제품별 공정 목록을 구분하는 기준.
+ * 제품에 id가 없으면(레거시 단일 제품) 'main'으로 취급합니다.
+ */
+export function productKeyOf(p) {
+  return (p && p.id) || 'main'
+}
+
+/**
+ * 특정 제품의 공정 목록을 가져옵니다.
+ * productProcesses에 항목이 없으면 레거시 전역 processes를 기본값으로 사용합니다(하위 호환).
+ */
+export function getProductProcesses(ob, productKey) {
+  const key = productKey || 'main'
+  const map = (ob && ob.productProcesses) || {}
+  if (Array.isArray(map[key])) return map[key]
+  return (ob && ob.processes) || []
+}
+
+/**
+ * 특정 제품의 공정 목록을 저장한 새 온보딩 상태를 반환합니다(원본은 변경하지 않음).
+ */
+export function setProductProcesses(ob, productKey, list) {
+  const key = productKey || 'main'
+  const map = { ...((ob && ob.productProcesses) || {}) }
+  map[key] = list
+  return { ...ob, productProcesses: map }
+}
+
+/**
+ * 회사 전체에서 실제 사용 중인 공정 블록 ID 집합 (모든 제품의 공정 목록 + 레거시 목록 통합).
+ */
+export function getAllUsedBlockIds(ob) {
+  const set = new Set()
+  ;((ob && ob.processes) || []).forEach((p) => set.add(p.blockId))
+  const map = (ob && ob.productProcesses) || {}
+  Object.values(map).forEach((list) => {
+    ;(Array.isArray(list) ? list : []).forEach((p) => set.add(p.blockId))
+  })
+  return set
+}
+
+/**
+ * 회사 전체에 정의된 공정이 하나라도 있는지 (레거시 전역 목록 또는 제품별 목록 중 하나라도).
+ */
+export function hasAnyProcesses(ob) {
+  if (((ob && ob.processes) || []).length > 0) return true
+  const map = (ob && ob.productProcesses) || {}
+  return Object.values(map).some((list) => Array.isArray(list) && list.length > 0)
 }
 
 export const onboarding = {
