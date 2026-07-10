@@ -110,6 +110,24 @@ function bridgeFromApp(ob, rawProcedures, rawDecisionLog, rawCcrLog, safe) {
   if (changeRecords.length || ncrs.length || capas.length) dlog.push({ type: 'qms_decision', timestamp: new Date().toISOString() });
   if (Array.isArray(capas) && capas.length) { dproc.capaTracking = { active: true }; if (dproc.corrective_action) dproc.corrective_action = { status: 'effective' }; }
 
+  // 설비·시험장비·교정 SSoT 브리지 (EquipmentHub / equipmentState.js) — (다)
+  const eqStore = safe('qualytree.equipment', null);
+  if (eqStore) {
+    const eqList = Array.isArray(eqStore.equipment) ? eqStore.equipment : [];
+    const testEq = Array.isArray(eqStore.testEquipment) ? eqStore.testEquipment : [];
+    const calPlans = Array.isArray(eqStore.calibrationPlans) ? eqStore.calibrationPlans : [];
+    const calCerts = Array.isArray(eqStore.calibrationCertificates) ? eqStore.calibrationCertificates : [];
+    if (eqList.length) dproc.equipmentList = eqList;
+    if (testEq.length) {
+      dproc.measurementEquipment = testEq.map((te) => {
+        const plan = calPlans.find((p) => p.targetType === 'testEquipment' && p.targetId === te.id);
+        return { ...te, nextCalibrationDate: plan?.nextDate || '' };
+      });
+    }
+    if (calCerts.length) dproc.calibrationCertificates = true;
+    if (calPlans.length) dproc.calibrationPlanCount = calPlans.length;
+  }
+
   return {
     procedures: { ...dproc, ...(rawProcedures || {}) },       // 명시 저장값이 우선
     decisionLog: [...dlog, ...(Array.isArray(rawDecisionLog) ? rawDecisionLog : [])],

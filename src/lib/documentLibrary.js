@@ -143,14 +143,18 @@ export const CARD_DOCUMENTS = {
 
   // ⑤ QC
   qc: [
-    { id: 'equipment_registry', name: '측정장비 등록부', description: '장비 ID·교정주기·교정기관·NMI 추적성',
+    { id: 'equipment_list', name: '설비 목록', description: '설비명·자산번호·분류·제조사/모델·위치·부서·관리자·상태 (기반시설대장)',
+      regulations: [{ s: 'ISO 13485', c: '§6.3' }, { s: 'FDA QMSR', c: '§820.70(g)' }],
+      sources: ['equipmentList'], mode: DOC_MODE.AUTOFILL,
+      readyWhen: ctx => (ctx.procedures.equipmentList ?? []).length > 0, markets: ['ALL'] },
+    { id: 'test_equipment_list', name: '시험장비 목록', description: '측정범위·정확도·다음 교정일 포함 시험장비대장',
       regulations: [{ s: 'ISO 13485', c: '§7.6' }, { s: 'FDA QMSR', c: '§820.72(a)' }],
       sources: ['measurementEquipment'], mode: DOC_MODE.AUTOFILL,
       readyWhen: ctx => (ctx.procedures.measurementEquipment ?? []).length > 0, markets: ['ALL'] },
-    { id: 'calibration_schedule', name: '교정 일정표', description: '장비별 다음 교정일 + 만료 임박 알림',
-      regulations: [{ s: 'ISO 13485', c: '§7.6' }],
-      sources: ['measurementEquipment'], mode: DOC_MODE.AUTOFILL,
-      readyWhen: () => true, markets: ['ALL'] },
+    { id: 'calibration_register', name: '교정 관리대장', description: '설비·시험장비 통합 — 교정계획(주기·차기일) + 교정성적서 이력',
+      regulations: [{ s: 'ISO 13485', c: '§7.6' }, { s: 'FDA QMSR', c: '§820.72(b)' }, { s: 'KGMP', c: '제12조' }],
+      sources: ['calibrationPlans', 'calibrationCertificates'], mode: DOC_MODE.AUTOFILL,
+      readyWhen: ctx => ctx.procedures.calibrationCertificates === true || (ctx.procedures.calibrationPlanCount ?? 0) > 0, markets: ['ALL'] },
     { id: 'iqc_report', name: 'IQC 검사 성적서', description: '입고검사 결과 + CoA/CoC 자동 비교',
       regulations: [{ s: 'ISO 13485', c: '§7.4.3' }, { s: 'FDA QMSR', c: '§820.80(b)' }],
       sources: ['iqcRecords'], mode: DOC_MODE.AUTOFILL,

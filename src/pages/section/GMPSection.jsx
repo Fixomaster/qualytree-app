@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT, isCitationApplicable } from '../../lib/gmpProgress';
 import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../lib/documentLibrary';
+import { equipment as equipmentStore } from '../../lib/equipmentState';
 
 /**
  * 12개 카드 공통 상세 페이지 — 카드 ID로 분기
@@ -40,7 +41,72 @@ function docSectionHtml(title, ctx, r) {
 function wrapHtmlDocLite(title, inner) {
   return "<html><head><meta charset='utf-8'><title>" + escHtmlLite(title) + "</title></head><body style='font-family:sans-serif;padding:24px;max-width:760px;margin:0 auto'>" + inner + "</body></html>";
 }
+// ── 설비 · 시험장비 · 교정 관리대장 — equipmentState.js SSoT를 표(테이블) 문서로 렌더 ──
+function tableHtmlLite(headers, rows) {
+  const thead = "<tr>" + headers.map((h) => "<th style='border:1px solid #ccc;padding:6px 8px;background:#f3f4f6;text-align:left;font-size:10pt'>" + escHtmlLite(h) + "</th>").join("") + "</tr>";
+  const tbody = rows.map((r) => "<tr>" + r.map((c) => "<td style='border:1px solid #ddd;padding:6px 8px;font-size:10pt'>" + escHtmlLite(c ?? "") + "</td>").join("") + "</tr>").join("");
+  return "<table style='border-collapse:collapse;width:100%;margin:10px 0 20px'><thead>" + thead + "</thead><tbody>" + tbody + "</tbody></table>";
+}
+function listDocMetaHtml(ctx, count) {
+  const today = new Date().toISOString().slice(0, 10);
+  return "<div style='font-family:sans-serif;font-size:11pt;color:#555;margin:6px 0 14px'>" + "회사: " + escHtmlLite(ctx.name) + " &nbsp;|&nbsp; 총 " + count + "건 &nbsp;|&nbsp; 생성일: " + today + "</div>";
+}
+function listDocTitleHtml(title) {
+  return "<h1 style='font-size:16pt;border-bottom:2px solid #333;padding-bottom:6px;margin-top:28px'>" + escHtmlLite(title) + "</h1>";
+}
+function equipmentListHtml(ctx) {
+  const s = equipmentStore.load();
+  const headers = ["설비명", "자산번호", "분류", "제조사", "모델", "일련번호", "위치", "부서", "관리자", "상태", "입고일"];
+  const rows = s.equipment.map((e) => [e.name, e.assetNo, e.category, e.manufacturer, e.model, e.serialNo, e.location, e.department, e.owner, e.status, e.acquiredDate]);
+  return wrapHtmlDocLite("설비 목록", listDocTitleHtml("설비 목록") + listDocMetaHtml(ctx, rows.length) + tableHtmlLite(headers, rows));
+}
+function testEquipmentListHtml(ctx) {
+  const s = equipmentStore.load();
+  const headers = ["시험장비명", "자산번호", "제조사", "모델", "일련번호", "측정범위", "정확도", "위치", "부서", "관리자", "상태", "입고일"];
+  const rows = s.testEquipment.map((e) => [e.name, e.assetNo, e.manufacturer, e.model, e.serialNo, e.range, e.accuracy, e.location, e.department, e.owner, e.status, e.acquiredDate]);
+  return wrapHtmlDocLite("시험장비 목록", listDocTitleHtml("시험장비 목록") + listDocMetaHtml(ctx, rows.length) + tableHtmlLite(headers, rows));
+}
+function calibrationRegisterHtml(ctx) {
+  const s = equipmentStore.load();
+  const targets = equipmentStore.allCalibrationTargets();
+  const headers = ["대상", "유형", "자산번호", "교정주기(개월)", "최근교정일", "차기교정일", "교정기관", "최근 판정", "유효기한"];
+  const rows = targets.map((t) => {
+    const plan = s.calibrationPlans.find((p) => p.targetType === t.targetType && p.targetId === t.targetId);
+    const certs = s.calibrationCertificates
+      .filter((c) => c.targetType === t.targetType && c.targetId === t.targetId)
+      .sort((a, b) => (b.calDate || "").localeCompare(a.calDate || ""));
+    const latest = certs[0];
+    return [
+      t.name,
+      t.targetType === "equipment" ? "설비" : "시험장비",
+      t.assetNo,
+      plan?.cycleMonths || "",
+      plan?.lastDate || "",
+      plan?.nextDate || "",
+      latest?.vendor || plan?.vendor || "",
+      latest?.result || "",
+      latest?.validUntil || "",
+    ];
+  });
+  return wrapHtmlDocLite("교정 관리대장", listDocTitleHtml("교정 관리대장") + listDocMetaHtml(ctx, rows.length) + tableHtmlLite(headers, rows));
+}
+
 function findGeneratedInstance(doc) {
+  if (doc.id === "equipment_list") {
+    const s = equipmentStore.load();
+    if (!s.equipment.length) return null;
+    return { status: "effective", rev: s.equipment.length, approvedBy: "", approvedAt: "", buildHtml: (ctx) => equipmentListHtml(ctx) };
+  }
+  if (doc.id === "test_equipment_list") {
+    const s = equipmentStore.load();
+    if (!s.testEquipment.length) return null;
+    return { status: "effective", rev: s.testEquipment.length, approvedBy: "", approvedAt: "", buildHtml: (ctx) => testEquipmentListHtml(ctx) };
+  }
+  if (doc.id === "calibration_register") {
+    const s = equipmentStore.load();
+    if (!s.calibrationPlans.length && !s.calibrationCertificates.length) return null;
+    return { status: "effective", rev: s.calibrationCertificates.length, approvedBy: "", approvedAt: "", buildHtml: (ctx) => calibrationRegisterHtml(ctx) };
+  }
   const ob = readOnboardingLS();
   const store = readDocsStoreLS();
   if (doc.id === "quality_manual") {
