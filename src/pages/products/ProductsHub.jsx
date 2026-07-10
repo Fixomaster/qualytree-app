@@ -17,7 +17,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission, LEVEL_LABEL } from '../../lib/permissions'
-import { onboarding } from '../../lib/onboardingState'
+import { onboarding, getProductProcesses, setProductProcesses, productKeyOf, getAllUsedBlockIds } from '../../lib/onboardingState'
 import { PROCESS_BLOCKS, PROCESS_CATEGORIES } from '../../lib/processBlocks'
 import { inspectionTemplates, CRITICALITY_OPTIONS } from '../../lib/inspectionTemplates'
 import { commitChange, CHANGE_ACTIONS, getRecordsForEntity } from '../../lib/changeControl'
@@ -254,7 +254,7 @@ export default function ProductsHub() {
               </div>
             )}
             {tab === 'process' && (
-              <ProcessPanel onAction={showToast} />
+              <ProcessPanel key={productKeyOf(product)} product={product} products={products} selId={selId} setSelId={setSelId} onAction={showToast} />
             )}
             {tab === 'inspection' && (
               <InspectionPanel onAction={showToast} />
@@ -640,14 +640,15 @@ const SW_LABELS = {
 /* ================================================================
    PROD-002 공정 패널
    ================================================================ */
-function ProcessPanel({ onAction }) {
+function ProcessPanel({ product, products, selId, setSelId, onAction }) {
+  const productKey = productKeyOf(product)
   const [customList, setCustomList] = useState(() => loadCustomBlocks())
   const [customCat, setCustomCat] = useState('')
   const allBlocks = useMemo(() => [...PROCESS_BLOCKS, ...customList], [customList])
   const findBlock = (id) => allBlocks.find((b) => b.id === id)
   const [list, setList] = useState(() => {
     const ob = onboarding.load()
-    return (ob.processes || []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))
+    return getProductProcesses(ob, productKey).slice().sort((a, b) => (a.order || 0) - (b.order || 0))
   })
   const [picking, setPicking] = useState(false)
   const [q, setQ] = useState('')
@@ -656,7 +657,7 @@ function ProcessPanel({ onAction }) {
     const ordered = next.map((p, i) => ({ ...p, order: i + 1 }))
     setList(ordered)
     const ob = onboarding.load()
-    onboarding.save({ ...ob, processes: ordered })
+    onboarding.save(setProductProcesses(ob, productKey, ordered))
     onAction && onAction('공정 순서가 저장되었습니다')
   }
   const addBlock = (b) => { persist([...list, { id: 'p' + Date.now(), blockId: b.id, order: list.length + 1 }]); setPicking(false); setQ('') }
@@ -692,15 +693,37 @@ function ProcessPanel({ onAction }) {
         <StatCard label="위험 ID" value={stats.risks} hint="ISO 14971 항목" />
       </div>
 
+      {Array.isArray(products) && products.length > 1 && (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11.5px] mr-1" style={{ color: 'var(--ink-mute)' }}>제품별 공정:</span>
+          {products.map((p) => {
+            const on = (p.id || 'main') === (product?.id || 'main')
+            return (
+              <button
+                key={p.id || 'main'}
+                onClick={() => setSelId && setSelId(p.id || 'main')}
+                className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
+                style={{
+                  background: on ? 'var(--moss)' : 'var(--bg-soft)',
+                  color: on ? 'var(--bg)' : 'var(--ink-mute)',
+                }}
+              >
+                {p.name || '(이름없음)'}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div className="card-base p-3">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>제조·검사 공정 순서 ({list.length}단계)</div>
+          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>{product?.name ? `${product.name} · ` : ''}제조·검사 공정 순서 ({list.length}단계)</div>
           <div className="flex gap-2">
             <button onClick={loadDefault} className="btn-ghost text-[12px]">기본 공정체인 불러오기</button>
             <button onClick={() => setPicking((v) => !v)} className="btn-primary text-[12px]" style={{ background: 'var(--rust)' }}>+ 공정 추가</button>
           </div>
         </div>
-        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>여기서 정의한 순서대로 작업 지시 단계가 발급됩니다. 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다(시간 잠금).</div>
+        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>제품마다 서로 다른 공정을 정의할 수 있습니다. 여기서 정의한 순서대로 (선택된 제품의) 작업 지시 단계가 발급됩니다. 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다(시간 잠금).</div>
         {picking && (
           <div className="rounded-md p-2" style={{ background: 'var(--bg-soft)' }}>
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="공정 블록 검색… (목록에 없으면 아래에서 직접 추가)" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
@@ -731,6 +754,12 @@ function ProcessPanel({ onAction }) {
           </div>
         )}
       </div>
+
+      {!product && (
+        <div className="card-base p-3 text-[12px]" style={{ color: 'var(--rust)', background: 'var(--rust-soft)', borderStyle: 'dashed' }}>
+          등록된 제품이 없어 기본(공용) 공정 목록을 편집하고 있습니다. '제품' 탭에서 제품을 추가하면 제품별로 다른 공정을 정의할 수 있습니다.
+        </div>
+      )}
 
       <div className="space-y-2">
         {list.length === 0 ? (
@@ -923,7 +952,7 @@ function InspectionPanel({ onAction }) {
 
   // 모든 블록 × 모든 템플릿 통합 조회
   const ob = onboarding.load() || {}
-  const usedBlockIds = new Set((ob.processes || []).map((p) => p.blockId))
+  const usedBlockIds = getAllUsedBlockIds(ob)
 
   const allTemplates = useMemo(() => {
     const map = inspectionTemplates.loadAll()
