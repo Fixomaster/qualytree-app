@@ -33,7 +33,7 @@ import {
   getKindLabel,
   dumpAll,
 } from '../../lib/linkage'
-import { onboarding } from '../../lib/onboardingState'
+import { onboarding, getProductProcesses, productKeyOf } from '../../lib/onboardingState'
 import { operations, PROCESS_STATUS } from '../../lib/operationsState'
 import { ncr, NCR_STATUS } from '../../lib/ncrState'
 import { capa } from '../../lib/capaState'
@@ -245,64 +245,86 @@ function buildTree() {
 
   let totalNodes = 1 // 루트
 
-  // 제품 — onboarding은 단일 product 객체
-  const products = ob.product && ob.product.name ? [ob.product] : []
+  // 제품 — 다중 제품(products) 우선, 레거시 단일 product 폴백
+  const products =
+    Array.isArray(ob.products) && ob.products.length
+      ? ob.products
+      : ob.product && ob.product.name
+      ? [ob.product]
+      : []
+
+  // 공정 블록 — 제품별 공정 정의 + 검사 항목 자식을 노드로 빌드
+  const buildProcessNodes = (processList) =>
+    (processList || []).map((proc, idx) => {
+      totalNodes++
+      const blockEid = eid(ENTITY_TYPES.PROCESS_BLOCK, proc.blockId)
+      const block = findEntity(blockEid)
+
+      // 이 공정 블록의 검사 항목들
+      const templates = (() => {
+        try {
+          const all = findAllByType(ENTITY_TYPES.INSPECTION_TEMPLATE)
+          return all.filter((t) => t._blockId === proc.blockId)
+        } catch {
+          return []
+        }
+      })()
+
+      const templateNodes = templates.map((t) => {
+        totalNodes++
+        return {
+          key: `tpl:${t.id}`,
+          eid: eid(ENTITY_TYPES.INSPECTION_TEMPLATE, t.id),
+          label: t.label,
+          sub: `${t.specMin || '—'}~${t.specMax || '—'}${t.unit ? ' ' + t.unit : ''}`,
+          icon: FlaskConical,
+          tone:
+            t.criticality === 'Critical'
+              ? 'rust'
+              : t.criticality === 'Major'
+              ? 'amber'
+              : 'ink-mute',
+          children: [],
+        }
+      })
+
+      return {
+        key: `proc:${proc.id || proc.blockId + ':' + idx}`,
+        eid: blockEid,
+        label: proc.customName || block?.name || proc.blockId,
+        sub: '공정 블록',
+        icon: Workflow,
+        tone: 'sky',
+        children: templateNodes,
+      }
+    })
+
   const productNodes = products.map((p, i) => {
     totalNodes++
+    const productKey = productKeyOf(p)
+    const productProcesses = getProductProcesses(ob, productKey)
+    const processNodes = buildProcessNodes(productProcesses)
     return {
-      key: `product:${p.modelNumber || p.name || i}`,
-      eid: eid(ENTITY_TYPES.PRODUCT, p.modelNumber || 'main'),
+      key: `product:${p.id || p.modelNumber || p.name || i}`,
+      eid: eid(ENTITY_TYPES.PRODUCT, p.id || p.modelNumber || 'main'),
       label: p.name || '제품',
       sub: p.modelNumber || p.intendedUse || '',
       icon: Package,
       tone: 'moss',
-      children: [],
-    }
-  })
-
-  // 공정 블록 — 온보딩에서 정의한 공정 + 검사 항목 자식
-  const processes = ob.processes || []
-  const processNodes = processes.map((proc, idx) => {
-    totalNodes++
-    const blockEid = eid(ENTITY_TYPES.PROCESS_BLOCK, proc.blockId)
-    const block = findEntity(blockEid)
-
-    // 이 공정 블록의 검사 항목들
-    const templates = (() => {
-      try {
-        const all = findAllByType(ENTITY_TYPES.INSPECTION_TEMPLATE)
-        return all.filter((t) => t._blockId === proc.blockId)
-      } catch {
-        return []
-      }
-    })()
-
-    const templateNodes = templates.map((t) => {
-      totalNodes++
-      return {
-        key: `tpl:${t.id}`,
-        eid: eid(ENTITY_TYPES.INSPECTION_TEMPLATE, t.id),
-        label: t.label,
-        sub: `${t.specMin || '—'}~${t.specMax || '—'}${t.unit ? ' ' + t.unit : ''}`,
-        icon: FlaskConical,
-        tone:
-          t.criticality === 'Critical'
-            ? 'rust'
-            : t.criticality === 'Major'
-            ? 'amber'
-            : 'ink-mute',
-        children: [],
-      }
-    })
-
-    return {
-      key: `proc:${proc.id || proc.blockId + ':' + idx}`,
-      eid: blockEid,
-      label: proc.customName || block?.name || proc.blockId,
-      sub: '공정 블록',
-      icon: Workflow,
-      tone: 'sky',
-      children: templateNodes,
+      children:
+        processNodes.length > 0
+          ? [
+              {
+                key: `group:processes:${productKey}`,
+                eid: null,
+                label: `공정 / 검사 항목 (${processNodes.length})`,
+                sub: 'Processes & Inspection',
+                icon: Workflow,
+                tone: 'sky',
+                children: processNodes,
+              },
+            ]
+          : [],
     }
   })
 
@@ -427,19 +449,6 @@ function buildTree() {
                 icon: Package,
                 tone: 'moss',
                 children: productNodes,
-              },
-            ]
-          : []),
-        ...(processNodes.length > 0
-          ? [
-              {
-                key: 'group:processes',
-                eid: null,
-                label: `공정 / 검사 항목 (${processNodes.length})`,
-                sub: 'Processes & Inspection',
-                icon: Workflow,
-                tone: 'sky',
-                children: processNodes,
               },
             ]
           : []),
