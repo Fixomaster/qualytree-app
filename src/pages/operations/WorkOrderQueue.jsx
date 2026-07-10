@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
-import { onboarding } from '../../lib/onboardingState'
+import { onboarding, getProductProcesses, productKeyOf, hasAnyProcesses } from '../../lib/onboardingState'
 import { PROCESS_BLOCKS } from '../../lib/processBlocks'
 import {
   operations,
@@ -51,12 +51,16 @@ export default function WorkOrderQueue() {
   const onbState = onboarding.load()
 
   // 온보딩 미완료 가드
-  const procFor = (onb) => (onb.processes && onb.processes.length ? onb.processes : DEFAULT_PROCESSES)
+  const procFor = (onb) => {
+    const firstProduct = Array.isArray(onb.products) && onb.products.length ? onb.products[0] : null
+    const list = getProductProcesses(onb, productKeyOf(firstProduct))
+    return list.length ? list : DEFAULT_PROCESSES
+  }
   const newOnbReady =
     (onbState.done && Object.values(onbState.done).filter(Boolean).length >= 6) ||
     (Array.isArray(onbState.products) && onbState.products.length > 0)
   const onboardingComplete =
-    (onbState.completedSteps?.includes(3) && (onbState.processes || []).length > 0) || newOnbReady
+    (onbState.completedSteps?.includes(3) && hasAnyProcesses(onbState)) || newOnbReady
 
   const [opState, setOpState] = useState(() => operations.load())
   const [filter, setFilter] = useState('all') // all | pending | in_progress | completed
@@ -774,7 +778,9 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
 
   const [models, setModels] = useState(() => (Array.isArray(onbState.products) ? onbState.products : []))
   const [q, setQ] = useState('')
-  const pickModel = (p) => setForm((ff) => ({ ...ff, productName: p.name || '', productModel: p.classNo || p.modelNumber || '' }))
+  const initialModel = (Array.isArray(onbState.products) && onbState.products.length) ? onbState.products[0] : (onbState.product?.name ? onbState.product : null)
+  const [selectedProductId, setSelectedProductId] = useState(() => initialModel ? productKeyOf(initialModel) : null)
+  const pickModel = (p) => { setForm((ff) => ({ ...ff, productName: p.name || '', productModel: p.classNo || p.modelNumber || '' })); setSelectedProductId(productKeyOf(p)) }
   const registerModel = () => {
     const name = (form.productName || '').trim()
     if (!name) { alert('제품명을 입력한 뒤 등록하세요.'); return }
@@ -782,10 +788,12 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
     const rec = { id: 'pm' + Date.now(), name, classNo: form.productModel || '', grade: '', cat1: '', cat2: '' }
     const next = [...models, rec]
     setModels(next)
+    setSelectedProductId(productKeyOf(rec))
     try { const ob = onboarding.load(); onboarding.save({ ...ob, products: next }) } catch { /* */ }
   }
 
-  const procs = (onbState.processes && onbState.processes.length) ? onbState.processes : DEFAULT_PROCESSES
+  const procsForSelected = selectedProductId ? getProductProcesses(onbState, selectedProductId) : []
+  const procs = procsForSelected.length ? procsForSelected : DEFAULT_PROCESSES
   const processCount = procs.length
 
   const submit = () => {
@@ -849,8 +857,9 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
             strokeWidth={1.8}
           />
           <div className="text-[12px]" style={{ color: 'var(--moss)' }}>
-            <strong>온보딩 공정 {processCount}단계</strong>가 그대로 단계
-            체인으로 발급됩니다. 첫 단계만 진입 가능, 이후 단계는 순차 잠금
+            <strong>{form.productName ? `${form.productName}의 ` : ''}공정 {processCount}단계</strong>가 그대로 단계
+            체인으로 발급됩니다. 제품마다 다른 공정이 정의되어 있다면 아래에서 모델을 선택한 대로 반영됩니다.
+            첫 단계만 진입 가능, 이후 단계는 순차 잠금
             해제됩니다.
           </div>
         </div>
