@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_CERT_IDS, certMapForPlan, planForCertIds, planById, syncPlansFromServer } from '../../lib/plans'
 import { mfds } from '../../lib/mfds'
+import { classifyProduct } from '../../lib/aiClassify'
 
 const STORE_KEY = 'qualytree.onboarding'
 
@@ -129,14 +130,14 @@ export default function Onboarding() {
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
   const stepValid = (s, key) => {
     if (key === 'plan') return !!(s.plan && s.plan.id)
-    if (key === 'info') return !!(s.company?.name?.trim()) && (s.products || []).length > 0
+    if (key === 'info') return !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNo?.trim()) && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim()) && (s.products || []).length > 0
     if (key === 'org') return (s.departments || []).length > 0
     if (key === 'manual') return !!(s.manual?.mode)
     if (key === 'procedures') return (s.procedures || []).some((p) => p.applicable)
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명과 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명·대표자·사업자등록번호·제조업 허가번호·품질관리 책임자를 모두 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -330,6 +331,29 @@ function StepInfo({ state, patch, setState }) {
   const [results, setResults] = useState([])
   useEffect(() => { mfds.load().then((list) => setMfdsReady((list || []).length > 0)) }, [])
   const onSearch = (v) => { setQ(v); setResults(v.trim() ? mfds.search(v) : []) }
+
+  // AI 대분류·중분류 추천 — 제품명 입력이 잠시 멈추면 자동으로 추천하고, 사용자가 직접 고르면 더 이상 덮어쓰지 않음
+  const catTouchedRef = useRef(false)
+  const [aiSuggest, setAiSuggest] = useState(null) // {cat1,cat2,confidence} | null
+  const [aiLoading, setAiLoading] = useState(false)
+  useEffect(() => {
+    const nm = form.name.trim()
+    if (catTouchedRef.current || nm.length < 2) { setAiLoading(false); return }
+    setAiLoading(true)
+    const t = setTimeout(() => {
+      classifyProduct({ name: nm, itemName: form.itemName, contact: form.contact, software: form.software, sterile: form.sterile, grade: form.grade })
+        .then((res) => {
+          if (!res || catTouchedRef.current) return
+          setAiSuggest(res)
+          setForm((ff) => (ff.name.trim() !== nm ? ff : { ...ff, cat1: res.cat1, cat2: res.cat2 }))
+        })
+        .finally(() => setAiLoading(false))
+    }, 700)
+    return () => { clearTimeout(t); setAiLoading(false) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.name])
+  const setCat = (k, v) => { catTouchedRef.current = true; setF(k, v) }
+
   const pickItem = (it) => {
     setForm((ff) => ({
       ...ff,
@@ -345,11 +369,12 @@ function StepInfo({ state, patch, setState }) {
   const saveProduct = () => {
     if (!form.name.trim()) return
     if (editingId) { setState((s) => ({ ...s, products: s.products.map((p) => p.id === editingId ? { ...form, id: editingId, name: form.name.trim() } : p) })); setEditingId(null) } else { setState((s) => ({ ...s, products: [...s.products, { id: uid(), ...form, name: form.name.trim() }] })) }
-    setForm(EMPTY)
+    setForm(EMPTY); catTouchedRef.current = false; setAiSuggest(null)
   }
   const editProduct = (p) => {
     setForm({ ...EMPTY, ...p })
     setEditingId(p.id)
+    catTouchedRef.current = !!p.cat1; setAiSuggest(null)
   }
   const delProduct = (id) => setState((s) => ({ ...s, products: s.products.filter((p) => p.id !== id) }))
 
@@ -358,10 +383,10 @@ function StepInfo({ state, patch, setState }) {
       <Section title="회사 정보" desc="허가증·사업자등록증 기준으로 입력하세요.">
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="회사명" value={c.name} onChange={(v) => setC('name', v)} placeholder="(주)퀄리트리" required />
-          <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" />
-          <Field label="사업자등록번호" value={c.bizNo} onChange={(v) => setC('bizNo', v)} placeholder="000-00-00000" />
-          <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder="제0000호" />
-          <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder="이름" />
+          <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" required />
+          <Field label="사업자등록번호" value={c.bizNo} onChange={(v) => setC('bizNo', v)} placeholder="000-00-00000" required />
+          <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder="제0000호" required />
+          <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder="이름" required />
         </div>
       </Section>
 
@@ -427,7 +452,7 @@ function StepInfo({ state, patch, setState }) {
         )}
       </Section>
 
-      <Section title="제품 등록" desc="식약처 품목 검색으로 분류번호·등급을 자동 입력하거나 직접 입력하세요. '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정·삭제할 수 있습니다.">
+      <Section title="제품 등록" desc="식약처 품목 검색으로 분류번호·등급을 자동 입력하거나 직접 입력하세요. 제품명을 입력하면 AI가 대분류·중분류를 자동 추천합니다(오추천 시 직접 수정 가능). '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정·삭제할 수 있습니다.">
         <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
           {/* 식약처 품목 검색 → 분류번호·등급 자동입력 */}
           <div className="relative">
@@ -459,11 +484,11 @@ function StepInfo({ state, patch, setState }) {
             <input className="col-span-3 input-cell" placeholder="분류번호 (예: A11010.01)" value={form.classNo} onChange={(e) => setF('classNo', e.target.value)} />
           </div>
           <div className="grid grid-cols-12 gap-2 items-center">
-            <select className="col-span-4 input-cell" value={form.cat1} onChange={(e) => setF('cat1', e.target.value)}>
+            <select className="col-span-4 input-cell" value={form.cat1} onChange={(e) => setCat('cat1', e.target.value)}>
               <option value="">대분류 선택</option>
               {MDCAT1.map((cc) => <option key={cc} value={cc}>{cc}</option>)}
             </select>
-            <select className="col-span-4 input-cell" value={form.cat2} onChange={(e) => setF('cat2', e.target.value)} disabled={!form.cat1 || form.cat1 === '기타'}>
+            <select className="col-span-4 input-cell" value={form.cat2} onChange={(e) => setCat('cat2', e.target.value)} disabled={!form.cat1 || form.cat1 === '기타'}>
               <option value="">중분류 선택</option>
               {(MDCAT[form.cat1] || []).map((cc) => <option key={cc} value={cc}>{cc}</option>)}
             </select>
@@ -471,6 +496,18 @@ function StepInfo({ state, patch, setState }) {
               <input className="col-span-4 input-cell" placeholder="기타 업종 직접 입력" value={form.etc} onChange={(e) => setF('etc', e.target.value)} />
             ) : (
               <div className="col-span-4 text-[11px] text-slate-400 self-center">인허가 업종 분류</div>
+            )}
+          </div>
+          <div className="col-span-12 -mt-1">
+            {aiLoading && (
+              <div className="flex items-center gap-1.5 text-[11px] text-violet-500"><Sparkles size={12} className="animate-pulse" /> AI가 제품명을 분석해 대분류·중분류를 추천하는 중…</div>
+            )}
+            {!aiLoading && aiSuggest && !catTouchedRef.current && (
+              <div className="flex items-center gap-1.5 text-[11px] text-violet-600">
+                <Sparkles size={12} />
+                AI 추천: {aiSuggest.cat1}{aiSuggest.cat2 ? ` › ${aiSuggest.cat2}` : ''} (신뢰도 {aiSuggest.confidence === 'high' ? '상' : aiSuggest.confidence === 'medium' ? '중' : '하'})
+                <span className="text-slate-400">· 다른 분류라면 위에서 직접 선택하세요</span>
+              </div>
             )}
           </div>
           <div className="grid grid-cols-12 gap-2 items-center">
@@ -490,7 +527,7 @@ function StepInfo({ state, patch, setState }) {
             </label>
           </div>
           <div className="flex items-center justify-end gap-2">
-            {editingId && (<button onClick={() => { setForm(EMPTY); setEditingId(null) }} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-medium">취소</button>)}<button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> {editingId ? '수정 저장' : '저장'}</button>
+            {editingId && (<button onClick={() => { setForm(EMPTY); setEditingId(null); catTouchedRef.current = false; setAiSuggest(null) }} className="px-3 py-2 rounded-lg border border-slate-200 text-slate-600 text-[13px] font-medium">취소</button>)}<button onClick={saveProduct} disabled={!form.name.trim()} className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 text-white text-[13px] font-medium disabled:opacity-40"><Plus size={15} /> {editingId ? '수정 저장' : '저장'}</button>
           </div>
         </div>
 
