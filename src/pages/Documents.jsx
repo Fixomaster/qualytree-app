@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload } from 'lucide-react'
+import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload, Trash2, Send } from 'lucide-react'
 import { translateToEn } from '../lib/translate'
 
 const OB_KEY = 'qualytree.onboarding'
@@ -188,7 +188,7 @@ export default function Documents() {
 
   const today = () => new Date().toISOString().slice(0, 10)
   // 레거시 상태(done 등) 정규화 — review/pending/effective 외에는 모두 작성중(draft)
-  const norm = (r) => { const st = r && r.status; return (st === 'review' || st === 'pending' || st === 'effective') ? st : 'draft' }
+  const norm = (r) => { const st = r && r.status; return (st === 'review' || st === 'pending' || st === 'effective' || st === 'obsolete') ? st : 'draft' }
   const patchDoc = (id, fn) => setDocs((d) => { const cur = d[id] || { status: 'draft', rev: 0, history: [] }; return { ...d, [id]: fn({ ...cur }) } })
   const hist = (r, action) => ([...(r.history || []), { rev: r.rev || 0, action, by: me, at: today() }])
 
@@ -198,6 +198,17 @@ export default function Documents() {
   const reviewDone = (id) => patchDoc(id, (r) => ({ ...r, status: 'pending', reviewedBy: me, reviewedAt: today(), history: hist(r, '검토 완료 · 승인 상신') }))
   const approve = (id) => patchDoc(id, (r) => ({ ...r, status: 'effective', approvedBy: me, approvedAt: today(), history: hist(r, '승인 · 발효') }))
   const revise = (id) => patchDoc(id, (r) => { const nr = (r.rev || 0) + 1; return { ...r, status: 'draft', rev: nr, reviewedBy: null, reviewedAt: null, approvedBy: null, approvedAt: null, history: [...(r.history || []), { rev: nr, action: '개정 시작', by: me, at: today() }] } })
+  const obsolete = (id) => {
+    const reason = window.prompt('폐기 사유를 입력하세요 (ISO 13485 §4.2.4 — 의도치 않은 사용 방지):', '')
+    if (reason == null) return
+    if (!reason.trim()) { window.alert('폐기 사유는 필수입니다.'); return }
+    patchDoc(id, (r) => ({ ...r, status: 'obsolete', obsoletedBy: me, obsoletedAt: today(), obsoleteReason: reason.trim(), history: hist(r, '폐기: ' + reason.trim()) }))
+  }
+  const distribute = (id) => {
+    const recipient = window.prompt('배포 대상(부서·성명)을 입력하세요:', '')
+    if (recipient == null || !recipient.trim()) return
+    patchDoc(id, (r) => ({ ...r, distribution: [...(r.distribution || []), { recipient: recipient.trim(), rev: r.rev || 0, by: me, at: today() }] }))
+  }
 
   const items = tab === 'manual'
     ? manualChapters.map((c) => ({ id: 'M-' + c.id, label: (c.c ? c.c + '. ' : '') + c.name, c: c.c, name: c.name, kind: 'manual' }))
@@ -297,6 +308,7 @@ export default function Documents() {
   const badge = (r) => {
     if (!r || !r.content) return ['미작성', 'bg-slate-100 text-slate-400']
     const st = norm(r)
+    if (st === 'obsolete') return ['폐기됨 Rev.' + (r.rev || 0), 'bg-rose-100 text-rose-600']
     if (st === 'effective') return ['발효 Rev.' + (r.rev || 0), 'bg-emerald-100 text-emerald-700']
     if (st === 'pending') return ['승인 대기', 'bg-violet-100 text-violet-700']
     if (st === 'review') return ['검토 중', 'bg-amber-100 text-amber-700']
@@ -324,9 +336,15 @@ export default function Documents() {
     )
   }
 
+  const obsoleteItems = [
+    ...manualChapters.map((c) => ({ id: 'M-' + c.id, label: (c.c ? c.c + '. ' : '') + c.name })),
+    ...procedures.map((p) => ({ id: 'P-' + p.id, label: p.name })),
+  ].filter((it) => (docs[it.id] || {}).status === 'obsolete')
+
   const tabs = [
     { k: 'manual', label: '품질매뉴얼', icon: FileText, n: manualChapters.length },
     { k: 'procedures', label: '절차서', icon: ClipboardCheck, n: procedures.length },
+    { k: 'obsolete', label: '폐기문서목록', icon: Trash2, n: obsoleteItems.length },
     { k: 'glossary', label: '용어 사전', icon: BookOpen },
   ]
 
@@ -359,6 +377,30 @@ export default function Documents() {
                 <div className="text-[12.5px] text-slate-600 mt-1 leading-relaxed">{g.d}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {tab === 'obsolete' && (
+          <div className="grid gap-2">
+            {obsoleteItems.length === 0 ? (
+              <div className="text-center py-10 border border-dashed border-slate-200 rounded-lg text-[13px] text-slate-400">
+                폐기된 문서가 없습니다. 발효 문서에서 "폐기" 버튼으로 등록할 수 있습니다.
+              </div>
+            ) : (
+              obsoleteItems.map((it) => {
+                const r = docs[it.id] || {}
+                return (
+                  <div key={it.id} className="rounded-lg border border-rose-200 bg-rose-50/40 p-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-[13px] font-medium text-slate-800">{it.label}</span>
+                      <span className="text-[10.5px] px-2 py-0.5 rounded-full bg-rose-100 text-rose-600">폐기됨 Rev.{r.rev || 0}</span>
+                    </div>
+                    <div className="text-[11.5px] text-slate-500 mt-1">폐기일 {r.obsoletedAt} · 처리자 {r.obsoletedBy}</div>
+                    <div className="text-[12px] text-slate-600 mt-1">사유: {r.obsoleteReason}</div>
+                  </div>
+                )
+              })
+            )}
           </div>
         )}
 
@@ -483,17 +525,34 @@ export default function Documents() {
                                   </>
                                 )}
                                 {eff && (
-                                  <button onClick={() => revise(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">개정 시작 (Rev.{(sr.rev || 0) + 1})</button>
+                                  <>
+                                    <button onClick={() => distribute(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50"><Send size={12} className="inline mr-1" />배포 등록</button>
+                                    <button onClick={() => obsolete(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-rose-300 text-rose-600 hover:bg-rose-50">폐기</button>
+                                    <button onClick={() => revise(statusId(it))} className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 text-emerald-700 hover:bg-emerald-50">개정 시작 (Rev.{(sr.rev || 0) + 1})</button>
+                                  </>
+                                )}
+                                {st === 'obsolete' && (
+                                  <span className="text-[11.5px] text-rose-600">폐기됨 · {sr.obsoletedAt} · {sr.obsoletedBy} · 사유: {sr.obsoleteReason}</span>
                                 )}
                               </div>
                             </div>
 
                             {Array.isArray(sr.history) && sr.history.length > 0 && (
                               <div className="mt-3 border-t border-slate-100 pt-2">
-                                <div className="text-[11px] font-medium text-slate-500 mb-1">결재 이력</div>
+                                <div className="text-[11px] font-medium text-slate-500 mb-1">결재 이력 (개정이력 포함)</div>
                                 <div className="grid gap-0.5">
                                   {sr.history.slice().reverse().map((h, i) => (
                                     <div key={i} className="text-[11px] text-slate-500 tabular-nums">Rev.{h.rev} · {h.action} · {h.by} · {h.at}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {Array.isArray(sr.distribution) && sr.distribution.length > 0 && (
+                              <div className="mt-2 border-t border-slate-100 pt-2">
+                                <div className="text-[11px] font-medium text-slate-500 mb-1">문서배포기록</div>
+                                <div className="grid gap-0.5">
+                                  {sr.distribution.slice().reverse().map((d, i) => (
+                                    <div key={i} className="text-[11px] text-slate-500 tabular-nums">Rev.{d.rev} → {d.recipient} · {d.by} · {d.at}</div>
                                   ))}
                                 </div>
                               </div>

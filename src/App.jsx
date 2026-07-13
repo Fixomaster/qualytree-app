@@ -18,6 +18,9 @@ import ProductsHub from './pages/products/ProductsHub'
 import EquipmentHub from './pages/equipment/EquipmentHub'
 import SupplierHub from './pages/suppliers/SupplierHub'
 import AuditHub from './pages/audit/AuditHub'
+import CompanyHub from './pages/company/CompanyHub'
+import TrainingHub from './pages/training/TrainingHub'
+import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
@@ -161,6 +164,30 @@ export default function App() {
         element={
           <ProtectedRoute>
             <AuditHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/company"
+        element={
+          <ProtectedRoute>
+            <CompanyHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/training"
+        element={
+          <ProtectedRoute>
+            <TrainingHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/management-review"
+        element={
+          <ProtectedRoute>
+            <ManagementReviewHub />
           </ProtectedRoute>
         }
       />

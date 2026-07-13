@@ -13,6 +13,7 @@ import {
   ArrowRight,
   AlertCircle,
   Save,
+  FlaskConical,
 } from 'lucide-react'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
@@ -20,6 +21,7 @@ import { productDocs, MARKETS, wiStatus } from '../../lib/productDocsState'
 import { onboarding, productKeyOf, getProductProcesses } from '../../lib/onboardingState'
 import { getBlock } from '../../lib/processBlocks'
 import { operations } from '../../lib/operationsState'
+import { inspectionTemplates } from '../../lib/inspectionTemplates'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 function loadCustomBlocks() {
@@ -153,10 +155,12 @@ export default function ProductDocumentsPanel({ product, onAction }) {
         <SubTab active={sub === 'license'} onClick={() => setSub('license')} icon={FileCheck2} label="허가증" count={productDocs.getLicenses(productKey).length} />
         <SubTab active={sub === 'sop'} onClick={() => setSub('sop')} icon={ClipboardList} label="작업표준서" />
         <SubTab active={sub === 'record'} onClick={() => setSub('record')} icon={ListChecks} label="제조기록" />
+        <SubTab active={sub === 'spec'} onClick={() => setSub('spec')} icon={FlaskConical} label="시험규격서" />
       </div>
       {sub === 'license' && <LicenseSection key={'lic' + tick} product={product} productKey={productKey} onAction={onAction} refresh={refresh} />}
       {sub === 'sop' && <SopSection key={'sop' + tick} product={product} productKey={productKey} onAction={onAction} refresh={refresh} />}
       {sub === 'record' && <RecordSection product={product} />}
+      {sub === 'spec' && <SpecSection product={product} productKey={productKey} />}
     </div>
   )
 }
@@ -462,6 +466,91 @@ function RecordSection({ product }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/* ================================================================
+   시험규격서 · 검사기준 — 공정별 검사항목 규격(inspectionTemplates.js)을 제품 관점에서 열람
+   ================================================================ */
+function tableHtmlSpec(headers, rows) {
+  const thead = '<tr>' + headers.map((h) => "<th style='border:1px solid #ccc;padding:6px 8px;background:#f3f4f6;text-align:left;font-size:10pt'>" + escHtml(h) + '</th>').join('') + '</tr>'
+  const tbody = rows.map((r) => '<tr>' + r.map((c) => "<td style='border:1px solid #ddd;padding:6px 8px;font-size:10pt'>" + escHtml(c ?? '') + '</td>').join('') + '</tr>').join('')
+  return "<table style='border-collapse:collapse;width:100%;margin:10px 0 20px'><thead>" + thead + '</thead><tbody>' + tbody + '</tbody></table>'
+}
+
+function SpecSection({ product, productKey }) {
+  const ob = onboarding.load()
+  const productProcesses = getProductProcesses(ob, productKey)
+    .slice()
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+
+  const groups = productProcesses.map((pp) => {
+    const block = getBlock(pp.blockId)
+    const templates = inspectionTemplates.forBlock(pp.blockId)
+    return { blockId: pp.blockId, blockName: pp.customName || (block && block.name) || pp.blockId, templates }
+  })
+  const totalSpecs = groups.reduce((n, g) => n + g.templates.length, 0)
+
+  const downloadPdf = () => {
+    const headers = ['공정', '검사항목', '규격(Min~Max)', '기준값', '단위', 'Criticality', '측정방법']
+    const rows = []
+    groups.forEach((g) => {
+      g.templates.forEach((t) => {
+        rows.push([g.blockName, t.label, (t.specMin ?? '') + ' ~ ' + (t.specMax ?? ''), t.specNominal ?? '', t.unit ?? '', t.criticality ?? '', t.method ?? ''])
+      })
+    })
+    const today = new Date().toISOString().slice(0, 10)
+    const meta = "<div style='font-family:sans-serif;font-size:11pt;color:#555;margin:6px 0 14px'>제품: " + escHtml(product.name || '') + ' &nbsp;|&nbsp; 총 ' + rows.length + '건 &nbsp;|&nbsp; 생성일 ' + today + '</div>'
+    const html = wrapDoc('시험규격서 · 검사기준', "<h1 style='font-size:16pt;border-bottom:2px solid #333;padding-bottom:6px'>시험규격서 · 검사기준</h1>" + meta + tableHtmlSpec(headers, rows))
+    downloadAsPdf(html)
+  }
+
+  if (groups.length === 0) {
+    return <EmptyState icon={FlaskConical} text="이 제품에 정의된 공정이 없어 시험규격서를 표시할 수 없습니다. 공정 탭에서 공정을 먼저 추가하세요." />
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+          공정별 검사항목 규격입니다. 값 수정은 제품·공정 화면의 "검사 항목" 탭에서 합니다. (ISO 13485 §7.5.1, §8.2.6)
+        </div>
+        {totalSpecs > 0 && <button onClick={downloadPdf} className="btn-primary text-[12px]"><Download size={13} /> PDF 다운로드</button>}
+      </div>
+
+      {groups.map((g) => (
+        <div key={g.blockId} className="card-base p-4">
+          <div className="text-[13.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>{g.blockName}</div>
+          {g.templates.length === 0 ? (
+            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>정의된 검사항목이 없습니다.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--line)' }}>
+                    {['검사항목', '규격(Min~Max)', '기준값', '단위', 'Criticality', '측정방법'].map((h) => (
+                      <th key={h} className="text-left px-2 py-1.5 font-medium" style={{ color: 'var(--ink-mute)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {g.templates.map((t) => (
+                    <tr key={t.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td className="px-2 py-1.5" style={{ color: 'var(--ink)' }}>{t.label}</td>
+                      <td className="px-2 py-1.5" style={{ color: 'var(--ink-mute)' }}>{(t.specMin ?? '—')} ~ {(t.specMax ?? '—')}</td>
+                      <td className="px-2 py-1.5" style={{ color: 'var(--ink-mute)' }}>{t.specNominal ?? '—'}</td>
+                      <td className="px-2 py-1.5" style={{ color: 'var(--ink-mute)' }}>{t.unit || '—'}</td>
+                      <td className="px-2 py-1.5"><Badge text={t.criticality || '—'} tone={t.criticality === 'Critical' ? 'rose' : t.criticality === 'Major' ? 'amber' : 'slate'} /></td>
+                      <td className="px-2 py-1.5" style={{ color: 'var(--ink-mute)' }}>{t.method || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }

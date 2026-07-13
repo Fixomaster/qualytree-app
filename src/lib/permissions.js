@@ -17,6 +17,12 @@ export const LEVEL_LABEL = {
 // 액션별 최소 Level 매트릭스
 // 모든 화면은 이 매트릭스를 단일 출처로 참조한다
 export const PERMISSIONS = {
+  // ===== ORG 영역 (회사·조직 문서) =====
+  'company.docs.edit': LEVELS.MANAGER, // 회사문서함 (사업자등록증·제조업허가증·평면도·사진)
+  'company.roledoc.edit': LEVELS.MANAGER, // 부서별 직무기술서·권한책임서
+  'company.qm.edit': LEVELS.MANAGER, // 품질책임자 지정 정보 입력
+  'company.qm.approve': LEVELS.MANAGER, // 품질책임자 지정 승인
+
   // ===== ONB 영역 =====
   'onb.company.edit': LEVELS.MANAGER, // 회사 정보 변경
   'onb.product.edit': LEVELS.MANAGER, // 제품 정보 변경
@@ -60,6 +66,18 @@ export const PERMISSIONS = {
   'audit.report.edit': LEVELS.INSPECTOR, // 심사 보고서 작성
   'audit.report.approve': LEVELS.MANAGER, // 심사 보고서 승인 (심사 완료)
   'audit.finding.edit': LEVELS.INSPECTOR, // 시정조치 등록·CAPA 연계·종결
+
+  // ===== TRN 영역 (교육훈련) =====
+  'training.plan.edit': LEVELS.INSPECTOR, // 연간교육계획 작성
+  'training.plan.approve': LEVELS.MANAGER, // 연간교육계획 승인
+  'training.material.edit': LEVELS.INSPECTOR, // 교육자료 등록
+  'training.session.edit': LEVELS.INSPECTOR, // 교육 실시·평가·참석기록
+
+  // ===== MR 영역 (경영검토) =====
+  'mr.review.edit': LEVELS.INSPECTOR, // 경영검토 준비(자료 집계·결정사항 작성)
+  'mr.review.approve': LEVELS.MANAGER, // 경영검토 승인
+  'mr.objective.edit': LEVELS.MANAGER, // 품질목표 등록·수정
+  'mr.complaint.edit': LEVELS.INSPECTOR, // 고객불만 등록·처리
 
   // ===== 향후 영역 (예약) =====
   'qms.ncr.review': LEVELS.INSPECTOR,

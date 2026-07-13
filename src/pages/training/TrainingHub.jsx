@@ -1,0 +1,460 @@
+import React, { useRef, useState } from 'react'
+import {
+  GraduationCap,
+  BookOpen,
+  Users,
+  Plus,
+  Trash2,
+  Paperclip,
+  Download,
+  CheckCircle2,
+  ChevronRight,
+  X,
+} from 'lucide-react'
+import AppLayout from '../../components/AppLayout'
+import { auth } from '../../lib/auth'
+import { permissions, requirePermission } from '../../lib/permissions'
+import { plans, materials, sessions, PLAN_STATUS } from '../../lib/trainingState'
+import { fileStore } from '../../lib/fileStore'
+
+export default function TrainingHub() {
+  const user = auth.current()
+  const [tab, setTab] = useState('plan') // plan | material | session
+  const [tick, setTick] = useState(0)
+  const refresh = () => setTick((x) => x + 1)
+  const [toast, setToast] = useState(null)
+  const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
+
+  const allPlans = plans.getAll()
+  const allMaterials = materials.getAll()
+  const allSessions = sessions.getAll()
+  const compliance = sessions.complianceRate()
+
+  return (
+    <AppLayout user={user} title="교육훈련" subtitle="연간교육계획 / 교육자료 / 교육 실시·평가·참석기록">
+      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
+        {toast && (
+          <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
+            style={{ background: 'var(--moss)', color: 'var(--bg)', boxShadow: '0 6px 20px rgba(15,26,20,0.18)', fontWeight: 500 }}>
+            ✓ {toast}
+          </div>
+        )}
+
+        <div className="mb-5">
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>TRN · TRAINING</span>
+          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>교육훈련</div>
+          <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
+            ISO 13485 §6.2 / FDA QMSR §820.25 — 연간계획 승인부터 교육자료·참석기록·평가까지 관리합니다.
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mb-5">
+          <StatCard label="연간계획" value={allPlans.length} hint="등록 연도 수" icon={GraduationCap} />
+          <StatCard label="교육자료" value={allMaterials.length} hint="등록 자료 수" icon={BookOpen} />
+          <StatCard label="교육 이수율" value={compliance == null ? '—' : compliance + '%'} hint="완료 세션 기준 합격률" icon={Users} tone={compliance != null && compliance < 80 ? 'amber' : undefined} />
+        </div>
+
+        <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
+          <TabButton active={tab === 'plan'} onClick={() => setTab('plan')} icon={GraduationCap} label="연간교육계획" en="ANNUAL PLAN" count={allPlans.length} />
+          <TabButton active={tab === 'material'} onClick={() => setTab('material')} icon={BookOpen} label="교육자료" en="MATERIALS" count={allMaterials.length} />
+          <TabButton active={tab === 'session'} onClick={() => setTab('session')} icon={Users} label="교육 · 평가 · 참석기록" en="SESSIONS" count={allSessions.length} />
+        </div>
+
+        {tab === 'plan' && <PlanTab key={tick} plans={allPlans} onAction={showToast} refresh={refresh} />}
+        {tab === 'material' && <MaterialTab key={'mat' + tick} materials={allMaterials} onAction={showToast} refresh={refresh} />}
+        {tab === 'session' && <SessionTab key={'ses' + tick} sessions={allSessions} materials={allMaterials} onAction={showToast} refresh={refresh} />}
+      </div>
+    </AppLayout>
+  )
+}
+
+/* ================================================================
+   공통 UI
+   ================================================================ */
+function StatCard({ label, value, hint, icon: Icon, tone }) {
+  return (
+    <div className="card-base p-4 flex items-center gap-3">
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: tone === 'amber' ? 'var(--amber-soft)' : 'var(--leaf-soft)', color: tone === 'amber' ? 'var(--amber)' : 'var(--moss)' }}>
+        <Icon size={18} />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>{label}</div>
+        <div className="text-[20px] font-bold tabular-nums" style={{ color: 'var(--ink)' }}>{value}</div>
+        <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{hint}</div>
+      </div>
+    </div>
+  )
+}
+function TabButton({ active, onClick, icon: Icon, label, en, count }) {
+  return (
+    <button onClick={onClick} className="px-4 py-2.5 rounded-t-lg flex items-center gap-2 text-[13px] transition shrink-0"
+      style={{ background: active ? 'var(--bg-card)' : 'transparent', borderBottom: active ? '2px solid var(--moss)' : '2px solid transparent', color: active ? 'var(--ink)' : 'var(--ink-mute)', fontWeight: active ? 500 : 400 }}>
+      <Icon size={14} />
+      <span>{label}</span>
+      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: active ? 'var(--leaf-soft)' : 'var(--bg-soft)', color: active ? 'var(--moss)' : 'var(--ink-faint)' }}>{count}</span>
+      <span className="font-mono text-[9.5px] tracking-wider" style={{ color: 'var(--ink-faint)' }}>{en}</span>
+    </button>
+  )
+}
+function Field({ label, value, onChange, placeholder, type = 'text', className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <input type={type} className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+}
+function SelectField({ label, value, onChange, options, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => (typeof o === 'string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>))}
+      </select>
+    </label>
+  )
+}
+function EmptyState({ icon: Icon, text }) {
+  return (
+    <div className="card-base p-8 text-center" style={{ borderStyle: 'dashed' }}>
+      <Icon size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
+      <div className="mt-2 text-[13px]" style={{ color: 'var(--ink-mute)' }}>{text}</div>
+    </div>
+  )
+}
+function Badge({ text, tone = 'slate' }) {
+  const map = {
+    emerald: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
+    amber: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
+    rose: { bg: '#fdecec', fg: '#c0392b' },
+    slate: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
+  }
+  const c = map[tone] || map.slate
+  return <span className="text-[10.5px] px-1.5 py-0.5 rounded font-semibold" style={{ background: c.bg, color: c.fg }}>{text}</span>
+}
+
+/* ================================================================
+   연간교육계획
+   ================================================================ */
+function PlanTab({ plans: allPlans, onAction, refresh }) {
+  const canEdit = permissions.can('training.plan.edit')
+  const canApprove = permissions.can('training.plan.approve')
+  const [newYear, setNewYear] = useState(new Date().getFullYear())
+
+  const create = () => {
+    if (!requirePermission('training.plan.edit')) return
+    try {
+      plans.add(Number(newYear))
+      onAction(`${newYear}년 계획이 생성되었습니다.`)
+      refresh()
+    } catch (e) {
+      window.alert((e && e.message) || String(e))
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {canEdit && (
+        <div className="flex items-center gap-2">
+          <Field label="연도" type="number" value={newYear} onChange={setNewYear} className="w-32" />
+          <button onClick={create} className="btn-primary text-[12.5px] mt-5"><Plus size={13} /> 연간계획 생성</button>
+        </div>
+      )}
+      {allPlans.length === 0 && <EmptyState icon={GraduationCap} text="등록된 연간교육계획이 없습니다." />}
+      {allPlans.map((p) => (
+        <PlanCard key={p.id} plan={p} canEdit={canEdit} canApprove={canApprove} onAction={onAction} refresh={refresh} />
+      ))}
+    </div>
+  )
+}
+
+const QUARTER_OPTIONS = ['Q1', 'Q2', 'Q3', 'Q4']
+
+function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
+  const EMPTY = { topic: '', targetRole: '', quarter: 'Q1', plannedDate: '' }
+  const [form, setForm] = useState(EMPTY)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const editable = canEdit && plan.status === PLAN_STATUS.DRAFT
+
+  const addItem = () => {
+    if (!requirePermission('training.plan.edit')) return
+    if (!form.topic.trim()) { window.alert('교육 주제를 입력하세요.'); return }
+    plans.addItem(plan.id, form)
+    setForm(EMPTY)
+    onAction('교육 항목이 추가되었습니다.')
+    refresh()
+  }
+  const removeItem = (itemId) => {
+    if (!requirePermission('training.plan.edit')) return
+    plans.removeItem(plan.id, itemId)
+    refresh()
+  }
+  const approve = () => {
+    if (!requirePermission('training.plan.approve')) return
+    const cur = auth.current()
+    plans.approve(plan.id, cur?.name || '승인자')
+    onAction(`${plan.year}년 계획이 승인되었습니다.`)
+    refresh()
+  }
+
+  return (
+    <div className="card-base p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{plan.year}년 교육계획</div>
+        <Badge text={plan.status} tone={plan.status === PLAN_STATUS.APPROVED ? 'emerald' : 'slate'} />
+      </div>
+
+      <div className="space-y-1.5 mb-3">
+        {plan.items.map((it) => (
+          <div key={it.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+            <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
+              <b>{it.quarter}</b> · {it.topic} <span style={{ color: 'var(--ink-faint)' }}>· 대상 {it.targetRole || '전체'}{it.plannedDate ? ` · ${it.plannedDate}` : ''}</span>
+            </div>
+            {editable && <button onClick={() => removeItem(it.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={13} /></button>}
+          </div>
+        ))}
+        {plan.items.length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>등록된 교육 항목이 없습니다.</div>}
+      </div>
+
+      {editable && (
+        <div className="rounded-lg p-3 mb-2" style={{ background: 'var(--bg-soft)' }}>
+          <div className="grid sm:grid-cols-4 gap-2">
+            <Field label="교육 주제" value={form.topic} onChange={(v) => setF('topic', v)} className="sm:col-span-2" />
+            <SelectField label="분기" value={form.quarter} onChange={(v) => setF('quarter', v)} options={QUARTER_OPTIONS} />
+            <Field label="예정일" type="date" value={form.plannedDate} onChange={(v) => setF('plannedDate', v)} />
+          </div>
+          <Field label="대상" value={form.targetRole} onChange={(v) => setF('targetRole', v)} placeholder="예: 전체 / 품질팀 / 신입" className="mt-2" />
+          <div className="flex justify-end mt-2"><button onClick={addItem} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><Plus size={13} /> 항목 추가</button></div>
+        </div>
+      )}
+
+      {plan.status === PLAN_STATUS.DRAFT ? (
+        canApprove && <div className="flex justify-end"><button onClick={approve} disabled={plan.items.length === 0} className="btn-primary text-[12.5px]"><CheckCircle2 size={14} /> 계획 승인</button></div>
+      ) : (
+        <div className="text-[12px]" style={{ color: 'var(--moss)' }}><CheckCircle2 size={13} className="inline mr-1" /> {plan.approvedBy} 승인 · {plan.approvedAt ? new Date(plan.approvedAt).toLocaleString('ko-KR') : ''}</div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   교육자료
+   ================================================================ */
+function MaterialTab({ materials: allMaterials, onAction, refresh }) {
+  const canEdit = permissions.can('training.material.edit')
+  const [form, setForm] = useState({ title: '', category: '' })
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const ref = useRef(null)
+  const [busy, setBusy] = useState(false)
+
+  const upload = async (e) => {
+    const f = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!f) return
+    if (!form.title.trim()) { window.alert('자료명을 먼저 입력하세요.'); return }
+    setBusy(true)
+    try {
+      const fileId = await fileStore.saveFile(f)
+      materials.add({ title: form.title, category: form.category, fileId, fileName: f.name })
+      setForm({ title: '', category: '' })
+      onAction('교육자료가 등록되었습니다.')
+      refresh()
+    } catch (err) {
+      window.alert((err && err.message) || String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const openFile = async (fileId) => {
+    const url = await fileStore.getObjectURL(fileId)
+    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+  const del = (id) => {
+    if (!requirePermission('training.material.edit')) return
+    materials.delete(id)
+    onAction('교육자료가 삭제되었습니다.')
+    refresh()
+  }
+
+  return (
+    <div className="space-y-3">
+      {canEdit && (
+        <div className="card-base p-4 space-y-2">
+          <div className="grid sm:grid-cols-2 gap-2">
+            <Field label="자료명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: ISO 13485 개정판 교육자료" />
+            <Field label="분류" value={form.category} onChange={(v) => setF('category', v)} placeholder="예: QMS / 공정 / 안전" />
+          </div>
+          <input ref={ref} type="file" className="hidden" onChange={upload} />
+          <button onClick={() => ref.current && ref.current.click()} disabled={busy} className="btn-ghost text-[12.5px]"><Paperclip size={13} /> {busy ? '업로드 중…' : '파일 업로드'}</button>
+        </div>
+      )}
+      {allMaterials.length === 0 ? (
+        <EmptyState icon={BookOpen} text="등록된 교육자료가 없습니다." />
+      ) : (
+        <div className="space-y-2">
+          {allMaterials.map((m) => (
+            <div key={m.id} className="card-base p-3.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{m.title}</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{m.category || '분류 없음'}</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button onClick={() => openFile(m.fileId)} className="btn-ghost text-[11.5px]"><Download size={12} /> {m.fileName}</button>
+                {canEdit && <button onClick={() => del(m.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   교육 · 평가 · 참석기록
+   ================================================================ */
+function SessionTab({ sessions: allSessions, materials: allMaterials, onAction, refresh }) {
+  const canEdit = permissions.can('training.session.edit')
+  const [selId, setSelId] = useState(allSessions[0]?.id || null)
+  const sel = allSessions.find((s) => s.id === selId) || null
+  const EMPTY = { topic: '', date: '', instructor: '', evaluationMethod: '', status: '예정' }
+  const [form, setForm] = useState(EMPTY)
+  const [adding, setAdding] = useState(allSessions.length === 0)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const create = () => {
+    if (!requirePermission('training.session.edit')) return
+    if (!form.topic.trim()) { window.alert('교육 주제를 입력하세요.'); return }
+    const rec = sessions.add(form)
+    setSelId(rec.id)
+    setForm(EMPTY)
+    setAdding(false)
+    onAction('교육이 등록되었습니다.')
+    refresh()
+  }
+  const del = (id) => {
+    if (!requirePermission('training.session.edit')) return
+    if (!window.confirm('이 교육 기록을 삭제할까요?')) return
+    sessions.delete(id)
+    setSelId(null)
+    onAction('교육 기록이 삭제되었습니다.')
+    refresh()
+  }
+
+  return (
+    <div className="grid lg:grid-cols-[320px_1fr] gap-5">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>교육 목록 ({allSessions.length}건)</div>
+          {canEdit && <button onClick={() => setAdding((v) => !v)} className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--moss)' }}><Plus size={13} /> 교육 등록</button>}
+        </div>
+        {adding && canEdit && (
+          <div className="card-base p-3 mb-3 space-y-2">
+            <Field label="주제" value={form.topic} onChange={(v) => setF('topic', v)} />
+            <Field label="일시" type="date" value={form.date} onChange={(v) => setF('date', v)} />
+            <Field label="강사" value={form.instructor} onChange={(v) => setF('instructor', v)} />
+            <Field label="평가 방법" value={form.evaluationMethod} onChange={(v) => setF('evaluationMethod', v)} placeholder="예: 필기시험 / 실습평가" />
+            <SelectField label="상태" value={form.status} onChange={(v) => setF('status', v)} options={['예정', '완료']} />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
+              <button onClick={create} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {allSessions.map((s) => (
+            <button key={s.id} onClick={() => setSelId(s.id)} className="w-full text-left px-3 py-2.5 rounded-lg border flex items-center gap-2 transition"
+              style={{ borderColor: s.id === selId ? 'var(--moss)' : 'var(--line)', background: s.id === selId ? 'var(--leaf-soft)' : 'var(--bg-card)' }}>
+              <Users size={14} style={{ color: 'var(--moss)' }} />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium truncate" style={{ color: 'var(--ink)' }}>{s.topic}</span>
+                <span className="block text-[11px]" style={{ color: 'var(--ink-faint)' }}>{s.date || '일정 미정'} · {s.status} · 참석 {s.attendees.length}명</span>
+              </span>
+              <ChevronRight size={14} style={{ color: 'var(--ink-faint)' }} />
+            </button>
+          ))}
+          {allSessions.length === 0 && !adding && <EmptyState icon={Users} text="등록된 교육이 없습니다." />}
+        </div>
+      </div>
+      <div>
+        {sel ? <SessionDetail session={sel} materials={allMaterials} canEdit={canEdit} onAction={onAction} onDelete={() => del(sel.id)} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 교육을 선택하세요." />}
+      </div>
+    </div>
+  )
+}
+
+function SessionDetail({ session, materials: allMaterials, canEdit, onAction, onDelete, refresh }) {
+  const [status, setStatus] = useState(session.status)
+  const [attForm, setAttForm] = useState({ name: '', dept: '', score: '', passed: true })
+  const setAF = (k, v) => setAttForm((f) => ({ ...f, [k]: v }))
+
+  const saveStatus = (v) => {
+    if (!requirePermission('training.session.edit')) return
+    sessions.update(session.id, { status: v })
+    setStatus(v)
+    onAction('교육 상태가 저장되었습니다.')
+    refresh()
+  }
+
+  const addAttendee = () => {
+    if (!requirePermission('training.session.edit')) return
+    if (!attForm.name.trim()) { window.alert('참석자 성명을 입력하세요.'); return }
+    sessions.addAttendee(session.id, attForm)
+    setAttForm({ name: '', dept: '', score: '', passed: true })
+    onAction('참석기록이 저장되었습니다.')
+    refresh()
+  }
+  const removeAttendee = (id) => {
+    if (!requirePermission('training.session.edit')) return
+    sessions.removeAttendee(session.id, id)
+    refresh()
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card-base p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{session.topic}</div>
+          {canEdit && <button onClick={onDelete} className="text-[12px] inline-flex items-center gap-1" style={{ color: 'var(--rust)' }}><Trash2 size={13} /> 삭제</button>}
+        </div>
+        <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>일시 {session.date || '—'} · 강사 {session.instructor || '—'} · 평가방법 {session.evaluationMethod || '—'}</div>
+        {canEdit && (
+          <div className="mt-2">
+            <SelectField label="상태" value={status} onChange={saveStatus} options={['예정', '완료']} className="max-w-[160px]" />
+          </div>
+        )}
+      </div>
+
+      <div className="card-base p-4">
+        <div className="text-[13.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>참석기록 · 교육평가 ({session.attendees.length}명)</div>
+        {canEdit && (
+          <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-soft)' }}>
+            <div className="grid sm:grid-cols-4 gap-2">
+              <Field label="성명" value={attForm.name} onChange={(v) => setAF('name', v)} />
+              <Field label="부서" value={attForm.dept} onChange={(v) => setAF('dept', v)} />
+              <Field label="점수/평가" value={attForm.score} onChange={(v) => setAF('score', v)} placeholder="예: 92 또는 우수" />
+              <SelectField label="합격 여부" value={attForm.passed ? 'pass' : 'fail'} onChange={(v) => setAF('passed', v === 'pass')} options={[{ value: 'pass', label: '합격' }, { value: 'fail', label: '불합격' }]} />
+            </div>
+            <div className="flex justify-end mt-2"><button onClick={addAttendee} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><Plus size={13} /> 참석기록 추가</button></div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {session.attendees.map((a) => (
+            <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
+                {a.name} <span style={{ color: 'var(--ink-faint)' }}>· {a.dept || '부서 미기록'} · {a.score || '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge text={a.passed ? '합격' : '불합격'} tone={a.passed ? 'emerald' : 'rose'} />
+                {canEdit && <button onClick={() => removeAttendee(a.id)} className="text-slate-300 hover:text-rose-600"><X size={13} /></button>}
+              </div>
+            </div>
+          ))}
+          {session.attendees.length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>참석기록이 없습니다.</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
