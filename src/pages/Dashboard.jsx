@@ -1,8 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut } from 'lucide-react';
+import { LogOut, Stamp } from 'lucide-react';
 import { auth } from '../lib/auth';
 import gmp, { loadContext, computeAllCards, computeOverallScore, userCanAccessCard, STATUS, FULFILLMENT } from '../lib/gmpProgress';
+import { getKgmpStatus } from '../lib/kgmpProgress';
 
 /**
  * Tier 1 Dashboard — 12개 GMP/RA 카드 + 4개 하단 패널
@@ -193,6 +194,43 @@ function PanelHandover({ ctx }) {
   );
 }
 
+function PanelKgmp({ navigate, kgmp }) {
+  const { pct, doneCount, totalCount } = kgmp;
+  const tone = pct >= 90 ? 'emerald' : pct >= 50 ? 'amber' : 'rose';
+  const toneClasses = {
+    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+    amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' },
+    rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', bar: 'bg-rose-500' },
+  }[tone];
+  return (
+    <div className={`max-w-7xl mx-auto mb-5 rounded-xl border ${toneClasses.border} ${toneClasses.bg} p-4`}>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-white border ${toneClasses.border}`}>
+            <Stamp size={18} className={toneClasses.text} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-900">KGMP 통합 현황</div>
+            <div className="text-xs text-slate-600 mt-0.5">수입 인허가 제출 문서 · 기술문서 · 품질시스템 · 필수 절차서 · 유지 기록을 한 곳에서 확인·수정합니다.</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <div className={`text-2xl font-bold tabular-nums ${toneClasses.text}`}>{pct}%</div>
+            <div className="text-[11px] text-slate-500">{doneCount}/{totalCount} 항목</div>
+          </div>
+          <div className="w-24 h-1.5 rounded-full bg-white overflow-hidden hidden sm:block">
+            <div className={`h-full rounded-full ${toneClasses.bar}`} style={{ width: pct + '%' }} />
+          </div>
+          <button onClick={() => navigate('/kgmp')} className={`shrink-0 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar} hover:opacity-90 transition`}>
+            KGMP 바로가기 →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NextSteps({ navigate, firstCardId }) {
   const [g, setG] = useState(() => {
     try { return JSON.parse(localStorage.getItem('qualytree.guide') || '{}') } catch { return {} }
@@ -213,6 +251,7 @@ function NextSteps({ navigate, firstCardId }) {
     { k: 'audit', title: '내부심사', desc: '계획 승인 → 체크리스트 → 보고서 승인 → 시정조치까지 진행합니다.', cta: '내부심사로', go: () => navigate('/audit') },
     { k: 'training', title: '교육', desc: '연간교육계획 승인, 교육자료 등록, 참석기록·평가를 남깁니다.', cta: '교육훈련으로', go: () => navigate('/training') },
     { k: 'mreview', title: '경영검토', desc: 'KPI·품질목표·고객불만·CAPA현황을 집계해 경영검토를 승인합니다.', cta: '경영검토로', go: () => navigate('/management-review') },
+    { k: 'kgmp', title: 'KGMP 통합 현황 점검', desc: '수입 인허가 제출 문서·기술문서·품질시스템·필수 절차서·유지 기록이 모두 채워졌는지 확인합니다.', cta: 'KGMP로', go: () => navigate('/kgmp') },
   ];
   const isDone = (st) => st.auto || !!checks[st.k];
   const doneN = steps.filter(isDone).length;
@@ -287,6 +326,7 @@ export default function Dashboard() {
 
   const cards = useMemo(() => computeAllCards(ctx), [ctx]);
   const overall = useMemo(() => computeOverallScore(cards), [cards]);
+  const kgmp = useMemo(() => getKgmpStatus(), [ctx]);
 
   const row1 = cards.filter(c => c.cardRow === 1);
   const row2 = cards.filter(c => c.cardRow === 2);
@@ -362,6 +402,8 @@ export default function Dashboard() {
           <CertBadge label="MDSAP" active={ctx.certifications.mdsap} />
         </div>
       </div>
+
+      <PanelKgmp navigate={navigate} kgmp={kgmp} />
 
       {/* 행1 — GMP 8개 카드 */}
       <div className="max-w-7xl mx-auto mb-3">
