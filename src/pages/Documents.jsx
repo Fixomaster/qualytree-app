@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
 import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload, Trash2, Send } from 'lucide-react'
@@ -183,8 +184,22 @@ export default function Documents() {
   const [docs, setDocs] = useState(() => { try { return JSON.parse(localStorage.getItem(DOC_KEY) || '{}') } catch { return {} } })
   useEffect(() => { try { localStorage.setItem(DOC_KEY, JSON.stringify(docs)) } catch { /* */ } }, [docs])
 
-  const [tab, setTab] = useState('manual')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'manual')
   const [openId, setOpenId] = useState(null)
+
+  // 외부 페이지(KGMP 허브 등)에서 ?tab=procedures&openName=문서관리 로 특정 절차서를
+  // 직접 열람·수정할 수 있도록 딥링크 지원
+  useEffect(() => {
+    const openName = searchParams.get('openName')
+    if (!openName) return
+    const pool = tab === 'manual' ? manualChapters : procedures
+    const match = pool.find((it) => (it.name || '').includes(openName))
+    if (match) {
+      setOpenId((tab === 'manual' ? 'M-' : 'P-') + match.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tab])
 
   const today = () => new Date().toISOString().slice(0, 10)
   // 레거시 상태(done 등) 정규화 — review/pending/effective 외에는 모두 작성중(draft)

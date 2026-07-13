@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Truck,
   ShieldCheck,
@@ -19,7 +20,8 @@ import { fileStore } from '../../lib/fileStore'
 
 export default function SupplierHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('supplier') // supplier | asl
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'supplier') // supplier | asl
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)

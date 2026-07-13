@@ -17,6 +17,8 @@ import {
   Building2,
   GraduationCap,
   Gauge,
+  PackageCheck,
+  Stamp,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -32,6 +34,8 @@ const NAV = [
   { to: '/audit', label: '내부심사', en: 'Internal Audit', icon: ClipboardCheck, area: 'AUD' },
   { to: '/training', label: '교육훈련', en: 'Training', icon: GraduationCap, area: 'TRN' },
   { to: '/management-review', label: '경영검토', en: 'Management Review', icon: Gauge, area: 'MR' },
+  { to: '/logistics', label: '입출고·유통관리', en: 'Import & Distribution', icon: PackageCheck, area: 'LOG' },
+  { to: '/kgmp', label: 'KGMP', en: 'KGMP Registration', icon: Stamp, area: 'KGMP' },
   { to: '/documents', label: '품질 문서', en: 'Documents', icon: FileText, area: 'DOC' },
   { to: '/regulatory', label: '인허가', en: 'Regulatory', icon: FileCheck2, area: 'RA' },
   { to: '/tree', label: 'Quality Tree', en: 'Quality Tree', icon: GitBranch, area: 'TREE' },

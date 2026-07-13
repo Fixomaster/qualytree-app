@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useNavigate } from 'react-router-dom'
 import {
   PackageSearch,
@@ -78,7 +79,8 @@ export default function ProductsHub() {
   const nav = useNavigate()
   const user = auth.current()
 
-  const [tab, setTab] = useState('product') // product | process | inspection
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'product') // product | process | inspection
   const [toast, setToast] = useState(null)
 
   const showToast = (text) => {
@@ -271,7 +273,7 @@ export default function ProductsHub() {
               <InspectionPanel onAction={showToast} />
             )}
             {tab === 'documents' && (
-              <ProductDocumentsPanel key={product?.id || 'main'} product={product} onAction={showToast} />
+              <ProductDocumentsPanel key={product?.id || 'main'} product={product} onAction={showToast} initialSub={searchParams.get('docSub')} />
             )}
           </>
         )}

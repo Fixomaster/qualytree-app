@@ -79,6 +79,9 @@ export const PERMISSIONS = {
   'mr.objective.edit': LEVELS.MANAGER, // 품질목표 등록·수정
   'mr.complaint.edit': LEVELS.INSPECTOR, // 고객불만 등록·처리
 
+  // ===== LOG 영역 (입출고·유통·이상사례) =====
+  'logistics.edit': LEVELS.INSPECTOR, // 수입검사·입고·출고·유통기록, 이상사례 보고 입력
+
   // ===== 향후 영역 (예약) =====
   'qms.ncr.review': LEVELS.INSPECTOR,
   'qms.capa.edit': LEVELS.INSPECTOR, // CAPA 원인분석·시정·예방·효과검증 기록

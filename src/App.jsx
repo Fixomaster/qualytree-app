@@ -21,6 +21,8 @@ import AuditHub from './pages/audit/AuditHub'
 import CompanyHub from './pages/company/CompanyHub'
 import TrainingHub from './pages/training/TrainingHub'
 import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
+import LogisticsHub from './pages/logistics/LogisticsHub'
+import KgmpHub from './pages/kgmp/KgmpHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
@@ -188,6 +190,22 @@ export default function App() {
         element={
           <ProtectedRoute>
             <ManagementReviewHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/logistics"
+        element={
+          <ProtectedRoute>
+            <LogisticsHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/kgmp"
+        element={
+          <ProtectedRoute>
+            <KgmpHub />
           </ProtectedRoute>
         }
       />

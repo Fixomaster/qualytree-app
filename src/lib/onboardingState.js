@@ -109,4 +109,28 @@ export const onboarding = {
     const s = this.load()
     return s.completedSteps.length === 5
   },
+
+  /**
+   * 지정한 절차서 이름들이 procedures 목록에 없으면(부분 문자열 매칭 실패 시) 자동 추가.
+   * KGMP 허브 등에서 필수 절차서 항목이 항상 실제 편집 페이지로 연결되도록 보완할 때 사용.
+   */
+  ensureProcedures(names) {
+    const s = this.load()
+    const list = Array.isArray(s.procedures) ? s.procedures : []
+    const uid = () => Math.random().toString(36).slice(2, 10)
+    let changed = false
+    const next = [...list]
+    ;(names || []).forEach((name) => {
+      const exists = next.some((p) => p.name === name)
+      if (!exists) {
+        next.push({ id: uid(), name, applicable: true, custom: true })
+        changed = true
+      }
+    })
+    if (changed) {
+      const saved = this.save({ ...s, procedures: next })
+      return saved
+    }
+    return s
+  },
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   ShieldCheck,
@@ -24,7 +24,8 @@ export default function QualityHub() {
   const nav = useNavigate()
   const user = auth.current()
 
-  const [tab, setTab] = useState('ncr') // ncr | capa | quarantine
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'ncr') // ncr | capa | quarantine
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(null)
   const [selectedCapaId, setSelectedCapaId] = useState(null)

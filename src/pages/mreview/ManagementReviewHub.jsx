@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Target,
   MessageSquareWarning,
@@ -23,7 +24,8 @@ import {
 
 export default function ManagementReviewHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('review') // review | objective | complaint
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'review') // review | objective | complaint
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)

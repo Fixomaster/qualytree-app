@@ -11,6 +11,7 @@ function defaultState() {
   return {
     licenses: [],
     workInstructions: [],
+    techDocs: [],
   }
 }
 
@@ -48,6 +49,26 @@ export const wiStatus = {
   DRAFT: '작성중',
   REVIEW: '검토중',
   EFFECTIVE: '발효',
+}
+
+// KGMP/수입 인허가 — 제품별 기술문서·공통 제출 문서 카테고리
+export const TECH_DOC_CATEGORY = {
+  DEVICE_DESC: '제품 설명서 (Device Description)',
+  DESIGN_DEV: '설계 및 개발 자료',
+  RISK_FILE: '위험관리 파일 (Risk Management File)',
+  PERFORMANCE: '성능시험 자료',
+  SAFETY_EFFICACY: '안전성 및 유효성 자료',
+  ELECTRICAL_SAFETY: '전기안전 시험성적서 (IEC 60601 시리즈)',
+  EMC: 'EMC 시험성적서 (IEC 60601-1-2)',
+  SW_VALIDATION: '소프트웨어 검증 자료',
+  CYBERSECURITY: '사이버보안 문서',
+  BIOCOMPAT: '생물학적 안전성 평가 (ISO 10993)',
+  STERILIZATION_VAL: '멸균 밸리데이션 자료',
+  CLINICAL_EVAL: '임상평가·임상시험 자료',
+  CATALOG: '제품 카탈로그',
+  IFU: '사용설명서 (IFU)',
+  LABEL: '제품 라벨 (Label)',
+  PHOTO: '제품 사진',
 }
 
 /** 유효기간 기준 허가증 상태 계산 — 만료/만료임박(90일 이내)/유효 */
@@ -147,6 +168,41 @@ export const productDocs = {
   findWorkInstruction(productKey, sopName) {
     const s = load()
     return s.workInstructions.find((w) => w.productKey === (productKey || 'main') && w.sopName === sopName) || null
+  },
+
+  // ── 기술문서 · 공통 제출 문서 (KGMP/수입 인허가) ──
+  addTechDoc(productKey, item) {
+    const s = load()
+    const rec = {
+      id: uid(),
+      productKey: productKey || 'main',
+      category: TECH_DOC_CATEGORY.DEVICE_DESC,
+      title: '',
+      fileId: null,
+      fileName: '',
+      issueDate: '',
+      notes: '',
+      ...item,
+    }
+    s.techDocs = Array.isArray(s.techDocs) ? [...s.techDocs, rec] : [rec]
+    save(s)
+    return rec
+  },
+  updateTechDoc(id, patch) {
+    const s = load()
+    s.techDocs = (s.techDocs || []).map((d) => (d.id === id ? { ...d, ...patch } : d))
+    save(s)
+    return s
+  },
+  deleteTechDoc(id) {
+    const s = load()
+    s.techDocs = (s.techDocs || []).filter((d) => d.id !== id)
+    save(s)
+    return s
+  },
+  getTechDocs(productKey) {
+    const s = load()
+    return (s.techDocs || []).filter((d) => d.productKey === (productKey || 'main'))
   },
 }
 

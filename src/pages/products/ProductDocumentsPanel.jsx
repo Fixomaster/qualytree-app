@@ -14,10 +14,11 @@ import {
   AlertCircle,
   Save,
   FlaskConical,
+  FolderOpen,
 } from 'lucide-react'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
-import { productDocs, MARKETS, wiStatus } from '../../lib/productDocsState'
+import { productDocs, MARKETS, wiStatus, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
 import { onboarding, productKeyOf, getProductProcesses } from '../../lib/onboardingState'
 import { getBlock } from '../../lib/processBlocks'
 import { operations } from '../../lib/operationsState'
@@ -139,8 +140,8 @@ function SubTab({ active, onClick, icon: Icon, label, count }) {
 /* ================================================================
    메인 — 제품 상세 화면에서 허가증 · 작업표준서 · 제조기록을 한 곳에서
    ================================================================ */
-export default function ProductDocumentsPanel({ product, onAction }) {
-  const [sub, setSub] = useState('license')
+export default function ProductDocumentsPanel({ product, onAction, initialSub }) {
+  const [sub, setSub] = useState(initialSub || 'license')
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
 
@@ -156,11 +157,13 @@ export default function ProductDocumentsPanel({ product, onAction }) {
         <SubTab active={sub === 'sop'} onClick={() => setSub('sop')} icon={ClipboardList} label="작업표준서" />
         <SubTab active={sub === 'record'} onClick={() => setSub('record')} icon={ListChecks} label="제조기록" />
         <SubTab active={sub === 'spec'} onClick={() => setSub('spec')} icon={FlaskConical} label="시험규격서" />
+        <SubTab active={sub === 'tech'} onClick={() => setSub('tech')} icon={FolderOpen} label="기술문서 (KGMP)" count={productDocs.getTechDocs(productKey).length} />
       </div>
       {sub === 'license' && <LicenseSection key={'lic' + tick} product={product} productKey={productKey} onAction={onAction} refresh={refresh} />}
       {sub === 'sop' && <SopSection key={'sop' + tick} product={product} productKey={productKey} onAction={onAction} refresh={refresh} />}
       {sub === 'record' && <RecordSection product={product} />}
       {sub === 'spec' && <SpecSection product={product} productKey={productKey} />}
+      {sub === 'tech' && <TechDocSection key={'tech' + tick} product={product} productKey={productKey} onAction={onAction} refresh={refresh} />}
     </div>
   )
 }
@@ -552,5 +555,165 @@ function SpecSection({ product, productKey }) {
         </div>
       ))}
     </div>
+  )
+}
+
+
+/* ================================================================
+   기술문서 (KGMP) — 제품별 수입 인허가 기술문서 · 공통 제출 문서 등록
+   ================================================================ */
+const TECH_CATEGORY_LIST = Object.values(TECH_DOC_CATEGORY)
+const EMPTY_TECH_DOC = { category: TECH_DOC_CATEGORY.DEVICE_DESC, title: '', issueDate: '', notes: '' }
+
+function TechDocSection({ product, productKey, onAction, refresh }) {
+  const canEdit = permissions.can('onb.license.edit')
+  const [list, setList] = useState(() => productDocs.getTechDocs(productKey))
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState(EMPTY_TECH_DOC)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const [busyId, setBusyId] = useState(null)
+
+  const save = () => {
+    if (!requirePermission('onb.license.edit')) return
+    productDocs.addTechDoc(productKey, { ...form, productName: product.name || '' })
+    setList(productDocs.getTechDocs(productKey))
+    setForm(EMPTY_TECH_DOC)
+    setAdding(false)
+    onAction('기술문서가 등록되었습니다.')
+    refresh()
+  }
+
+  const del = (id) => {
+    if (!requirePermission('onb.license.edit')) return
+    if (!window.confirm('이 기술문서를 삭제할까요?')) return
+    productDocs.deleteTechDoc(id)
+    setList(productDocs.getTechDocs(productKey))
+    onAction('기술문서가 삭제되었습니다.')
+    refresh()
+  }
+
+  const attach = async (id, file) => {
+    if (!requirePermission('onb.license.edit')) return
+    setBusyId(id)
+    try {
+      const fileId = await fileStore.saveFile(file)
+      productDocs.updateTechDoc(id, { fileId, fileName: file.name })
+      setList(productDocs.getTechDocs(productKey))
+    } catch (e) {
+      window.alert((e && e.message) || String(e))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const openFile = async (fileId) => {
+    const url = await fileStore.getObjectURL(fileId)
+    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+
+  const removeFile = (id) => {
+    if (!requirePermission('onb.license.edit')) return
+    productDocs.updateTechDoc(id, { fileId: null, fileName: '' })
+    setList(productDocs.getTechDocs(productKey))
+    refresh()
+  }
+
+  const byCategory = {}
+  list.forEach((d) => {
+    byCategory[d.category] = byCategory[d.category] || []
+    byCategory[d.category].push(d)
+  })
+  const missingCategories = TECH_CATEGORY_LIST.filter((c) => !byCategory[c] || byCategory[c].length === 0)
+
+  return (
+    <div className="space-y-3">
+      <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+        {product.name || '(이름없음)'} — KGMP/수입 인허가 신청 시 필요한 제품별 기술문서·공통 제출 문서를 카테고리별로 등록·관리합니다.
+      </div>
+
+      {canEdit && !adding && (
+        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px]">
+          <Plus size={12} /> 기술문서 추가
+        </button>
+      )}
+
+      {adding && (
+        <div className="card-base p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <SelectField label="문서 구분" value={form.category} onChange={(v) => setF('category', v)} options={TECH_CATEGORY_LIST.map((c) => ({ value: c, label: c }))} className="col-span-2" />
+            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: OO 제품 위험관리 파일 Rev.2" className="col-span-2" />
+            <Field label="발행/작성일" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
+          </div>
+          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} placeholder="선택 입력" />
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-primary text-[12.5px]"><Save size={13} /> 저장</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_TECH_DOC) }} className="btn-ghost text-[12.5px]">취소</button>
+          </div>
+        </div>
+      )}
+
+      {list.length === 0 && !adding && <EmptyState icon={FolderOpen} text="등록된 기술문서가 없습니다." />}
+
+      {TECH_CATEGORY_LIST.filter((c) => byCategory[c] && byCategory[c].length > 0).map((cat) => (
+        <div key={cat} className="space-y-2">
+          <div className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>{cat}</div>
+          {byCategory[cat].map((d) => (
+            <div key={d.id} className="card-base p-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title || '(제목 미입력)'}</div>
+                  <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
+                    작성/발행 {d.issueDate || '—'}
+                  </div>
+                  {d.notes && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>{d.notes}</div>}
+                  <div className="mt-2">
+                    {d.fileId ? (
+                      <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+                        <button type="button" onClick={() => openFile(d.fileId)} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {d.fileName || '첨부파일'}</button>
+                        {canEdit && <button type="button" onClick={() => removeFile(d.id)} className="opacity-50 hover:opacity-100"><X size={11} /></button>}
+                      </span>
+                    ) : canEdit ? (
+                      <FileAttachButtonTech busy={busyId === d.id} onPick={(f) => attach(d.id, f)} />
+                    ) : (
+                      <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>첨부 파일 없음</span>
+                    )}
+                  </div>
+                </div>
+                {canEdit && (
+                  <button onClick={() => del(d.id)} className="shrink-0 opacity-50 hover:opacity-100" title="삭제">
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+
+      {missingCategories.length > 0 && (
+        <div className="card-base p-3.5" style={{ background: 'var(--amber-soft)' }}>
+          <div className="text-[12px] font-semibold mb-1.5" style={{ color: 'var(--ink)' }}>아직 등록되지 않은 항목</div>
+          <div className="flex flex-wrap gap-1.5">
+            {missingCategories.map((c) => (
+              <Badge key={c} text={c} tone="amber" />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FileAttachButtonTech({ busy, onPick }) {
+  const ref = useRef(null)
+  return (
+    <>
+      <input ref={ref} type="file" className="hidden" onChange={(e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (f) onPick(f) }} />
+      <button type="button" onClick={() => ref.current && ref.current.click()} disabled={busy} className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: 'var(--moss)' }}>
+        <Paperclip size={12} /> {busy ? '업로드 중…' : '문서 파일 첨부 (5MB 이하)'}
+      </button>
+    </>
   )
 }

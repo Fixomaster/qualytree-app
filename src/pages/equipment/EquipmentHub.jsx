@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Wrench,
   Gauge,
@@ -21,7 +22,8 @@ import { fileStore } from '../../lib/fileStore'
 
 export default function EquipmentHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('equipment') // equipment | testEquipment | calibration
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'equipment') // equipment | testEquipment | calibration
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)

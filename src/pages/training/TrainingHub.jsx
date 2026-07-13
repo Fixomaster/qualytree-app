@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   GraduationCap,
   BookOpen,
@@ -19,7 +20,8 @@ import { fileStore } from '../../lib/fileStore'
 
 export default function TrainingHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('plan') // plan | material | session
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'plan') // plan | material | session
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)

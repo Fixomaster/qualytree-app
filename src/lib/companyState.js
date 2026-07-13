@@ -44,6 +44,11 @@ export const DOC_CATEGORY = {
   MFG_LICENSE: '제조업허가증',
   FACILITY_PLAN: '제조소 평면도',
   FACILITY_PHOTO: '제조소 사진',
+  FACILITY_REG: '제조소 등록자료',
+  IMPORT_LICENSE: '수입업 허가증',
+  AGENT_CONTRACT: '대리인 계약서 (Authorization Letter)',
+  GMP_CERT: '제조소 GMP 인증서',
+  ISO13485_CERT: 'ISO 13485 인증서',
 }
 
 export const QM_STATUS = {

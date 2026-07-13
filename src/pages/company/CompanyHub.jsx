@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Building2,
   Users,
@@ -20,7 +21,8 @@ import { fileStore } from '../../lib/fileStore'
 
 export default function CompanyHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('docs') // docs | org | qm
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'docs') // docs | org | qm
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)
