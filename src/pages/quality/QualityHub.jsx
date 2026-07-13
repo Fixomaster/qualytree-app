@@ -27,6 +27,7 @@ export default function QualityHub() {
   const [tab, setTab] = useState('ncr') // ncr | capa | quarantine
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(null)
+  const [selectedCapaId, setSelectedCapaId] = useState(null)
   const [showHelp, setShowHelp] = useState(false)
   const [, setRefresh] = useState(0)
   const refresh = () => setRefresh((t) => t + 1)
@@ -142,7 +143,7 @@ export default function QualityHub() {
             onSelect={setSelectedNcrId}
           />
         )}
-        {tab === 'capa' && <CapaList capas={allCapas} />}
+        {tab === 'capa' && <CapaList capas={allCapas} selectedId={selectedCapaId} onSelect={setSelectedCapaId} onChanged={refresh} />}
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} />}
       </div>
     </AppLayout>
@@ -742,7 +743,9 @@ function Meta({ label, value, mono }) {
 /* ================================================================
    CAPA 목록
    ================================================================ */
-function CapaList({ capas }) {
+function CapaList({ capas, selectedId, onSelect, onChanged }) {
+  const selected = selectedId ? capas.find((c) => c.id === selectedId) : null
+
   if (capas.length === 0) {
     return (
       <div
@@ -763,56 +766,198 @@ function CapaList({ capas }) {
   }
 
   return (
-    <div className="space-y-2">
-      {capas.map((c) => {
-        const status = CAPA_STATUS_LABEL[c.status]
-        return (
-          <div key={c.id} className="card-base p-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <span
-                  className="font-mono text-[11.5px]"
-                  style={{ color: 'var(--moss)', fontWeight: 500 }}
-                >
-                  {c.id}
-                </span>
-                <span
-                  className="text-[14px] ml-2"
-                  style={{ color: 'var(--ink)', fontWeight: 500 }}
-                >
-                  {c.title}
-                </span>
-              </div>
-              <span
-                className="tag"
-                style={{
-                  background: `var(--${status.tone}-soft)`,
-                  color: `var(--${status.tone})`,
-                }}
-              >
-                {status.ko}
-              </span>
-            </div>
-            <div
-              className="text-[12.5px] mt-1.5"
-              style={{ color: 'var(--ink-mute)' }}
-            >
-              {c.description || c.triggerReason || '(설명 없음)'}
-            </div>
-            <div
-              className="font-mono text-[10.5px] mt-2 flex flex-wrap gap-3"
-              style={{ color: 'var(--ink-faint)' }}
-            >
-              <span>발의: {new Date(c.raisedAt).toLocaleString('ko-KR')}</span>
-              <span>· {c.raisedBy}</span>
-              {c.sourceNcrIds?.length > 0 && (
-                <span>· NCR {c.sourceNcrIds.length}건 연결</span>
-              )}
-            </div>
+    <div className="grid lg:grid-cols-12 gap-4">
+      <div className="lg:col-span-5">
+        <div className="card-base p-3">
+          <div className="font-mono text-[10px] tracking-[0.16em] uppercase px-2 mb-2" style={{ color: 'var(--ink-mute)' }}>
+            CAPA · {capas.length}건
           </div>
-        )
-      })}
+          <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+            {capas.map((c) => {
+              const status = CAPA_STATUS_LABEL[c.status]
+              const sel = c.id === selectedId
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => onSelect(c.id)}
+                  className="w-full text-left p-3 rounded-lg border transition"
+                  style={{ borderColor: sel ? 'var(--moss)' : 'var(--line)', background: sel ? 'var(--leaf-soft)' : 'var(--bg-card)' }}
+                >
+                  <div className="flex items-center justify-between flex-wrap gap-1.5">
+                    <span className="font-mono text-[11px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{c.id}</span>
+                    <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
+                  </div>
+                  <div className="text-[13px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>{c.title}</div>
+                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} · {c.raisedBy}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="lg:col-span-7">
+        {selected ? (
+          <CapaDetail capaRecord={selected} onChanged={onChanged} />
+        ) : (
+          <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
+            좌측에서 CAPA를 선택하세요
+          </div>
+        )}
+      </div>
     </div>
+  )
+}
+
+/* ================================================================
+   CAPA 상세 — 근본원인분석 → 시정조치 → 예방조치 → 효과성검증 → 승인·종결
+   ================================================================ */
+const CAPA_STAGE_ORDER = ['open', 'rca', 'corrective', 'preventive', 'verification', 'closed']
+
+function CapaDetail({ capaRecord, onChanged }) {
+  const canEdit = permissions.can('qms.capa.edit')
+  const canApprove = permissions.can('qms.capa.approve')
+  const stageIdx = CAPA_STAGE_ORDER.indexOf(capaRecord.status)
+
+  const [rca, setRca] = useState(capaRecord.rootCause || { method: '', cause: '', evidence: '' })
+  const [corrective, setCorrective] = useState(capaRecord.correctiveAction || { action: '', owner: '', dueDate: '', completedDate: '' })
+  const [preventive, setPreventive] = useState(capaRecord.preventiveAction || { action: '', owner: '', dueDate: '' })
+  const [verification, setVerification] = useState(capaRecord.verification || { method: '', result: '효과있음', verifiedBy: '', verifiedDate: '' })
+
+  const saveStage = (stageKey, data, nextStatus) => {
+    if (!canEdit) { alert('CAPA 기록은 검사관(Level 2) 이상 권한이 필요합니다.'); return }
+    capa.updateStage(capaRecord.id, { [stageKey]: data }, nextStatus)
+    onChanged()
+  }
+
+  const closeCapa = () => {
+    if (!canApprove) { alert('CAPA 승인·종결은 매니저(Level 3) 권한이 필요합니다.'); return }
+    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 — 종결 승인')
+    if (reason == null) return
+    capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || '종결' })
+    onChanged()
+  }
+
+  const status = CAPA_STATUS_LABEL[capaRecord.status]
+
+  return (
+    <div className="card-base p-5 fade-in space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>{capaRecord.id}</span>
+          <div className="font-display text-[20px] mt-1 leading-tight" style={{ color: 'var(--ink)', fontWeight: 500 }}>{capaRecord.title}</div>
+        </div>
+        <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
+      </div>
+      <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>{capaRecord.description || capaRecord.triggerReason}</div>
+
+      {/* 근본원인분석 */}
+      <CapaStageCard title="① 근본원인분석 (RCA)" citation="ISO 13485 §8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
+        <SelectFieldQ label="분석 기법" value={rca.method} onChange={(v) => setRca((r) => ({ ...r, method: v }))} options={['', '5-Why', '피쉬본(어골도)', 'FMEA', '기타']} disabled={!canEdit || stageIdx > 1} />
+        <TextAreaFieldQ label="근본원인" value={rca.cause} onChange={(v) => setRca((r) => ({ ...r, cause: v }))} disabled={!canEdit || stageIdx > 1} />
+        <TextAreaFieldQ label="근거·증거" value={rca.evidence} onChange={(v) => setRca((r) => ({ ...r, evidence: v }))} disabled={!canEdit || stageIdx > 1} />
+        {canEdit && stageIdx <= 1 && (
+          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+        )}
+      </CapaStageCard>
+
+      {/* 시정조치 */}
+      <CapaStageCard title="② 시정조치" citation="ISO 13485 §8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
+        <TextAreaFieldQ label="시정조치 내용" value={corrective.action} onChange={(v) => setCorrective((c) => ({ ...c, action: v }))} disabled={!canEdit || stageIdx > 2} />
+        <div className="grid sm:grid-cols-3 gap-2">
+          <FieldQ label="담당자" value={corrective.owner} onChange={(v) => setCorrective((c) => ({ ...c, owner: v }))} disabled={!canEdit || stageIdx > 2} />
+          <FieldQ label="완료 기한" type="date" value={corrective.dueDate} onChange={(v) => setCorrective((c) => ({ ...c, dueDate: v }))} disabled={!canEdit || stageIdx > 2} />
+          <FieldQ label="완료일" type="date" value={corrective.completedDate} onChange={(v) => setCorrective((c) => ({ ...c, completedDate: v }))} disabled={!canEdit || stageIdx > 2} />
+        </div>
+        {canEdit && stageIdx >= 1 && stageIdx <= 2 && (
+          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+        )}
+      </CapaStageCard>
+
+      {/* 예방조치 */}
+      <CapaStageCard title="③ 예방조치" citation="ISO 13485 §8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
+        <TextAreaFieldQ label="예방조치 내용" value={preventive.action} onChange={(v) => setPreventive((p) => ({ ...p, action: v }))} disabled={!canEdit || stageIdx > 3} />
+        <div className="grid sm:grid-cols-2 gap-2">
+          <FieldQ label="담당자" value={preventive.owner} onChange={(v) => setPreventive((p) => ({ ...p, owner: v }))} disabled={!canEdit || stageIdx > 3} />
+          <FieldQ label="완료 기한" type="date" value={preventive.dueDate} onChange={(v) => setPreventive((p) => ({ ...p, dueDate: v }))} disabled={!canEdit || stageIdx > 3} />
+        </div>
+        {canEdit && stageIdx >= 2 && stageIdx <= 3 && (
+          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+        )}
+      </CapaStageCard>
+
+      {/* 효과성검증 */}
+      <CapaStageCard title="④ 효과성검증" citation="ISO 13485 §8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
+        <TextAreaFieldQ label="검증 방법" value={verification.method} onChange={(v) => setVerification((x) => ({ ...x, method: v }))} disabled={!canEdit || stageIdx > 4} />
+        <div className="grid sm:grid-cols-3 gap-2">
+          <SelectFieldQ label="검증 결과" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['효과있음', '불충분 · 재조치 필요']} disabled={!canEdit || stageIdx > 4} />
+          <FieldQ label="검증자" value={verification.verifiedBy} onChange={(v) => setVerification((x) => ({ ...x, verifiedBy: v }))} disabled={!canEdit || stageIdx > 4} />
+          <FieldQ label="검증일" type="date" value={verification.verifiedDate} onChange={(v) => setVerification((x) => ({ ...x, verifiedDate: v }))} disabled={!canEdit || stageIdx > 4} />
+        </div>
+        {canEdit && stageIdx >= 3 && stageIdx <= 4 && (
+          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 승인 대기로</button></div>
+        )}
+      </CapaStageCard>
+
+      {/* 승인·종결 */}
+      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
+        {stageIdx === 5 ? (
+          <div className="text-[12.5px]" style={{ color: 'var(--moss)' }}>
+            <CheckCircle2 size={14} className="inline mr-1" />
+            {capaRecord.closure?.by} 승인 · {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} — {capaRecord.closure?.reason}
+          </div>
+        ) : stageIdx === 4 ? (
+          canApprove ? (
+            <div className="flex justify-end"><button onClick={closeCapa} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><CheckCircle2 size={13} /> 승인 및 종결</button></div>
+          ) : (
+            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>효과성검증까지 완료되었습니다. 매니저(Level 3) 승인을 기다리는 중입니다.</div>
+          )
+        ) : (
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>이전 단계를 먼저 완료하세요.</div>
+        )}
+      </CapaStageCard>
+    </div>
+  )
+}
+
+function CapaStageCard({ title, citation, active, done, locked, children }) {
+  return (
+    <div className="rounded-lg p-3.5" style={{ background: locked ? 'var(--bg-soft)' : active ? 'var(--leaf-soft)' : 'var(--bg-card)', border: '1px solid var(--line)', opacity: locked ? 0.55 : 1 }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{title}</div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>{citation}</span>
+          {done && <CheckCircle2 size={14} style={{ color: 'var(--moss)' }} />}
+        </div>
+      </div>
+      <div className="space-y-2">{children}</div>
+    </div>
+  )
+}
+
+function FieldQ({ label, value, onChange, placeholder, type = 'text', disabled }) {
+  return (
+    <label className="block">
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <input type={type} className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+}
+function SelectFieldQ({ label, value, onChange, options, disabled }) {
+  return (
+    <label className="block">
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => <option key={o} value={o}>{o || '(선택)'}</option>)}
+      </select>
+    </label>
+  )
+}
+function TextAreaFieldQ({ label, value, onChange, disabled }) {
+  return (
+    <label className="block">
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight: 60 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
+    </label>
   )
 }
 

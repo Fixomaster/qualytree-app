@@ -13,6 +13,7 @@ import {
   Crown,
   Wrench,
   Truck,
+  ClipboardCheck,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -24,6 +25,7 @@ const NAV = [
   { to: '/operations', label: '현장 운영', en: 'Operations', icon: Workflow, area: 'OPS' },
   { to: '/equipment', label: '설비·교정', en: 'Equipment & Calibration', icon: Wrench, area: 'EQP' },
   { to: '/quality', label: '품질·NCR', en: 'Quality & NCR', icon: ShieldCheck, area: 'QMS' },
+  { to: '/audit', label: '내부심사', en: 'Internal Audit', icon: ClipboardCheck, area: 'AUD' },
   { to: '/documents', label: '품질 문서', en: 'Documents', icon: FileText, area: 'DOC' },
   { to: '/regulatory', label: '인허가', en: 'Regulatory', icon: FileCheck2, area: 'RA' },
   { to: '/tree', label: 'Quality Tree', en: 'Quality Tree', icon: GitBranch, area: 'TREE' },

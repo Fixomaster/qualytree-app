@@ -53,9 +53,18 @@ export const PERMISSIONS = {
   'ops.inspection.review': LEVELS.INSPECTOR, // 검사 결과 검토
   'ops.inspection.requestRemeasure': LEVELS.INSPECTOR, // 재측정 요청
 
+  // ===== AUD 영역 (내부심사) =====
+  'audit.plan.edit': LEVELS.INSPECTOR, // 심사 계획 작성·수정
+  'audit.plan.approve': LEVELS.MANAGER, // 심사 계획 승인 (체크리스트 자동 발행)
+  'audit.checklist.edit': LEVELS.INSPECTOR, // 체크리스트 결과 입력
+  'audit.report.edit': LEVELS.INSPECTOR, // 심사 보고서 작성
+  'audit.report.approve': LEVELS.MANAGER, // 심사 보고서 승인 (심사 완료)
+  'audit.finding.edit': LEVELS.INSPECTOR, // 시정조치 등록·CAPA 연계·종결
+
   // ===== 향후 영역 (예약) =====
   'qms.ncr.review': LEVELS.INSPECTOR,
-  'qms.capa.approve': LEVELS.MANAGER,
+  'qms.capa.edit': LEVELS.INSPECTOR, // CAPA 원인분석·시정·예방·효과검증 기록
+  'qms.capa.approve': LEVELS.MANAGER, // CAPA 최종 승인·종결
   'ra.submission.approve': LEVELS.MANAGER,
 }
 
