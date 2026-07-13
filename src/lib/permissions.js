@@ -27,6 +27,8 @@ export const PERMISSIONS = {
   'onb.process.editCanvas': LEVELS.MANAGER, // 공정 순서 정의 (캔버스 편집)
   'onb.regulations.edit': LEVELS.MANAGER, // 다중 규제 변경
   'onb.roles.edit': LEVELS.MANAGER, // 역할 정의
+  'onb.license.edit': LEVELS.MANAGER, // 제품별 허가증(인허가 문서) 관리
+  'onb.sop.edit': LEVELS.MANAGER, // 작업표준서(SOP) 본문 작성·발효
 
   // ===== EQP 영역 (설비 · 시험장비 · 교정) =====
   'eq.equipment.edit': LEVELS.MANAGER, // 설비대장·예방보전계획·점검기록 변경

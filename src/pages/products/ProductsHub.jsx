@@ -13,6 +13,7 @@ import {
   GitBranch,
   History,
   ArrowRight,
+  FileText,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -22,6 +23,8 @@ import { PROCESS_BLOCKS, PROCESS_CATEGORIES } from '../../lib/processBlocks'
 import { inspectionTemplates, CRITICALITY_OPTIONS } from '../../lib/inspectionTemplates'
 import { commitChange, CHANGE_ACTIONS, getRecordsForEntity } from '../../lib/changeControl'
 import { ENTITY_TYPES, eid } from '../../lib/entityRegistry'
+import ProductDocumentsPanel from './ProductDocumentsPanel'
+import { productDocs } from '../../lib/productDocsState'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -198,6 +201,14 @@ export default function ProductsHub() {
                 en="PROD-003"
                 count={countAllTemplates()}
               />
+              <TabButton
+                active={tab === 'documents'}
+                onClick={() => setTab('documents')}
+                icon={FileText}
+                label="문서"
+                en="PROD-004"
+                count={product ? productDocs.getLicenses(productKeyOf(product)).length : 0}
+              />
             </div>
 
             {/* 탭 내용 */}
@@ -258,6 +269,9 @@ export default function ProductsHub() {
             )}
             {tab === 'inspection' && (
               <InspectionPanel onAction={showToast} />
+            )}
+            {tab === 'documents' && (
+              <ProductDocumentsPanel key={product?.id || 'main'} product={product} onAction={showToast} />
             )}
           </>
         )}
