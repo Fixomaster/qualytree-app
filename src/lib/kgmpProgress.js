@@ -147,7 +147,7 @@ export function buildKgmpSections({ autoHeal = true } = {}) {
           label: '의료기기 제조업체 정보',
           status: companyInfoDone ? 'done' : 'missing',
           detail: companyInfoDone ? `${ctx.company.name} · 사업자번호 ${ctx.company.bizNumber}` : '회사명·사업자번호 미입력',
-          editHref: '/onboarding',
+          editHref: '/onboarding?returnTo=' + encodeURIComponent('/kgmp'),
         },
         companyDocItem('제조소 등록 자료', DOC_CATEGORY.FACILITY_REG, '/company?tab=docs'),
         companyDocItem('사업자등록증', DOC_CATEGORY.BIZ_REG, '/company?tab=docs'),

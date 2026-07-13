@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
   Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search,
@@ -116,6 +116,8 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 
 export default function Onboarding() {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get('returnTo') || '/dashboard'
   const [state, setState] = useState(loadState)
   const [step, setStep] = useState(0); const [stepError, setStepError] = useState('')
 
@@ -150,7 +152,7 @@ export default function Onboarding() {
       setStep(STEPS.findIndex((st) => !done[st.key]))
       return
     }
-    nav('/dashboard')
+    nav(returnTo)
   }
 
   const doneCount = STEPS.filter((s) => state.done[s.key]).length
@@ -169,6 +171,12 @@ export default function Onboarding() {
       <div className="max-w-5xl mx-auto">
         <div className="flex items-end justify-between flex-wrap gap-3 mb-4">
           <div>
+            <button
+              onClick={() => nav(returnTo)}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-800 mb-2 -ml-1"
+            >
+              <ChevronLeft size={14} /> 나가기 (입력한 내용은 자동 저장됩니다)
+            </button>
             <h1 className="text-2xl font-bold text-slate-900">
               온보딩 <span className="text-base font-normal text-slate-500">초기 설정 가이드</span>
             </h1>
