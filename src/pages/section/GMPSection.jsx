@@ -184,14 +184,25 @@ function FulfillmentIcon({ fulfillment, isNa }) {
   return <span className="text-rose-400 text-lg">✗</span>;
 }
 
-const GMP_DOC_LINKED_KEYS = ['document_control','record_control','management_review','awareness_training','training_effectiveness','personnel_hygiene','customer_legal_requirements','customer_notification','complaint_handling','design_change_control','supplier_evaluation','supplier_reevaluation','supplier_change','scar','manufacturing_change','product_identification','traceability','preservation','incoming_inspection','iqc','calibration','internal_audit','ipi','lai','inspection_status','nonconformance','mrb','concession','rework','post_delivery_nc','data_analysis','corrective_action','effectiveness_check','preventive_action','vigilance_reporting','signal_detection','pms_data_analysis','reportability_decision','oos_response','oot_response','udi_lifecycle','udi_db_sync','label_printing','labeling','qmsManual','qualityPolicy','qualityObjectives','orgChart','qmsRoles'];
-const GMP_QUALITY_LINKED_KEYS = ['capaTracking'];
+// 항목의 evaluate() 소스에 등장하는 키워드 → 실제 기록·관리 화면 매핑.
+// 전용 허브가 있는 영역을 최우선으로 매칭하고(순서 중요), 없으면 절차서 작성 화면(/documents)으로 보낸다.
+const ROUTE_BUCKETS = [
+  { route: '/audit', keys: ['internal_audit', 'auditChecklists', 'auditFindingsTemplate', 'auditFindingToCapa', 'auditFollowupEffectiveness', 'internalAuditPlan', 'auditorQualifications', 'auditorIndependence', 'outsourcedAuditPlan', 'multiSiteAuditMatrix', 'compensatingControlAudit', 'mdsapAuditMatrix'] },
+  { route: '/training', keys: ['awareness_training', 'training_effectiveness', 'competenceMatrix', 'trainingPlan', 'trainingRecords'] },
+  { route: '/management-review', keys: ['management_review', 'qualityObjectives'] },
+  { route: '/equipment', keys: ['measurementEquipment', 'calibrationCertificates', "'calibration'"] },
+  { route: '/suppliers', keys: ['supplier_evaluation', 'supplier_reevaluation', 'supplier_change', "'scar'", 'ctx.procedures.suppliers', 'approvedSupplierList', 'criticalSuppliers', 'sqrAutomation', 'supplierSAQ', 'supplierDiversification', 'supplierPortal'] },
+  { route: '/company', keys: ['orgChart', 'qmsRoles'] },
+  { route: '/quality', keys: ['capaTracking', 'nonconformance', "'mrb'", 'concession', "'rework'", 'post_delivery_nc', 'corrective_action', 'effectiveness_check', 'preventive_action', 'oos_response', 'oot_response', 'scarTracking'] },
+  { route: '/documents', keys: ['document_control', 'record_control', 'personnel_hygiene', 'customer_legal_requirements', 'customer_notification', 'complaint_handling', 'design_change_control', 'manufacturing_change', 'product_identification', 'traceability', 'preservation', 'incoming_inspection', "'iqc'", "'ipi'", "'lai'", 'inspection_status', 'data_analysis', 'vigilance_reporting', 'signal_detection', 'pms_data_analysis', 'reportability_decision', 'udi_lifecycle', 'udi_db_sync', 'label_printing', 'labeling', 'qmsManual', 'qualityPolicy'] },
+];
 function resolveItemRoute(item) {
   let src = '';
   try { src = item && item.evaluate ? item.evaluate.toString() : ''; } catch (e) { src = ''; }
   if (!src) return null;
-  for (const key of GMP_QUALITY_LINKED_KEYS) { if (src.indexOf(key) !== -1) return '/quality'; }
-  for (const key of GMP_DOC_LINKED_KEYS) { if (src.indexOf(key) !== -1) return '/documents'; }
+  for (const bucket of ROUTE_BUCKETS) {
+    if (bucket.keys.some((key) => src.indexOf(key) !== -1)) return bucket.route;
+  }
   return null;
 }
 function ItemRow({ item, isCondition, cardId, toggles, onToggle, certs, navigate }) {

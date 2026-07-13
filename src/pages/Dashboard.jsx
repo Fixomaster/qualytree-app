@@ -210,7 +210,9 @@ function NextSteps({ navigate, firstCardId }) {
     { k: 'docs', title: '품질매뉴얼·절차서 작성', desc: '온보딩에서 고른 목차를 실제 문서 내용으로 채웁니다.', cta: '품질 문서', go: () => navigate('/documents') },
     { k: 'gmp', title: 'GMP 필수항목 채우기', desc: '각 영역의 미흡(빨강) 항목부터 작성해 점수를 올립니다.', cta: '첫 항목 시작', go: () => navigate(firstCardId ? ('/section/' + firstCardId) : '/dashboard') },
     { k: 'ops', title: '운영 기록 시작', desc: '작업지시 → 배치기록 → 검사 → 부적합(NCR/CAPA) 순으로 기록합니다.', cta: '운영으로', go: () => navigate('/operations') },
-    { k: 'audit', title: '내부심사·교육·경영검토', desc: '시스템이 실제로 가동된다는 증빙을 남깁니다. (심사 핵심)', cta: '품질 영역', go: () => navigate('/quality') },
+    { k: 'audit', title: '내부심사', desc: '계획 승인 → 체크리스트 → 보고서 승인 → 시정조치까지 진행합니다.', cta: '내부심사로', go: () => navigate('/audit') },
+    { k: 'training', title: '교육', desc: '연간교육계획 승인, 교육자료 등록, 참석기록·평가를 남깁니다.', cta: '교육훈련으로', go: () => navigate('/training') },
+    { k: 'mreview', title: '경영검토', desc: 'KPI·품질목표·고객불만·CAPA현황을 집계해 경영검토를 승인합니다.', cta: '경영검토로', go: () => navigate('/management-review') },
   ];
   const isDone = (st) => st.auto || !!checks[st.k];
   const doneN = steps.filter(isDone).length;
