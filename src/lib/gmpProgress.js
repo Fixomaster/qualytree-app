@@ -128,6 +128,13 @@ function bridgeFromApp(ob, rawProcedures, rawDecisionLog, rawCcrLog, safe) {
     if (calPlans.length) dproc.calibrationPlanCount = calPlans.length;
   }
 
+  // 공급자관리 SSoT 브리지 (SupplierHub / supplierState.js) — (다)
+  const supStore = safe('qualytree.suppliers', null);
+  if (supStore && Array.isArray(supStore.suppliers) && supStore.suppliers.length) {
+    dproc.suppliers = supStore.suppliers;
+    dproc.approvedSupplierList = supStore.suppliers.filter((s) => s.status === '승인' || s.status === '조건부승인');
+  }
+
   return {
     procedures: { ...dproc, ...(rawProcedures || {}) },       // 명시 저장값이 우선
     decisionLog: [...dlog, ...(Array.isArray(rawDecisionLog) ? rawDecisionLog : [])],
@@ -157,6 +164,14 @@ export function loadContext() {
   const ccrLog = safe('ccrLog', []);
   const userToggles = safe('userToggles', {});
   const _bridge = bridgeFromApp(ob, procedures, decisionLog, ccrLog, safe);
+
+  // Critical 공급자 목록 — supplierState.js가 있으면 실데이터로 대체 (다)
+  const supStoreForCritical = safe('qualytree.suppliers', null);
+  const criticalSuppliersFromApp = (supStoreForCritical && Array.isArray(supStoreForCritical.suppliers))
+    ? supStoreForCritical.suppliers
+        .filter((s) => s.riskClass === 'Critical')
+        .map((s) => ({ name: s.name, lastOnSiteAudit: s.lastEvalDate || '', lastReevaluation: s.lastEvalDate || '' }))
+    : [];
 
   return {
     // 회사 속성 (①QMS C 활성화 트리거)
@@ -218,7 +233,7 @@ export function loadContext() {
     // 인력
     personnel: {
       hasForeignWorkers: onboarding.foreignWorkers ?? false,
-      criticalSuppliers: onboarding.criticalSuppliers ?? [],
+      criticalSuppliers: criticalSuppliersFromApp.length ? criticalSuppliersFromApp : (onboarding.criticalSuppliers ?? []),
       singleSourceCritical: onboarding.singleSourceCritical ?? false,
     },
 

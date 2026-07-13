@@ -12,6 +12,7 @@ import {
   GitBranch,
   Crown,
   Wrench,
+  Truck,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -19,6 +20,7 @@ import { auth } from '../lib/auth'
 const NAV = [
   { to: '/dashboard', label: '대시보드', en: 'Dashboard', icon: LayoutDashboard, area: 'ENT' },
   { to: '/products', label: '제품·공정', en: 'Products & Processes', icon: PackageSearch, area: 'ONB' },
+  { to: '/suppliers', label: '공급자관리', en: 'Supplier Management', icon: Truck, area: 'SUP' },
   { to: '/operations', label: '현장 운영', en: 'Operations', icon: Workflow, area: 'OPS' },
   { to: '/equipment', label: '설비·교정', en: 'Equipment & Calibration', icon: Wrench, area: 'EQP' },
   { to: '/quality', label: '품질·NCR', en: 'Quality & NCR', icon: ShieldCheck, area: 'QMS' },

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT, isCitationApplicable } from '../../lib/gmpProgress';
 import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../lib/documentLibrary';
 import { equipment as equipmentStore } from '../../lib/equipmentState';
+import { suppliers as supplierStore } from '../../lib/supplierState';
 
 /**
  * 12개 카드 공통 상세 페이지 — 카드 ID로 분기
@@ -91,6 +92,13 @@ function calibrationRegisterHtml(ctx) {
   return wrapHtmlDocLite("교정 관리대장", listDocTitleHtml("교정 관리대장") + listDocMetaHtml(ctx, rows.length) + tableHtmlLite(headers, rows));
 }
 
+function aslHtml(ctx) {
+  const list = supplierStore.approvedSuppliers();
+  const headers = ["공급자명", "사업자번호", "공급범위", "위험등급", "승인상태", "승인일", "차기재평가일"];
+  const rows = list.map((s) => [s.name, s.bizNo, s.scope, s.riskClass, s.status, s.approvedDate, s.nextReevalDate]);
+  return wrapHtmlDocLite("승인 공급자 목록 (ASL)", listDocTitleHtml("승인 공급자 목록 (ASL)") + listDocMetaHtml(ctx, rows.length) + tableHtmlLite(headers, rows));
+}
+
 function findGeneratedInstance(doc) {
   if (doc.id === "equipment_list") {
     const s = equipmentStore.load();
@@ -106,6 +114,11 @@ function findGeneratedInstance(doc) {
     const s = equipmentStore.load();
     if (!s.calibrationPlans.length && !s.calibrationCertificates.length) return null;
     return { status: "effective", rev: s.calibrationCertificates.length, approvedBy: "", approvedAt: "", buildHtml: (ctx) => calibrationRegisterHtml(ctx) };
+  }
+  if (doc.id === "asl") {
+    const approved = supplierStore.approvedSuppliers();
+    if (!approved.length) return null;
+    return { status: "effective", rev: approved.length, approvedBy: "", approvedAt: "", buildHtml: (ctx) => aslHtml(ctx) };
   }
   const ob = readOnboardingLS();
   const store = readDocsStoreLS();

@@ -35,6 +35,10 @@ export const PERMISSIONS = {
   'eq.testEquipment.edit': LEVELS.MANAGER, // 시험장비대장 변경
   'eq.calibration.edit': LEVELS.MANAGER, // 교정계획·교정성적서 변경
 
+  // ===== SUP 영역 (공급자관리) =====
+  'sup.supplier.edit': LEVELS.MANAGER, // 공급자대장 변경
+  'sup.evaluation.edit': LEVELS.MANAGER, // 공급자 평가·재평가 기록 변경
+
   // ===== OPS 영역 =====
   'ops.workOrder.create': LEVELS.MANAGER, // 새 작업 지시 발행
   'ops.workOrder.cancel': LEVELS.MANAGER, // 작업 지시 취소·보류
