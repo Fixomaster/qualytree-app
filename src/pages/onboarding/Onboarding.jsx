@@ -591,9 +591,30 @@ function StepOrg({ state, setState }) {
   const nodes = state.departments || []
   const [name, setName] = useState('')
   const [baseId, setBaseId] = useState(() => (nodes[0] ? nodes[0].id : '')); const [addMode, setAddMode] = useState('child'); const baseNode = nodes.find((d) => d.id === baseId) || null; const effMode = baseNode ? addMode : 'child'
+  const [moveSiblings, setMoveSiblings] = useState(false)
   const add = () => {
     const n = name.trim()
     if (!n) return
+    if (effMode === 'between' && baseNode) {
+      // 보고자(baseNode)와 보고받는자(baseNode의 기존 상급 부서) 사이에 새 노드를 끼워넣는다.
+      // baseNode → newNode → (baseNode의 기존 parentId). moveSiblings 체크 시, baseNode와
+      // 같은 상급자를 두었던 다른 형제 부서들도 함께 새 노드 아래로 편입된다(팀 단위 삽입 지원).
+      const newId = uid()
+      const oldParentId = baseNode.parentId
+      setState((s) => ({
+        ...s,
+        departments: [
+          ...s.departments.map((d) => {
+            if (d.id === baseNode.id) return { ...d, parentId: newId }
+            if (moveSiblings && d.parentId === oldParentId && d.id !== baseNode.id) return { ...d, parentId: newId }
+            return d
+          }),
+          { id: newId, name: n, parentId: oldParentId },
+        ],
+      }))
+      setName('')
+      return
+    }
     setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: baseNode ? (effMode === 'child' ? baseNode.id : (baseNode.parentId || null)) : null }] }))
     setName('')
   }
@@ -620,7 +641,7 @@ function StepOrg({ state, setState }) {
   )
 
   return (
-    <Section title="조직도" desc="기준 부서를 고르고 하위(세로) 또는 동일 레벨(가로)로 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
+    <Section title="조직도" desc="기준 부서를 고르고 하위(세로) · 동일 레벨(가로) · 보고라인 중간(끼워넣기)으로 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
       <div className="border border-slate-200 rounded-lg p-4 mb-4 bg-white overflow-x-auto">
         {roots.length === 0 ? (
           <div className="text-xs text-slate-400 text-center py-3">조직도가 비어 있습니다. 아래에서 최상위 부서부터 추가하세요.</div>
@@ -631,9 +652,26 @@ function StepOrg({ state, setState }) {
           <option value="">(기준 없음 · 최상위)</option>
           {nodes.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
-        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[12.5px] shrink-0"><button type="button" onClick={() => setAddMode('child')} className={`px-2.5 py-2 ${effMode === 'child' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}>하위로 추가 ↓</button><button type="button" onClick={() => setAddMode('sibling')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'sibling' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>동일 레벨 추가 ↔</button></div><input className="input-cell" style={{ maxWidth: 200 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
+        <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[12.5px] shrink-0">
+          <button type="button" onClick={() => setAddMode('child')} className={`px-2.5 py-2 ${effMode === 'child' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}>하위로 추가 ↓</button>
+          <button type="button" onClick={() => setAddMode('sibling')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'sibling' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>동일 레벨 추가 ↔</button>
+          <button type="button" onClick={() => setAddMode('between')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'between' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>중간에 삽입 ⤢</button>
+        </div>
+        <input className="input-cell" style={{ maxWidth: 200 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button onClick={add} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
+      {effMode === 'between' && baseNode && (
+        <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-violet-50 border border-violet-200 text-[12px] text-violet-800">
+          <Info size={14} className="shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div>새 부서가 <b>{baseNode.name}</b>와(과) 그 상급 부서 사이에 끼워들어갑니다 — {baseNode.name}는(은) 새 부서에 보고하게 됩니다.</div>
+            <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
+              <input type="checkbox" checked={moveSiblings} onChange={(e) => setMoveSiblings(e.target.checked)} />
+              <span>{baseNode.name}와(과) 같은 상급 부서를 두었던 다른 부서들도 함께 새 부서 아래로 편입</span>
+            </label>
+          </div>
+        </div>
+      )}
       <CellStyle />
     </Section>
   )
