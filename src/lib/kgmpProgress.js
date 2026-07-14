@@ -11,7 +11,6 @@ import { complaints, reviews } from './managementReviewState'
 import { capa } from './capaState'
 import { sessions as trainingSessions } from './trainingState'
 import { audits } from './internalAuditState'
-import { foreignSites, gmpCertificates as foreignGmpCerts, otherAuditReports as foreignAuditReports, certStatusOf as foreignCertStatusOf } from './foreignManufacturerState'
 
 const DOC_KEY = 'qualytree.documents'
 
@@ -112,6 +111,19 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
       editHref: '/products?tab=documents&docSub=tech',
     }
   }
+  // EMC·전기안전 등 여러 시험 카테고리를 하나의 "시험성적서" 항목으로 묶어서 보여준다
+  // (실제 문서 업로드 화면에서는 여전히 개별 시험 종류로 구분 등록한다 — 여기서는 집계만 합친다).
+  const techDocItemMulti = (label, categories) => {
+    const matches = ctx.techDocsAll.filter((d) => categories.includes(d.category))
+    const withFile = matches.filter((d) => d.fileId)
+    const status = withFile.length > 0 ? 'done' : matches.length > 0 ? 'partial' : 'missing'
+    return {
+      label,
+      status,
+      detail: withFile.length > 0 ? `첨부 ${withFile.length}건` : matches.length > 0 ? '등록됨 · 파일 미첨부' : '미등록',
+      editHref: '/products?tab=documents&docSub=tech',
+    }
+  }
 
   const procedureItem = (req) => {
     const matched = ctx.procedures.find((p) => req.keywords.some((k) => (p.name || '').includes(k)))
@@ -138,7 +150,7 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
 
   const companyInfoDone = !!(ctx.company.name && ctx.company.bizNumber)
 
-  return [
+  const sections = [
     {
       id: 'common',
       title: '공통 제출 문서',
@@ -174,8 +186,7 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
         techDocItem('위험관리 파일 (Risk Management File)', TECH_DOC_CATEGORY.RISK_FILE),
         techDocItem('성능시험 자료', TECH_DOC_CATEGORY.PERFORMANCE),
         techDocItem('안전성 및 유효성 자료', TECH_DOC_CATEGORY.SAFETY_EFFICACY),
-        techDocItem('전기안전 시험성적서 (IEC 60601 시리즈)', TECH_DOC_CATEGORY.ELECTRICAL_SAFETY),
-        techDocItem('EMC 시험성적서 (IEC 60601-1-2)', TECH_DOC_CATEGORY.EMC),
+        techDocItemMulti('시험성적서 (전기안전 · EMC 등)', [TECH_DOC_CATEGORY.ELECTRICAL_SAFETY, TECH_DOC_CATEGORY.EMC]),
         techDocItem('소프트웨어 검증 자료', TECH_DOC_CATEGORY.SW_VALIDATION),
         techDocItem('사이버보안 문서', TECH_DOC_CATEGORY.CYBERSECURITY),
         techDocItem('생물학적 안전성 평가 (ISO 10993)', TECH_DOC_CATEGORY.BIOCOMPAT),
@@ -238,45 +249,10 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
     },
   ]
 
-  if (profile === 'importer') {
-    const sites = foreignSites.getAll()
-    const importerItems = []
-    if (sites.length === 0) {
-      importerItems.push({
-        label: '외국제조소 등록',
-        status: 'missing',
-        detail: '수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다. 최소 1개 이상 등록하세요.',
-        editHref: '/foreign-manufacturers',
-      })
-    } else {
-      sites.forEach((s) => {
-        const certs = foreignGmpCerts.getForSite(s.id)
-        const latest = certs[0]
-        const st = latest ? foreignCertStatusOf(latest.expiryDate) : null
-        const certStatus = st === '유효' ? 'done' : (st === '만료임박' || st === '만료') ? 'partial' : 'missing'
-        importerItems.push({
-          label: `${s.name || '(이름없음)'} — GMP 적합인정서`,
-          status: certStatus,
-          detail: latest ? `${st} · 만료 ${latest.expiryDate || '—'}` : '등록된 GMP 적합인정서가 없습니다.',
-          editHref: '/foreign-manufacturers?siteId=' + s.id,
-        })
-        const hasFacility = !!s.facilityFileId
-        const hasProducts = !!s.productList
-        importerItems.push({
-          label: `${s.name || '(이름없음)'} — 제조소 개요·시설개요`,
-          status: hasFacility && hasProducts ? 'done' : (hasFacility || hasProducts) ? 'partial' : 'missing',
-          detail: [hasProducts ? '품목목록 등록됨' : '품목목록 미등록', hasFacility ? '시설개요 첨부됨' : '시설개요 미첨부'].join(' · '),
-          editHref: '/foreign-manufacturers?siteId=' + s.id,
-        })
-      })
-    }
-    sections.push({
-      id: 'importer',
-      title: '외국제조소 · 수입 GMP (수입업자 전용)',
-      subtitle: '수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다. 제조소별 등록·인정서 현황입니다.',
-      items: importerItems,
-    })
-  }
+  // 수입업자의 외국제조소별 GMP 적합인정서·시설개요 상세 등록·관리는 여기서 항목으로 나열하지
+  // 않는다 — 전용 화면인 "외국제조소 · 수입 GMP"(/foreign-manufacturers)에서 제조소별
+  // 마스터-디테일 UI로 직접 관리한다(이 함수는 그 화면에서도 profile:'importer'로 호출되어
+  // 공통 제출 문서·기술문서·품질시스템·절차서·기록 체크리스트만 함께 보여준다).
 
   return sections
 }

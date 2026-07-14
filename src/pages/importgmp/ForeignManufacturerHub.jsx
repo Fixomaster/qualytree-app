@@ -23,6 +23,8 @@ import {
   ENTRUSTED_RELATION,
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
+import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
+import KgmpSectionList from '../../components/KgmpSectionList'
 
 export default function ForeignManufacturerHub() {
   const user = auth.current()
@@ -38,6 +40,11 @@ export default function ForeignManufacturerHub() {
   const canEdit = permissions.can('importgmp.site.edit')
 
   const dueCerts = gmpCertificates.dueOrExpired()
+  // 공통 제출 문서·기술문서·품질시스템·절차서·기록 체크리스트 — KGMP통합현황(제조사용)과 같은
+  // 로직을 수입사 관점(profile:'importer')으로 계산해 이 화면에 함께 보여준다. 제조소별 GMP
+  // 적합인정서 상세는 위 마스터-디테일 UI에서 직접 관리하므로 체크리스트에는 중복 나열하지 않는다.
+  const kgmpSections = buildKgmpSections({ profile: 'importer' })
+  const kgmpSummary = summarizeKgmpSections(kgmpSections)
 
   const addSite = () => {
     if (!requirePermission('importgmp.site.edit')) return
@@ -125,6 +132,16 @@ export default function ForeignManufacturerHub() {
               <EmptyState icon={Factory} text="왼쪽에서 외국제조소를 선택하거나 추가하세요." />
             )}
           </div>
+        </div>
+
+        <div className="mt-8">
+          <div className="mb-4">
+            <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>수입 인허가 제출 체크리스트</div>
+            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
+              공통 제출 문서·기술문서·품질시스템·절차서·유지 기록 — 수입사 기준({kgmpSummary.doneCount} / {kgmpSummary.totalCount}개 완료, {kgmpSummary.pct}%)
+            </div>
+          </div>
+          <KgmpSectionList sections={kgmpSections} keyPrefix="importer-" />
         </div>
       </div>
     </AppLayout>
