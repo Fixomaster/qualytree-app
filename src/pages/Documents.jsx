@@ -96,6 +96,48 @@ function controlledDocHtml(title, docNo, ctx, r) {
     escHtml(title) + "</title></head><body>" + inner + "</body></html>"
 }
 
+// ── 품질문서 통합본 (품질매뉴얼 + 절차서 전체를 하나의 문서로) ──
+const STATUS_LABEL = { effective: '발효', pending: '승인대기', review: '검토중', obsolete: '폐기', draft: '작성중' }
+function combinedCoverHtml(ctx, groups) {
+  const F = 'font-family:Malgun Gothic,sans-serif'
+  const entries = groups.flatMap((g) => g.entries)
+  const rows = entries.map(({ it, r, docNo }) =>
+    '<tr><td style="' + F + '">' + escHtml(it.label) + '</td>' +
+    '<td style="text-align:center;' + F + '">' + escHtml(docNo) + '</td>' +
+    '<td style="text-align:center;' + F + '">Rev.' + String(r.rev || 0).padStart(2, '0') + '</td>' +
+    '<td style="text-align:center;' + F + '">' + escHtml(STATUS_LABEL[r.status] || '작성중') + '</td>' +
+    '<td style="text-align:center;' + F + '">' + escHtml(r.approvedAt || '-') + '</td></tr>'
+  ).join('')
+  return (
+    '<div style="text-align:center;margin-bottom:24px">' +
+    '<div style="' + F + ';font-size:12pt;color:#5a6a63">' + escHtml(ctx.name) + '</div>' +
+    '<div style="' + F + ';font-size:20pt;font-weight:bold;color:#16352b;margin:8px 0">품질문서 통합본</div>' +
+    '<div style="' + F + ';font-size:10pt;color:#8a9a93">생성일 ' + fmtDate() + ' · 총 ' + entries.length + '개 문서</div>' +
+    '</div>' +
+    '<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%;' + F + ';font-size:10pt">' +
+    '<tr style="background:#f1f6f3"><th style="text-align:left">문서명</th><th>문서번호</th><th>개정</th><th>상태</th><th>발효일</th></tr>' +
+    rows +
+    '</table>'
+  )
+}
+function combinedDocHtml(ctx, groups) {
+  let body = '<br clear="all" style="page-break-before:always" />' + combinedCoverHtml(ctx, groups)
+  groups.forEach((g) => {
+    if (!g.entries.length) return
+    body += '<br clear="all" style="page-break-before:always" />' +
+      '<h1 style="font-family:Malgun Gothic,sans-serif;font-size:15pt;color:#16352b;border-bottom:2px solid #16352b;padding-bottom:6px">' + escHtml(g.heading) + '</h1>'
+    g.entries.forEach(({ it, r, docNo }, i) => {
+      if (i > 0) body += '<br clear="all" style="page-break-before:always" />'
+      body += controlledSection(it.label, docNo, ctx, r, r.content)
+      if (r.contentEn) {
+        body += '<br clear="all" style="page-break-before:always" />' +
+          controlledSection(it.label + ' (English)', docNo, ctx, { ...r, content: r.contentEn }, r.contentEn)
+      }
+    })
+  })
+  return "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>품질문서 통합본</title></head><body>" + body + "</body></html>"
+}
+
 // ── 회사 컨텍스트 ──
 function getCtx() {
   let ob = {}
@@ -288,6 +330,36 @@ export default function Documents() {
     window.alert(targets.length + '개 문서를 정식 양식 .doc로 각각 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
   }
 
+  // ── 품질문서 통합본 (품질매뉴얼 + 절차서 전체 — 항목을 수정한 뒤 하나의 문서로 확인/다운로드) ──
+  const combinedGroups = () => {
+    const build = (list, kind) => list.map((base, idx) => {
+      const it = kind === 'manual'
+        ? { id: 'M-' + base.id, label: (base.c ? base.c + '. ' : '') + base.name, c: base.c, name: base.name, kind: 'manual' }
+        : { id: 'P-' + base.id, label: base.name, name: base.name, kind: 'proc' }
+      const rContent = docs[it.id] || {}
+      const r = { ...rContent, ...(docs[statusId(it)] || {}) }
+      return { it, idx, r, docNo: docNumber(it, idx) }
+    }).filter(({ r }) => !!r.content)
+    return [
+      { heading: '품질매뉴얼', entries: build(manualChapters, 'manual') },
+      { heading: '절차서', entries: build(procedures, 'proc') },
+    ]
+  }
+  const combinedTotalWritten = () => combinedGroups().reduce((n, g) => n + g.entries.length, 0)
+  const combinedTotalAll = manualChapters.length + procedures.length
+  const previewCombined = () => {
+    const groups = combinedGroups()
+    if (combinedTotalWritten() === 0) { window.alert('아직 작성된 문서가 없습니다.'); return }
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(combinedDocHtml(ctx, groups)); w.document.close() }
+    else window.alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.')
+  }
+  const downloadCombined = () => {
+    const groups = combinedGroups()
+    if (combinedTotalWritten() === 0) { window.alert('아직 작성된 문서가 없습니다.'); return }
+    downloadDoc((ctx.name || 'Qualytree').replace(/[\\/:*?"<>|]/g, '_') + '_품질문서_통합본_' + today().replace(/-/g, '') + '.doc', combinedDocHtml(ctx, groups))
+  }
+
   // 기존 문서 업로드 → 본문(한글)에 채움 (.docx는 mammoth로 텍스트 추출). 이후 편집·번역·내보내기·영문일괄에 그대로 포함.
   const onUpload = async (it, file) => {
     const r = docs[it.id] || {}
@@ -369,6 +441,21 @@ export default function Documents() {
         <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-sky-50 border border-sky-200 text-[12.5px] text-sky-800">
           <Info size={15} className="shrink-0 mt-0.5" />
           <span><b>결재선</b>: 작성 → <b>검토 요청</b> → <b>검토 완료·승인 상신</b> → <b>대표 승인·발효</b>(Rev.0). 발효되면 편집이 잠기고, 고치려면 <b>개정</b>(Rev.1↑)을 시작합니다. AI 초안은 ISO 13485 / KGMP 조항 근거와 함께 채워지며, 최신 고시 원문과 대조해 확정하세요.</span>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between gap-2 flex-wrap p-3 rounded-lg border border-emerald-200 bg-emerald-50/50">
+          <div className="text-[12.5px] text-emerald-900">
+            <b>품질문서 통합본</b> — 품질매뉴얼 · 절차서 전체를 하나의 문서로. 항목을 수정한 뒤 다시 눌러 최신 내용을 반영하세요.
+            <span className="text-emerald-700"> (작성됨 {combinedTotalWritten()} / {combinedTotalAll})</span>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={previewCombined} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-emerald-300 bg-white text-emerald-700 hover:bg-emerald-50">
+              통합 문서 미리보기
+            </button>
+            <button onClick={downloadCombined} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
+              <Download size={14} /> 통합 문서 다운로드 (.doc)
+            </button>
+          </div>
         </div>
 
         <div className="flex gap-2 mb-4">
