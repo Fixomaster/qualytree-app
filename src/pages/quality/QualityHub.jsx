@@ -12,23 +12,28 @@ import {
   ChevronRight,
   XCircle,
   HelpCircle,
+  GitCommit,
+  FileSearch,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { ncr, NCR_STATUS, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrState'
 import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
-import { quarantine, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
-import { permissions } from '../../lib/permissions'
+import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
+import { getAllRecords as getCcrRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/changeControl'
+import { permissions, requirePermission } from '../../lib/permissions'
 
 export default function QualityHub() {
   const nav = useNavigate()
   const user = auth.current()
 
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'ncr') // ncr | capa | quarantine
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'ncr') // ncr | capa | quarantine | ccr
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(null)
   const [selectedCapaId, setSelectedCapaId] = useState(null)
+  const [selectedQId, setSelectedQId] = useState(null)
+  const [selectedCcrId, setSelectedCcrId] = useState(null)
   const [showHelp, setShowHelp] = useState(false)
   const [, setRefresh] = useState(0)
   const refresh = () => setRefresh((t) => t + 1)
@@ -36,6 +41,7 @@ export default function QualityHub() {
   const allNcrs = ncr.loadAll()
   const allCapas = capa.loadAll()
   const allQuarantine = quarantine.loadAll()
+  const allCcrs = useMemo(() => getCcrRecords().slice().sort((a, b) => (b.performedAt || '').localeCompare(a.performedAt || '')), [tab, selectedCcrId])
 
   const filteredNcrs = useMemo(() => {
     let arr = [...allNcrs].sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))
@@ -80,7 +86,7 @@ export default function QualityHub() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid md:grid-cols-3 gap-3 mb-5">
+        <div className="grid md:grid-cols-4 gap-3 mb-5">
           <StatCard
             icon={AlertTriangle}
             label="진행 중 NCR"
@@ -104,6 +110,14 @@ export default function QualityHub() {
             tone="moss"
             onClick={() => setTab('quarantine')}
             active={tab === 'quarantine'}
+          />
+          <StatCard
+            icon={GitCommit}
+            label="변경 이력 (CCR)"
+            value={allCcrs.length}
+            tone="moss"
+            onClick={() => setTab('ccr')}
+            active={tab === 'ccr'}
           />
         </div>
 
@@ -145,7 +159,8 @@ export default function QualityHub() {
           />
         )}
         {tab === 'capa' && <CapaList capas={allCapas} selectedId={selectedCapaId} onSelect={setSelectedCapaId} onChanged={refresh} />}
-        {tab === 'quarantine' && <QuarantineList items={allQuarantine} />}
+        {tab === 'quarantine' && <QuarantineList items={allQuarantine} selectedId={selectedQId} onSelect={setSelectedQId} onChanged={refresh} />}
+        {tab === 'ccr' && <CcrList records={allCcrs} selectedId={selectedCcrId} onSelect={setSelectedCcrId} onChanged={refresh} />}
       </div>
     </AppLayout>
   )
@@ -610,6 +625,9 @@ function NcrDetail({ ncrRecord }) {
         </div>
       )}
 
+      {/* 조사보고서 */}
+      <NcrInvestigationReport ncrRecord={ncrRecord} />
+
       {/* CAPA 연결 */}
       {linkedCapas.length > 0 && (
         <div className="mt-4">
@@ -744,6 +762,60 @@ function Meta({ label, value, mono }) {
 /* ================================================================
    CAPA 목록
    ================================================================ */
+function NcrInvestigationReport({ ncrRecord }) {
+  const canEdit = permissions.can('qms.ncr.investigate')
+  const existing = ncrRecord.investigationReport
+  const [editing, setEditing] = useState(false)
+  const [form, setForm] = useState(() => existing || { investigator: '', investigatedAt: '', content: '', rootCauseSummary: '', conclusion: '' })
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const save = () => {
+    if (!requirePermission('qms.ncr.investigate')) return
+    if (!form.content.trim()) { alert('조사 내용을 입력하세요.'); return }
+    ncr.setInvestigationReport(ncrRecord.id, form)
+    setTimeout(() => window.location.reload(), 150)
+  }
+
+  return (
+    <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--moss)' }}>
+          조사보고서 (INVESTIGATION REPORT)
+        </div>
+        {!editing && canEdit && (
+          <button onClick={() => setEditing(true)} className="text-[11.5px]" style={{ color: 'var(--moss)' }}>{existing ? '수정' : '작성'}</button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-2.5">
+          <div className="grid grid-cols-2 gap-2.5">
+            <FieldQ label="조사자" value={form.investigator} onChange={(v) => setF('investigator', v)} placeholder="조사 담당자명" />
+            <FieldQ label="조사일" type="date" value={form.investigatedAt} onChange={(v) => setF('investigatedAt', v)} />
+          </div>
+          <TextAreaFieldQ label="조사 내용 (경위·조사방법·발견사항)" value={form.content} onChange={(v) => setF('content', v)} />
+          <TextAreaFieldQ label="근본원인 요약" value={form.rootCauseSummary} onChange={(v) => setF('rootCauseSummary', v)} />
+          <TextAreaFieldQ label="결론" value={form.conclusion} onChange={(v) => setF('conclusion', v)} />
+          <div className="flex gap-2">
+            <button onClick={save} className="btn-primary text-[12.5px]" style={{ padding: '0.5rem 1rem' }}>저장</button>
+            {existing && <button onClick={() => { setEditing(false); setForm(existing) }} className="btn-ghost text-[12.5px]">취소</button>}
+          </div>
+        </div>
+      ) : existing ? (
+        <div className="text-[12.5px] space-y-1.5">
+          <div><span style={{ color: 'var(--ink-mute)' }}>조사자: </span>{existing.investigator || '-'} <span style={{ color: 'var(--ink-faint)' }}>({existing.investigatedAt || '조사일 미기록'})</span></div>
+          <div className="leading-relaxed" style={{ color: 'var(--ink)' }}>{existing.content}</div>
+          {existing.rootCauseSummary && <div className="mt-1"><span style={{ color: 'var(--ink-mute)' }}>근본원인: </span>{existing.rootCauseSummary}</div>}
+          {existing.conclusion && <div className="mt-1"><span style={{ color: 'var(--ink-mute)' }}>결론: </span>{existing.conclusion}</div>}
+          <div className="font-mono text-[10.5px] mt-2" style={{ color: 'var(--ink-faint)' }}>{existing.recordedBy} · {new Date(existing.recordedAt).toLocaleString('ko-KR')}</div>
+        </div>
+      ) : (
+        <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>아직 작성된 조사보고서가 없습니다.</div>
+      )}
+    </div>
+  )
+}
+
 function CapaList({ capas, selectedId, onSelect, onChanged }) {
   const selected = selectedId ? capas.find((c) => c.id === selectedId) : null
 
@@ -965,7 +1037,7 @@ function TextAreaFieldQ({ label, value, onChange, disabled }) {
 /* ================================================================
    격리 큐 목록
    ================================================================ */
-function QuarantineList({ items }) {
+function QuarantineList({ items, selectedId, onSelect, onChanged }) {
   if (items.length === 0) {
     return (
       <div
@@ -985,58 +1057,240 @@ function QuarantineList({ items }) {
     )
   }
 
+  const sel = items.find((q) => q.id === selectedId) || null
+
   return (
-    <div className="space-y-2">
-      {items.map((q) => {
-        const s = QUARANTINE_STATUS_LABEL[q.status]
-        return (
-          <div
-            key={q.id}
-            className="card-base p-4 flex items-center justify-between flex-wrap gap-3"
-          >
-            <div className="flex-1 min-w-0">
+    <div className="grid md:grid-cols-5 gap-3">
+      <div className="md:col-span-2 space-y-2">
+        {items.map((q) => {
+          const s = QUARANTINE_STATUS_LABEL[q.status]
+          const active = q.id === selectedId
+          return (
+            <button
+              key={q.id}
+              onClick={() => onSelect(q.id)}
+              className="card-base p-3.5 w-full text-left block"
+              style={active ? { borderColor: 'var(--moss)', background: 'var(--leaf-soft)' } : undefined}
+            >
               <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className="font-mono text-[11.5px]"
-                  style={{ color: 'var(--moss)', fontWeight: 500 }}
-                >
-                  {q.id}
-                </span>
-                <span style={{ color: 'var(--ink)' }}>
-                  {q.productName} · 로트 {q.lotNumber}
-                </span>
-                <span
-                  className="font-mono text-[10.5px]"
-                  style={{ color: 'var(--ink-faint)' }}
-                >
-                  ({q.quantity}개)
-                </span>
+                <span className="font-mono text-[11.5px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{q.id}</span>
+                <span style={{ color: 'var(--ink)' }}>{q.productName} · 로트 {q.lotNumber}</span>
               </div>
-              <div
-                className="text-[12px] mt-0.5"
-                style={{ color: 'var(--ink-mute)' }}
-              >
-                {q.reason} · 출처 {q.sourceNcrId}
-              </div>
-              <div
-                className="font-mono text-[10.5px] mt-0.5"
-                style={{ color: 'var(--ink-faint)' }}
-              >
-                격리: {new Date(q.isolatedAt).toLocaleString('ko-KR')} · {q.isolatedBy}
+              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{q.reason}</div>
+              <span className="tag mt-1.5 inline-block" style={{ background: `var(--${s.tone}-soft)`, color: `var(--${s.tone})` }}>{s.ko}</span>
+            </button>
+          )
+        })}
+      </div>
+      <div className="md:col-span-3">
+        {sel ? <QuarantineDetail item={sel} onChanged={onChanged} /> : (
+          <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)' }}>왼쪽에서 격리 항목을 선택하세요.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const QUARANTINE_DISPOSITION_OPTIONS = [
+  { value: QUARANTINE_STATUS.REINSPECTING, label: '재검사 진행', permission: 'qms.quarantine.dispose' },
+  { value: QUARANTINE_STATUS.REWORK, label: '재작업 (매니저 승인 필요)', permission: 'qms.quarantine.reworkApprove' },
+  { value: QUARANTINE_STATUS.USE_AS_IS, label: '특채 (Use-as-is)', permission: 'qms.quarantine.dispose' },
+  { value: QUARANTINE_STATUS.SCRAPPED, label: '폐기', permission: 'qms.quarantine.dispose' },
+  { value: QUARANTINE_STATUS.RELEASED, label: '출하 가능 (재검사 합격)', permission: 'qms.quarantine.dispose' },
+]
+
+function QuarantineDetail({ item, onChanged }) {
+  const s = QUARANTINE_STATUS_LABEL[item.status]
+  const [busy, setBusy] = useState(false)
+
+  const handleDispose = (opt) => {
+    if (!requirePermission(opt.permission)) return
+    const note = prompt(`처분 사유 (${opt.label}):`, '')
+    if (note == null) return
+    if (!note.trim()) { alert('처분 사유는 필수입니다.'); return }
+    setBusy(true)
+    quarantine.setDisposition(item.id, opt.value, { note: note.trim(), reason: `${opt.label} — ${note.trim()}` })
+    setTimeout(() => { setBusy(false); onChanged && onChanged() }, 150)
+  }
+
+  return (
+    <div className="card-base p-5 fade-in">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+        <div>
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>{item.id}</span>
+          <div className="font-display text-[18px] mt-1 leading-tight" style={{ color: 'var(--ink)', fontWeight: 500 }}>
+            {item.productName} · 로트 {item.lotNumber}
+          </div>
+        </div>
+        <span className="tag" style={{ background: `var(--${s.tone}-soft)`, color: `var(--${s.tone})`, fontWeight: 500 }}>{s.ko}</span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Meta label="수량" value={`${item.quantity}개`} />
+        <Meta label="출처 NCR" value={item.sourceNcrId} mono />
+        <Meta label="격리 사유" value={item.reason} />
+        <Meta label="격리 등록" value={`${new Date(item.isolatedAt).toLocaleString('ko-KR')} · ${item.isolatedBy}`} />
+      </div>
+
+      {item.dispositionBy && (
+        <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--moss)' }}>처분 결과</div>
+          <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{item.disposition}</div>
+          <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
+            {new Date(item.dispositionAt).toLocaleString('ko-KR')} · {item.dispositionBy}
+          </div>
+          {item.status === QUARANTINE_STATUS.REWORK && item.reworkApprovedBy && (
+            <div className="mt-2 rounded-lg p-2.5" style={{ background: 'var(--amber-soft)' }}>
+              <div className="text-[11.5px] font-semibold" style={{ color: 'var(--amber)' }}>재작업 승인 (매니저)</div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink)' }}>
+                {item.reworkApprovedBy} · {new Date(item.reworkApprovedAt).toLocaleString('ko-KR')}
               </div>
             </div>
-            <span
-              className="tag"
-              style={{
-                background: `var(--${s.tone}-soft)`,
-                color: `var(--${s.tone})`,
-              }}
-            >
-              {s.ko}
-            </span>
+          )}
+        </div>
+      )}
+
+      {item.status === QUARANTINE_STATUS.ISOLATED && (
+        <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--moss)' }}>처분 결정</div>
+          <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>
+            ISO 13485 §8.3 / 21 CFR 820.90(b) — 격리 제품의 처분을 결정하고 사유를 기록합니다. '재작업'은 매니저(Level 3) 승인이 필요합니다.
           </div>
-        )
-      })}
+          <div className="flex flex-wrap gap-2">
+            {QUARANTINE_DISPOSITION_OPTIONS.map((opt) => (
+              <button key={opt.value} disabled={busy} onClick={() => handleDispose(opt)} className="btn-ghost text-[12px]">
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   변경관리 (CCR) — 모든 엔티티 변경의 자동 기록 + 사람이 쓰는 영향평가서
+   ================================================================ */
+function CcrList({ records, selectedId, onSelect, onChanged }) {
+  if (records.length === 0) {
+    return (
+      <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
+        <GitCommit size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
+        <div className="mt-3">아직 변경 이력(CCR)이 없습니다.</div>
+      </div>
+    )
+  }
+  const sel = records.find((r) => r.id === selectedId) || null
+  const actionTone = (a) => (a === 'CREATE' ? 'leaf' : a === 'DELETE' ? 'rust' : 'amber')
+
+  return (
+    <div className="grid md:grid-cols-5 gap-3">
+      <div className="md:col-span-2 space-y-2 max-h-[640px] overflow-y-auto pr-1">
+        {records.map((r) => {
+          const active = r.id === selectedId
+          const ia = impactAssessments.get(r.id)
+          return (
+            <button
+              key={r.id}
+              onClick={() => onSelect(r.id)}
+              className="card-base p-3 w-full text-left block"
+              style={active ? { borderColor: 'var(--moss)', background: 'var(--leaf-soft)' } : undefined}
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: `var(--${actionTone(r.action)}-soft)`, color: `var(--${actionTone(r.action)})` }}>{r.action}</span>
+                <span className="font-mono text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{r.id}</span>
+                {ia && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--moss)' }}>영향평가 작성됨</span>}
+              </div>
+              <div className="text-[12px] mt-1 line-clamp-2" style={{ color: 'var(--ink)' }}>{r.reason}</div>
+              <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>
+                {new Date(r.performedAt).toLocaleString('ko-KR')} · {r.performedBy?.name}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+      <div className="md:col-span-3">
+        {sel ? <CcrDetail record={sel} onChanged={onChanged} /> : (
+          <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)' }}>왼쪽에서 변경 이력(CCR)을 선택하세요.</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function CcrDetail({ record, onChanged }) {
+  const canEdit = permissions.can('qms.ccr.impactAssessment.edit')
+  const existing = impactAssessments.get(record.id)
+  const [editing, setEditing] = useState(!existing)
+  const [form, setForm] = useState(() => existing || { riskLevel: IMPACT_RISK_LEVEL.LOW, affectedAreas: '', content: '', conclusion: '' })
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const save = () => {
+    if (!requirePermission('qms.ccr.impactAssessment.edit')) return
+    if (!form.content.trim()) { alert('영향평가 내용을 입력하세요.'); return }
+    impactAssessments.upsert(record.id, form)
+    setEditing(false)
+    onChanged && onChanged()
+  }
+
+  return (
+    <div className="card-base p-5 fade-in">
+      <div className="flex items-center gap-2 flex-wrap mb-2">
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{record.action}</span>
+        <span className="font-mono text-[11px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{record.id}</span>
+        <span className="font-mono text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{record.targetType} · {record.targetEid}</span>
+      </div>
+      <div className="text-[13.5px]" style={{ color: 'var(--ink)' }}>{record.reason}</div>
+      <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
+        {new Date(record.performedAt).toLocaleString('ko-KR')} · {record.performedBy?.name} ({record.performedBy?.levelLabel})
+      </div>
+
+      {record.impacts?.length > 0 && (
+        <div className="mt-3 rounded-lg p-2.5" style={{ background: 'var(--bg-soft)' }}>
+          <div className="text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>자동 추적된 영향 범위 ({record.impacts.length}건)</div>
+          <div className="text-[11.5px]" style={{ color: 'var(--ink)' }}>
+            {record.impacts.slice(0, 6).map((im) => im.kindLabel || im.kind).join(', ')}
+            {record.impacts.length > 6 && ` 외 ${record.impacts.length - 6}건`}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="font-mono text-[10px] tracking-[0.16em] uppercase flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
+            <FileSearch size={12} /> 영향평가서 (사람 작성)
+          </div>
+          {!editing && canEdit && (
+            <button onClick={() => setEditing(true)} className="text-[11.5px]" style={{ color: 'var(--moss)' }}>{existing ? '수정' : '작성'}</button>
+          )}
+        </div>
+
+        {editing ? (
+          <div className="space-y-2.5">
+            <SelectFieldQ label="위험도" value={form.riskLevel} onChange={(v) => setF('riskLevel', v)} options={Object.values(IMPACT_RISK_LEVEL)} />
+            <FieldQ label="영향 범위 (부서·공정·제품 등)" value={form.affectedAreas} onChange={(v) => setF('affectedAreas', v)} placeholder="예: 생산1팀 공정 3·4, A제품 생산라인" />
+            <TextAreaFieldQ label="평가 내용" value={form.content} onChange={(v) => setF('content', v)} placeholder="변경이 품질·안전·규제에 미치는 영향을 서술하세요." />
+            <TextAreaFieldQ label="결론·후속조치" value={form.conclusion} onChange={(v) => setF('conclusion', v)} placeholder="선택 입력" />
+            <div className="flex gap-2">
+              <button onClick={save} className="btn-primary text-[12.5px]" style={{ padding: '0.5rem 1rem' }}>저장</button>
+              {existing && <button onClick={() => { setEditing(false); setForm(existing) }} className="btn-ghost text-[12.5px]">취소</button>}
+            </div>
+          </div>
+        ) : existing ? (
+          <div className="text-[12.5px] space-y-1.5">
+            <div><span style={{ color: 'var(--ink-mute)' }}>위험도: </span><span style={{ color: 'var(--ink)', fontWeight: 500 }}>{existing.riskLevel}</span></div>
+            {existing.affectedAreas && <div><span style={{ color: 'var(--ink-mute)' }}>영향 범위: </span>{existing.affectedAreas}</div>}
+            <div className="mt-1.5 leading-relaxed" style={{ color: 'var(--ink)' }}>{existing.content}</div>
+            {existing.conclusion && <div className="mt-1.5" style={{ color: 'var(--ink-mute)' }}>결론: {existing.conclusion}</div>}
+            <div className="font-mono text-[10.5px] mt-2" style={{ color: 'var(--ink-faint)' }}>
+              {existing.assessedBy} · {new Date(existing.updatedAt || existing.assessedAt).toLocaleString('ko-KR')}
+            </div>
+          </div>
+        ) : (
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>아직 작성된 영향평가서가 없습니다.</div>
+        )}
+      </div>
     </div>
   )
 }

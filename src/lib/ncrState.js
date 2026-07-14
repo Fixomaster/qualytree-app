@@ -327,6 +327,44 @@ export const ncr = {
   },
 
   /**
+   * 조사보고서 작성/수정 — 부적합 발생 경위·원인 조사 결과를 서술형으로 기록
+   * ISO 13485 §8.3 / 21 CFR 820.90(a) — 부적합의 평가(evaluation) 근거 문서화
+   */
+  setInvestigationReport(id, report) {
+    const all = loadAll()
+    const idx = all.findIndex((n) => n.id === id)
+    if (idx === -1) return null
+    const before = { ...all[idx] }
+    const cur = auth.current()
+    const now = new Date().toISOString()
+    const existing = all[idx].investigationReport
+    all[idx] = {
+      ...all[idx],
+      investigationReport: {
+        investigator: report.investigator || cur?.name || '',
+        content: report.content || '',
+        rootCauseSummary: report.rootCauseSummary || '',
+        conclusion: report.conclusion || '',
+        investigatedAt: report.investigatedAt || existing?.investigatedAt || now,
+        recordedBy: cur?.name || 'unknown',
+        recordedAt: now,
+      },
+    }
+
+    saveAll(all)
+
+    commitChange({
+      targetEid: eid(ENTITY_TYPES.NCR, id),
+      action: CHANGE_ACTIONS.UPDATE,
+      before,
+      after: all[idx],
+      reason: `NCR 조사보고서 ${existing ? '수정' : '작성'}`,
+    })
+
+    return all[idx]
+  },
+
+  /**
    * CAPA 연결 (capaState에서 호출됨)
    */
   attachCapa(ncrId, capaId) {

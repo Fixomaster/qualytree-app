@@ -151,6 +151,13 @@ export const quarantine = {
     if (options.reInspectionWoId) {
       all[idx].reInspectionWoId = options.reInspectionWoId
     }
+    // 재작업(rework) 처분은 매니저 승인 대상 — 처분자와 별도로 승인 기록을 남긴다
+    // (UI에서 qms.quarantine.reworkApprove 권한을 가진 사용자만 이 분기에 도달하도록 게이팅됨)
+    if (disposition === QUARANTINE_STATUS.REWORK) {
+      all[idx].reworkApprovedBy = cur?.name
+      all[idx].reworkApprovedAt = now
+      all[idx].reworkApprovalLevel = cur?.level ?? null
+    }
 
     saveAll(all)
 

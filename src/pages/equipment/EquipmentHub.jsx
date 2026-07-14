@@ -13,6 +13,7 @@ import {
   Calendar,
   X,
   Search,
+  History,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -366,8 +367,70 @@ function EquipmentDetail({ item, canEdit, onAction, onChanged, onDelete }) {
         )}
       </div>
 
+      <EquipmentHistoryCard equipmentId={item.id} />
       <MaintenancePlanCard equipmentId={item.id} canEdit={canEdit} onAction={onAction} />
       <InspectionRecordsCard equipmentId={item.id} canEdit={canEdit} onAction={onAction} />
+    </div>
+  )
+}
+
+/* ================================================================
+   설비이력 — 점검기록·예방보전계획·교정이력을 하나의 타임라인으로 통합
+   ================================================================ */
+function EquipmentHistoryCard({ equipmentId }) {
+  const [open, setOpen] = useState(true)
+  const plan = equipment.getMaintenancePlan(equipmentId)
+  const inspections = equipment.getInspectionRecords(equipmentId)
+  const certs = equipment.getCalibrationCertificates('equipment', equipmentId)
+
+  const events = []
+  inspections.forEach((r) => events.push({
+    date: r.date, kind: '점검기록', tone: r.result === '불량' ? 'var(--rust)' : r.result === '주의' ? 'var(--amber)' : 'var(--moss)',
+    summary: `${r.inspector || '점검자 미기록'} · 결과 ${r.result}`, notes: r.notes,
+  }))
+  certs.forEach((c) => events.push({
+    date: c.calDate, kind: '교정이력', tone: c.result === calibrationResult.FAIL ? 'var(--rust)' : c.result === calibrationResult.CONDITIONAL ? 'var(--amber)' : 'var(--moss)',
+    summary: `${c.vendor || '교정기관 미기록'}${c.certNo ? ' · ' + c.certNo : ''} · 판정 ${c.result}${c.validUntil ? ` (유효기한 ${c.validUntil})` : ''}`, notes: c.notes,
+  }))
+  if (plan && (plan.lastDate || plan.nextDate)) {
+    if (plan.lastDate) events.push({ date: plan.lastDate, kind: '예방보전', tone: 'var(--moss)', summary: `최근 수행 · ${plan.method || '방법 미기록'}`, notes: plan.notes })
+    if (plan.nextDate) events.push({ date: plan.nextDate, kind: '예방보전 (예정)', tone: 'var(--amber)', summary: `다음 예정 · 주기 ${plan.cycleMonths || '?'}개월`, notes: '' })
+  }
+  events.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+  return (
+    <div className="card-base p-4">
+      <button type="button" onClick={() => setOpen((v) => !v)} className="w-full flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <History size={15} style={{ color: 'var(--moss)' }} />
+          <span className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>설비이력 통합보기 ({events.length}건)</span>
+        </div>
+        <ChevronRight size={16} style={{ color: 'var(--ink-faint)', transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+      </button>
+      {open && (
+        <>
+          <div className="text-[11.5px] mt-1 mb-3" style={{ color: 'var(--ink-mute)' }}>점검기록 · 예방보전계획 · 교정성적서를 하나의 타임라인으로 모아 보여줍니다.</div>
+          {events.length === 0 ? (
+            <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>아직 이력이 없습니다.</div>
+          ) : (
+            <div className="space-y-2">
+              {events.map((e, i) => (
+                <div key={i} className="flex items-start gap-3 p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                  <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ background: e.tone }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{e.date || '날짜 미기록'}</span>
+                      <span className="text-[10.5px] px-1.5 py-0.5 rounded font-semibold" style={{ background: 'var(--bg-card)', color: e.tone }}>{e.kind}</span>
+                    </div>
+                    <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink)' }}>{e.summary}</div>
+                    {e.notes && <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{e.notes}</div>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

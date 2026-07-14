@@ -346,3 +346,67 @@ export function resetAll() {
   localStorage.removeItem(KEY)
   localStorage.removeItem(COUNTER_KEY)
 }
+
+/* ================================================================
+   영향평가서 (Impact Assessment) — CCR 1건당 사람이 작성하는 서술형 평가
+   ================================================================
+   CCR(commitChange)은 영향받는 엔티티를 자동으로 추적하지만(impacts 필드),
+   실제 위험도·조치 필요성에 대한 서술 판단은 담당자가 별도로 작성해야 한다.
+   ISO 13485 §4.2.4 / §7.3.9(설계변경) — 변경이 미치는 영향에 대한 평가·기록.
+*/
+const IA_KEY = 'qualytree.impactAssessments'
+
+function loadIA() {
+  try {
+    const raw = localStorage.getItem(IA_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveIA(arr) {
+  localStorage.setItem(IA_KEY, JSON.stringify(arr))
+}
+
+export const IMPACT_RISK_LEVEL = {
+  LOW: '낮음',
+  MEDIUM: '보통',
+  HIGH: '높음',
+}
+
+export const impactAssessments = {
+  /** CCR 1건에 대한 영향평가서 작성/수정 (upsert — CCR당 1건) */
+  upsert(ccrId, data) {
+    const cur = auth.current()
+    const all = loadIA()
+    const idx = all.findIndex((a) => a.ccrId === ccrId)
+    const now = new Date().toISOString()
+    if (idx === -1) {
+      const rec = {
+        id: 'IA-' + ccrId,
+        ccrId,
+        riskLevel: IMPACT_RISK_LEVEL.LOW,
+        affectedAreas: '',
+        content: '',
+        conclusion: '',
+        assessedBy: cur?.name || 'unknown',
+        assessedAt: now,
+        updatedAt: now,
+        ...data,
+      }
+      all.push(rec)
+      saveIA(all)
+      return rec
+    }
+    all[idx] = { ...all[idx], ...data, updatedAt: now, updatedBy: cur?.name || 'unknown' }
+    saveIA(all)
+    return all[idx]
+  },
+  get(ccrId) {
+    return loadIA().find((a) => a.ccrId === ccrId) || null
+  },
+  getAll() {
+    return loadIA()
+  },
+}

@@ -84,8 +84,12 @@ export const PERMISSIONS = {
 
   // ===== 향후 영역 (예약) =====
   'qms.ncr.review': LEVELS.INSPECTOR,
+  'qms.ncr.investigate': LEVELS.INSPECTOR, // NCR 조사보고서 작성·수정
   'qms.capa.edit': LEVELS.INSPECTOR, // CAPA 원인분석·시정·예방·효과검증 기록
   'qms.capa.approve': LEVELS.MANAGER, // CAPA 최종 승인·종결
+  'qms.quarantine.dispose': LEVELS.INSPECTOR, // 격리 항목 처분 (재검사 진행/폐기/특채/출하가능)
+  'qms.quarantine.reworkApprove': LEVELS.MANAGER, // 격리 항목을 '재작업'으로 처분 — 매니저 승인 필요
+  'qms.ccr.impactAssessment.edit': LEVELS.INSPECTOR, // CCR 영향평가서 작성·수정
   'ra.submission.approve': LEVELS.MANAGER,
 }
 
