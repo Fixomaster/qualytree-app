@@ -1,5 +1,6 @@
-import React, { useLayoutEffect, useRef, useState } from 'react'
+import React, { forwardRef, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react'
 import { Trash2, GitBranch, Minus, Plus, Maximize2 } from 'lucide-react'
+import { loadHtml2Canvas } from '../lib/orgChartImage'
 
 // 레벨(깊이)별 박스 색상 — 최상위(진한 남색) → 부서(중간 파랑) → 하위 직책(회색)
 const LEVEL_STYLES = [
@@ -23,7 +24,7 @@ const MAX_SCALE = 1.5
 // 계속 추가하다 보면 트리가 화면 너비를 넘어서기 쉬우므로, 컨테이너 너비에 맞춰 자동으로
 // 축소(auto-fit)해 전체 조직도가 항상 한눈에 들어오게 하고, +/-/전체맞춤 버튼으로 수동 확대·축소도
 // 지원한다.
-export default function OrgChartDiagram({ departments, onDelete, onToggleIndependent }) {
+const OrgChartDiagram = forwardRef(function OrgChartDiagram({ departments, onDelete, onToggleIndependent }, ref) {
   const nodes = departments || []
   const roots = nodes.filter((d) => !d.parentId)
   const childrenOf = (pid) => nodes.filter((d) => d.parentId === pid)
@@ -31,6 +32,15 @@ export default function OrgChartDiagram({ departments, onDelete, onToggleIndepen
 
   const wrapRef = useRef(null)
   const treeRef = useRef(null)
+  useImperativeHandle(ref, () => ({
+    // 화면에 보이는 확대/축소 상태와 무관하게, 원본 해상도의 조직도를 PNG data URL로 캡처한다.
+    async captureDataUrl() {
+      if (!treeRef.current) return null
+      const html2canvas = await loadHtml2Canvas()
+      const canvas = await html2canvas(treeRef.current, { backgroundColor: '#ffffff', scale: 2 })
+      return canvas.toDataURL('image/png')
+    },
+  }))
   const [natural, setNatural] = useState({ w: 0, h: 0 })
   const [autoFit, setAutoFit] = useState(1)
   const [manualZoom, setManualZoom] = useState(null) // null = 자동 맞춤 사용
@@ -131,7 +141,9 @@ export default function OrgChartDiagram({ departments, onDelete, onToggleIndepen
       )}
     </div>
   )
-}
+})
+
+export default OrgChartDiagram
 
 const ORGCHART_CSS = `
 .orgchart-wrap{padding:10px 6px;overflow-x:auto}

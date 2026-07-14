@@ -4,6 +4,7 @@ import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
 import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload, Trash2, Send } from 'lucide-react'
 import { translateToEn } from '../lib/translate'
+import { loadOrgChartImage } from '../lib/orgChartImage'
 
 const OB_KEY = 'qualytree.onboarding'
 const DOC_KEY = 'qualytree.documents'
@@ -60,7 +61,7 @@ function docNumber(it, idx) {
   if (it && it.kind === 'manual') return 'QM' + (it.c != null && it.c !== '' ? '-' + it.c : '')
   return 'QP-' + String((idx || 0) + 1).padStart(2, '0')
 }
-function controlledSection(title, docNo, ctx, r, bodyText) {
+function controlledSection(title, docNo, ctx, r, bodyText, extraHtml) {
   const rev = (r && r.rev) || 0
   const est = fmtDate(r && r.approvedAt)
   const author = (r && r.author) || ''
@@ -83,11 +84,21 @@ function controlledSection(title, docNo, ctx, r, bodyText) {
     '<tr style="height:44px"><td style="background:#f1f6f3">담당</td><td>' + escHtml(author) + '</td><td>' + escHtml(reviewer) + '</td><td>' + escHtml(approver) + '</td></tr>' +
     '<tr><td style="background:#f1f6f3">일자</td><td>' + (author ? escHtml(est) : '') + '</td><td>' + escHtml(rdate) + '</td><td>' + escHtml(adate) + '</td></tr>' +
     '</table>' +
+    (extraHtml || '') +
     '<div style="' + F + ';font-size:10.5pt;white-space:pre-wrap;line-height:1.6">' + escHtml(bodyText || '(내용 미작성)') + '</div>'
   )
 }
-function controlledDocHtml(title, docNo, ctx, r) {
-  let inner = controlledSection(title, docNo, ctx, r, r && r.content)
+// 온보딩/회사·조직에서 캡처해 저장한 조직도 이미지를, "조직도" 챕터 문서에 그대로 삽입하기 위한 HTML.
+function orgChartImageHtml(it) {
+  if (!it || it.kind !== 'manual') return ''
+  const isOrgChapter = it.c === '2' || /조직도/.test(it.name || '')
+  if (!isOrgChapter) return ''
+  const img = loadOrgChartImage()
+  if (!img || !img.dataUrl) return ''
+  return '<div style="margin:4px 0 14px 0;text-align:center"><img src="' + img.dataUrl + '" style="max-width:100%;border:1px solid #dfe4e8;border-radius:6px" /></div>'
+}
+function controlledDocHtml(title, docNo, ctx, r, extraHtml) {
+  let inner = controlledSection(title, docNo, ctx, r, r && r.content, extraHtml)
   if (r && r.contentEn) {
     inner += '<br clear="all" style="page-break-before:always" />' +
       controlledSection(title + ' (English)', docNo, ctx, { ...r, content: r.contentEn }, r.contentEn)
@@ -128,7 +139,7 @@ function combinedDocHtml(ctx, groups) {
       '<h1 style="font-family:Malgun Gothic,sans-serif;font-size:15pt;color:#16352b;border-bottom:2px solid #16352b;padding-bottom:6px">' + escHtml(g.heading) + '</h1>'
     g.entries.forEach(({ it, r, docNo }, i) => {
       if (i > 0) body += '<br clear="all" style="page-break-before:always" />'
-      body += controlledSection(it.label, docNo, ctx, r, r.content)
+      body += controlledSection(it.label, docNo, ctx, r, r.content, orgChartImageHtml(it))
       if (r.contentEn) {
         body += '<br clear="all" style="page-break-before:always" />' +
           controlledSection(it.label + ' (English)', docNo, ctx, { ...r, content: r.contentEn }, r.contentEn)
@@ -222,6 +233,9 @@ export default function Documents() {
   const ctx = getCtx()
   const manualChapters = (ob.manual && Array.isArray(ob.manual.chapters)) ? ob.manual.chapters.filter((c) => c.included !== false) : []
   const procedures = Array.isArray(ob.procedures) ? ob.procedures.filter((p) => p.applicable !== false) : []
+  // "조직도" 챕터 판별 + 온보딩/회사·조직에서 캡처해 둔 조직도 이미지 (있으면 그대로 문서에 표시·포함)
+  const isOrgChapter = (it) => it.kind === 'manual' && (it.c === '2' || /조직도/.test(it.name || ''))
+  const orgChartImg = loadOrgChartImage()
 
   const [docs, setDocs] = useState(() => { try { return JSON.parse(localStorage.getItem(DOC_KEY) || '{}') } catch { return {} } })
   useEffect(() => { try { localStorage.setItem(DOC_KEY, JSON.stringify(docs)) } catch { /* */ } }, [docs])
@@ -309,13 +323,13 @@ export default function Documents() {
   const exportOne = (it, idx) => {
     const r = docs[it.id] || {}
     if (!r.content) { window.alert('내보낼 내용이 없습니다.'); return }
-    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }))
+    downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }, orgChartImageHtml(it)))
   }
   const openPreview = (it, idx) => {
     const r = docs[it.id] || {}
     if (!r.content) { window.alert('미리볼 내용이 없습니다. 먼저 작성하거나 업로드하세요.'); return }
     const w = window.open('', '_blank')
-    if (w) { w.document.write(controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) })); w.document.close() }
+    if (w) { w.document.write(controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }, orgChartImageHtml(it))); w.document.close() }
     else window.alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.')
   }
   const exportAll = () => {
@@ -324,7 +338,7 @@ export default function Documents() {
     targets.forEach(({ it, idx }, i) => {
       setTimeout(() => {
         const r = docs[it.id] || {}
-        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }))
+        downloadDoc((it.label || 'document').replace(/[\\/:*?"<>|]/g, '_') + '.doc', controlledDocHtml(it.label, docNumber(it, idx), ctx, { ...r, ...(docs[statusId(it)] || {}) }, orgChartImageHtml(it)))
       }, i * 400)
     })
     window.alert(targets.length + '개 문서를 정식 양식 .doc로 각각 내려받습니다. (브라우저가 "여러 파일 다운로드 허용"을 물으면 허용해 주세요)')
@@ -545,6 +559,22 @@ export default function Documents() {
                         </button>
                         {open && (
                           <div className="px-3 pb-3">
+                            {isOrgChapter(it) && (
+                              orgChartImg && orgChartImg.dataUrl ? (
+                                <div className="mb-3 rounded-lg border border-slate-200 overflow-hidden">
+                                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+                                    <span>온보딩/회사·조직에서 저장한 조직도 이미지</span>
+                                    <span>저장일 {new Date(orgChartImg.capturedAt).toLocaleString('ko-KR')}</span>
+                                  </div>
+                                  <img src={orgChartImg.dataUrl} alt="조직도" className="w-full" />
+                                </div>
+                              ) : (
+                                <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-800">
+                                  <Info size={14} className="shrink-0 mt-0.5" />
+                                  <span>저장된 조직도 이미지가 없습니다. "회사·조직" 페이지(또는 온보딩 조직도 단계)에서 "조직도 이미지로 저장"을 누르면 여기에 그대로 표시·포함됩니다.</span>
+                                </div>
+                              )
+                            )}
                             {r.content && <ApprovalLine r={sr} />}
                             {editable && (
                               <div className="flex justify-end gap-2 mb-2">

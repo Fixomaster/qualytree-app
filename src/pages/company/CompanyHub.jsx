@@ -19,6 +19,7 @@ import { companyDocs, DOC_CATEGORY, QM_STATUS } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
+import { saveOrgChartImage, loadOrgChartImage } from '../../lib/orgChartImage'
 
 export default function CompanyHub() {
   const user = auth.current()
@@ -286,6 +287,22 @@ function OrgTab({ departments, onAction, refresh }) {
   const canEdit = permissions.can('company.roledoc.edit')
   const [selId, setSelId] = useState(departments[0]?.id || null)
   const sel = departments.find((d) => d.id === selId) || null
+  const chartRef = useRef(null)
+  const [capturing, setCapturing] = useState(false)
+  const savedImg = loadOrgChartImage()
+  const captureChart = async () => {
+    setCapturing(true)
+    try {
+      const dataUrl = chartRef.current && (await chartRef.current.captureDataUrl())
+      if (!dataUrl) throw new Error('캡처할 조직도가 없습니다.')
+      saveOrgChartImage(dataUrl)
+      onAction('조직도 이미지가 저장되었습니다. 품질문서의 "조직도" 챕터에 그대로 반영됩니다.')
+      refresh()
+    } catch (e) {
+      window.alert('캡처 실패: ' + ((e && e.message) || e))
+    }
+    setCapturing(false)
+  }
 
   if (departments.length === 0) {
     return <EmptyState icon={Users} text="등록된 부서가 없습니다. 온보딩의 조직도 단계에서 부서를 먼저 등록하세요." />
@@ -294,8 +311,16 @@ function OrgTab({ departments, onAction, refresh }) {
   return (
     <div className="space-y-5">
       <div className="card-base p-3">
-        <div className="text-[12px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>조직도</div>
-        <OrgChartDiagram departments={departments} />
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>조직도</div>
+          <div className="flex items-center gap-2">
+            {savedImg && <span className="text-[10.5px]" style={{ color: 'var(--ink-mute)' }}>최근 저장 {new Date(savedImg.capturedAt).toLocaleString('ko-KR')}</span>}
+            <button onClick={captureChart} disabled={capturing} className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50">
+              {capturing ? '캡처 중…' : '조직도 이미지로 저장 → 품질문서 반영'}
+            </button>
+          </div>
+        </div>
+        <OrgChartDiagram ref={chartRef} departments={departments} />
       </div>
       <div className="grid lg:grid-cols-[280px_1fr] gap-5">
       <div className="space-y-1.5">

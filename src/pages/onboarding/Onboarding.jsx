@@ -8,6 +8,7 @@ import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_C
 import { mfds } from '../../lib/mfds'
 import { classifyProduct } from '../../lib/aiClassify'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
+import { saveOrgChartImage, loadOrgChartImage } from '../../lib/orgChartImage'
 
 const STORE_KEY = 'qualytree.onboarding'
 
@@ -627,6 +628,18 @@ function StepOrg({ state, setState }) {
     setName('')
   }
   const del = (id) => setState((s) => {
+    const target = s.departments.find((d) => d.id === id)
+    if (target && target.independent) {
+      // 곁다리(독립 보고) 노드는 하위조직을 지휘하는 라인이 아니므로, 삭제해도 하위 조직을
+      // 함께 지우지 않는다 — 삭제되는 노드의 상위(부모)로 승격(재배치)시켜 보존한다.
+      return {
+        ...s,
+        departments: s.departments
+          .filter((d) => d.id !== id)
+          .map((d) => (d.parentId === id ? { ...d, parentId: target.parentId } : d)),
+      }
+    }
+    // 일반(라인) 노드는 기존과 동일하게 하위 전체를 함께 삭제(cascade)한다.
     const toDel = new Set([id])
     let changed = true
     while (changed) {
@@ -636,10 +649,31 @@ function StepOrg({ state, setState }) {
     return { ...s, departments: s.departments.filter((d) => !toDel.has(d.id)) }
   })
   const toggleIndependent = (id) => setState((s) => ({ ...s, departments: s.departments.map((d) => (d.id === id ? { ...d, independent: !d.independent } : d)) }))
+  const chartRef = useRef(null)
+  const [capturing, setCapturing] = useState(false)
+  const savedImg = loadOrgChartImage()
+  const captureChart = async () => {
+    setCapturing(true)
+    try {
+      const dataUrl = chartRef.current && (await chartRef.current.captureDataUrl())
+      if (!dataUrl) throw new Error('캡처할 조직도가 없습니다.')
+      saveOrgChartImage(dataUrl)
+      window.alert('조직도 이미지가 저장되었습니다. 품질문서의 "조직도" 챕터에 그대로 반영됩니다.')
+    } catch (e) {
+      window.alert('캡처 실패: ' + ((e && e.message) || e))
+    }
+    setCapturing(false)
+  }
   return (
     <Section title="조직도" desc="기준 부서를 고르고 하위(세로) · 동일 레벨(가로) · 보고라인 중간(끼워넣기)으로 부서를 추가하세요. 내부심사팀처럼 하위조직 지휘 없이 상위에 직접 보고하는 조직/사람은 '곁다리(독립 보고)'로 표시할 수 있습니다. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
       <div className="border border-slate-200 rounded-lg p-4 mb-4 bg-white">
-        <OrgChartDiagram departments={nodes} onDelete={del} onToggleIndependent={toggleIndependent} />
+        <div className="flex items-center justify-end gap-2 mb-2">
+          {savedImg && <span className="text-[11px] text-slate-400">최근 저장 {new Date(savedImg.capturedAt).toLocaleString('ko-KR')}</span>}
+          <button type="button" onClick={captureChart} disabled={capturing} className="text-[12px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">
+            {capturing ? '캡처 중…' : '조직도 이미지로 저장 → 품질문서 반영'}
+          </button>
+        </div>
+        <OrgChartDiagram ref={chartRef} departments={nodes} onDelete={del} onToggleIndependent={toggleIndependent} />
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <select className="input-cell" style={{ maxWidth: 200 }} value={baseId} onChange={(e) => chooseBase(e.target.value)}>
