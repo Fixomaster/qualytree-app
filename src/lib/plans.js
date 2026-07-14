@@ -89,13 +89,22 @@ export const CERT_LABEL_TO_ID = {
 }
 export const PLAN_AVAILABLE_CERT_IDS = CERT_DEFS.filter((c) => c.planAvailable).map((c) => c.id)
 
+// 캐시(로컬/서버)에 저장된 플랜 목록에 새 기본 플랜(예: 수입사 GMP 추가)이 누락된 경우
+// 자동으로 병합해준다. 운영자가 편집한 기존 플랜은 그대로 두고, id가 없는 것만 추가.
+function mergeMissingDefaults(list) {
+  if (!Array.isArray(list)) return list
+  const ids = new Set(list.map((x) => x.id))
+  const missing = DEFAULT_PLANS.filter((d) => !ids.has(d.id)).map((d) => ({ ...d, features: [...d.features] }))
+  return missing.length ? [...list, ...missing] : list
+}
+
 export function loadPlans() {
   try {
     const raw = localStorage.getItem(STORE_KEY)
     if (raw) {
       const p = JSON.parse(raw)
       // certs 필드가 있는 신모델만 사용(구 starter/pro/enterprise 저장본은 무시하고 기본값으로 마이그레이션)
-      if (Array.isArray(p) && p.length && p.every((x) => Array.isArray(x.certs))) return p
+      if (Array.isArray(p) && p.length && p.every((x) => Array.isArray(x.certs))) return mergeMissingDefaults(p)
     }
   } catch { /* ignore */ }
   return DEFAULT_PLANS.map((p) => ({ ...p, features: [...p.features] }))
@@ -172,8 +181,9 @@ export async function fetchPlansFromServer() {
 export async function syncPlansFromServer() {
   const server = await fetchPlansFromServer()
   if (server) {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(server)) } catch { /* ignore */ }
-    return server
+    const merged = mergeMissingDefaults(server)
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(merged)) } catch { /* ignore */ }
+    return merged
   }
   return loadPlans()
 }

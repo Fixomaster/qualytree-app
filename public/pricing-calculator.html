@@ -167,6 +167,11 @@
             <div><div class="pname">KGMP only</div><div class="pdesc">국내 GMP 품질시스템 운영</div></div>
             <div class="pbase">250,000<small>원 / 월 기본</small></div>
           </label>
+          <label class="plan" data-plan="kgmp_importer">
+            <input type="radio" name="plan" value="kgmp_importer">
+            <div><div class="pname">수입사 GMP</div><div class="pdesc">외국제조소 등록 · 수입 인허가 서류 관리</div></div>
+            <div class="pbase">150,000<small>원 / 월 기본</small></div>
+          </label>
           <label class="plan" data-plan="iso">
             <input type="radio" name="plan" value="iso">
             <div><div class="pname">ISO 13485 only</div><div class="pdesc">국제 QMS 표준 운영</div></div>
@@ -283,6 +288,7 @@
   // base/pro/block: Qualytree 월 요금 · setup3y/audit3y: 동일 범위 외부 컨설팅 3년 누적(구축/심사대응 분리) · audAdd: Qualytree 심사대응 서비스 월 add-on
   const PRICING = {
     kgmp:   { base:250000, pro:100000, block:30000, name:'KGMP only',        setup3y:8000000,  audit3y:4000000, audAdd:100000 },
+    kgmp_importer: { base:150000, pro:60000, block:20000, name:'수입사 GMP', setup3y:5000000,  audit3y:2500000, audAdd:60000 },
     iso:    { base:320000, pro:120000, block:35000, name:'ISO 13485 only',   setup3y:16000000, audit3y:8000000, audAdd:120000 },
     bundle: { base:500000, pro:150000, block:45000, name:'KGMP + ISO 13485', setup3y:19000000, audit3y:9000000, audAdd:180000 },
   };
