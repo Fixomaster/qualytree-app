@@ -602,6 +602,9 @@ function StepOrg({ state, setState }) {
   const kidsOfBase = baseId ? childrenOf(baseId) : roots
   const toggleKid = (id) => setSelectedKids((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const chooseBase = (id) => { setBaseId(id); setSelectedKids(new Set()) }
+  // 새로 추가하는 노드를 처음부터 "곁다리"(독립 보고 — 예: 내부심사팀처럼 하위조직의 지휘를
+  // 받지 않고 상위에 직접 보고하는 노드)로 만들지 여부.
+  const [addIndependent, setAddIndependent] = useState(false)
   const add = () => {
     const n = name.trim()
     if (!n) return
@@ -614,13 +617,13 @@ function StepOrg({ state, setState }) {
         ...s,
         departments: [
           ...s.departments.map((d) => (selectedKids.has(d.id) ? { ...d, parentId: newId } : d)),
-          { id: newId, name: n, parentId },
+          { id: newId, name: n, parentId, independent: addIndependent },
         ],
       }))
       setName(''); setSelectedKids(new Set())
       return
     }
-    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: baseNode ? (effMode === 'child' ? baseNode.id : (baseNode.parentId || null)) : null }] }))
+    setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: baseNode ? (effMode === 'child' ? baseNode.id : (baseNode.parentId || null)) : null, independent: addIndependent }] }))
     setName('')
   }
   const del = (id) => setState((s) => {
@@ -632,10 +635,11 @@ function StepOrg({ state, setState }) {
     }
     return { ...s, departments: s.departments.filter((d) => !toDel.has(d.id)) }
   })
+  const toggleIndependent = (id) => setState((s) => ({ ...s, departments: s.departments.map((d) => (d.id === id ? { ...d, independent: !d.independent } : d)) }))
   return (
-    <Section title="조직도" desc="기준 부서를 고르고 하위(세로) · 동일 레벨(가로) · 보고라인 중간(끼워넣기)으로 부서를 추가하세요. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
+    <Section title="조직도" desc="기준 부서를 고르고 하위(세로) · 동일 레벨(가로) · 보고라인 중간(끼워넣기)으로 부서를 추가하세요. 내부심사팀처럼 하위조직 지휘 없이 상위에 직접 보고하는 조직/사람은 '곁다리(독립 보고)'로 표시할 수 있습니다. 대시보드·권한 매트릭스가 이 조직도 기준으로 구성됩니다.">
       <div className="border border-slate-200 rounded-lg p-4 mb-4 bg-white">
-        <OrgChartDiagram departments={nodes} onDelete={del} />
+        <OrgChartDiagram departments={nodes} onDelete={del} onToggleIndependent={toggleIndependent} />
       </div>
       <div className="flex flex-wrap gap-2 items-center">
         <select className="input-cell" style={{ maxWidth: 200 }} value={baseId} onChange={(e) => chooseBase(e.target.value)}>
@@ -650,6 +654,10 @@ function StepOrg({ state, setState }) {
         <input className="input-cell" style={{ maxWidth: 200 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button onClick={add} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
+      <label className="mt-1.5 flex items-center gap-1.5 text-[12px] text-slate-500 cursor-pointer select-none w-fit">
+        <input type="checkbox" checked={addIndependent} onChange={(e) => setAddIndependent(e.target.checked)} />
+        <span>곁다리(독립 보고)로 추가 — 하위조직 지휘 없이 기준 부서에 직접 보고 (예: 내부심사팀)</span>
+      </label>
       {effMode === 'between' && (
         <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-violet-50 border border-violet-200 text-[12px] text-violet-800">
           <Info size={14} className="shrink-0 mt-0.5" />
