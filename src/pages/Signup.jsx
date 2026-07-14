@@ -358,7 +358,7 @@ export default function Signup() {
               </div>
               <iframe
                 ref={calcRef}
-                src="/pricing-calculator.html"
+                src="/pricing-calculator.html?v=20260714b"
                 title="Qualytree 요금 계산기"
                 style={styles.calcFrame}
               />
