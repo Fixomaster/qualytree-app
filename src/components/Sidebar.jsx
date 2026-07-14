@@ -19,6 +19,7 @@ import {
   Gauge,
   PackageCheck,
   Stamp,
+  Factory,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -36,6 +37,7 @@ const NAV = [
   { to: '/management-review', label: '경영검토', en: 'Management Review', icon: Gauge, area: 'MR' },
   { to: '/logistics', label: '입출고·유통관리', en: 'Import & Distribution', icon: PackageCheck, area: 'LOG' },
   { to: '/kgmp', label: 'KGMP', en: 'KGMP Registration', icon: Stamp, area: 'KGMP' },
+  { to: '/foreign-manufacturers', label: '외국제조소 (수입GMP)', en: 'Foreign Manufacturers', icon: Factory, area: 'IMPGMP' },
   { to: '/documents', label: '품질 문서', en: 'Documents', icon: FileText, area: 'DOC' },
   { to: '/regulatory', label: '인허가', en: 'Regulatory', icon: FileCheck2, area: 'RA' },
   { to: '/tree', label: 'Quality Tree', en: 'Quality Tree', icon: GitBranch, area: 'TREE' },

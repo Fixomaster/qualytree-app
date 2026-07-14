@@ -12,6 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
   Edit3,
+  Building2,
+  Factory,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -23,16 +25,26 @@ const SECTION_ICON = {
   qms: ShieldCheck,
   procedures: BookOpen,
   records: Archive,
+  importer: Factory,
 }
+
+const PROFILE_KEY = 'qualytree.kgmpProfile'
 
 export default function KgmpHub() {
   const user = auth.current()
   const nav = useNavigate()
   const [tick, setTick] = useState(0)
   const [openKey, setOpenKey] = useState(null)
+  const [profile, setProfile] = useState(() => {
+    try { return localStorage.getItem(PROFILE_KEY) || 'manufacturer' } catch { return 'manufacturer' }
+  })
+  const setProfileAndSave = (p) => {
+    setProfile(p)
+    try { localStorage.setItem(PROFILE_KEY, p) } catch { /* ignore */ }
+  }
 
   // buildKgmpSections()는 호출 시 누락된 필수 절차서(공급업체관리·회수·변경관리)를 자동 보완한다.
-  const sections = useMemo(() => buildKgmpSections(), [tick])
+  const sections = useMemo(() => buildKgmpSections({ profile }), [tick, profile])
   const { doneCount, totalCount, pct } = summarizeKgmpSections(sections)
 
   return (
@@ -46,8 +58,25 @@ export default function KgmpHub() {
             KGMP 통합 현황
           </div>
           <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            수입 의료기기 인증(인허가) 시 필요한 공통 제출 문서·기술문서·품질시스템 자료와, 수입 후 유지관리에 필요한 절차서·기록을 한 곳에서 확인합니다.
+            국내제조사와 수입사는 GMP 심사 준비사항이 다릅니다 — 제조사는 자기 제조소 전체를, 수입사는 제품을 만드는 외국제조소의 GMP를 증명해야 합니다. 아래에서 구분해 확인하세요.
           </div>
+        </div>
+
+        <div className="flex gap-1 mb-5 p-1 rounded-lg w-fit" style={{ background: 'var(--bg-soft)' }}>
+          <button
+            onClick={() => setProfileAndSave('manufacturer')}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-medium transition"
+            style={profile === 'manufacturer' ? { background: 'var(--bg-card)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(15,26,20,0.12)' } : { color: 'var(--ink-mute)' }}
+          >
+            <Building2 size={13} /> 국내제조사 GMP
+          </button>
+          <button
+            onClick={() => setProfileAndSave('importer')}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[12.5px] font-medium transition"
+            style={profile === 'importer' ? { background: 'var(--bg-card)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(15,26,20,0.12)' } : { color: 'var(--ink-mute)' }}
+          >
+            <Factory size={13} /> 수입사 GMP
+          </button>
         </div>
 
         <div className="card-base p-4 mb-5 flex items-center gap-4">

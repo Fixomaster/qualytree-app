@@ -326,7 +326,8 @@ export default function Dashboard() {
 
   const cards = useMemo(() => computeAllCards(ctx), [ctx]);
   const overall = useMemo(() => computeOverallScore(cards), [cards]);
-  const kgmp = useMemo(() => getKgmpStatus(), [ctx]);
+  const kgmpProfile = (() => { try { return localStorage.getItem('qualytree.kgmpProfile') || 'manufacturer' } catch { return 'manufacturer' } })();
+  const kgmp = useMemo(() => getKgmpStatus({ profile: kgmpProfile }), [ctx, kgmpProfile]);
 
   const row1 = cards.filter(c => c.cardRow === 1);
   const row2 = cards.filter(c => c.cardRow === 2);

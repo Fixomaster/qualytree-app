@@ -23,6 +23,7 @@ import TrainingHub from './pages/training/TrainingHub'
 import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
 import LogisticsHub from './pages/logistics/LogisticsHub'
 import KgmpHub from './pages/kgmp/KgmpHub'
+import ForeignManufacturerHub from './pages/importgmp/ForeignManufacturerHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
@@ -206,6 +207,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <KgmpHub />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/foreign-manufacturers"
+        element={
+          <ProtectedRoute>
+            <ForeignManufacturerHub />
           </ProtectedRoute>
         }
       />

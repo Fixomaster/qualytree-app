@@ -11,6 +11,7 @@ import { complaints, reviews } from './managementReviewState'
 import { capa } from './capaState'
 import { sessions as trainingSessions } from './trainingState'
 import { audits } from './internalAuditState'
+import { foreignSites, gmpCertificates as foreignGmpCerts, otherAuditReports as foreignAuditReports, certStatusOf as foreignCertStatusOf } from './foreignManufacturerState'
 
 const DOC_KEY = 'qualytree.documents'
 
@@ -82,7 +83,7 @@ function buildCtx() {
  * KGMP 섹션·항목 목록을 구성한다. 항목마다 status(done/partial/missing)·detail·editHref를 포함한다.
  * 필요 시 누락된 필수 절차서를 자동 보완한 뒤 최신 데이터로 계산한다.
  */
-export function buildKgmpSections({ autoHeal = true } = {}) {
+export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } = {}) {
   if (autoHeal) ensureKgmpProcedures()
   const ctx = buildCtx()
 
@@ -151,8 +152,12 @@ export function buildKgmpSections({ autoHeal = true } = {}) {
         },
         companyDocItem('제조소 등록 자료', DOC_CATEGORY.FACILITY_REG, '/company?tab=docs'),
         companyDocItem('사업자등록증', DOC_CATEGORY.BIZ_REG, '/company?tab=docs'),
-        companyDocItem('수입업 허가증', DOC_CATEGORY.IMPORT_LICENSE, '/company?tab=docs'),
-        companyDocItem('대리인 계약서 (Authorization Letter)', DOC_CATEGORY.AGENT_CONTRACT, '/company?tab=docs'),
+        ...(profile === 'importer'
+          ? [
+              companyDocItem('수입업 허가증', DOC_CATEGORY.IMPORT_LICENSE, '/company?tab=docs'),
+              companyDocItem('대리인 계약서 (Authorization Letter)', DOC_CATEGORY.AGENT_CONTRACT, '/company?tab=docs'),
+            ]
+          : [companyDocItem('제조업허가증', DOC_CATEGORY.MFG_LICENSE, '/company?tab=docs')]),
         techDocItem('제품 카탈로그', TECH_DOC_CATEGORY.CATALOG),
         techDocItem('사용설명서 (IFU)', TECH_DOC_CATEGORY.IFU),
         techDocItem('제품 라벨 (Label)', TECH_DOC_CATEGORY.LABEL),
@@ -232,6 +237,48 @@ export function buildKgmpSections({ autoHeal = true } = {}) {
       ],
     },
   ]
+
+  if (profile === 'importer') {
+    const sites = foreignSites.getAll()
+    const importerItems = []
+    if (sites.length === 0) {
+      importerItems.push({
+        label: '외국제조소 등록',
+        status: 'missing',
+        detail: '수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다. 최소 1개 이상 등록하세요.',
+        editHref: '/foreign-manufacturers',
+      })
+    } else {
+      sites.forEach((s) => {
+        const certs = foreignGmpCerts.getForSite(s.id)
+        const latest = certs[0]
+        const st = latest ? foreignCertStatusOf(latest.expiryDate) : null
+        const certStatus = st === '유효' ? 'done' : (st === '만료임박' || st === '만료') ? 'partial' : 'missing'
+        importerItems.push({
+          label: `${s.name || '(이름없음)'} — GMP 적합인정서`,
+          status: certStatus,
+          detail: latest ? `${st} · 만료 ${latest.expiryDate || '—'}` : '등록된 GMP 적합인정서가 없습니다.',
+          editHref: '/foreign-manufacturers?siteId=' + s.id,
+        })
+        const hasFacility = !!s.facilityFileId
+        const hasProducts = !!s.productList
+        importerItems.push({
+          label: `${s.name || '(이름없음)'} — 제조소 개요·시설개요`,
+          status: hasFacility && hasProducts ? 'done' : (hasFacility || hasProducts) ? 'partial' : 'missing',
+          detail: [hasProducts ? '품목목록 등록됨' : '품목목록 미등록', hasFacility ? '시설개요 첨부됨' : '시설개요 미첨부'].join(' · '),
+          editHref: '/foreign-manufacturers?siteId=' + s.id,
+        })
+      })
+    }
+    sections.push({
+      id: 'importer',
+      title: '외국제조소 · 수입 GMP (수입업자 전용)',
+      subtitle: '수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다. 제조소별 등록·인정서 현황입니다.',
+      items: importerItems,
+    })
+  }
+
+  return sections
 }
 
 /** 섹션 목록에서 완료/전체/퍼센트 요약을 계산한다. */

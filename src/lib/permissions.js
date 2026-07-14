@@ -82,6 +82,10 @@ export const PERMISSIONS = {
   // ===== LOG 영역 (입출고·유통·이상사례) =====
   'logistics.edit': LEVELS.INSPECTOR, // 수입검사·입고·출고·유통기록, 이상사례 보고 입력
 
+  // ===== IMPORT-GMP 영역 (외국제조소·GMP적합인정서·타기관실사자료) =====
+  'importgmp.site.edit': LEVELS.INSPECTOR, // 외국제조소 등록·수정
+  'importgmp.cert.edit': LEVELS.INSPECTOR, // GMP 적합인정서·타인증기관 실사자료 등록
+
   // ===== 향후 영역 (예약) =====
   'qms.ncr.review': LEVELS.INSPECTOR,
   'qms.ncr.investigate': LEVELS.INSPECTOR, // NCR 조사보고서 작성·수정
