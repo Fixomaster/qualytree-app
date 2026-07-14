@@ -590,29 +590,33 @@ function StepInfo({ state, patch, setState }) {
 function StepOrg({ state, setState }) {
   const nodes = state.departments || []
   const [name, setName] = useState('')
-  const [baseId, setBaseId] = useState(() => (nodes[0] ? nodes[0].id : '')); const [addMode, setAddMode] = useState('child'); const baseNode = nodes.find((d) => d.id === baseId) || null; const effMode = baseNode ? addMode : 'child'
-  const [moveSiblings, setMoveSiblings] = useState(false)
+  const [baseId, setBaseId] = useState(() => (nodes[0] ? nodes[0].id : '')); const [addMode, setAddMode] = useState('child'); const baseNode = nodes.find((d) => d.id === baseId) || null
+  // 'sibling'은 기준 부서가 있어야 의미가 있고, 'child'·'between'은 기준 없음(최상위)에서도 동작한다.
+  const effMode = (addMode === 'sibling' && !baseNode) ? 'child' : addMode
+  const roots = nodes.filter((d) => !d.parentId)
+  const childrenOf = (pid) => nodes.filter((d) => d.parentId === pid)
+  // '중간에 삽입' 모드: baseId가 상위 보고라인(사람/팀). 그 직속 하위 조직들 중 몇 개를
+  // 골라 새 노드 아래로 옮길지 체크박스로 선택한다(여러 하위 조직 ↔ 하나의 상위 사이 삽입 지원).
+  const [selectedKids, setSelectedKids] = useState(() => new Set())
+  const kidsOfBase = baseId ? childrenOf(baseId) : roots
+  const toggleKid = (id) => setSelectedKids((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const chooseBase = (id) => { setBaseId(id); setSelectedKids(new Set()) }
   const add = () => {
     const n = name.trim()
     if (!n) return
-    if (effMode === 'between' && baseNode) {
-      // 보고자(baseNode)와 보고받는자(baseNode의 기존 상급 부서) 사이에 새 노드를 끼워넣는다.
-      // baseNode → newNode → (baseNode의 기존 parentId). moveSiblings 체크 시, baseNode와
-      // 같은 상급자를 두었던 다른 형제 부서들도 함께 새 노드 아래로 편입된다(팀 단위 삽입 지원).
+    if (effMode === 'between') {
+      // 상위 보고라인(baseId)과 그 아래 여러 하위 조직(selectedKids) 사이에 새 노드를 끼워넣는다.
+      // newNode.parentId = baseId(또는 최상위면 null), 선택된 하위 조직들의 parentId = newNode.
       const newId = uid()
-      const oldParentId = baseNode.parentId
+      const parentId = baseId || null
       setState((s) => ({
         ...s,
         departments: [
-          ...s.departments.map((d) => {
-            if (d.id === baseNode.id) return { ...d, parentId: newId }
-            if (moveSiblings && d.parentId === oldParentId && d.id !== baseNode.id) return { ...d, parentId: newId }
-            return d
-          }),
-          { id: newId, name: n, parentId: oldParentId },
+          ...s.departments.map((d) => (selectedKids.has(d.id) ? { ...d, parentId: newId } : d)),
+          { id: newId, name: n, parentId },
         ],
       }))
-      setName('')
+      setName(''); setSelectedKids(new Set())
       return
     }
     setState((s) => ({ ...s, departments: [...s.departments, { id: uid(), name: n, parentId: baseNode ? (effMode === 'child' ? baseNode.id : (baseNode.parentId || null)) : null }] }))
@@ -627,8 +631,6 @@ function StepOrg({ state, setState }) {
     }
     return { ...s, departments: s.departments.filter((d) => !toDel.has(d.id)) }
   })
-  const roots = nodes.filter((d) => !d.parentId)
-  const childrenOf = (pid) => nodes.filter((d) => d.parentId === pid)
   const renderNode = (d) => (
     <div key={d.id} className="org-node">
       <div className="org-box">
@@ -648,27 +650,38 @@ function StepOrg({ state, setState }) {
         ) : (<ul className="org-tree">{roots.map((r) => renderNode(r))}</ul>)}
       </div>
       <div className="flex flex-wrap gap-2 items-center"><style>{`.org-tree,.org-tree ul{display:flex;list-style:none;margin:0;padding:0}.org-tree ul{padding-top:24px}.org-tree .org-node{display:flex;flex-direction:column;align-items:center;padding:24px 10px 0 10px;position:relative}.org-tree .org-node::before,.org-tree .org-node::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #cbd5e1;width:50%;height:24px}.org-tree .org-node::after{right:auto;left:50%;border-left:2px solid #cbd5e1}.org-tree .org-node:only-child::before,.org-tree .org-node:only-child::after{display:none}.org-tree .org-node:only-child{padding-top:0}.org-tree .org-node:first-child::before{border:none}.org-tree .org-node:last-child::after{border:none}.org-tree .org-node:last-child::before{border-right:2px solid #cbd5e1;border-radius:0 8px 0 0}.org-tree .org-node:first-child::after{border-radius:8px 0 0 0}.org-tree>.org-node{padding-top:0}.org-tree>.org-node::before,.org-tree>.org-node::after{display:none}.org-tree ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #cbd5e1;width:0;height:24px}.org-box{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;background:#f5f3ff;border:1px solid #ddd6fe;color:#5b21b6;font-size:12.5px;font-weight:500;white-space:nowrap}.org-del{color:#cbd5e1;display:inline-flex}.org-del:hover{color:#e11d48}`}</style>
-        <select className="input-cell" style={{ maxWidth: 200 }} value={baseId} onChange={(e) => setBaseId(e.target.value)}>
+        <select className="input-cell" style={{ maxWidth: 200 }} value={baseId} onChange={(e) => chooseBase(e.target.value)}>
           <option value="">(기준 없음 · 최상위)</option>
           {nodes.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <div className="flex rounded-lg border border-slate-200 overflow-hidden text-[12.5px] shrink-0">
           <button type="button" onClick={() => setAddMode('child')} className={`px-2.5 py-2 ${effMode === 'child' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}>하위로 추가 ↓</button>
           <button type="button" onClick={() => setAddMode('sibling')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'sibling' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>동일 레벨 추가 ↔</button>
-          <button type="button" onClick={() => setAddMode('between')} disabled={!baseNode} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'between' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'} disabled:opacity-40`}>중간에 삽입 ⤢</button>
+          <button type="button" onClick={() => setAddMode('between')} className={`px-2.5 py-2 border-l border-slate-200 ${effMode === 'between' ? 'bg-violet-600 text-white' : 'bg-white text-slate-600'}`}>중간에 삽입 ⤢</button>
         </div>
         <input className="input-cell" style={{ maxWidth: 200 }} placeholder="부서명 (예: 국내영업부)" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button onClick={add} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-slate-800 text-white text-[13px] shrink-0"><Plus size={14} /> 추가</button>
       </div>
-      {effMode === 'between' && baseNode && (
+      {effMode === 'between' && (
         <div className="mt-2 flex items-start gap-2 p-2.5 rounded-lg bg-violet-50 border border-violet-200 text-[12px] text-violet-800">
           <Info size={14} className="shrink-0 mt-0.5" />
           <div className="flex-1">
-            <div>새 부서가 <b>{baseNode.name}</b>와(과) 그 상급 부서 사이에 끼워들어갑니다 — {baseNode.name}는(은) 새 부서에 보고하게 됩니다.</div>
-            <label className="flex items-center gap-1.5 mt-1.5 cursor-pointer select-none">
-              <input type="checkbox" checked={moveSiblings} onChange={(e) => setMoveSiblings(e.target.checked)} />
-              <span>{baseNode.name}와(과) 같은 상급 부서를 두었던 다른 부서들도 함께 새 부서 아래로 편입</span>
-            </label>
+            <div>
+              새 부서가 <b>{baseNode ? baseNode.name : '최상위'}</b> 바로 아래에 삽입됩니다.
+              {kidsOfBase.length > 0 ? ' 아래 목록에서 이 새 부서 밑으로 옮길 하위 조직을 선택하세요(여러 개 선택 가능) — 선택하지 않으면 새 부서만 추가됩니다.' : ` ${baseNode ? baseNode.name : '최상위'} 아래에 직속 하위 조직이 없어 새 부서만 추가됩니다.`}
+            </div>
+            {kidsOfBase.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5">
+                {kidsOfBase.map((k) => (
+                  <label key={k.id} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input type="checkbox" checked={selectedKids.has(k.id)} onChange={() => toggleKid(k.id)} />
+                    <span>{k.name}</span>
+                  </label>
+                ))}
+                <button type="button" onClick={() => setSelectedKids(new Set(kidsOfBase.map((k) => k.id)))} className="text-[11px] text-violet-600 underline">전체 선택</button>
+                <button type="button" onClick={() => setSelectedKids(new Set())} className="text-[11px] text-slate-400 underline">선택 해제</button>
+              </div>
+            )}
           </div>
         </div>
       )}
