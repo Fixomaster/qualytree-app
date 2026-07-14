@@ -22,6 +22,17 @@ export const DEFAULT_PLANS = [
     features: ['KGMP 품질시스템 전체', 'GMP 기록·전자배치기록', '문서 AI 초안'],
   },
   {
+    id: 'kgmp_importer',
+    name: '수입사 GMP',
+    monthly: 150000,
+    annualDiscountPct: 15,
+    seats: 5,
+    certs: ['kgmp'],
+    recommended: false,
+    custom: false,
+    features: ['외국제조소 등록·GMP 적합인정서 관리', '수입 인허가 제출 문서 자동화', '문서 AI 초안'],
+  },
+  {
     id: 'iso',
     name: 'ISO 13485 only',
     monthly: 320000,
