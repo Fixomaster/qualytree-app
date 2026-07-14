@@ -159,7 +159,23 @@ export default function Onboarding() {
   const progress = Math.round((doneCount / STEPS.length) * 100)
   const cur = STEPS[step]
 
-  const goStep = (i) => { if (i > step && !stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); markDone(cur.key); setStep(i) }
+  // 앞 단계로 건너뛰기(상단 STEP 탭 클릭) 시, 현재 단계뿐 아니라 건너뛰는 모든 중간 단계의
+  // 필수 입력(예: STEP2 제품 등록)도 검증한다. 미완료 단계가 있으면 그 단계로 이동시키고 막는다.
+  const goStep = (i) => {
+    if (i > step) {
+      for (let s2 = step; s2 < i; s2++) {
+        if (!stepValid(state, STEPS[s2].key)) {
+          setStepError(stepErrorMessage(STEPS[s2].key))
+          markDone(STEPS[s2].key)
+          setStep(s2)
+          return
+        }
+      }
+    }
+    setStepError('')
+    markDone(cur.key)
+    setStep(i)
+  }
   const goNext = () => {
     if (!stepValid(state, cur.key)) { setStepError(stepErrorMessage(cur.key)); return } setStepError(''); if (step < STEPS.length - 1) { markDone(cur.key); setStep(step + 1) }
     else finishOnboarding()
