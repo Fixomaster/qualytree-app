@@ -18,6 +18,7 @@ import { permissions, requirePermission } from '../../lib/permissions'
 import { companyDocs, DOC_CATEGORY, QM_STATUS } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
+import OrgChartDiagram from '../../components/OrgChartDiagram'
 
 export default function CompanyHub() {
   const user = auth.current()
@@ -291,7 +292,12 @@ function OrgTab({ departments, onAction, refresh }) {
   }
 
   return (
-    <div className="grid lg:grid-cols-[280px_1fr] gap-5">
+    <div className="space-y-5">
+      <div className="card-base p-3">
+        <div className="text-[12px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>조직도</div>
+        <OrgChartDiagram departments={departments} />
+      </div>
+      <div className="grid lg:grid-cols-[280px_1fr] gap-5">
       <div className="space-y-1.5">
         {departments.map((d) => {
           const rd = companyDocs.getRoleDoc(d.id)
@@ -307,6 +313,7 @@ function OrgTab({ departments, onAction, refresh }) {
       </div>
       <div>
         {sel ? <RoleDocForm key={sel.id} dept={sel} canEdit={canEdit} onAction={onAction} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 부서를 선택하세요." />}
+      </div>
       </div>
     </div>
   )
