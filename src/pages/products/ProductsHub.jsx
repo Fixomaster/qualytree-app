@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Circle,
   Sparkles,
+  Upload,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -40,6 +41,7 @@ import {
   licensedProgressOf,
   productModels,
 } from '../../lib/productLifecycleState'
+import { extractLicenseFromPdf } from '../../lib/licenseExtract'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -661,35 +663,103 @@ function DesignStagePanel({ product, onAction }) {
 }
 
 function AddProductPanel({ onCancel, onSaved }) {
-  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '', licenseNo: '' }
+  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '', licenseNo: '', issueDate: '' }
   const [kind, setKind] = useState(PRODUCT_KIND.LICENSED)
   const [form, setForm] = useState(EMPTY)
   const [reason, setReason] = useState('')
+  const [draftModels, setDraftModels] = useState([])
+  const [extracting, setExtracting] = useState(false)
+  const [extractedFileName, setExtractedFileName] = useState('')
+  const [extractNote, setExtractNote] = useState('')
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const isNew = kind === PRODUCT_KIND.NEW
+  const mkId = () => 'd' + Math.random().toString(36).slice(2, 9)
+
+  const onPdfSelected = async (file) => {
+    if (!file) return
+    setExtracting(true)
+    setExtractNote('')
+    try {
+      const r = await extractLicenseFromPdf(file)
+      if (!r) {
+        setExtractNote('PDF에서 자동으로 추출하지 못했습니다 — 아래 항목을 직접 입력해주세요.')
+      } else {
+        setForm((f) => ({
+          ...f,
+          itemName: r.itemName || f.itemName,
+          classNo: r.classNo || f.classNo,
+          grade: r.grade || f.grade,
+          licenseNo: r.licenseNo || f.licenseNo,
+          issueDate: r.issueDate || f.issueDate,
+        }))
+        if (r.models && r.models.length) {
+          setDraftModels(r.models.map((m) => ({ id: mkId(), code: m.code || '', name: m.name || '' })))
+        }
+        setExtractNote(`AI 추출 완료 · 모델 ${r.models ? r.models.length : 0}개 — 아래 내용을 검토 후 수정하세요.`)
+      }
+    } finally {
+      setExtractedFileName(file.name)
+      setExtracting(false)
+    }
+  }
+
+  const addDraftModel = () => setDraftModels((list) => [...list, { id: mkId(), code: '', name: '' }])
+  const updateDraftModel = (id, patch) => setDraftModels((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)))
+  const removeDraftModel = (id) => setDraftModels((list) => list.filter((m) => m.id !== id))
 
   const save = () => {
-    if (!form.name.trim()) {
-      alert('제품명은 필수입니다.')
-      return
+    if (isNew) {
+      if (!form.name.trim()) { alert('제품명은 필수입니다.'); return }
+    } else {
+      if (!form.licenseNo.trim()) { alert('허가번호는 필수입니다.'); return }
+      if (!form.itemName.trim()) { alert('품목명은 필수입니다.'); return }
+      if (!form.classNo.trim()) { alert('식약처 분류번호는 필수입니다.'); return }
     }
-    if (!reason.trim()) {
+    const autoReason = !isNew && form.licenseNo.trim() ? `허가번호 ${form.licenseNo.trim()} 기준 신규 등록` : ''
+    const finalReason = reason.trim() || autoReason
+    if (!finalReason) {
       alert((isNew ? '등록' : '추가') + ' 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
       return
     }
-    const { licenseNo, ...rest } = form
+
     const productId = 'prod-' + Date.now()
+    const productName = isNew ? form.name.trim() : (form.name.trim() || form.itemName.trim())
     const newProduct = isNew
-      ? { name: form.name.trim(), itemName: form.itemName, classNo: form.classNo, cat1: form.cat1, cat2: form.cat2, id: productId, kind: PRODUCT_KIND.NEW, designSteps: DESIGN_STAGES.map(() => false) }
-      : { ...rest, id: productId, name: form.name.trim(), kind: PRODUCT_KIND.LICENSED }
+      ? { name: productName, itemName: form.itemName, classNo: form.classNo, cat1: form.cat1, cat2: form.cat2, id: productId, kind: PRODUCT_KIND.NEW, designSteps: DESIGN_STAGES.map(() => false) }
+      : {
+          name: productName,
+          itemName: form.itemName,
+          classNo: form.classNo,
+          grade: form.grade,
+          cat1: form.cat1,
+          cat2: form.cat2,
+          etc: form.etc,
+          contact: form.contact,
+          software: form.software,
+          track: form.track,
+          modelNumber: form.modelNumber,
+          intendedUse: form.intendedUse,
+          id: productId,
+          kind: PRODUCT_KIND.LICENSED,
+        }
 
     const ob = onboarding.load()
     const list = Array.isArray(ob.products) ? ob.products.slice() : []
     list.push(newProduct)
     onboarding.save({ ...ob, products: list })
 
-    if (!isNew && licenseNo.trim()) {
-      productDocs.addLicense(productKeyOf(newProduct), { licenseNo: licenseNo.trim(), productName: newProduct.name })
+    if (!isNew && form.licenseNo.trim()) {
+      productDocs.addLicense(productKeyOf(newProduct), {
+        licenseNo: form.licenseNo.trim(),
+        productName: newProduct.name,
+        issueDate: form.issueDate.trim(),
+      })
+    }
+    if (!isNew && draftModels.length) {
+      const key = productKeyOf(newProduct)
+      draftModels
+        .filter((m) => m.code.trim() || m.name.trim())
+        .forEach((m) => productModels.add(key, { code: m.code.trim(), spec: m.name.trim() }))
     }
 
     commitChange({
@@ -697,7 +767,7 @@ function AddProductPanel({ onCancel, onSaved }) {
       action: CHANGE_ACTIONS.CREATE,
       before: null,
       after: newProduct,
-      reason: reason.trim(),
+      reason: finalReason,
     })
 
     onSaved(newProduct)
@@ -705,16 +775,16 @@ function AddProductPanel({ onCancel, onSaved }) {
 
   return (
     <div className="card-base p-5">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <span
-          className="font-mono text-[10px] tracking-[0.18em] uppercase"
-          style={{ color: 'var(--moss)' }}
-        >
-          PRODUCT MASTER · 신규 등록
-        </span>
-        <button onClick={onCancel} className="btn-ghost text-[12px]">
-          취소
-        </button>
+      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
+            PROD · 제품 등록 · {isNew ? '신규' : '기허가'}
+          </span>
+          <div className="mt-0.5 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+            제품·공정 <ChevronRight size={11} className="inline align-[-1px]" /> 제품 등록 <ChevronRight size={11} className="inline align-[-1px]" /> {isNew ? '신규 개발 제품 등록' : '기허가 제품 등록'}
+          </div>
+        </div>
+        <button onClick={onCancel} className="btn-ghost text-[12px]">취소</button>
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -725,7 +795,7 @@ function AddProductPanel({ onCancel, onSaved }) {
           style={!isNew ? { background: 'var(--leaf-soft)', color: 'var(--moss)', border: '1.5px solid var(--moss)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
         >
           기허가 제품
-          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>이미 허가를 받은 제품 — 허가정보 입력으로 등록</div>
+          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>이미 허가를 받은 제품 — 허가증 PDF로 자동 등록</div>
         </button>
         <button
           type="button"
@@ -739,60 +809,121 @@ function AddProductPanel({ onCancel, onSaved }) {
       </div>
 
       {isNew ? (
-        <div
-          className="grid md:grid-cols-2 gap-4 pt-3"
-          style={{ borderTop: '1px solid var(--line)' }}
-        >
+        <div className="grid md:grid-cols-2 gap-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
           <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 신규 와이어 제품" required />
           <FieldEdit label="품목명 (식약처, 예정)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="예정 품목명 (미확정 시 비워두세요)" />
           <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
           <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
         </div>
       ) : (
-        <div
-          className="grid md:grid-cols-2 gap-4 pt-3"
-          style={{ borderTop: '1px solid var(--line)' }}
-        >
-          <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 골절합용 나사" required />
-          <FieldEdit label="품목명 (식약처)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="식약처 품목명" />
-          <FieldEdit label="허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="예: 제허 2024-00123" />
-          <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
-          <FieldEdit label="분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" />
-          <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
-          <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
-          <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
-          <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
-          {(form.cat1 === '기타' || form.cat2 === '기타') && (
-            <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
-          )}
-          <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
-          <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
-          <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+        <div className="space-y-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="rounded-xl p-4 text-center" style={{ border: '1.5px dashed var(--line)', background: 'var(--bg-soft)' }}>
+            <input
+              id="license-pdf-input"
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => onPdfSelected(e.target.files && e.target.files[0])}
+            />
+            <label htmlFor="license-pdf-input" className="cursor-pointer inline-flex flex-col items-center gap-1.5">
+              <Upload size={22} style={{ color: 'var(--moss)' }} />
+              <span className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
+                {extracting ? 'AI가 허가증을 분석하는 중…' : '허가증 PDF 업로드'}
+              </span>
+              <span className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
+                업로드하면 AI가 품목명 · 분류번호 · 등급 · 허가번호 · 허가일과 모델 목록을 자동으로 채웁니다
+              </span>
+            </label>
+            {extractedFileName && (
+              <div className="mt-2 text-[11.5px] font-mono" style={{ color: 'var(--ink-mute)' }}>{extractedFileName}</div>
+            )}
+            {extractNote && (
+              <div className="mt-2 text-[11.5px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                <Sparkles size={12} /> {extractNote}
+              </div>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <FieldEdit label="허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="예: 제허 2024-00123" required />
+            <FieldEdit
+              label="품목명 (식약처)"
+              value={form.itemName}
+              onChange={(v) => { setF('itemName', v); if (!form.name.trim()) setF('name', v) }}
+              placeholder="식약처 품목명"
+              required
+            />
+            <FieldEdit label="식약처 분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" required />
+            <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
+            <FieldEdit label="허가일" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
+            <FieldEdit label="제품명 (내부 관리명, 선택)" value={form.name} onChange={(v) => setF('name', v)} placeholder="비워두면 품목명을 사용합니다" />
+          </div>
+
+          <details className="text-[12.5px]">
+            <summary className="cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>추가 항목 (모델번호 · 업종 · 접촉 · SW 등) — 필요 시 펼치기</summary>
+            <div className="grid md:grid-cols-2 gap-4 pt-3">
+              <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
+              <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
+              <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
+              <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+              {(form.cat1 === '기타' || form.cat2 === '기타') && (
+                <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
+              )}
+              <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
+              <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
+              <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+            </div>
+          </details>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>
+                모델 목록{draftModels.length > 0 ? ` (${draftModels.length}개)` : ''}
+              </span>
+              <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> 행 추가</button>
+            </div>
+            {draftModels.length === 0 ? (
+              <div className="text-center py-6 text-[12px] rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+                PDF를 업로드하면 모델 목록이 자동으로 채워집니다. 직접 추가할 수도 있습니다.
+              </div>
+            ) : (
+              <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 text-[10.5px] font-mono uppercase tracking-wide" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+                  <span>모델 코드</span>
+                  <span>모델명 / 비고</span>
+                  <span></span>
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {draftModels.map((m) => (
+                    <div key={m.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 items-center" style={{ borderTop: '1px solid var(--line)' }}>
+                      <input value={m.code} onChange={(e) => updateDraftModel(m.id, { code: e.target.value })} className="input-base text-[12.5px] font-mono" placeholder="모델코드" />
+                      <input value={m.name} onChange={(e) => updateDraftModel(m.id, { name: e.target.value })} className="input-base text-[12.5px]" placeholder="모델명 / 규격" />
+                      <button onClick={() => removeDraftModel(m.id)} style={{ color: 'var(--ink-faint)' }}><Trash2 size={13} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       <div className="pt-3">
         <FieldEdit
-          label={(isNew ? '등록' : '추가') + ' 사유 (CCR 필수 — ISO 13485 §4.2.4)'}
+          label={(isNew ? '등록' : '추가') + ' 사유 (CCR — ISO 13485 §4.2.4)' + (!isNew ? ' · 비워두면 허가번호 기준으로 자동 기록' : '')}
           value={reason}
           onChange={setReason}
-          placeholder="예: 신규 라인업 출시 / 제품 포트폴리오 확장"
-          required
+          placeholder={isNew ? '예: 신규 라인업 출시 / 제품 포트폴리오 확장' : '비워두면 자동 기록됩니다 (직접 입력 가능)'}
+          required={isNew}
         />
       </div>
 
       <div className="flex justify-end gap-2 pt-3">
-        <button onClick={onCancel} className="btn-ghost">
-          취소
-        </button>
-        <button onClick={save} className="btn-primary">
-          {isNew ? '설계 계획 시작' : '추가'} · CCR 발의
-        </button>
+        <button onClick={onCancel} className="btn-ghost">← 이전</button>
+        <button onClick={save} className="btn-primary">{isNew ? '설계 계획 시작' : '등록 완료'} · CCR 발의</button>
       </div>
 
-      <ComplianceFooter
-        regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']}
-      />
+      <ComplianceFooter regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']} />
     </div>
   )
 }
@@ -1736,6 +1867,7 @@ function FieldEdit({
   multiline,
   placeholder,
   required,
+  type,
 }) {
   return (
     <div>
@@ -1756,7 +1888,7 @@ function FieldEdit({
         />
       ) : (
         <input
-          type="text"
+          type={type || 'text'}
           value={value || ''}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
