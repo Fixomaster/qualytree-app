@@ -1,10 +1,8 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard,
   PackageSearch,
   Workflow,
-  ShieldCheck,
   FileCheck2,
   FileText,
   Settings,
@@ -21,7 +19,7 @@ import Logo from './Logo'
 import { auth } from '../lib/auth'
 
 const NAV = [
-  { to: '/dashboard',    label: '대시보드',   en: 'Dashboard',           icon: LayoutDashboard, area: 'ENT' },
+  { to: '/monitoring',   label: '모니터링',   en: 'Monitoring',          icon: BarChart2,       area: 'MON' },
   { to: '/products',     label: '제품·공정',  en: 'Products & Processes', icon: PackageSearch,   area: 'DEV' },
   { to: '/sales',        label: '영업',        en: 'Sales',               icon: ShoppingCart,    area: 'SAL' },
   { to: '/purchase',     label: '구매자재',   en: 'Purchase & Materials', icon: Package,         area: 'PUR' },
@@ -32,7 +30,6 @@ const NAV = [
   { to: '/documents',    label: '품질 문서',  en: 'Documents',           icon: FileText,        area: 'DOC' },
   { to: '/regulatory',   label: '인허가',      en: 'Regulatory',          icon: FileCheck2,      area: 'RA'  },
   { to: '/tree',         label: 'Quality Tree',en: 'Quality Tree',        icon: GitBranch,       area: 'TREE'},
-  { to: '/monitoring',   label: '모니터링',   en: 'Monitoring',          icon: BarChart2,       area: 'MON' },
 ]
 
 const FOOT = [
