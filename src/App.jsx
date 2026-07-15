@@ -15,31 +15,23 @@ import InspectionStages from './pages/operations/InspectionStages'
 import QualityHub from './pages/quality/QualityHub'
 import QualityTree from './pages/tree/QualityTree'
 import ProductsHub from './pages/products/ProductsHub'
-import EquipmentHub from './pages/equipment/EquipmentHub'
-import SupplierHub from './pages/suppliers/SupplierHub'
-import AuditHub from './pages/audit/AuditHub'
-import CompanyHub from './pages/company/CompanyHub'
-import TrainingHub from './pages/training/TrainingHub'
-import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
-import LogisticsHub from './pages/logistics/LogisticsHub'
-import KgmpHub from './pages/kgmp/KgmpHub'
-import ForeignManufacturerHub from './pages/importgmp/ForeignManufacturerHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
+import SalesHub from './pages/sales/SalesHub'
+import PurchaseHub from './pages/purchase/PurchaseHub'
+import ManufacturingHub from './pages/manufacturing/ManufacturingHub'
+import EquipmentHub from './pages/equipment/EquipmentHub'
+import MonitoringHub from './pages/monitoring/MonitoringHub'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
-  if (!auth.isSignedIn()) {
-    return <Navigate to="/login" replace />
-  }
+  if (!auth.isSignedIn()) return <Navigate to="/login" replace />
   return children
 }
 
 function PublicRoute({ children }) {
-  if (auth.isSignedIn()) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -47,194 +39,30 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <Login />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/signup"
-        element={
-          <PublicRoute>
-            <Signup />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/signup/success"
-        element={
-          <PublicRoute>
-            <SignupSuccess />
-          </PublicRoute>
-        }
-      />
-        <Route path="/operator" element={<OperatorConsole />} />
-        <Route path="/operator/plans" element={<PlanAdmin />} />
-        <Route path="/manager/accounts" element={<MemberAdmin />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/section/:cardId"
-        element={
-          <ProtectedRoute>
-            <GMPSection />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/onboarding"
-        element={
-          <ProtectedRoute>
-            <Onboarding />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/operations"
-        element={
-          <ProtectedRoute>
-            <WorkOrderQueue />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/operations/:woId/ebr"
-        element={
-          <ProtectedRoute>
-            <EBatchRecord />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/operations/:woId/inspection"
-        element={
-          <ProtectedRoute>
-            <InspectionStages />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/quality"
-        element={
-          <ProtectedRoute>
-            <QualityHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/tree"
-        element={
-          <ProtectedRoute>
-            <QualityTree />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/products"
-        element={
-          <ProtectedRoute>
-            <ProductsHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/equipment"
-        element={
-          <ProtectedRoute>
-            <EquipmentHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/suppliers"
-        element={
-          <ProtectedRoute>
-            <SupplierHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/audit"
-        element={
-          <ProtectedRoute>
-            <AuditHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/company"
-        element={
-          <ProtectedRoute>
-            <CompanyHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/training"
-        element={
-          <ProtectedRoute>
-            <TrainingHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/management-review"
-        element={
-          <ProtectedRoute>
-            <ManagementReviewHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/logistics"
-        element={
-          <ProtectedRoute>
-            <LogisticsHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/kgmp"
-        element={
-          <ProtectedRoute>
-            <KgmpHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/foreign-manufacturers"
-        element={
-          <ProtectedRoute>
-            <ForeignManufacturerHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/regulatory"
-        element={
-          <ProtectedRoute>
-            <RegulatoryHub />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/documents"
-        element={
-          <ProtectedRoute>
-            <Documents />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+      <Route path="/signup/success" element={<PublicRoute><SignupSuccess /></PublicRoute>} />
+      <Route path="/operator" element={<OperatorConsole />} />
+      <Route path="/operator/plans" element={<PlanAdmin />} />
+      <Route path="/manager/accounts" element={<MemberAdmin />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/section/:cardId" element={<ProtectedRoute><GMPSection /></ProtectedRoute>} />
+      <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+      <Route path="/operations" element={<ProtectedRoute><WorkOrderQueue /></ProtectedRoute>} />
+      <Route path="/operations/:woId/ebr" element={<ProtectedRoute><EBatchRecord /></ProtectedRoute>} />
+      <Route path="/operations/:woId/inspection" element={<ProtectedRoute><InspectionStages /></ProtectedRoute>} />
+      <Route path="/quality" element={<ProtectedRoute><QualityHub /></ProtectedRoute>} />
+      <Route path="/tree" element={<ProtectedRoute><QualityTree /></ProtectedRoute>} />
+      <Route path="/products" element={<ProtectedRoute><ProductsHub /></ProtectedRoute>} />
+      <Route path="/regulatory" element={<ProtectedRoute><RegulatoryHub /></ProtectedRoute>} />
+      <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/preview" element={<PreviewHub />} />
+      {/* 신규 모듈 */}
+      <Route path="/sales" element={<ProtectedRoute><SalesHub /></ProtectedRoute>} />
+      <Route path="/purchase" element={<ProtectedRoute><PurchaseHub /></ProtectedRoute>} />
+      <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingHub /></ProtectedRoute>} />
+      <Route path="/equipment" element={<ProtectedRoute><EquipmentHub /></ProtectedRoute>} />
+      <Route path="/monitoring" element={<ProtectedRoute><MonitoringHub /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
