@@ -6,7 +6,6 @@ import SignupSuccess from './pages/SignupSuccess'
 import OperatorConsole from './pages/OperatorConsole'
 import PlanAdmin from './pages/operator/PlanAdmin'
 import MemberAdmin from './pages/manager/MemberAdmin'
-import Dashboard from './pages/Dashboard'
 import GMPSection from './pages/section/GMPSection'
 import Onboarding from './pages/onboarding/Onboarding'
 import WorkOrderQueue from './pages/operations/WorkOrderQueue'
@@ -31,21 +30,20 @@ function ProtectedRoute({ children }) {
 }
 
 function PublicRoute({ children }) {
-  if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
+  if (auth.isSignedIn()) return <Navigate to="/monitoring" replace />
   return children
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/monitoring" replace />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
       <Route path="/signup/success" element={<PublicRoute><SignupSuccess /></PublicRoute>} />
       <Route path="/operator" element={<OperatorConsole />} />
       <Route path="/operator/plans" element={<PlanAdmin />} />
       <Route path="/manager/accounts" element={<MemberAdmin />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/section/:cardId" element={<ProtectedRoute><GMPSection /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/operations" element={<ProtectedRoute><WorkOrderQueue /></ProtectedRoute>} />
@@ -63,7 +61,7 @@ export default function App() {
       <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingHub /></ProtectedRoute>} />
       <Route path="/equipment" element={<ProtectedRoute><EquipmentHub /></ProtectedRoute>} />
       <Route path="/monitoring" element={<ProtectedRoute><MonitoringHub /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/monitoring" replace />} />
     </Routes>
   )
 }
