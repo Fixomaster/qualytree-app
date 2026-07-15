@@ -9,12 +9,17 @@ import {
   Plus,
   Trash2,
   ChevronRight,
+  ChevronLeft,
   Search,
   AlertCircle,
   GitBranch,
   History,
   ArrowRight,
   FileText,
+  Layers,
+  CheckCircle2,
+  Circle,
+  Sparkles,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -26,6 +31,15 @@ import { commitChange, CHANGE_ACTIONS, getRecordsForEntity } from '../../lib/cha
 import { ENTITY_TYPES, eid } from '../../lib/entityRegistry'
 import ProductDocumentsPanel from './ProductDocumentsPanel'
 import { productDocs } from '../../lib/productDocsState'
+import {
+  PRODUCT_KIND,
+  productKind,
+  DESIGN_STAGES,
+  designStepsOf,
+  designProgressOf,
+  licensedProgressOf,
+  productModels,
+} from '../../lib/productLifecycleState'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -101,6 +115,15 @@ export default function ProductsHub() {
   const hasOnboarding = !!(company?.name) || products.length > 0
   const canEditProduct = permissions.can('onb.product.edit')
   const [addingProduct, setAddingProduct] = useState(false)
+  // 제품 탭 전용: 카드 그리드(목록) ↔ 상세(기본정보/모델 목록/설계 계획) 전환
+  const [productView, setProductView] = useState('grid') // grid | detail
+  const [detailTab, setDetailTab] = useState('info') // info | models | design
+  const openProduct = (p, tabName) => {
+    setSelId(p.id || 'main')
+    setDetailTab(tabName || 'info')
+    setProductView('detail')
+    setAddingProduct(false)
+  }
 
   return (
     <AppLayout
@@ -216,51 +239,50 @@ export default function ProductsHub() {
             {/* 탭 내용 */}
             {tab === 'product' && (
               <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  {products.length > 1 ? (
-                    <div className="flex gap-1.5 flex-wrap">
-                      {products.map((p) => {
-                        const on = (p.id || 'main') === (product?.id || 'main')
-                        return (
-                          <button
-                            key={p.id || 'main'}
-                            onClick={() => { setSelId(p.id || 'main'); setAddingProduct(false) }}
-                            className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
-                            style={{
-                              background: on ? 'var(--moss)' : 'var(--bg-soft)',
-                              color: on ? 'var(--bg)' : 'var(--ink-mute)',
-                            }}
-                          >
-                            {p.name || '(이름없음)'}{p.grade ? ' · ' + p.grade + '등급' : ''}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ) : <div />}
-                  {canEditProduct && !addingProduct && (
-                    <button onClick={() => setAddingProduct(true)} className="btn-ghost text-[12px]">
-                      <Plus size={12} /> 제품 추가
-                    </button>
-                  )}
-                </div>
+                {productView === 'grid' && !addingProduct && (
+                  <ProductCardGrid
+                    products={products}
+                    onOpen={openProduct}
+                    canEdit={canEditProduct}
+                    onAdd={() => setAddingProduct(true)}
+                  />
+                )}
                 {addingProduct && (
                   <AddProductPanel
                     onCancel={() => setAddingProduct(false)}
-                    onSaved={() => {
+                    onSaved={(p) => {
                       setAddingProduct(false)
-                      showToast('제품이 추가되었습니다 · CCR 자동 발의')
+                      showToast(productKind(p) === PRODUCT_KIND.NEW ? '신규 제품이 등록되었습니다 · 설계 계획을 시작하세요 · CCR 자동 발의' : '제품이 등록되었습니다 · CCR 자동 발의')
                       setTimeout(() => window.location.reload(), 600)
                     }}
                   />
                 )}
-                {!addingProduct && (
+                {productView === 'detail' && !addingProduct && (
                   product ? (
-                    <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <button onClick={() => setProductView('grid')} className="btn-ghost text-[12px]">
+                          <ChevronLeft size={13} /> 제품 목록으로
+                        </button>
+                        <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--bg-soft)' }}>
+                          <DetailTabBtn active={detailTab === 'info'} onClick={() => setDetailTab('info')} label="기본정보" />
+                          <DetailTabBtn active={detailTab === 'models'} onClick={() => setDetailTab('models')} label="모델 목록" count={productModels.getForProduct(productKeyOf(product)).length} />
+                          {productKind(product) === PRODUCT_KIND.NEW && (
+                            <DetailTabBtn active={detailTab === 'design'} onClick={() => setDetailTab('design')} label="설계 계획" />
+                          )}
+                        </div>
+                      </div>
+                      {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />}
+                      {detailTab === 'models' && <ModelListPanel key={'models-' + (product?.id || 'main')} product={product} onAction={showToast} />}
+                      {detailTab === 'design' && productKind(product) === PRODUCT_KIND.NEW && (
+                        <DesignStagePanel key={'design-' + (product?.id || 'main')} product={product} onAction={showToast} />
+                      )}
+                    </div>
                   ) : (
                     <div className="card-base p-6 text-center" style={{ borderStyle: 'dashed' }}>
                       <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
                       <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>등록된 제품이 없습니다</div>
-                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>위의 '제품 추가' 버튼으로 첫 제품을 등록하세요.</div>
+                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'제품 등록' 버튼으로 첫 제품을 등록하세요.</div>
                     </div>
                   )
                 )}
@@ -328,11 +350,323 @@ function TabButton({ active, onClick, icon: Icon, label, en, count }) {
 /* ================================================================
    PROD-001 제품 패널
    ================================================================ */
+
+/* ================================================================
+   제품 카드 그리드 — 제품 탭 기본 화면 (기허가/신규 카드 + 페이지네이션)
+   ================================================================ */
+function DetailTabBtn({ active, onClick, label, count }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-md text-[12.5px] font-medium transition flex items-center gap-1.5"
+      style={active ? { background: 'var(--bg-card)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(15,26,20,0.12)' } : { color: 'var(--ink-mute)' }}
+    >
+      {label}
+      {typeof count === 'number' && (
+        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: active ? 'var(--leaf-soft)' : 'var(--bg-soft)', color: active ? 'var(--moss)' : 'var(--ink-faint)' }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}
+
+const PRODUCT_PAGE_SIZE = 9
+
+function ProductCardGrid({ products, onOpen, canEdit, onAdd }) {
+  const [page, setPage] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCT_PAGE_SIZE))
+  const pageItems = products.slice(page * PRODUCT_PAGE_SIZE, page * PRODUCT_PAGE_SIZE + PRODUCT_PAGE_SIZE)
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-start gap-2 text-[12px] px-3 py-2 rounded-lg flex-1 min-w-[280px]" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <span>기허가 제품은 허가 정보 입력으로 등록하고, 신규 개발 제품은 설계 계획부터 시작합니다.</span>
+        </div>
+        {canEdit && (
+          <button onClick={onAdd} className="btn-primary text-[12.5px] shrink-0">
+            <Plus size={13} /> 제품 등록
+          </button>
+        )}
+      </div>
+
+      {products.length === 0 ? (
+        <div className="card-base p-8 text-center" style={{ borderStyle: 'dashed' }}>
+          <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
+          <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>등록된 제품이 없습니다</div>
+          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'제품 등록' 버튼으로 첫 제품을 등록하세요.</div>
+        </div>
+      ) : (
+        <>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pageItems.map((p) => (
+              <ProductCard key={p.id || p.name} product={p} onOpen={onOpen} />
+            ))}
+          </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button onClick={() => setPage((x) => Math.max(0, x - 1))} disabled={page === 0} className="btn-ghost text-[12px] disabled:opacity-30">
+                <ChevronLeft size={13} /> 이전
+              </button>
+              <span className="font-mono text-[12px]" style={{ color: 'var(--ink-mute)' }}>{page + 1} / {totalPages}</span>
+              <button onClick={() => setPage((x) => Math.min(totalPages - 1, x + 1))} disabled={page >= totalPages - 1} className="btn-ghost text-[12px] disabled:opacity-30">
+                다음 <ChevronRight size={13} />
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ProductCard({ product, onOpen }) {
+  const key = productKeyOf(product)
+  const kind = productKind(product)
+  const isNew = kind === PRODUCT_KIND.NEW
+  const models = productModels.getForProduct(key)
+
+  const licProg = !isNew ? licensedProgressOf(product, key) : null
+  const desProg = isNew ? designProgressOf(product) : null
+  const pct = isNew ? desProg.pct : licProg.pct
+
+  return (
+    <div className="card-base p-4 flex flex-col gap-3" style={isNew ? { borderColor: 'var(--amber)' } : undefined}>
+      <div>
+        <span
+          className="inline-block text-[10.5px] font-medium px-2 py-0.5 rounded-full mb-2"
+          style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)' } : { background: 'var(--leaf-soft)', color: 'var(--moss)' }}
+        >
+          {isNew ? '신규' : '기허가'}
+        </span>
+        <div className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--ink)' }}>{product.name || '(이름없음)'}</div>
+        <div className="font-mono text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{product.classNo || product.itemName || '\u2014'}</div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-[11.5px] pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+        <div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>등급</div>
+          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{product.grade ? product.grade + '등급' : (isNew ? '3등급 예정' : '\uBBF8\uBD84\uB958')}</div>
+        </div>
+        <div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>허가번호</div>
+          <div className="mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{isNew ? '설계 진행중' : (licProg.primaryLicense?.licenseNo || '미등록')}</div>
+        </div>
+        <div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>모델 수</div>
+          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{isNew ? '개발중' : (models.length ? models.length + '개' : '0개')}</div>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex items-center justify-between text-[11px] mb-1">
+          <span style={{ color: 'var(--ink-mute)' }}>{isNew ? '설계 진행률' : '등록 완료'}</span>
+          <span className="font-mono font-medium" style={{ color: isNew ? 'var(--amber)' : 'var(--moss)' }}>{pct}%</span>
+        </div>
+        <div className="h-1.5 rounded-full w-full" style={{ background: 'var(--bg-soft)' }}>
+          <div className="h-1.5 rounded-full" style={{ width: pct + '%', background: isNew ? 'var(--amber)' : 'var(--moss)' }} />
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={() => onOpen(product, 'models')} className="btn-ghost text-[12px] flex-1 justify-center">
+          모델 목록 <ArrowRight size={12} />
+        </button>
+        {isNew ? (
+          <button onClick={() => onOpen(product, 'design')} className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex-1 flex items-center justify-center gap-1" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
+            설계 계속 <ArrowRight size={12} />
+          </button>
+        ) : (
+          <button onClick={() => onOpen(product, 'info')} className="btn-primary text-[12px] flex-1 justify-center">
+            설계 변경 <ArrowRight size={12} />
+          </button>
+        )}
+      </div>
+
+      {isNew ? (
+        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--amber-soft)' }}>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--amber)' }}>현재 단계</div>
+          <div className="text-[12.5px] font-medium mt-0.5" style={{ color: 'var(--ink)' }}>{desProg.currentLabel}</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{desProg.done} / {desProg.total} 단계 완료</div>
+        </div>
+      ) : (
+        <div className="rounded-lg p-2" style={{ background: 'var(--bg-soft)' }}>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase mb-1" style={{ color: 'var(--ink-faint)' }}>모델 목록 미리보기</div>
+          {models.length === 0 ? (
+            <div className="text-[11.5px] py-1" style={{ color: 'var(--ink-faint)' }}>등록된 모델이 없습니다.</div>
+          ) : (
+            <div className="space-y-0.5">
+              {models.slice(0, 3).map((m) => (
+                <div key={m.id} className="flex items-center gap-2 text-[11.5px]">
+                  <span className="font-mono shrink-0" style={{ color: 'var(--moss)' }}>{m.code || '(코드없음)'}</span>
+                  <span className="truncate" style={{ color: 'var(--ink-mute)' }}>{m.spec}</span>
+                </div>
+              ))}
+              {models.length > 3 && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>+{models.length - 3}개 더</div>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   모델(변형) 목록 패널
+   ================================================================ */
+function ModelListPanel({ product, onAction }) {
+  const key = productKeyOf(product)
+  const canEdit = permissions.can('onb.product.edit')
+  const [models, setModels] = useState(() => productModels.getForProduct(key))
+  const [code, setCode] = useState('')
+  const [spec, setSpec] = useState('')
+
+  const refresh = () => setModels(productModels.getForProduct(key))
+
+  const add = () => {
+    if (!code.trim()) { alert('모델코드는 필수입니다.'); return }
+    productModels.add(key, { code: code.trim(), spec: spec.trim() })
+    setCode(''); setSpec('')
+    refresh()
+    onAction('모델이 추가되었습니다.')
+  }
+
+  const del = (id) => {
+    if (!window.confirm('이 모델을 삭제할까요?')) return
+    productModels.remove(id)
+    refresh()
+    onAction('모델이 삭제되었습니다.')
+  }
+
+  return (
+    <div className="card-base p-5">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
+          MODEL LIST · {product.name}
+        </span>
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
+          {models.length}개 모델
+        </span>
+      </div>
+
+      {canEdit && (
+        <div className="grid md:grid-cols-[1fr_2fr_auto] gap-2 pb-3 mb-3" style={{ borderBottom: '1px solid var(--line)' }}>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="모델코드 (예: PA-SCS-3522)" className="input-base text-[13px]" />
+          <input value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="규격/설명 (예: SCS M3.5x22mm)" className="input-base text-[13px]" onKeyDown={(e) => e.key === 'Enter' && add()} />
+          <button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> 추가</button>
+        </div>
+      )}
+
+      {models.length === 0 ? (
+        <div className="text-center py-8 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>등록된 모델이 없습니다.</div>
+      ) : (
+        <div className="space-y-1.5">
+          {models.map((m) => (
+            <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+              <span className="font-mono text-[12.5px] font-medium shrink-0" style={{ color: 'var(--moss)' }}>{m.code}</span>
+              <span className="text-[12.5px] flex-1 min-w-0 truncate" style={{ color: 'var(--ink-mute)' }}>{m.spec}</span>
+              {canEdit && (
+                <button onClick={() => del(m.id)} className="shrink-0" style={{ color: 'var(--ink-faint)' }}>
+                  <Trash2 size={13} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <ComplianceFooter regs={['ISO 13485 §7.5.8 (식별)', '21 CFR 820.60']} />
+    </div>
+  )
+}
+
+/* ================================================================
+   설계 계획 패널 (신규 제품 · 9단계 설계관리 체크리스트)
+   ================================================================ */
+function DesignStagePanel({ product, onAction }) {
+  const canEdit = permissions.can('onb.product.edit')
+  const steps = designStepsOf(product)
+  const progress = designProgressOf(product)
+
+  const toggleStep = (idx) => {
+    if (!requirePermission('onb.product.edit')) return
+    const next = steps.map((s, i) => (i === idx ? !s : s))
+    const before = { ...product }
+    const after = { ...product, designSteps: next }
+
+    const ob = onboarding.load()
+    const list = Array.isArray(ob.products) ? ob.products.slice() : []
+    const pidx = list.findIndex((p) => (p.id || 'main') === (product.id || 'main'))
+    if (pidx >= 0) list[pidx] = after
+    onboarding.save({ ...ob, products: list })
+
+    commitChange({
+      targetEid: eid(ENTITY_TYPES.PRODUCT, product.id || product.classNo || 'main'),
+      action: CHANGE_ACTIONS.UPDATE,
+      before,
+      after,
+      reason: (next[idx] ? DESIGN_STAGES[idx] + ' 완료' : DESIGN_STAGES[idx] + ' 재개'),
+    })
+
+    onAction(next[idx] ? DESIGN_STAGES[idx] + ' 완료 처리되었습니다.' : DESIGN_STAGES[idx] + ' 를 다시 진행중으로 되돌렸습니다.')
+    setTimeout(() => window.location.reload(), 500)
+  }
+
+  return (
+    <div className="card-base p-5">
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--amber)' }}>
+          DESIGN PLAN · {product.name}
+        </span>
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
+          {progress.done} / {progress.total} 단계 완료 ({progress.pct}%)
+        </span>
+      </div>
+      <div className="text-[11.5px] mb-4" style={{ color: 'var(--ink-mute)' }}>ISO 13485 §7.3 설계 및 개발 — 단계를 순서대로 완료하며 진행하세요. 완료 처리마다 CCR이 자동 발의됩니다.</div>
+
+      <div className="space-y-1.5">
+        {DESIGN_STAGES.map((label, i) => {
+          const done = steps[i]
+          const current = !done && steps.slice(0, i).every(Boolean)
+          return (
+            <button
+              key={label}
+              onClick={() => canEdit && toggleStep(i)}
+              disabled={!canEdit}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition disabled:cursor-default"
+              style={{ background: current ? 'var(--amber-soft)' : 'var(--bg-soft)' }}
+            >
+              {done ? <CheckCircle2 size={17} style={{ color: 'var(--moss)' }} className="shrink-0" /> : <Circle size={17} style={{ color: current ? 'var(--amber)' : 'var(--ink-faint)' }} className="shrink-0" />}
+              <span className="text-[13px] flex-1" style={{ color: done ? 'var(--ink-mute)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
+                {i + 1}. {label}
+              </span>
+              {current && <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--amber)', color: '#fff' }}>진행중</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {progress.done === progress.total && (
+        <div className="mt-4 flex items-start gap-2 p-3 rounded-lg" style={{ background: 'var(--leaf-soft)' }}>
+          <Sparkles size={15} style={{ color: 'var(--moss)' }} className="shrink-0 mt-0.5" />
+          <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
+            설계 계획 9단계가 모두 완료되었습니다. 허가 신청을 진행한 뒤, '모델 목록'과 '문서' 탭에서 허가정보·모델을 등록하면 기허가 제품으로 전환할 수 있습니다.
+          </div>
+        </div>
+      )}
+      <ComplianceFooter regs={['ISO 13485 §7.3', '21 CFR 820.30', 'ISO 14971']} />
+    </div>
+  )
+}
+
 function AddProductPanel({ onCancel, onSaved }) {
-  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '' }
+  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '', licenseNo: '' }
+  const [kind, setKind] = useState(PRODUCT_KIND.LICENSED)
   const [form, setForm] = useState(EMPTY)
   const [reason, setReason] = useState('')
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isNew = kind === PRODUCT_KIND.NEW
 
   const save = () => {
     if (!form.name.trim()) {
@@ -340,15 +674,23 @@ function AddProductPanel({ onCancel, onSaved }) {
       return
     }
     if (!reason.trim()) {
-      alert('추가 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
+      alert((isNew ? '등록' : '추가') + ' 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
       return
     }
-    const newProduct = { ...form, id: 'prod-' + Date.now(), name: form.name.trim() }
+    const { licenseNo, ...rest } = form
+    const productId = 'prod-' + Date.now()
+    const newProduct = isNew
+      ? { name: form.name.trim(), itemName: form.itemName, classNo: form.classNo, cat1: form.cat1, cat2: form.cat2, id: productId, kind: PRODUCT_KIND.NEW, designSteps: DESIGN_STAGES.map(() => false) }
+      : { ...rest, id: productId, name: form.name.trim(), kind: PRODUCT_KIND.LICENSED }
 
     const ob = onboarding.load()
     const list = Array.isArray(ob.products) ? ob.products.slice() : []
     list.push(newProduct)
     onboarding.save({ ...ob, products: list })
+
+    if (!isNew && licenseNo.trim()) {
+      productDocs.addLicense(productKeyOf(newProduct), { licenseNo: licenseNo.trim(), productName: newProduct.name })
+    }
 
     commitChange({
       targetEid: eid(ENTITY_TYPES.PRODUCT, newProduct.id),
@@ -375,29 +717,63 @@ function AddProductPanel({ onCancel, onSaved }) {
         </button>
       </div>
 
-      <div
-        className="grid md:grid-cols-2 gap-4 pt-3"
-        style={{ borderTop: '1px solid var(--line)' }}
-      >
-        <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 골절합용 나사" required />
-        <FieldEdit label="품목명 (식약처)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="식약처 품목명" />
-        <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
-        <FieldEdit label="분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" />
-        <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
-        <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
-        <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
-        <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
-        {(form.cat1 === '기타' || form.cat2 === '기타') && (
-          <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
-        )}
-        <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
-        <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
-        <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+      <div className="flex gap-2 mb-4">
+        <button
+          type="button"
+          onClick={() => setKind(PRODUCT_KIND.LICENSED)}
+          className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
+          style={!isNew ? { background: 'var(--leaf-soft)', color: 'var(--moss)', border: '1.5px solid var(--moss)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
+        >
+          기허가 제품
+          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>이미 허가를 받은 제품 — 허가정보 입력으로 등록</div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setKind(PRODUCT_KIND.NEW)}
+          className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
+          style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)', border: '1.5px solid var(--amber)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
+        >
+          신규 개발 제품
+          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>아직 허가가 없는 개발 중 제품 — 설계 계획부터 시작</div>
+        </button>
       </div>
+
+      {isNew ? (
+        <div
+          className="grid md:grid-cols-2 gap-4 pt-3"
+          style={{ borderTop: '1px solid var(--line)' }}
+        >
+          <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 신규 와이어 제품" required />
+          <FieldEdit label="품목명 (식약처, 예정)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="예정 품목명 (미확정 시 비워두세요)" />
+          <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
+          <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+        </div>
+      ) : (
+        <div
+          className="grid md:grid-cols-2 gap-4 pt-3"
+          style={{ borderTop: '1px solid var(--line)' }}
+        >
+          <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 골절합용 나사" required />
+          <FieldEdit label="품목명 (식약처)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="식약처 품목명" />
+          <FieldEdit label="허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="예: 제허 2024-00123" />
+          <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
+          <FieldEdit label="분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" />
+          <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
+          <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
+          <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
+          <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+          {(form.cat1 === '기타' || form.cat2 === '기타') && (
+            <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
+          )}
+          <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
+          <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
+          <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+        </div>
+      )}
 
       <div className="pt-3">
         <FieldEdit
-          label="추가 사유 (CCR 필수 — ISO 13485 §4.2.4)"
+          label={(isNew ? '등록' : '추가') + ' 사유 (CCR 필수 — ISO 13485 §4.2.4)'}
           value={reason}
           onChange={setReason}
           placeholder="예: 신규 라인업 출시 / 제품 포트폴리오 확장"
@@ -410,7 +786,7 @@ function AddProductPanel({ onCancel, onSaved }) {
           취소
         </button>
         <button onClick={save} className="btn-primary">
-          추가 · CCR 발의
+          {isNew ? '설계 계획 시작' : '추가'} · CCR 발의
         </button>
       </div>
 
