@@ -25,6 +25,9 @@ import MonitoringHub from './pages/monitoring/MonitoringHub'
 import TrainingHub from './pages/training/TrainingHub'
 import KgmpHub from './pages/kgmp/KgmpHub'
 import ForeignManufacturerHub from './pages/importgmp/ForeignManufacturerHub'
+import CompanyHub from './pages/company/CompanyHub'
+import AdminHub from './pages/admin/AdminHub'
+import PermissionAdmin from './pages/admin/PermissionAdmin'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -67,6 +70,9 @@ export default function App() {
       <Route path="/training" element={<ProtectedRoute><TrainingHub /></ProtectedRoute>} />
       <Route path="/kgmp" element={<ProtectedRoute><KgmpHub /></ProtectedRoute>} />
       <Route path="/foreign-manufacturers" element={<ProtectedRoute><ForeignManufacturerHub /></ProtectedRoute>} />
+      <Route path="/company" element={<ProtectedRoute><CompanyHub /></ProtectedRoute>} />
+      <Route path="/admin" element={<ProtectedRoute><AdminHub /></ProtectedRoute>} />
+      <Route path="/admin/permissions" element={<ProtectedRoute><PermissionAdmin /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/monitoring" replace />} />
     </Routes>
   )

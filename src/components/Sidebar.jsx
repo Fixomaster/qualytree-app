@@ -21,6 +21,7 @@ import {
 import Logo from './Logo'
 import { auth } from '../lib/auth'
 import { onboarding } from '../lib/onboardingState'
+import { LEVELS } from '../lib/permissions'
 
 // 항상 보이는 기본 메뉴
 const NAV = [
@@ -48,7 +49,7 @@ const NAV_TAIL = [
 ]
 
 const FOOT = [
-  { to: '/admin', label: '관리자', icon: Settings, soon: true },
+  { to: '/admin', label: '관리자', icon: Settings, area: 'ADM' },
 ]
 
 export default function Sidebar() {
@@ -91,12 +92,16 @@ export default function Sidebar() {
           </>
         )}
 
-        <div className="px-3 mt-5 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: 'var(--ink-faint)' }}>
-          System
-        </div>
-        {FOOT.map((item) => (
-          <SidebarItem key={item.to} {...item} />
-        ))}
+        {auth.currentLevel() >= LEVELS.MANAGER && (
+          <>
+            <div className="px-3 mt-5 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: 'var(--ink-faint)' }}>
+              System
+            </div>
+            {FOOT.map((item) => (
+              <SidebarItem key={item.to} {...item} />
+            ))}
+          </>
+        )}
       </nav>
 
       <div className="p-3 border-t" style={{ borderColor: 'var(--line)' }}>

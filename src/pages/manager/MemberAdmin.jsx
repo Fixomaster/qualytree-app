@@ -6,6 +6,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import AppLayout from '../../components/AppLayout'
+import { auth } from '../../lib/auth'
 
 const ROLE_LABEL = { 1: '작업자', 2: '검사관', 3: '매니저' }
 const STATUS_LABEL = { active: '활성', pending: '승인대기', suspended: '정지', removed: '삭제됨' }
@@ -71,7 +73,7 @@ export default function MemberAdmin() {
       <div className="min-h-screen grid place-items-center px-6">
         <div className="text-center">
           <p className="text-slate-700 mb-3">{err || '매니저 권한이 필요합니다.'}</p>
-          <button onClick={() => nav('/dashboard')} className="text-emerald-700 text-sm">← 대시보드로</button>
+          <button onClick={() => nav('/monitoring')} className="text-emerald-700 text-sm">← 모니터링으로</button>
         </div>
       </div>
     )
@@ -81,11 +83,14 @@ export default function MemberAdmin() {
   const members = Array.isArray(ctx.members) ? ctx.members : []
   const pending = members.filter((m) => m.status === 'pending')
 
+  const user = auth.current()
+
   return (
-    <div className="min-h-screen bg-slate-50 px-6 py-6">
+    <AppLayout user={user} title="사용자 관리" subtitle="작업자·검사관 계정 발급 및 관리">
+    <div className="px-6 py-6">
       <div className="max-w-4xl mx-auto">
-        <button onClick={() => nav('/dashboard')} className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800 mb-3">
-          <ArrowLeft size={15} /> 대시보드로
+        <button onClick={() => nav('/admin')} className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800 mb-3">
+          <ArrowLeft size={15} /> 관리자 화면으로
         </button>
 
         <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
@@ -214,5 +219,6 @@ export default function MemberAdmin() {
         </div>
       </div>
     </div>
+    </AppLayout>
   )
 }
