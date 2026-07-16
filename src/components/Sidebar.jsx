@@ -14,14 +14,13 @@ import {
   Shield,
   Wrench,
   BarChart2,
-  GraduationCap,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
 
 const NAV = [
   { to: '/monitoring',   label: '모니터링',   en: 'Monitoring',          icon: BarChart2,       area: 'MON' },
-  { to: '/products',     label: '제품·공정',  en: 'Products & Processes', icon: PackageSearch,   area: 'DEV' },
+  { to: '/products',     label: '개발',  en: 'Development', icon: PackageSearch,   area: 'DEV' },
   { to: '/sales',        label: '영업',        en: 'Sales',               icon: ShoppingCart,    area: 'SAL' },
   { to: '/purchase',     label: '구매자재',   en: 'Purchase & Materials', icon: Package,         area: 'PUR' },
   { to: '/manufacturing',label: '생산',        en: 'Manufacturing',       icon: Cog,             area: 'MFG' },
@@ -29,7 +28,6 @@ const NAV = [
   { to: '/operations',   label: '현장 운영',  en: 'Operations',          icon: Workflow,        area: 'OPS' },
   { to: '/equipment',    label: '설비·교정',  en: 'Equipment',           icon: Wrench,          area: 'EQP' },
   { to: '/documents',    label: '품질 문서',  en: 'Documents',           icon: FileText,        area: 'DOC' },
-  { to: '/training',     label: '교육',        en: 'Training',            icon: GraduationCap,   area: 'TRN' },
   { to: '/regulatory',   label: '인허가',      en: 'Regulatory',          icon: FileCheck2,      area: 'RA'  },
   { to: '/tree',         label: 'Quality Tree',en: 'Quality Tree',        icon: GitBranch,       area: 'TREE'},
 ]
