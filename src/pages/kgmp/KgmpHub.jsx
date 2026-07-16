@@ -5,6 +5,7 @@ import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
 import KgmpSectionList from '../../components/KgmpSectionList'
+import CertGate from '../../components/CertGate'
 
 export default function KgmpHub() {
   const user = auth.current()
@@ -19,6 +20,7 @@ export default function KgmpHub() {
 
   return (
     <AppLayout user={user} title="KGMP" subtitle="국내 제조업체 GMP 인증(인허가) 신청 및 유지관리 통합 현황">
+      <CertGate certId="kgmp" label="KGMP">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         <div className="mb-5">
           <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
@@ -60,6 +62,7 @@ export default function KgmpHub() {
 
         <KgmpSectionList sections={sections} />
       </div>
+      </CertGate>
     </AppLayout>
   )
 }

@@ -25,6 +25,7 @@ import {
 } from '../../lib/foreignManufacturerState'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
 import KgmpSectionList from '../../components/KgmpSectionList'
+import CertGate from '../../components/CertGate'
 
 export default function ForeignManufacturerHub() {
   const user = auth.current()
@@ -66,6 +67,7 @@ export default function ForeignManufacturerHub() {
 
   return (
     <AppLayout user={user} title="외국제조소 · 수입 GMP" subtitle="수입업자 GMP 심사 대응 — 외국제조소 등록 / GMP 적합인정서 / 타 인증기관 실사자료">
+      <CertGate certId="kgmp_importer" label="외국제조소(수입GMP)">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in" style={{ background: 'var(--moss)', color: 'var(--bg)', boxShadow: '0 6px 20px rgba(15,26,20,0.18)', fontWeight: 500 }}>
@@ -144,6 +146,7 @@ export default function ForeignManufacturerHub() {
           <KgmpSectionList sections={kgmpSections} keyPrefix="importer-" />
         </div>
       </div>
+      </CertGate>
     </AppLayout>
   )
 }

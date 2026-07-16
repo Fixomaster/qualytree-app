@@ -280,8 +280,10 @@ function StepPlan({ state, patch }) {
   const cycle = sel.cycle || sg.cycle || 'monthly'
   const [editing, setEditing] = useState(!planId)
   const choose = (id) => {
+    // 플랜에 딸린 인증 전체(KGMP·수입GMP·ISO13485·FDA·CE 등)를 한번에 동기화한다.
+    // 예전엔 kgmp·iso13485만 반영되어 FDA/CE/수입사GMP 플랜을 골라도 해당 인증이 켜지지 않는 버그가 있었다.
     const cm = certMapForPlan(planById(id))
-    patch({ plan: { ...sel, id, cycle }, certs: { ...(state.certs || {}), kgmp: cm.kgmp, iso13485: cm.iso13485 } })
+    patch({ plan: { ...sel, id, cycle }, certs: { ...(state.certs || {}), ...cm } })
   }
   const setCycle = (c) => patch({ plan: { ...sel, id: planId, cycle: c } })
   const amount = planAmount(planId, cycle)
