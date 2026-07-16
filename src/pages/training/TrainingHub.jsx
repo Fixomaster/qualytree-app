@@ -242,6 +242,15 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
 /* ================================================================
    교육자료
    ================================================================ */
+// 홈페이지(qualy-tree.com)에 표기된 대응 규제·표준과 백서 주제 — 교육자료 등록 시 빠른 선택용 추천값
+const SUGGESTED_CATEGORIES = ['ISO 13485:2016', 'FDA QMSR', 'EU MDR', 'KGMP', '21 CFR Part 11', 'GAMP 5']
+const SUGGESTED_TITLES = [
+  'MDR 전환 가이드',
+  'KGMP↔QMSR 매핑표',
+  'ISO 13485 신규 입사자 기초교육',
+  '21 CFR Part 11 전자기록·전자서명 교육',
+]
+
 function MaterialTab({ materials: allMaterials, onAction, refresh }) {
   const canEdit = permissions.can('training.material.edit')
   const [form, setForm] = useState({ title: '', category: '' })
@@ -287,6 +296,26 @@ function MaterialTab({ materials: allMaterials, onAction, refresh }) {
           <div className="grid sm:grid-cols-2 gap-2">
             <Field label="자료명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: ISO 13485 개정판 교육자료" />
             <Field label="분류" value={form.category} onChange={(v) => setF('category', v)} placeholder="예: QMS / 공정 / 안전" />
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10.5px] shrink-0" style={{ color: 'var(--ink-faint)' }}>추천 자료명</span>
+              {SUGGESTED_TITLES.map((t) => (
+                <button key={t} type="button" onClick={() => setF('title', t)} className="text-[11px] px-2 py-0.5 rounded-full transition"
+                  style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10.5px] shrink-0" style={{ color: 'var(--ink-faint)' }}>추천 분류</span>
+              {SUGGESTED_CATEGORIES.map((c) => (
+                <button key={c} type="button" onClick={() => setF('category', c)} className="text-[11px] px-2 py-0.5 rounded-full transition"
+                  style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                  {c}
+                </button>
+              ))}
+            </div>
           </div>
           <input ref={ref} type="file" className="hidden" onChange={upload} />
           <button onClick={() => ref.current && ref.current.click()} disabled={busy} className="btn-ghost text-[12.5px]"><Paperclip size={13} /> {busy ? '업로드 중…' : '파일 업로드'}</button>
