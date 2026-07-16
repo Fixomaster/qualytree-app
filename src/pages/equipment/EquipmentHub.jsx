@@ -267,7 +267,7 @@ function EqpHome({instruments,history,onNavigate}){
               </div>
               <span className="text-[13px] font-bold" style={{color:card.warn?'var(--rust)':'var(--moss)'}}>{card.count}</span>
             </div>
-            <div className="text-[13.5px] font-semibold" style={{color:'var(--ink)"}}>{card.label}</div>
+            <div className="text-[13.5px] font-semibold" style={{color:'var(--ink)'}}>{card.label}</div>
             <div className="text-[12px] mt-1" style={{color:'var(--ink-mute)'}}>{card.desc}</div>
           </button>
         ))}
