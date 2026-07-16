@@ -27,10 +27,32 @@ export const DEFAULT_PLANS = [
     monthly: 150000,
     annualDiscountPct: 15,
     seats: 5,
-    certs: ['kgmp'],
+    certs: ['kgmp', 'kgmp_importer'],
     recommended: false,
     custom: false,
     features: ['외국제조소 등록·GMP 적합인정서 관리', '수입 인허가 제출 문서 자동화', '문서 AI 초안'],
+  },
+  {
+    id: 'fda',
+    name: 'FDA QMSR only',
+    monthly: 350000,
+    annualDiscountPct: 15,
+    seats: 5,
+    certs: ['fda'],
+    recommended: false,
+    custom: false,
+    features: ['FDA QMSR(21 CFR 820) 품질시스템', '510(k)/UDI GUDID 신청 지원', '문서 AI 초안'],
+  },
+  {
+    id: 'ce',
+    name: 'CE MDR only',
+    monthly: 380000,
+    annualDiscountPct: 15,
+    seats: 5,
+    certs: ['ce'],
+    recommended: false,
+    custom: false,
+    features: ['EU MDR 2017/745 품질시스템', 'PRRC·EUDAMED·NB 신청 지원', '문서 AI 초안'],
   },
   {
     id: 'iso',
@@ -69,16 +91,18 @@ export const DEFAULT_PLANS = [
 
 // 인증 정의 — 플랜에 편입 가능한 인증(planAvailable)과 준비중 인증 구분
 export const CERT_DEFS = [
-  { id: 'kgmp', label: 'KGMP (의료기기 GMP)', sub: '식약처 · 기본', planAvailable: true },
+  { id: 'kgmp', label: 'KGMP (의료기기 GMP)', sub: '식약처 · 국내 제조사', planAvailable: true },
+  { id: 'kgmp_importer', label: '수입사 GMP', sub: '식약처 · 외국제조소(수입GMP)', planAvailable: true },
   { id: 'iso13485', label: 'ISO 13485:2016', sub: '국제 품질경영시스템', planAvailable: true },
-  { id: 'ce', label: 'CE MDR', sub: '유럽 (준비중)', planAvailable: false },
-  { id: 'fda', label: 'FDA QMSR', sub: '미국 (준비중)', planAvailable: false },
+  { id: 'fda', label: 'FDA QMSR', sub: '미국 · 21 CFR 820', planAvailable: true },
+  { id: 'ce', label: 'CE MDR', sub: '유럽 · 2017/745', planAvailable: true },
   { id: 'mdsap', label: 'MDSAP', sub: '5개국 단일심사 (준비중)', planAvailable: false },
 ]
 
 // 가입(Signup) 저장값 등에서 쓰는 라벨 → id 매핑
 export const CERT_LABEL_TO_ID = {
   'KGMP': 'kgmp',
+  '수입사 GMP': 'kgmp_importer',
   'ISO 13485': 'iso13485',
   'ISO 13485:2016': 'iso13485',
   'FDA QMSR': 'fda',

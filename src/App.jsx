@@ -23,6 +23,8 @@ import ManufacturingHub from './pages/manufacturing/ManufacturingHub'
 import EquipmentHub from './pages/equipment/EquipmentHub'
 import MonitoringHub from './pages/monitoring/MonitoringHub'
 import TrainingHub from './pages/training/TrainingHub'
+import KgmpHub from './pages/kgmp/KgmpHub'
+import ForeignManufacturerHub from './pages/importgmp/ForeignManufacturerHub'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -63,6 +65,8 @@ export default function App() {
       <Route path="/equipment" element={<ProtectedRoute><EquipmentHub /></ProtectedRoute>} />
       <Route path="/monitoring" element={<ProtectedRoute><MonitoringHub /></ProtectedRoute>} />
       <Route path="/training" element={<ProtectedRoute><TrainingHub /></ProtectedRoute>} />
+      <Route path="/kgmp" element={<ProtectedRoute><KgmpHub /></ProtectedRoute>} />
+      <Route path="/foreign-manufacturers" element={<ProtectedRoute><ForeignManufacturerHub /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/monitoring" replace />} />
     </Routes>
   )

@@ -14,10 +14,15 @@ import {
   Shield,
   Wrench,
   BarChart2,
+  GraduationCap,
+  Stamp,
+  Factory,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
+import { onboarding } from '../lib/onboardingState'
 
+// 항상 보이는 기본 메뉴
 const NAV = [
   { to: '/monitoring',   label: '모니터링',   en: 'Monitoring',          icon: BarChart2,       area: 'MON' },
   { to: '/products',     label: '개발',  en: 'Development', icon: PackageSearch,   area: 'DEV' },
@@ -28,6 +33,16 @@ const NAV = [
   { to: '/operations',   label: '현장 운영',  en: 'Operations',          icon: Workflow,        area: 'OPS' },
   { to: '/equipment',    label: '설비·교정',  en: 'Equipment',           icon: Wrench,          area: 'EQP' },
   { to: '/documents',    label: '품질 문서',  en: 'Documents',           icon: FileText,        area: 'DOC' },
+  { to: '/training',     label: '교육',        en: 'Training',            icon: GraduationCap,   area: 'TRN' },
+]
+
+// 가입 시 선택한 인증(certs)이 있을 때만 보이는 메뉴 — 관련 없는 인증의 화면·문서는 아예 노출하지 않는다
+const CERT_NAV = [
+  { certId: 'kgmp',           to: '/kgmp',                  label: 'KGMP',              en: 'KGMP Registration',   icon: Stamp,   area: 'KGMP' },
+  { certId: 'kgmp_importer',  to: '/foreign-manufacturers',  label: '외국제조소(수입GMP)', en: 'Foreign Manufacturers', icon: Factory, area: 'IMP'  },
+]
+
+const NAV_TAIL = [
   { to: '/regulatory',   label: '인허가',      en: 'Regulatory',          icon: FileCheck2,      area: 'RA'  },
   { to: '/tree',         label: 'Quality Tree',en: 'Quality Tree',        icon: GitBranch,       area: 'TREE'},
 ]
@@ -38,6 +53,7 @@ const FOOT = [
 
 export default function Sidebar() {
   const loc = useLocation()
+  const certs = (onboarding.load().certs) || {}
 
   return (
     <aside
@@ -56,6 +72,12 @@ export default function Sidebar() {
           Workspace
         </div>
         {NAV.map((item) => (
+          <SidebarItem key={item.to} {...item} />
+        ))}
+        {CERT_NAV.filter((item) => !!certs[item.certId]).map((item) => (
+          <SidebarItem key={item.to} {...item} />
+        ))}
+        {NAV_TAIL.map((item) => (
           <SidebarItem key={item.to} {...item} />
         ))}
 

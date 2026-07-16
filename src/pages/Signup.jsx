@@ -166,6 +166,9 @@ export default function Signup() {
     })
   }
 
+  // 확장 모듈(CE MDR·FDA·MDSAP) 체크박스 → 인증 라벨 매핑. 기본 플랜의 인증에 더해진다.
+  const CALC_MODULE_CERT = { cemdr: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
+
   const readCalc = () => {
     try {
       const doc = calcRef.current && calcRef.current.contentDocument
@@ -177,13 +180,16 @@ export default function Signup() {
       const big = (doc.getElementById('totalBig') || {}).textContent || '0'
       const amount = parseInt(big.replace(/[^0-9]/g, ''), 10) || 0
       const unit = (((doc.getElementById('totalUnit') || {}).textContent) || '원 / 월').trim()
-      return { plan, cycle, amount, unit }
+      const mods = Array.from(doc.querySelectorAll('.mod[data-mod]'))
+        .filter((el) => CALC_MODULE_CERT[el.dataset.mod] && el.querySelector('input')?.checked)
+        .map((el) => CALC_MODULE_CERT[el.dataset.mod])
+      return { plan, cycle, amount, unit, mods }
     } catch (e) {
       return null
     }
   }
 
-  const CERT_SHORT = { kgmp: 'KGMP', iso13485: 'ISO 13485', ce: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
+  const CERT_SHORT = { kgmp: 'KGMP', kgmp_importer: '수입사 GMP', iso13485: 'ISO 13485', ce: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
   const CERT_BY_PLAN = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.id, (p.certs || []).map((cid) => CERT_SHORT[cid] || cid)]))
 
   const handleToStep3 = () => {
@@ -193,7 +199,8 @@ export default function Signup() {
     setDesiredBillingCycle(q.cycle)
     setQuoteAmount(q.amount)
     setQuoteUnit(q.unit)
-    setDesiredCertifications(CERT_BY_PLAN[q.plan] || ['KGMP'])
+    const baseCerts = CERT_BY_PLAN[q.plan] || ['KGMP']
+    setDesiredCertifications(Array.from(new Set([...baseCerts, ...(q.mods || [])])))
     if (!adminEmail.trim()) { setError('관리자 이메일을 입력해주세요.'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) { setError('이메일 형식이 올바르지 않습니다.'); return }
     if (!adminName.trim()) { setError('관리자 이름을 입력해주세요.'); return }

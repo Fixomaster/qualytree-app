@@ -212,6 +212,7 @@ export default function RegulatoryHub() {
         {tab === 'submissions' && (
           <SubmissionsPanel
             product={product}
+            certs={ob.certs || {}}
             onAction={(t, k) => {
               showToast(t, k)
               reload()
@@ -221,6 +222,7 @@ export default function RegulatoryHub() {
         {tab === 'udi' && (
           <UdiPanel
             product={product}
+            certs={ob.certs || {}}
             onAction={(t, k) => {
               showToast(t, k)
               reload()
@@ -294,7 +296,7 @@ function TabButton({ active, onClick, icon: Icon, label, en, count, badge }) {
 /* ================================================================
    RA-001 SUBMISSIONS PANEL
    ================================================================ */
-function SubmissionsPanel({ product, onAction }) {
+function SubmissionsPanel({ product, certs, onAction }) {
   const [showCreate, setShowCreate] = useState(false)
   const [selectedSub, setSelectedSub] = useState(null)
   const subs = submissions.loadAll()
@@ -401,6 +403,7 @@ function SubmissionsPanel({ product, onAction }) {
       {showCreate && (
         <SubmissionCreateForm
           product={product}
+          certs={certs}
           onCancel={() => setShowCreate(false)}
           onSubmit={handleCreate}
         />
@@ -446,13 +449,43 @@ function SubmissionsPanel({ product, onAction }) {
   )
 }
 
-function SubmissionCreateForm({ product, onCancel, onSubmit }) {
-  const [jurisdiction, setJurisdiction] = useState('MFDS')
-  const [submissionType, setSubmissionType] = useState('MFDS_NEWMD')
+// 인증(certs) → 신청 관할(jurisdiction) 매핑. 선택하지 않은 인증의 관할은 아예 목록에서 숨긴다.
+const JURISDICTION_CERT = { MFDS: 'kgmp', FDA: 'fda', MDR: 'ce' }
+function availableJurisdictions(certs) {
+  const c = certs || {}
+  return Object.keys(JURISDICTIONS).filter((j) => {
+    const certId = JURISDICTION_CERT[j]
+    return certId ? !!c[certId] : false
+  })
+}
+
+function SubmissionCreateForm({ product, certs, onCancel, onSubmit }) {
+  const avail = availableJurisdictions(certs)
+  const fallback = avail[0] || 'MFDS'
+  const [jurisdiction, setJurisdiction] = useState(fallback)
+  const [submissionType, setSubmissionType] = useState(
+    (Object.entries(SUBMISSION_TYPES).find(([, t]) => t.jurisdiction === fallback) || [])[0] || 'MFDS_NEWMD'
+  )
 
   const availableTypes = Object.entries(SUBMISSION_TYPES).filter(
     ([_, t]) => t.jurisdiction === jurisdiction
   )
+
+  if (avail.length === 0) {
+    return (
+      <div className="card-base p-4" style={{ borderColor: 'var(--moss)' }}>
+        <div className="font-mono text-[10.5px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--moss)' }}>
+          새 신청 작성
+        </div>
+        <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>
+          가입 시 선택한 인증이 없습니다. 온보딩에서 KGMP·FDA QMSR·CE MDR 중 하나 이상을 선택해야 인허가 신청을 작성할 수 있습니다.
+        </div>
+        <div className="flex justify-end mt-3">
+          <button onClick={onCancel} className="btn-ghost text-[12.5px]">닫기</button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -480,9 +513,9 @@ function SubmissionCreateForm({ product, onCancel, onSubmit }) {
             }}
             className="input-base mt-1 w-full text-[13px]"
           >
-            {Object.entries(JURISDICTIONS).map(([k, v]) => (
+            {avail.map((k) => (
               <option key={k} value={k}>
-                {v.country} {v.ko}
+                {JURISDICTIONS[k].country} {JURISDICTIONS[k].ko}
               </option>
             ))}
           </select>
@@ -720,7 +753,7 @@ function SubmissionRow({
 /* ================================================================
    RA-002 UDI PANEL
    ================================================================ */
-function UdiPanel({ product, onAction }) {
+function UdiPanel({ product, certs, onAction }) {
   const [showCreate, setShowCreate] = useState(false)
   const list = udi.loadAll()
   const canIssue = permissions.can('ra.submission.approve') && !!product
@@ -771,6 +804,7 @@ function UdiPanel({ product, onAction }) {
       {showCreate && (
         <UdiIssueForm
           product={product}
+          certs={certs}
           onCancel={() => setShowCreate(false)}
           onSubmit={handleIssue}
         />
@@ -804,10 +838,15 @@ function UdiPanel({ product, onAction }) {
   )
 }
 
-function UdiIssueForm({ product, onCancel, onSubmit }) {
+// UDI 적용 시장 → 인증 매핑. 선택하지 않은 인증의 시장은 체크박스 자체를 숨긴다.
+const UDI_MARKET_CERT = { MFDS: 'kgmp', FDA: 'fda', MDR: 'ce' }
+const UDI_MARKET_LABEL = { MFDS: '🇰🇷 MFDS', FDA: '🇺🇸 FDA GUDID', MDR: '🇪🇺 EUDAMED' }
+
+function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
+  const availMarkets = Object.keys(UDI_MARKET_CERT).filter((k) => !!(certs || {})[UDI_MARKET_CERT[k]])
   const [issuingAgency, setIssuingAgency] = useState('GS1')
   const [labelFormat, setLabelFormat] = useState('GS1-128')
-  const [markets, setMarkets] = useState({ MFDS: true, FDA: false, MDR: false })
+  const [markets, setMarkets] = useState(() => Object.fromEntries(availMarkets.map((k) => [k, true])))
   const [pi, setPi] = useState({
     lot: true,
     serial: false,
@@ -891,18 +930,17 @@ function UdiIssueForm({ product, onCancel, onSubmit }) {
           적용 시장 (외부 DB 연계)
         </label>
         <div className="flex flex-wrap gap-2 mt-1.5">
-          {[
-            { k: 'MFDS', label: '🇰🇷 MFDS' },
-            { k: 'FDA', label: '🇺🇸 FDA GUDID' },
-            { k: 'MDR', label: '🇪🇺 EUDAMED' },
-          ].map((m) => (
-            <label key={m.k} className="flex items-center gap-1.5 text-[12px]">
+          {availMarkets.length === 0 && (
+            <span className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>가입 시 선택한 인증이 없어 적용 시장을 선택할 수 없습니다.</span>
+          )}
+          {availMarkets.map((k) => (
+            <label key={k} className="flex items-center gap-1.5 text-[12px]">
               <input
                 type="checkbox"
-                checked={markets[m.k] || false}
-                onChange={(e) => setMarkets({ ...markets, [m.k]: e.target.checked })}
+                checked={markets[k] || false}
+                onChange={(e) => setMarkets({ ...markets, [k]: e.target.checked })}
               />
-              {m.label}
+              {UDI_MARKET_LABEL[k]}
             </label>
           ))}
         </div>
