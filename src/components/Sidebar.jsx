@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Stamp,
   Factory,
+  Award,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -41,6 +42,7 @@ const NAV = [
 const CERT_NAV = [
   { certId: 'kgmp',           to: '/kgmp',                  label: 'KGMP',              en: 'KGMP Registration',   icon: Stamp,   area: 'KGMP' },
   { certId: 'kgmp_importer',  to: '/foreign-manufacturers',  label: '외국제조소(수입GMP)', en: 'Foreign Manufacturers', icon: Factory, area: 'IMP'  },
+  { certId: 'iso13485',       to: '/iso13485',               label: 'ISO 13485',         en: 'ISO 13485 QMS',       icon: Award,   area: 'ISO'  },
 ]
 
 const NAV_TAIL = [

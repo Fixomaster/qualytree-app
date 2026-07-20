@@ -169,6 +169,10 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
               companyDocItem('수입업 허가증', DOC_CATEGORY.IMPORT_LICENSE, '/company?tab=docs'),
               companyDocItem('대리인 계약서 (Authorization Letter)', DOC_CATEGORY.AGENT_CONTRACT, '/company?tab=docs'),
             ]
+          : profile === 'iso13485'
+          // ISO 13485는 국내 인허가(MFDS) 서류가 아니라 국제 인증기관 심사 대상이라
+          // 제조업허가증·수입업허가증 같은 국내 서류는 이 프로필에서는 제외한다.
+          ? []
           : [companyDocItem('제조업허가증', DOC_CATEGORY.MFG_LICENSE, '/company?tab=docs')]),
         techDocItem('제품 카탈로그', TECH_DOC_CATEGORY.CATALOG),
         techDocItem('사용설명서 (IFU)', TECH_DOC_CATEGORY.IFU),
