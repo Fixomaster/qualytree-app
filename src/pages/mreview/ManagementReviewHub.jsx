@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Target,
@@ -9,10 +9,15 @@ import {
   CheckCircle2,
   ChevronRight,
   Gauge,
+  FileText,
+  Paperclip,
+  Download,
+  X,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
+import { fileStore } from '../../lib/fileStore'
 import {
   reviews,
   qualityObjectives,
@@ -151,7 +156,7 @@ function ReviewTab({ reviewList, onAction, refresh }) {
   const [selId, setSelId] = useState(reviewList[0]?.id || null)
   const sel = reviewList.find((r) => r.id === selId) || null
   const [adding, setAdding] = useState(false)
-  const EMPTY = { period: '', meetingDate: '', attendees: '' }
+  const EMPTY = { period: '', meetingDate: '', attendees: '', agenda: '' }
   const [form, setForm] = useState(EMPTY)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -185,6 +190,7 @@ function ReviewTab({ reviewList, onAction, refresh }) {
             <Field label="검토 대상 기간" value={form.period} onChange={(v) => setF('period', v)} placeholder="예: 2026년 상반기" />
             <Field label="회의일" type="date" value={form.meetingDate} onChange={(v) => setF('meetingDate', v)} />
             <Field label="참석자" value={form.attendees} onChange={(v) => setF('attendees', v)} placeholder="쉼표로 구분" />
+            <TextAreaField label="안건" value={form.agenda} onChange={(v) => setF('agenda', v)} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) 고객불만·CAPA 현황" minHeight={60} />
             <div className="flex justify-end gap-2">
               <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
               <button onClick={create} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>생성 · 자동집계</button>
@@ -216,16 +222,30 @@ function ReviewTab({ reviewList, onAction, refresh }) {
 function ReviewDetail({ review, onAction, refresh, onDelete }) {
   const canEdit = permissions.can('mr.review.edit') && review.status === REVIEW_STATUS.DRAFT
   const canApprove = permissions.can('mr.review.approve') && review.status === REVIEW_STATUS.DRAFT
+  const [agenda, setAgenda] = useState(review.agenda || '')
   const [decisions, setDecisions] = useState(review.decisions)
   const [actionForm, setActionForm] = useState({ description: '', owner: '', dueDate: '' })
   const setAF = (k, v) => setActionForm((f) => ({ ...f, [k]: v }))
   const k = review.snapshot.kpi
+  const minutesFiles = review.minutesFiles || []
 
-  const saveDecisions = () => {
+  const saveMinutes = () => {
     if (!requirePermission('mr.review.edit')) return
     const cur = auth.current()
-    reviews.update(review.id, { decisions, preparedBy: cur?.name || '', preparedAt: new Date().toISOString() })
-    onAction('결정사항이 저장되었습니다.')
+    reviews.update(review.id, { agenda, decisions, preparedBy: cur?.name || '', preparedAt: new Date().toISOString() })
+    onAction('회의록이 저장되었습니다.')
+    refresh()
+  }
+  const attachMinutesFile = async (file) => {
+    const fileId = await fileStore.saveFile(file)
+    reviews.attachMinutesFile(review.id, { fileId, fileName: file.name })
+    onAction('회의록 파일이 첨부·보관되었습니다.')
+    refresh()
+  }
+  const removeMinutesFile = (minutesFileId) => {
+    if (!requirePermission('mr.review.edit')) return
+    if (!window.confirm('이 첨부파일을 삭제할까요?')) return
+    reviews.removeMinutesFile(review.id, minutesFileId)
     refresh()
   }
   const addAction = () => {
@@ -276,9 +296,22 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
         </div>
       )}
 
-      <div className="card-base p-4 space-y-2">
-        <TextAreaField label="검토 결과·결정사항" value={decisions} onChange={setDecisions} minHeight={100} placeholder="QMS 적절성·효과성 평가, 자원 필요성, 개선 필요사항 등 (ISO 13485 §5.6.3)" disabled={!canEdit} />
-        {canEdit && <div className="flex justify-end"><button onClick={saveDecisions} className="btn-ghost text-[12.5px]">저장</button></div>}
+      <div className="card-base p-4 space-y-3">
+        <div className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--ink)' }}><FileText size={14} /> 회의록</div>
+        <TextAreaField label="안건" value={agenda} onChange={setAgenda} minHeight={60} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) 고객불만·CAPA 현황" disabled={!canEdit} />
+        <TextAreaField label="논의 내용·결정사항" value={decisions} onChange={setDecisions} minHeight={120} placeholder="QMS 적절성·효과성 평가, 자원 필요성, 개선 필요사항 등 (ISO 13485 §5.6.3)" disabled={!canEdit} />
+        {canEdit && <div className="flex justify-end"><button onClick={saveMinutes} className="btn-ghost text-[12.5px]">회의록 저장</button></div>}
+
+        <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="text-[11.5px] font-medium mb-1.5" style={{ color: 'var(--ink-mute)' }}>첨부·보관 파일 (서명본·스캔본 등, 5MB 이하)</div>
+          <div className="flex flex-wrap gap-1.5 mb-1.5">
+            {minutesFiles.map((m) => (
+              <MinutesFileChip key={m.id} file={m} canEdit={canEdit} onRemove={() => removeMinutesFile(m.id)} />
+            ))}
+            {minutesFiles.length === 0 && <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>첨부된 파일이 없습니다.</span>}
+          </div>
+          {canEdit && <MinutesFileUploadButton onUpload={attachMinutesFile} />}
+        </div>
       </div>
 
       <div className="card-base p-4">
@@ -314,6 +347,45 @@ function MiniStat({ label, value, tone }) {
       <div className="text-[16px] font-bold tabular-nums" style={{ color: map[tone] || 'var(--ink)' }}>{value}</div>
       <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
     </div>
+  )
+}
+function MinutesFileChip({ file, canEdit, onRemove }) {
+  const open = async () => {
+    const url = await fileStore.getObjectURL(file.fileId)
+    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+      <button type="button" onClick={open} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {file.fileName || '첨부파일'}</button>
+      {canEdit && <button type="button" onClick={onRemove} className="opacity-50 hover:opacity-100"><X size={11} /></button>}
+    </span>
+  )
+}
+function MinutesFileUploadButton({ onUpload }) {
+  const ref = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const pick = async (e) => {
+    const f = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!f) return
+    setBusy(true)
+    try {
+      await onUpload(f)
+    } catch (err) {
+      window.alert((err && err.message) || String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <>
+      <input ref={ref} type="file" className="hidden" onChange={pick} />
+      <button type="button" onClick={() => ref.current && ref.current.click()} disabled={busy} className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: 'var(--moss)' }}>
+        <Paperclip size={12} /> {busy ? '업로드 중…' : '파일 첨부'}
+      </button>
+    </>
   )
 }
 

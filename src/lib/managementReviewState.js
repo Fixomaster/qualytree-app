@@ -146,7 +146,7 @@ export function buildSnapshot() {
 }
 
 export const reviews = {
-  create({ period, meetingDate, attendees }) {
+  create({ period, meetingDate, attendees, agenda }) {
     const s = load()
     const rec = {
       id: uid(),
@@ -155,7 +155,9 @@ export const reviews = {
       attendees: attendees || '',
       status: REVIEW_STATUS.DRAFT,
       snapshot: buildSnapshot(),
+      agenda: agenda || '',
       decisions: '',
+      minutesFiles: [], // 회의록 원본(서명본·스캔본 등) 첨부 보관 — [{id, fileId, fileName, uploadedAt}]
       actionItems: [],
       preparedBy: '',
       preparedAt: '',
@@ -166,6 +168,22 @@ export const reviews = {
     s.reviews = [...s.reviews, rec]
     save(s)
     return rec
+  },
+  attachMinutesFile(id, { fileId, fileName }) {
+    const s = load()
+    s.reviews = s.reviews.map((r) => (r.id === id
+      ? { ...r, minutesFiles: [...(r.minutesFiles || []), { id: uid(), fileId, fileName, uploadedAt: new Date().toISOString() }] }
+      : r))
+    save(s)
+    return s
+  },
+  removeMinutesFile(id, minutesFileId) {
+    const s = load()
+    s.reviews = s.reviews.map((r) => (r.id === id
+      ? { ...r, minutesFiles: (r.minutesFiles || []).filter((m) => m.id !== minutesFileId) }
+      : r))
+    save(s)
+    return s
   },
   update(id, patch) {
     const s = load()
