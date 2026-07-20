@@ -24,17 +24,32 @@ export default function ProfileSettingsModal({ user, onClose }) {
     }
     setSaving(true)
     try {
-      // 1. 이름 — 로컬 세션은 즉시 반영, Supabase 계정(email 로그인)이면 user_metadata에도 best-effort로 반영
       const cur = auth.current()
       const isDemo = !user?.identityKind || user.identityKind === 'demo'
-      if (cur) {
-        // 데모 계정이 아니면 nameOverride를 남겨 refreshFromSupabase()가 백엔드 원본 이름으로
-        // 되돌리지 않도록 한다 (백엔드에 프로필 갱신 RPC가 아직 없어 완전한 서버 동기화는 불가 —
-        // 이 브라우저에서는 유지된다).
-        localStorage.setItem('qualytree.auth', JSON.stringify({ ...cur, name: name.trim(), ...(isDemo ? {} : { nameOverride: true }) }))
-      }
+      let syncedToServer = false
+
       if (!isDemo) {
+        // 1. 백엔드에 실제로 반영 — update_my_profile RPC (platform_operators / company_members
+        //    중 본인 행을 찾아 name을 갱신). 아직 이 RPC를 배포하지 않았다면 함수를 찾을 수 없다는
+        //    에러가 나며, 이 경우 아래 로컬 override로 자동 대체된다.
+        const { error: rpcErr } = await supabase.rpc('update_my_profile', { p_name: name.trim() })
+        if (!rpcErr) {
+          syncedToServer = true
+        } else {
+          console.warn('[profile] update_my_profile RPC 실패 — 로컬 저장으로 대체:', rpcErr.message || rpcErr)
+        }
+        // auth.users의 user_metadata에도 best-effort로 반영 (표시에는 안 쓰이지만 참고용)
         try { await supabase.auth.updateUser({ data: { name: name.trim() } }) } catch { /* best-effort */ }
+      }
+
+      // 2. 로컬 세션은 항상 즉시 반영. 서버 동기화에 성공했으면 override 플래그 없이(다음 새로고침 때
+      //    실제 DB 값을 다시 읽어와도 이미 같은 값이라 문제 없음), 실패했으면 override로 유지한다.
+      if (cur) {
+        localStorage.setItem('qualytree.auth', JSON.stringify({
+          ...cur,
+          name: name.trim(),
+          ...(!isDemo && !syncedToServer ? { nameOverride: true } : { nameOverride: false }),
+        }))
       }
       // 2. 비밀번호 (선택) — Supabase 이메일 계정에서만 지원
       if (pw) {
@@ -50,7 +65,7 @@ export default function ProfileSettingsModal({ user, onClose }) {
           return
         }
       }
-      setDone('저장되었습니다.')
+      setDone(isDemo ? '저장되었습니다.' : (syncedToServer ? '저장되었습니다. (서버에 반영됨)' : '저장되었습니다. (이 브라우저에서만 유지 — 서버 동기화 RPC 미배포)'))
       setPw(''); setPw2('')
       setTimeout(() => { window.location.reload() }, 700)
     } catch (e) {
