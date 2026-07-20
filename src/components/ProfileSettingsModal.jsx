@@ -26,10 +26,14 @@ export default function ProfileSettingsModal({ user, onClose }) {
     try {
       // 1. 이름 — 로컬 세션은 즉시 반영, Supabase 계정(email 로그인)이면 user_metadata에도 best-effort로 반영
       const cur = auth.current()
+      const isDemo = !user?.identityKind || user.identityKind === 'demo'
       if (cur) {
-        localStorage.setItem('qualytree.auth', JSON.stringify({ ...cur, name: name.trim() }))
+        // 데모 계정이 아니면 nameOverride를 남겨 refreshFromSupabase()가 백엔드 원본 이름으로
+        // 되돌리지 않도록 한다 (백엔드에 프로필 갱신 RPC가 아직 없어 완전한 서버 동기화는 불가 —
+        // 이 브라우저에서는 유지된다).
+        localStorage.setItem('qualytree.auth', JSON.stringify({ ...cur, name: name.trim(), ...(isDemo ? {} : { nameOverride: true }) }))
       }
-      if (user?.identityKind && user.identityKind !== 'demo') {
+      if (!isDemo) {
         try { await supabase.auth.updateUser({ data: { name: name.trim() } }) } catch { /* best-effort */ }
       }
       // 2. 비밀번호 (선택) — Supabase 이메일 계정에서만 지원

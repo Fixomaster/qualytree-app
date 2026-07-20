@@ -144,20 +144,34 @@ export const auth = {
     return { ok: true, context: ctx }
   },
 
+  // 프로필 설정에서 이름을 바꾼 뒤 refreshFromSupabase()가 백엔드 원본값(platform_operators.name /
+  // company_members.name)으로 즉시 덮어써버리는 문제가 있었다 — 이름 변경 전용 백엔드 RPC가 아직 없어서다.
+  // 같은 userId로 로컬에 nameOverride가 남아있으면 그 값을 우선한다(이 브라우저 한정 지속 — 다른 기기·
+  // 관리자 화면에는 반영되지 않으니 완전한 서버 동기화가 필요하면 백엔드에 프로필 갱신 RPC를 추가해야 한다).
+  _localNameOverride(userId) {
+    try {
+      const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
+      if (cur && cur.userId === userId && cur.nameOverride && cur.name) return cur.name
+    } catch { /* ignore */ }
+    return null
+  },
+
   async refreshFromSupabase() {
     const user = await safeUser()
     if (!user) return null
 
     const opProfile = await safeOperatorProfile()
     if (opProfile) {
+      const overrideName = this._localNameOverride(user.id)
       const session = {
         email: user.email,
-        name: opProfile.name || user.email?.split('@')[0] || 'Operator',
+        name: overrideName || opProfile.name || user.email?.split('@')[0] || 'Operator',
         level: LEVELS.MANAGER,
         company: null,
         signedAt: new Date().toISOString(),
         identityKind: 'operator',
         userId: user.id,
+        ...(overrideName ? { nameOverride: true } : {}),
       }
       localStorage.setItem(KEY, JSON.stringify(session))
       permissions.setLevel(LEVELS.MANAGER)
@@ -169,10 +183,12 @@ export const auth = {
       const level = membership.permission_level === 3 ? LEVELS.MANAGER
                   : membership.permission_level === 2 ? LEVELS.INSPECTOR
                   : LEVELS.OPERATOR
+      const overrideName = this._localNameOverride(user.id)
       const session = {
         email: user.email,
-        name: membership.name || user.email?.split('@')[0],
+        name: overrideName || membership.name || user.email?.split('@')[0],
         level,
+        ...(overrideName ? { nameOverride: true } : {}),
         company: membership.companies
           ? {
               id: membership.companies.id,
@@ -192,14 +208,16 @@ export const auth = {
       return { kind: 'company_member', session }
     }
 
+    const orphanOverride = this._localNameOverride(user.id)
     const session = {
       email: user.email,
-      name: user.email?.split('@')[0] || 'User',
+      name: orphanOverride || user.email?.split('@')[0] || 'User',
       level: LEVELS.OPERATOR,
       company: null,
       signedAt: new Date().toISOString(),
       identityKind: 'orphan',
       userId: user.id,
+      ...(orphanOverride ? { nameOverride: true } : {}),
     }
     localStorage.setItem(KEY, JSON.stringify(session))
     permissions.setLevel(LEVELS.OPERATOR)
