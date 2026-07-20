@@ -14,6 +14,18 @@ import {
 
 const KEY = 'qualytree.auth'
 
+// 페이지 로드 시 SIGNED_IN·TOKEN_REFRESHED 이벤트가 거의 동시에 여러 번 발생하면
+// refreshFromSupabase()가 병렬로 여러 번 실행되면서 서로의 localStorage 쓰기를
+// 덮어쓰는 경쟁 상태가 생길 수 있다. 모듈 로드 시점에 한 번만 읽어 캐시해두면
+// 이후 호출들이 전부 같은 값을 참조하므로 경쟁 상태 없이 일관되게 override가 유지된다.
+let _cachedNameOverride = null
+try {
+  const boot = JSON.parse(localStorage.getItem(KEY) || 'null')
+  if (boot && boot.nameOverride && boot.name && boot.userId) {
+    _cachedNameOverride = { userId: boot.userId, name: boot.name }
+  }
+} catch { /* ignore */ }
+
 // ───────── 내부 안전 헬퍼: 절대 throw 하지 않음 ─────────
 
 async function safeUser() {
@@ -149,10 +161,7 @@ export const auth = {
   // 같은 userId로 로컬에 nameOverride가 남아있으면 그 값을 우선한다(이 브라우저 한정 지속 — 다른 기기·
   // 관리자 화면에는 반영되지 않으니 완전한 서버 동기화가 필요하면 백엔드에 프로필 갱신 RPC를 추가해야 한다).
   _localNameOverride(userId) {
-    try {
-      const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
-      if (cur && cur.userId === userId && cur.nameOverride && cur.name) return cur.name
-    } catch { /* ignore */ }
+    if (_cachedNameOverride && _cachedNameOverride.userId === userId) return _cachedNameOverride.name
     return null
   },
 
