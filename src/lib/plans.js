@@ -27,7 +27,10 @@ export const DEFAULT_PLANS = [
     monthly: 150000,
     annualDiscountPct: 15,
     seats: 5,
-    certs: ['kgmp', 'kgmp_importer'],
+    // 수입사는 자기 제조소가 아니라 외국제조소가 GMP 심사 대상이므로 KGMP(국내제조사) 화면은
+    // 필요 없다 — kgmp_importer만 켠다. 국내 제조도 함께 하는 회사는 온보딩에서 KGMP를
+    // 별도로 추가하면 된다(KgmpHub 상단 안내 참조).
+    certs: ['kgmp_importer'],
     recommended: false,
     custom: false,
     features: ['외국제조소 등록·GMP 적합인정서 관리', '수입 인허가 제출 문서 자동화', '문서 AI 초안'],

@@ -450,12 +450,13 @@ function SubmissionsPanel({ product, certs, onAction }) {
 }
 
 // 인증(certs) → 신청 관할(jurisdiction) 매핑. 선택하지 않은 인증의 관할은 아예 목록에서 숨긴다.
-const JURISDICTION_CERT = { MFDS: 'kgmp', FDA: 'fda', MDR: 'ce' }
+// MFDS는 국내제조사(kgmp)든 수입사(kgmp_importer)든 둘 다 식약처 관할이므로 둘 중 하나만 있어도 노출한다.
+const JURISDICTION_CERT = { MFDS: ['kgmp', 'kgmp_importer'], FDA: ['fda'], MDR: ['ce'] }
 function availableJurisdictions(certs) {
   const c = certs || {}
   return Object.keys(JURISDICTIONS).filter((j) => {
-    const certId = JURISDICTION_CERT[j]
-    return certId ? !!c[certId] : false
+    const certIds = JURISDICTION_CERT[j]
+    return certIds ? certIds.some((id) => !!c[id]) : false
   })
 }
 
@@ -839,11 +840,12 @@ function UdiPanel({ product, certs, onAction }) {
 }
 
 // UDI 적용 시장 → 인증 매핑. 선택하지 않은 인증의 시장은 체크박스 자체를 숨긴다.
-const UDI_MARKET_CERT = { MFDS: 'kgmp', FDA: 'fda', MDR: 'ce' }
+const UDI_MARKET_CERT = { MFDS: ['kgmp', 'kgmp_importer'], FDA: ['fda'], MDR: ['ce'] }
 const UDI_MARKET_LABEL = { MFDS: '🇰🇷 MFDS', FDA: '🇺🇸 FDA GUDID', MDR: '🇪🇺 EUDAMED' }
 
 function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
-  const availMarkets = Object.keys(UDI_MARKET_CERT).filter((k) => !!(certs || {})[UDI_MARKET_CERT[k]])
+  const c0 = certs || {}
+  const availMarkets = Object.keys(UDI_MARKET_CERT).filter((k) => UDI_MARKET_CERT[k].some((id) => !!c0[id]))
   const [issuingAgency, setIssuingAgency] = useState('GS1')
   const [labelFormat, setLabelFormat] = useState('GS1-128')
   const [markets, setMarkets] = useState(() => Object.fromEntries(availMarkets.map((k) => [k, true])))
