@@ -35,6 +35,9 @@ function saveDocState(next) {
  */
 function syncApprovedReviewToDocuments(review, approverName) {
   try {
+    // 절차 목록에 '경영검토' 절차서가 아직 없으면(레거시 계정 등) 자동 보완 —
+    // KGMP 필수 절차서이므로 승인 시점에 항상 존재를 보장해 연동이 누락되지 않게 한다.
+    onboarding.ensureProcedures(['경영검토 절차서'])
     const procedures = (onboarding.load().procedures || []).filter((p) => p.applicable !== false)
     const matched = procedures.find((p) => (p.name || '').includes('경영검토'))
     if (!matched) return
