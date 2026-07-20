@@ -11,11 +11,12 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
+  BadgeCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
-import { plans, materials, sessions, PLAN_STATUS } from '../../lib/trainingState'
+import { plans, materials, sessions, employees, PLAN_STATUS, QUALIFICATION_RESULT } from '../../lib/trainingState'
 import { fileStore } from '../../lib/fileStore'
 
 export default function TrainingHub() {
@@ -30,6 +31,7 @@ export default function TrainingHub() {
   const allPlans = plans.getAll()
   const allMaterials = materials.getAll()
   const allSessions = sessions.getAll()
+  const allEmployees = employees.getAll()
   const compliance = sessions.complianceRate()
 
   return (
@@ -50,21 +52,24 @@ export default function TrainingHub() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-4 gap-3 mb-5">
           <StatCard label="연간계획" value={allPlans.length} hint="등록 연도 수" icon={GraduationCap} />
           <StatCard label="교육자료" value={allMaterials.length} hint="등록 자료 수" icon={BookOpen} />
           <StatCard label="교육 이수율" value={compliance == null ? '—' : compliance + '%'} hint="완료 세션 기준 합격률" icon={Users} tone={compliance != null && compliance < 80 ? 'amber' : undefined} />
+          <StatCard label="역량평가·자격" value={allEmployees.length} hint="등록 인원 수" icon={BadgeCheck} tone={employees.expiringCertifications(60).length > 0 ? 'amber' : undefined} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
           <TabButton active={tab === 'plan'} onClick={() => setTab('plan')} icon={GraduationCap} label="연간교육계획" en="ANNUAL PLAN" count={allPlans.length} />
           <TabButton active={tab === 'material'} onClick={() => setTab('material')} icon={BookOpen} label="교육자료" en="MATERIALS" count={allMaterials.length} />
           <TabButton active={tab === 'session'} onClick={() => setTab('session')} icon={Users} label="교육 · 평가 · 참석기록" en="SESSIONS" count={allSessions.length} />
+          <TabButton active={tab === 'competency'} onClick={() => setTab('competency')} icon={BadgeCheck} label="역량평가·자격" en="COMPETENCY" count={allEmployees.length} />
         </div>
 
         {tab === 'plan' && <PlanTab key={tick} plans={allPlans} onAction={showToast} refresh={refresh} />}
         {tab === 'material' && <MaterialTab key={'mat' + tick} materials={allMaterials} onAction={showToast} refresh={refresh} />}
         {tab === 'session' && <SessionTab key={'ses' + tick} sessions={allSessions} materials={allMaterials} onAction={showToast} refresh={refresh} />}
+        {tab === 'competency' && <CompetencyTab key={'emp' + tick} employees={allEmployees} onAction={showToast} refresh={refresh} />}
       </div>
     </AppLayout>
   )
@@ -141,7 +146,12 @@ function Badge({ text, tone = 'slate' }) {
 function PlanTab({ plans: allPlans, onAction, refresh }) {
   const canEdit = permissions.can('training.plan.edit')
   const canApprove = permissions.can('training.plan.approve')
-  const [newYear, setNewYear] = useState(new Date().getFullYear())
+  const existingYears = allPlans.map((p) => p.year)
+  // 현재 연도가 이미 존재하면(가장 흔한 케이스) 다음 빈 연도를 기본값으로 제안 —
+  // 기본값이 기존 연도와 충돌해 '생성'을 눌러도 조용히 실패하는 것처럼 보이던 문제 수정.
+  const suggestedYear = existingYears.length ? Math.max(...existingYears) + 1 : new Date().getFullYear()
+  const [newYear, setNewYear] = useState(suggestedYear)
+  const yearTaken = existingYears.includes(Number(newYear))
 
   const create = () => {
     if (!requirePermission('training.plan.edit')) return
@@ -157,9 +167,14 @@ function PlanTab({ plans: allPlans, onAction, refresh }) {
   return (
     <div className="space-y-4">
       {canEdit && (
-        <div className="flex items-center gap-2">
-          <Field label="연도" type="number" value={newYear} onChange={setNewYear} className="w-32" />
-          <button onClick={create} className="btn-primary text-[12.5px] mt-5"><Plus size={13} /> 연간계획 생성</button>
+        <div>
+          <div className="flex items-center gap-2">
+            <Field label="연도" type="number" value={newYear} onChange={setNewYear} className="w-32" />
+            <button onClick={create} disabled={yearTaken} className="btn-primary text-[12.5px] mt-5" style={yearTaken ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}><Plus size={13} /> 연간계획 생성</button>
+          </div>
+          {yearTaken && (
+            <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--rust)' }}>{newYear}년 계획이 이미 존재합니다. 다른 연도를 입력하세요.</div>
+          )}
         </div>
       )}
       {allPlans.length === 0 && <EmptyState icon={GraduationCap} text="등록된 연간교육계획이 없습니다." />}
@@ -484,6 +499,255 @@ function SessionDetail({ session, materials: allMaterials, canEdit, onAction, on
             </div>
           ))}
           {session.attendees.length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>참석기록이 없습니다.</div>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ================================================================
+   직원 역량평가 · 자격관리 (ISO 13485 §6.2)
+   ================================================================ */
+function CompetencyTab({ employees: allEmployees, onAction, refresh }) {
+  const canEdit = permissions.can('training.competency.edit')
+  const [selId, setSelId] = useState(allEmployees[0]?.id || null)
+  const sel = allEmployees.find((e) => e.id === selId) || null
+  const EMPTY = { name: '', dept: '', position: '', hireDate: '', requiredCompetency: '' }
+  const [form, setForm] = useState(EMPTY)
+  const [adding, setAdding] = useState(allEmployees.length === 0)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const create = () => {
+    if (!requirePermission('training.competency.edit')) return
+    if (!form.name.trim()) { window.alert('성명을 입력하세요.'); return }
+    const rec = employees.add(form)
+    setSelId(rec.id)
+    setForm(EMPTY)
+    setAdding(false)
+    onAction('직원이 등록되었습니다.')
+    refresh()
+  }
+  const del = (id) => {
+    if (!requirePermission('training.competency.edit')) return
+    if (!window.confirm('이 직원의 역량평가·자격 기록을 삭제할까요?')) return
+    employees.delete(id)
+    setSelId(null)
+    onAction('직원 기록이 삭제되었습니다.')
+    refresh()
+  }
+
+  return (
+    <div className="grid lg:grid-cols-[320px_1fr] gap-5">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>직원 목록 ({allEmployees.length}명)</div>
+          {canEdit && <button onClick={() => setAdding((v) => !v)} className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--moss)' }}><Plus size={13} /> 직원 등록</button>}
+        </div>
+        {adding && canEdit && (
+          <div className="card-base p-3 mb-3 space-y-2">
+            <Field label="성명" value={form.name} onChange={(v) => setF('name', v)} />
+            <Field label="부서" value={form.dept} onChange={(v) => setF('dept', v)} />
+            <Field label="직책/직무" value={form.position} onChange={(v) => setF('position', v)} />
+            <Field label="입사일" type="date" value={form.hireDate} onChange={(v) => setF('hireDate', v)} />
+            <Field label="필요 역량·자격 요건" value={form.requiredCompetency} onChange={(v) => setF('requiredCompetency', v)} placeholder="예: 품질경영시스템 내부심사원 자격" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
+              <button onClick={create} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {allEmployees.map((e) => {
+            const latest = employees.latestEvaluation(e)
+            const tone = !latest ? 'slate' : latest.result === QUALIFICATION_RESULT.QUALIFIED ? 'emerald' : latest.result === QUALIFICATION_RESULT.CONDITIONAL ? 'amber' : 'rose'
+            return (
+              <button key={e.id} onClick={() => setSelId(e.id)} className="w-full text-left px-3 py-2.5 rounded-lg border flex items-center gap-2 transition"
+                style={{ borderColor: e.id === selId ? 'var(--moss)' : 'var(--line)', background: e.id === selId ? 'var(--leaf-soft)' : 'var(--bg-card)' }}>
+                <BadgeCheck size={14} style={{ color: 'var(--moss)' }} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium truncate" style={{ color: 'var(--ink)' }}>{e.name}</span>
+                  <span className="block text-[11px]" style={{ color: 'var(--ink-faint)' }}>{e.dept || '부서 미기록'} · {e.position || '직책 미기록'}</span>
+                </span>
+                <Badge text={latest ? latest.result : '미평가'} tone={tone} />
+                <ChevronRight size={14} style={{ color: 'var(--ink-faint)' }} />
+              </button>
+            )
+          })}
+          {allEmployees.length === 0 && !adding && <EmptyState icon={BadgeCheck} text="등록된 직원이 없습니다." />}
+        </div>
+      </div>
+      <div>
+        {sel ? <EmployeeDetail employee={sel} canEdit={canEdit} onAction={onAction} onDelete={() => del(sel.id)} refresh={refresh} /> : <EmptyState icon={BadgeCheck} text="왼쪽에서 직원을 선택하세요." />}
+      </div>
+    </div>
+  )
+}
+
+function EmployeeDetail({ employee, canEdit, onAction, onDelete, refresh }) {
+  const [form, setForm] = useState({ dept: employee.dept, position: employee.position, hireDate: employee.hireDate, requiredCompetency: employee.requiredCompetency })
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const [certForm, setCertForm] = useState({ name: '', issuer: '', number: '', issuedAt: '', expiresAt: '' })
+  const setCF = (k, v) => setCertForm((f) => ({ ...f, [k]: v }))
+  const certFileRef = useRef(null)
+  const [busy, setBusy] = useState(false)
+  const [evalForm, setEvalForm] = useState({ date: new Date().toISOString().slice(0, 10), evaluator: '', method: '', result: QUALIFICATION_RESULT.QUALIFIED, notes: '' })
+  const setEF = (k, v) => setEvalForm((f) => ({ ...f, [k]: v }))
+
+  const saveProfile = () => {
+    if (!requirePermission('training.competency.edit')) return
+    employees.update(employee.id, form)
+    onAction('직원 정보가 저장되었습니다.')
+    refresh()
+  }
+
+  const uploadCert = async (e) => {
+    const f = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!f) return
+    if (!certForm.name.trim()) { window.alert('자격증/면허명을 먼저 입력하세요.'); return }
+    setBusy(true)
+    try {
+      const fileId = await fileStore.saveFile(f)
+      employees.addCertification(employee.id, { ...certForm, fileId, fileName: f.name })
+      setCertForm({ name: '', issuer: '', number: '', issuedAt: '', expiresAt: '' })
+      onAction('자격증이 등록되었습니다.')
+      refresh()
+    } catch (err) {
+      window.alert((err && err.message) || String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const addCertNoFile = () => {
+    if (!requirePermission('training.competency.edit')) return
+    if (!certForm.name.trim()) { window.alert('자격증/면허명을 입력하세요.'); return }
+    employees.addCertification(employee.id, certForm)
+    setCertForm({ name: '', issuer: '', number: '', issuedAt: '', expiresAt: '' })
+    onAction('자격증이 등록되었습니다.')
+    refresh()
+  }
+  const removeCert = (id) => {
+    if (!requirePermission('training.competency.edit')) return
+    employees.removeCertification(employee.id, id)
+    refresh()
+  }
+  const openCertFile = async (fileId) => {
+    const url = await fileStore.getObjectURL(fileId)
+    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+
+  const addEval = () => {
+    if (!requirePermission('training.competency.edit')) return
+    employees.addEvaluation(employee.id, evalForm)
+    setEvalForm({ date: new Date().toISOString().slice(0, 10), evaluator: '', method: '', result: QUALIFICATION_RESULT.QUALIFIED, notes: '' })
+    onAction('역량평가 기록이 저장되었습니다.')
+    refresh()
+  }
+  const removeEval = (id) => {
+    if (!requirePermission('training.competency.edit')) return
+    employees.removeEvaluation(employee.id, id)
+    refresh()
+  }
+
+  const today = new Date()
+  const isExpiringSoon = (dateStr) => {
+    if (!dateStr) return false
+    const d = new Date(dateStr)
+    const diffDays = (d - today) / 86400000
+    return diffDays >= 0 && diffDays <= 60
+  }
+  const isExpired = (dateStr) => !!dateStr && new Date(dateStr) < today
+
+  return (
+    <div className="space-y-4">
+      <div className="card-base p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{employee.name}</div>
+          {canEdit && <button onClick={onDelete} className="text-[12px] inline-flex items-center gap-1" style={{ color: 'var(--rust)' }}><Trash2 size={13} /> 삭제</button>}
+        </div>
+        {canEdit ? (
+          <>
+            <div className="grid sm:grid-cols-3 gap-2">
+              <Field label="부서" value={form.dept} onChange={(v) => setF('dept', v)} />
+              <Field label="직책/직무" value={form.position} onChange={(v) => setF('position', v)} />
+              <Field label="입사일" type="date" value={form.hireDate} onChange={(v) => setF('hireDate', v)} />
+            </div>
+            <Field label="필요 역량·자격 요건" value={form.requiredCompetency} onChange={(v) => setF('requiredCompetency', v)} className="mt-2" placeholder="예: 품질경영시스템 내부심사원 자격, 전기안전 시험 자격 등" />
+            <div className="flex justify-end mt-2"><button onClick={saveProfile} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>정보 저장</button></div>
+          </>
+        ) : (
+          <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>{employee.dept || '—'} · {employee.position || '—'} · 필요 역량: {employee.requiredCompetency || '—'}</div>
+        )}
+      </div>
+
+      <div className="card-base p-4">
+        <div className="text-[13.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>자격증 · 면허 ({(employee.certifications || []).length}건)</div>
+        {canEdit && (
+          <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-soft)' }}>
+            <div className="grid sm:grid-cols-4 gap-2">
+              <Field label="자격증/면허명" value={certForm.name} onChange={(v) => setCF('name', v)} className="sm:col-span-2" />
+              <Field label="발급기관" value={certForm.issuer} onChange={(v) => setCF('issuer', v)} />
+              <Field label="자격번호" value={certForm.number} onChange={(v) => setCF('number', v)} />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-2 mt-2">
+              <Field label="발급일" type="date" value={certForm.issuedAt} onChange={(v) => setCF('issuedAt', v)} />
+              <Field label="유효기한" type="date" value={certForm.expiresAt} onChange={(v) => setCF('expiresAt', v)} />
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <input ref={certFileRef} type="file" className="hidden" onChange={uploadCert} />
+              <button onClick={() => certFileRef.current && certFileRef.current.click()} disabled={busy} className="btn-ghost text-[12px]"><Paperclip size={12} /> {busy ? '업로드 중…' : '파일첨부하며 등록'}</button>
+              <button onClick={addCertNoFile} className="btn-primary text-[12px]" style={{ padding: '0.35rem 0.8rem' }}><Plus size={12} /> 파일없이 등록</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {(employee.certifications || []).map((c) => (
+            <div key={c.id} className="flex items-center justify-between p-2.5 rounded-lg gap-2" style={{ background: 'var(--bg-soft)' }}>
+              <div className="text-[12.5px] min-w-0 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--ink)' }}>
+                <span className="font-medium">{c.name}</span>
+                <span style={{ color: 'var(--ink-faint)' }}>· {c.issuer || '발급기관 미기록'}{c.expiresAt ? ` · 유효기한 ${c.expiresAt}` : ''}</span>
+                {isExpired(c.expiresAt) && <Badge text="만료" tone="rose" />}
+                {!isExpired(c.expiresAt) && isExpiringSoon(c.expiresAt) && <Badge text="만료임박" tone="amber" />}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {c.fileId && <button onClick={() => openCertFile(c.fileId)} className="btn-ghost text-[11px]"><Download size={11} /> {c.fileName}</button>}
+                {canEdit && <button onClick={() => removeCert(c.id)} className="text-slate-300 hover:text-rose-600"><X size={13} /></button>}
+              </div>
+            </div>
+          ))}
+          {(employee.certifications || []).length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>등록된 자격증·면허가 없습니다.</div>}
+        </div>
+      </div>
+
+      <div className="card-base p-4">
+        <div className="text-[13.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>역량평가 이력 ({(employee.evaluations || []).length}건)</div>
+        {canEdit && (
+          <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-soft)' }}>
+            <div className="grid sm:grid-cols-4 gap-2">
+              <Field label="평가일" type="date" value={evalForm.date} onChange={(v) => setEF('date', v)} />
+              <Field label="평가자" value={evalForm.evaluator} onChange={(v) => setEF('evaluator', v)} />
+              <Field label="평가방법" value={evalForm.method} onChange={(v) => setEF('method', v)} placeholder="예: 필기 / 실기 / OJT관찰" />
+              <SelectField label="평가결과" value={evalForm.result} onChange={(v) => setEF('result', v)} options={Object.values(QUALIFICATION_RESULT)} />
+            </div>
+            <Field label="비고" value={evalForm.notes} onChange={(v) => setEF('notes', v)} className="mt-2" placeholder="평가 근거·특이사항" />
+            <div className="flex justify-end mt-2"><button onClick={addEval} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><Plus size={13} /> 평가 기록 추가</button></div>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          {(employee.evaluations || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((v) => (
+            <div key={v.id} className="flex items-center justify-between p-2.5 rounded-lg gap-2" style={{ background: 'var(--bg-soft)' }}>
+              <div className="text-[12.5px] min-w-0" style={{ color: 'var(--ink)' }}>
+                {v.date} · {v.method || '평가방법 미기록'} <span style={{ color: 'var(--ink-faint)' }}>· 평가자 {v.evaluator || '—'}{v.notes ? ` · ${v.notes}` : ''}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge text={v.result} tone={v.result === QUALIFICATION_RESULT.QUALIFIED ? 'emerald' : v.result === QUALIFICATION_RESULT.CONDITIONAL ? 'amber' : 'rose'} />
+                {canEdit && <button onClick={() => removeEval(v.id)} className="text-slate-300 hover:text-rose-600"><X size={13} /></button>}
+              </div>
+            </div>
+          ))}
+          {(employee.evaluations || []).length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>등록된 평가 기록이 없습니다.</div>}
         </div>
       </div>
     </div>

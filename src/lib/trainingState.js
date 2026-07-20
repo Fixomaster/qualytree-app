@@ -13,6 +13,7 @@ function defaultState() {
     annualPlans: [],
     materials: [],
     sessions: [],
+    employees: [],
   }
 }
 
@@ -167,4 +168,116 @@ export const sessions = {
   },
 }
 
-export default { plans, materials, sessions, PLAN_STATUS }
+export const QUALIFICATION_RESULT = {
+  QUALIFIED: '적격',
+  CONDITIONAL: '조건부 적격',
+  NOT_QUALIFIED: '부적격',
+}
+
+/**
+ * 직원 역량평가·자격관리 — ISO 13485 §6.2(b)(c) 교육·자격의 유효성 평가 및
+ * 자격증·면허·경력 등 인적자원 적격성 기록 유지.
+ */
+export const employees = {
+  add(item) {
+    const s = load()
+    const rec = {
+      id: uid(),
+      name: '',
+      dept: '',
+      position: '',
+      hireDate: '',
+      requiredCompetency: '', // 직무별 필요 역량·자격 요건 (자유 기술)
+      certifications: [], // 자격증·면허·교육이수증 등
+      evaluations: [], // 역량평가 이력
+      ...item,
+    }
+    s.employees = [...s.employees, rec]
+    save(s)
+    return rec
+  },
+  update(id, patch) {
+    const s = load()
+    s.employees = s.employees.map((e) => (e.id === id ? { ...e, ...patch } : e))
+    save(s)
+    return s
+  },
+  delete(id) {
+    const s = load()
+    s.employees = s.employees.filter((e) => e.id !== id)
+    save(s)
+    return s
+  },
+  getAll() {
+    return load().employees.slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'))
+  },
+  addCertification(employeeId, cert) {
+    const s = load()
+    s.employees = s.employees.map((e) =>
+      e.id === employeeId
+        ? {
+            ...e,
+            certifications: [
+              ...(e.certifications || []),
+              { id: uid(), name: '', issuer: '', number: '', issuedAt: '', expiresAt: '', fileId: null, fileName: '', ...cert },
+            ],
+          }
+        : e
+    )
+    save(s)
+    return s
+  },
+  removeCertification(employeeId, certId) {
+    const s = load()
+    s.employees = s.employees.map((e) =>
+      e.id === employeeId ? { ...e, certifications: (e.certifications || []).filter((c) => c.id !== certId) } : e
+    )
+    save(s)
+    return s
+  },
+  addEvaluation(employeeId, evalItem) {
+    const s = load()
+    s.employees = s.employees.map((e) =>
+      e.id === employeeId
+        ? {
+            ...e,
+            evaluations: [
+              ...(e.evaluations || []),
+              { id: uid(), date: new Date().toISOString().slice(0, 10), evaluator: '', method: '', result: QUALIFICATION_RESULT.QUALIFIED, notes: '', ...evalItem },
+            ],
+          }
+        : e
+    )
+    save(s)
+    return s
+  },
+  removeEvaluation(employeeId, evalId) {
+    const s = load()
+    s.employees = s.employees.map((e) =>
+      e.id === employeeId ? { ...e, evaluations: (e.evaluations || []).filter((v) => v.id !== evalId) } : e
+    )
+    save(s)
+    return s
+  },
+  /** 가장 최근 역량평가 기록 (날짜 기준) — 목록 화면의 상태 배지에 사용 */
+  latestEvaluation(e) {
+    const evals = (e.evaluations || []).slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    return evals[0] || null
+  },
+  /** 지정 기간(기본 60일) 내 만료 예정인 자격증 목록 — 대시보드/알림용 */
+  expiringCertifications(withinDays = 60) {
+    const today = new Date()
+    const limit = new Date(today.getTime() + withinDays * 86400000)
+    const out = []
+    load().employees.forEach((e) =>
+      (e.certifications || []).forEach((c) => {
+        if (!c.expiresAt) return
+        const d = new Date(c.expiresAt)
+        if (d >= today && d <= limit) out.push({ employeeId: e.id, employeeName: e.name, ...c })
+      })
+    )
+    return out
+  },
+}
+
+export default { plans, materials, sessions, employees, PLAN_STATUS, QUALIFICATION_RESULT }

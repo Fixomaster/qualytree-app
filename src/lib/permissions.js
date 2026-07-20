@@ -72,6 +72,7 @@ export const PERMISSIONS = {
   'training.plan.approve': LEVELS.MANAGER, // 연간교육계획 승인
   'training.material.edit': LEVELS.INSPECTOR, // 교육자료 등록
   'training.session.edit': LEVELS.INSPECTOR, // 교육 실시·평가·참석기록
+  'training.competency.edit': LEVELS.INSPECTOR, // 직원 역량평가·자격(자격증/면허) 관리
 
   // ===== MR 영역 (경영검토) =====
   'mr.review.edit': LEVELS.INSPECTOR, // 경영검토 준비(자료 집계·결정사항 작성)
