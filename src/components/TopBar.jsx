@@ -3,11 +3,13 @@ import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldChe
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
+import ProfileSettingsModal from './ProfileSettingsModal'
 
 export default function TopBar({ user, title, subtitle }) {
   const nav = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const [showRoleSwap, setShowRoleSwap] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
 
   const onSignOut = () => {
     auth.signOut()
@@ -206,12 +208,16 @@ export default function TopBar({ user, title, subtitle }) {
                 </div>
               )}
 
-              <MenuItem icon={UserIcon} label="프로필 설정" onClick={() => setMenuOpen(false)} />
+              <MenuItem icon={UserIcon} label="프로필 설정" onClick={() => { setMenuOpen(false); setProfileOpen(true) }} />
               <MenuItem icon={LogOut} label="로그아웃" onClick={onSignOut} danger />
             </div>
           )}
         </div>
       </div>
+
+      {profileOpen && (
+        <ProfileSettingsModal user={{ ...user, level: currentLevel }} onClose={() => setProfileOpen(false)} />
+      )}
     </header>
   )
 }
