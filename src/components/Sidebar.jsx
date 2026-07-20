@@ -18,6 +18,7 @@ import {
   Stamp,
   Factory,
   Award,
+  ScrollText,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -35,6 +36,7 @@ const NAV = [
   { to: '/operations',   label: '현장 운영',  en: 'Operations',          icon: Workflow,        area: 'OPS' },
   { to: '/equipment',    label: '설비·교정',  en: 'Equipment',           icon: Wrench,          area: 'EQP' },
   { to: '/documents',    label: '품질 문서',  en: 'Documents',           icon: FileText,        area: 'DOC' },
+  { to: '/management-review', label: '경영검토', en: 'Management Review',  icon: ScrollText,      area: 'MR'  },
   { to: '/training',     label: '교육',        en: 'Training',            icon: GraduationCap,   area: 'TRN' },
 ]
 

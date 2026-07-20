@@ -29,6 +29,7 @@ import CompanyHub from './pages/company/CompanyHub'
 import AdminHub from './pages/admin/AdminHub'
 import PermissionAdmin from './pages/admin/PermissionAdmin'
 import Iso13485Hub from './pages/iso13485/Iso13485Hub'
+import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
 import { auth } from './lib/auth'
 
 function ProtectedRoute({ children }) {
@@ -75,6 +76,7 @@ export default function App() {
       <Route path="/admin" element={<ProtectedRoute><AdminHub /></ProtectedRoute>} />
       <Route path="/admin/permissions" element={<ProtectedRoute><PermissionAdmin /></ProtectedRoute>} />
       <Route path="/iso13485" element={<ProtectedRoute><Iso13485Hub /></ProtectedRoute>} />
+      <Route path="/management-review" element={<ProtectedRoute><ManagementReviewHub /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/monitoring" replace />} />
     </Routes>
   )
