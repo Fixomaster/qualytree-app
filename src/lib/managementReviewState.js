@@ -13,8 +13,47 @@ import { equipment } from './equipmentState'
 import { suppliers } from './supplierState'
 import { findings, FINDING_STATUS } from './internalAuditState'
 import { sessions as trainingSessions } from './trainingState'
+import { onboarding } from './onboardingState'
 
 const STORE_KEY = 'qualytree.managementReview'
+// Documents.jsx(품질 문서)와 동일한 저장소 키 — 경영검토 승인 시 '경영검토' 절차서 docState에
+// 즉시 이력을 반영하기 위해 직접 참조한다 (ISO 13485 §4.2.4 문서·기록 관리 연계).
+const DOC_KEY = 'qualytree.documents'
+
+function loadDocState() {
+  try { return JSON.parse(localStorage.getItem(DOC_KEY) || '{}') } catch { return {} }
+}
+
+function saveDocState(next) {
+  try { localStorage.setItem(DOC_KEY, JSON.stringify(next)) } catch { /* 저장 실패 시에도 경영검토 승인 자체는 유지 */ }
+}
+
+/**
+ * 경영검토가 승인되면 온보딩 절차 목록에서 '경영검토' 절차서를 찾아 품질 문서(Documents.jsx)
+ * docState에 승인 이력을 즉시 반영한다. kgmpProgress.js의 procedureItem()과 동일한
+ * 키워드 매칭 방식(name에 '경영검토' 포함)을 사용해 두 화면의 데이터가 항상 일치하도록 한다.
+ */
+function syncApprovedReviewToDocuments(review, approverName) {
+  try {
+    const procedures = (onboarding.load().procedures || []).filter((p) => p.applicable !== false)
+    const matched = procedures.find((p) => (p.name || '').includes('경영검토'))
+    if (!matched) return
+    const key = 'P-' + matched.id
+    const docs = loadDocState()
+    const cur = docs[key] || { status: 'draft', rev: 0, history: [] }
+    const today = new Date().toISOString().slice(0, 10)
+    const periodLabel = review.period || review.meetingDate || ''
+    const note = `경영검토 승인 반영${periodLabel ? ' (기간: ' + periodLabel + ')' : ''} · 승인자: ${approverName}`
+    docs[key] = {
+      ...cur,
+      updatedAt: Date.now(),
+      lastReviewApprovalAt: today,
+      lastReviewId: review.id,
+      history: [...(cur.history || []), { rev: cur.rev || 0, action: note, by: approverName, at: today }],
+    }
+    saveDocState(docs)
+  } catch { /* best-effort 연동 — 실패해도 경영검토 승인 자체는 정상 처리 */ }
+}
 
 function defaultState() {
   return {
@@ -205,8 +244,15 @@ export const reviews = {
   },
   approve(id, approverName) {
     const s = load()
-    s.reviews = s.reviews.map((r) => (r.id === id ? { ...r, status: REVIEW_STATUS.APPROVED, approvedBy: approverName, approvedAt: new Date().toISOString() } : r))
+    let approved = null
+    s.reviews = s.reviews.map((r) => {
+      if (r.id !== id) return r
+      approved = { ...r, status: REVIEW_STATUS.APPROVED, approvedBy: approverName, approvedAt: new Date().toISOString() }
+      return approved
+    })
     save(s)
+    // 승인 즉시 품질 문서(경영검토 절차서)에 이력 반영 — "승인되면 바로 업데이트" 요구사항
+    if (approved) syncApprovedReviewToDocuments(approved, approverName)
     return s
   },
   delete(id) {
