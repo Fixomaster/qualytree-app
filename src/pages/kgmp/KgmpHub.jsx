@@ -1,15 +1,17 @@
 import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Factory, ArrowRight } from 'lucide-react'
+import { Factory, ArrowRight, FileDown } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
+import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kgmpDocumentBundle'
 import KgmpSectionList from '../../components/KgmpSectionList'
 import CertGate from '../../components/CertGate'
 
 export default function KgmpHub() {
   const user = auth.current()
   const nav = useNavigate()
+  const downloadPdf = () => downloadHtmlAsPdf(buildApprovedDocumentBundleHtml('manufacturer', 'KGMP'))
 
   // buildKgmpSections()는 호출 시 누락된 필수 절차서(공급업체관리·회수·변경관리)를 자동 보완한다.
   // 이 화면은 국내제조사(자기 제조소가 GMP 심사 대상) 전용이다 — 수입사는 별도의
@@ -58,6 +60,7 @@ export default function KgmpHub() {
               <div className="h-1.5 rounded-full" style={{ width: pct + '%', background: 'var(--moss)' }} />
             </div>
           </div>
+          <button onClick={downloadPdf} className="btn-primary text-[12.5px] shrink-0"><FileDown size={14} /> 승인 문서 통합 PDF</button>
         </div>
 
         <KgmpSectionList sections={sections} />

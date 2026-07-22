@@ -11,6 +11,7 @@ import {
   X,
   AlertTriangle,
   Save,
+  FileDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -24,6 +25,7 @@ import {
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
+import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kgmpDocumentBundle'
 import KgmpSectionList from '../../components/KgmpSectionList'
 import CertGate from '../../components/CertGate'
 
@@ -46,6 +48,7 @@ export default function ForeignManufacturerHub() {
   // 적합인정서 상세는 위 마스터-디테일 UI에서 직접 관리하므로 체크리스트에는 중복 나열하지 않는다.
   const kgmpSections = buildKgmpSections({ profile: 'importer' })
   const kgmpSummary = summarizeKgmpSections(kgmpSections)
+  const downloadPdf = () => downloadHtmlAsPdf(buildApprovedDocumentBundleHtml('importer', '수입사 GMP (외국제조소)'))
 
   const addSite = () => {
     if (!requirePermission('importgmp.site.edit')) return
@@ -137,11 +140,14 @@ export default function ForeignManufacturerHub() {
         </div>
 
         <div className="mt-8">
-          <div className="mb-4">
-            <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>수입 인허가 제출 체크리스트</div>
-            <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-              공통 제출 문서·기술문서·품질시스템·절차서·유지 기록 — 수입사 기준({kgmpSummary.doneCount} / {kgmpSummary.totalCount}개 완료, {kgmpSummary.pct}%)
+          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>수입 인허가 제출 체크리스트</div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
+                공통 제출 문서·기술문서·품질시스템·절차서·유지 기록 — 수입사 기준({kgmpSummary.doneCount} / {kgmpSummary.totalCount}개 완료, {kgmpSummary.pct}%)
+              </div>
             </div>
+            <button onClick={downloadPdf} className="btn-primary text-[12.5px] shrink-0"><FileDown size={14} /> 승인 문서 통합 PDF</button>
           </div>
           <KgmpSectionList sections={kgmpSections} keyPrefix="importer-" />
         </div>

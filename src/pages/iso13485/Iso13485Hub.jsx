@@ -1,12 +1,15 @@
 import React, { useMemo } from 'react'
+import { FileDown } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import CertGate from '../../components/CertGate'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
+import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kgmpDocumentBundle'
 import KgmpSectionList from '../../components/KgmpSectionList'
 
 export default function Iso13485Hub() {
   const user = auth.current()
+  const downloadPdf = () => downloadHtmlAsPdf(buildApprovedDocumentBundleHtml('iso13485', 'ISO 13485'))
 
   // profile:'iso13485' — 국내 제조업허가증 같은 KR 인허가 전용 서류는 제외하고
   // (buildKgmpSections 참조) 기술문서·품질시스템·절차서·기록 체크리스트를 국제
@@ -40,6 +43,7 @@ export default function Iso13485Hub() {
               <div className="h-1.5 rounded-full" style={{ width: pct + '%', background: 'var(--moss)' }} />
             </div>
           </div>
+          <button onClick={downloadPdf} className="btn-primary text-[12.5px] shrink-0"><FileDown size={14} /> 승인 문서 통합 PDF</button>
         </div>
 
         <KgmpSectionList sections={sections} keyPrefix="iso13485-" />
