@@ -1,15 +1,24 @@
 import React, { useState } from 'react'
-import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldCheck } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
 import ProfileSettingsModal from './ProfileSettingsModal'
 
 export default function TopBar({ user, title, subtitle }) {
   const nav = useNavigate()
+  const location = useLocation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [showRoleSwap, setShowRoleSwap] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+
+  // 홈(모니터링)에서는 뒤로가기가 의미 없으므로 숨긴다. 그 외 화면에서는 항상 표시 —
+  // 브라우저 히스토리가 있으면 뒤로 이동, 새로고침 등으로 히스토리가 없으면 홈으로 이동.
+  const isHome = location.pathname === '/monitoring'
+  const goBack = () => {
+    if (window.history.length > 2) nav(-1)
+    else nav('/monitoring')
+  }
 
   const onSignOut = () => {
     auth.signOut()
@@ -36,23 +45,36 @@ export default function TopBar({ user, title, subtitle }) {
         borderBottom: '1px solid var(--line)',
       }}
     >
-      <div>
-        {title && (
-          <div
-            className="font-display text-[18px] leading-tight"
-            style={{ color: 'var(--ink)', fontWeight: 500 }}
+      <div className="flex items-center gap-3 min-w-0">
+        {!isHome && (
+          <button
+            onClick={goBack}
+            aria-label="이전 화면으로 돌아가기"
+            title="이전 화면으로"
+            className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition"
+            style={{ color: 'var(--ink-soft)', background: 'var(--bg-soft)' }}
           >
-            {title}
-          </div>
+            <ArrowLeft size={16} strokeWidth={1.8} />
+          </button>
         )}
-        {subtitle && (
-          <div
-            className="text-[12.5px] mt-0.5"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            {subtitle}
-          </div>
-        )}
+        <div className="min-w-0">
+          {title && (
+            <div
+              className="font-display text-[18px] leading-tight truncate"
+              style={{ color: 'var(--ink)', fontWeight: 500 }}
+            >
+              {title}
+            </div>
+          )}
+          {subtitle && (
+            <div
+              className="text-[12.5px] mt-0.5 truncate"
+              style={{ color: 'var(--ink-mute)' }}
+            >
+              {subtitle}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
