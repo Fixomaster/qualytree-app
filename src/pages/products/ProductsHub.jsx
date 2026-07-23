@@ -1,1924 +1,913 @@
-import React, { useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useNavigate } from 'react-router-dom'
+import React, { useState } from 'react'
 import {
-  PackageSearch,
-  Workflow,
-  FlaskConical,
-  Edit3,
-  Plus,
-  Trash2,
-  ChevronRight,
-  ChevronLeft,
-  Search,
-  AlertCircle,
-  GitBranch,
-  History,
-  ArrowRight,
-  FileText,
-  Layers,
-  CheckCircle2,
-  Circle,
-  Sparkles,
-  Upload,
+  FlaskConical, FileText, CheckSquare, ClipboardCheck, RefreshCw,
+  Cpu, Plus, ArrowLeft, BarChart2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
-import { permissions, requirePermission, LEVEL_LABEL } from '../../lib/permissions'
-import { onboarding, getProductProcesses, setProductProcesses, productKeyOf, getAllUsedBlockIds } from '../../lib/onboardingState'
-import { PROCESS_BLOCKS, PROCESS_CATEGORIES } from '../../lib/processBlocks'
-import { inspectionTemplates, CRITICALITY_OPTIONS } from '../../lib/inspectionTemplates'
-import { commitChange, CHANGE_ACTIONS, getRecordsForEntity } from '../../lib/changeControl'
-import { ENTITY_TYPES, eid } from '../../lib/entityRegistry'
-import ProductDocumentsPanel from './ProductDocumentsPanel'
-import { productDocs } from '../../lib/productDocsState'
-import {
-  PRODUCT_KIND,
-  productKind,
-  DESIGN_STAGES,
-  designStepsOf,
-  designProgressOf,
-  licensedProgressOf,
-  productModels,
-} from '../../lib/productLifecycleState'
-import { extractLicenseFromPdf } from '../../lib/licenseExtract'
 
-const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
-
-function loadCustomBlocks() {
-  try {
-    const raw = localStorage.getItem(CUSTOM_BLOCK_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch {
-    return []
-  }
+/* ── helpers ── */
+function nid(p) { return `${p}-${Date.now().toString(36).toUpperCase()}` }
+function useLS(key, init) {
+  const [v, setV] = useState(() => { try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : init } catch { return init } })
+  const set = (u) => { const n = typeof u === 'function' ? u(v) : u; setV(n); try { localStorage.setItem(key, JSON.stringify(n)) } catch {} }
+  return [v, set]
 }
 
-function saveCustomBlocks(blocks) {
-  try {
-    localStorage.setItem(CUSTOM_BLOCK_KEY, JSON.stringify(blocks))
-  } catch {}
+/* ── shared style tokens ── */
+const inp = { width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-soft)', color: 'var(--ink)', fontSize: 13, outline: 'none' }
+const sel = { ...inp }
+
+/* ── tiny shared components ── */
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.45)' }} onClick={onClose}>
+      <div className="rounded-2xl p-5 w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <span className="font-semibold text-[15px]" style={{ color: 'var(--ink)' }}>{title}</span>
+          <button onClick={onClose} style={{ color: 'var(--ink-faint)', fontSize: 20, lineHeight: 1 }}>✕</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+function Badge({ text, tone = 'gray' }) {
+  const colors = { green: ['var(--leaf-soft)', 'var(--moss)'], red: ['var(--rust-soft)', 'var(--rust)'], amber: ['#fef3c7', '#d97706'], blue: ['#dbeafe', '#2563eb'], gray: ['var(--bg-soft)', 'var(--ink-mute)'] }
+  const [bg, fg] = colors[tone] || colors.gray
+  return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: bg, color: fg }}>{text}</span>
+}
+function StatusSelect({ value, options, onChange }) {
+  return <select style={{ ...sel, width: 'auto', padding: '4px 8px', fontSize: 12 }} value={value} onChange={e => onChange(e.target.value)}>{options.map(o => <option key={o}>{o}</option>)}</select>
+}
+function ActBtn({ label, onClick, color }) {
+  return <button onClick={onClick} className="text-[11.5px] px-2 py-1 rounded-lg transition"
+    style={{ color: color === 'red' ? 'var(--rust)' : 'var(--moss)', background: color === 'red' ? 'var(--rust-soft)' : 'var(--leaf-soft)' }}>{label}</button>
+}
+function SBtn({ children, onClick, secondary }) {
+  return <button onClick={onClick} className="px-4 py-2 rounded-xl text-[13px] font-medium transition"
+    style={{ background: secondary ? 'var(--bg-soft)' : 'var(--moss)', color: secondary ? 'var(--ink-mute)' : 'var(--bg)' }}>{children}</button>
+}
+function FL({ label, children }) {
+  return <div><label className="block text-[12px] mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</label>{children}</div>
+}
+function TH({ children }) { return <th className="px-3 py-2 text-left font-mono text-[10.5px] tracking-wide" style={{ color: 'var(--ink-faint)', borderBottom: '1px solid var(--line)' }}>{children}</th> }
+function TD({ children, mono, muted, color, right }) {
+  return <td className={`px-3 py-2 text-[12.5px]${mono ? ' font-mono' : ''}${right ? ' text-right' : ''}`}
+    style={{ color: color || (muted ? 'var(--ink-mute)' : 'var(--ink)'), borderBottom: '1px solid var(--line)' }}>{children}</td>
+}
+function SectionTitle({ breadcrumb, children }) {
+  return (
+    <div className="mb-4">
+      <div className="font-mono text-[10px] tracking-[0.18em] uppercase mb-1" style={{ color: 'var(--ink-faint)' }}>{breadcrumb}</div>
+      <div className="text-[18px] font-semibold" style={{ color: 'var(--ink)' }}>{children}</div>
+    </div>
+  )
 }
 
-// 식약처 분류 기반 인허가 업종 (대분류 → 중분류)
-const MDCAT = {
-  '기구·기계': ['진료용 기기', '수술용 기기', '정형용품', '영상진단장치', '측정·감시장치', '물리치료·재활기기', '안과용 기기', '내시경·광학기기', '기타'],
-  '의료용품': ['주사기·주사침', '카테터·튜브', '봉합사·결찰재', '수액·수혈세트', '거즈·드레싱', '콘택트렌즈', '기타'],
-  '체외진단의료기기': ['생화학 검사', '면역 검사', '분자진단(NAT)', '혈액·혈당 검사', '자가검사', '기타'],
-  '치과재료': ['충전·수복재료', '인상재', '의치·교정재료', '임플란트', '기타'],
-  '소프트웨어·디지털(SaMD)': ['진단보조 SW', 'AI 영상분석', '환자 모니터링', '디지털치료기기(DTx)', '기타'],
-  '기타': [],
-}
-const MDCAT1 = Object.keys(MDCAT)
-
-/**
- * PROD-001 제품 라이브러리 (메인)
- *   - 탭 1: 제품 마스터 (PROD-001)
- *   - 탭 2: 공정 라이브러리 (PROD-002)
- *   - 탭 3: 검사 항목 마스터 (PROD-003)
- *
- * 적용 표준:
- * - ISO 13485:2016 §4.2.4 (문서 관리), §7.3 (설계 개발)
- * - 21 CFR 820.30 (Design Controls), §820.40 (Document Controls)
- * - Project Instructions §9 SSoT, §13.15 구성 관리
- */
-const DEFAULT_CHAIN = [
-  { blockId: 'visual-inspection', customName: '수입검사(IQC)' },
-  { blockId: 'manual-assembly', customName: '주공정' },
-  { blockId: 'cmm-inspection', customName: '공정검사(IPQC)' },
-  { blockId: 'functional-test', customName: '최종검사(OQC)' },
-  { blockId: 'primary-packaging', customName: '포장' },
-  { blockId: 'labeling', customName: '라벨링' },
+/* ── seed data ── */
+const INIT_PLANS = [
+  { id: 'DPL-001', name: '혈당측정기 v2.0 개발계획', phase: '기획', manager: '김개발', startDate: '2026-01-10', endDate: '2026-12-31', status: '진행중' },
+]
+const INIT_INPUTS = [
+  { id: 'DIN-001', plan: 'DPL-001', title: 'IEC 62366 사용적합성 요구사항', category: '규제·표준', priority: '높음', date: '2026-02-01', status: '확정' },
+]
+const INIT_OUTPUTS = [
+  { id: 'DOT-001', plan: 'DPL-001', title: '회로 설계도 Rev.A', category: '하드웨어', relatedInput: 'DIN-001', date: '2026-03-15', status: '검토중' },
+]
+const INIT_VERIFICATIONS = [
+  { id: 'DVR-001', plan: 'DPL-001', title: '전기안전 시험 (IEC 60601)', method: '시험', result: '합격', date: '2026-04-20', status: '완료' },
+]
+const INIT_VALIDATIONS = [
+  { id: 'DVL-001', plan: 'DPL-001', title: '임상 사용적합성 평가', method: '사용자 시험', site: '세브란스병원', date: '2026-05-10', status: '계획' },
+]
+const INIT_CHANGES = [
+  { id: 'DCH-001', plan: 'DPL-001', title: '센서 모듈 교체 (A→B)', reason: '수급 이슈', risk: '낮음', approver: '이부장', date: '2026-06-01', status: '승인' },
+]
+const INIT_PROCESSES = [
+  { id: 'PDV-001', plan: 'DPL-001', title: '조립 공정 설계', type: '조립', doc: 'WI-ASM-001', validated: '완료', date: '2026-07-01', status: '완료' },
 ]
 
-export default function ProductsHub() {
-  const nav = useNavigate()
-  const user = auth.current()
-
-  const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'product') // product | process | inspection
-  const [toast, setToast] = useState(null)
-
-  const showToast = (text) => {
-    setToast(text)
-    setTimeout(() => setToast(null), 2400)
+/* ──────────────────────────────────────────────
+   개발 계획 뷰
+────────────────────────────────────────────── */
+function PlanView({ plans, setPlans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['기획', '진행중', '검토', '완료', '보류']
+  const phaseOpts = ['기획', '개념설계', '상세설계', '시제품', '검증', '양산이관', '완료']
+  const init = { id: '', name: '', phase: '기획', manager: '', startDate: '', endDate: '', status: '기획' }
+  const save = (f) => {
+    if (edit) { setPlans(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setPlans(p => [...p, { ...init, id: nid('DPL'), ...f }]) }
+    setModal(null)
   }
-
-  // 온보딩 데이터에서 회사·제품 추출 (다중 제품 지원)
-  const ob = onboarding.load() || {}
-  const company = ob.company
-  const products = (Array.isArray(ob.products) && ob.products.length)
-    ? ob.products
-    : (ob.product && ob.product.name ? [ob.product] : [])
-  const [selId, setSelId] = useState(null)
-  const product = products.find((p) => (p.id || 'main') === selId) || products[0] || null
-  const processes = ob.processes || []
-
-  const hasOnboarding = !!(company?.name) || products.length > 0
-  const canEditProduct = permissions.can('onb.product.edit')
-  const [addingProduct, setAddingProduct] = useState(false)
-  // 제품 탭 전용: 카드 그리드(목록) ↔ 상세(기본정보/모델 목록/설계 계획) 전환
-  const [productView, setProductView] = useState('grid') // grid | detail
-  const [detailTab, setDetailTab] = useState('info') // info | models | design
-  const openProduct = (p, tabName) => {
-    setSelId(p.id || 'main')
-    setDetailTab(tabName || 'info')
-    setProductView('detail')
-    setAddingProduct(false)
-  }
-
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setPlans(p => p.filter(x => x.id !== id)) }
   return (
-    <AppLayout
-      user={user}
-      title="제품 · 공정"
-      subtitle="제품 마스터 / 공정 라이브러리 / 검사 항목"
-    >
-      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
-        {/* Toast */}
-        {toast && (
-          <div
-            className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
-            style={{
-              background: 'var(--moss)',
-              color: 'var(--bg)',
-              boxShadow: '0 6px 20px rgba(15,26,20,0.18)',
-              fontWeight: 500,
-            }}
-          >
-            ✓ {toast}
-          </div>
-        )}
-
-        {/* 헤더 */}
-        <div className="mb-5">
-          <span
-            className="font-mono text-[10px] tracking-[0.18em] uppercase"
-            style={{ color: 'var(--moss)' }}
-          >
-            PROD · PRODUCT & PROCESS LIBRARY
-          </span>
-          <div
-            className="font-display text-[26px] mt-1"
-            style={{ color: 'var(--ink)', fontWeight: 500 }}
-          >
-            제품·공정 마스터
-          </div>
-          <div
-            className="text-[12.5px] mt-0.5"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            ISO 13485 §4.2.4 / 21 CFR 820.30 / 820.40 — 모든 변경은 CCR 자동 발의
-          </div>
+    <div>
+      <SectionTitle breadcrumb="개발 › 개발 계획">개발 계획</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계·개발 계획 관리 (ISO 13485 §7.3.2)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 계획 등록
+          </button>
         </div>
-
-        {/* 온보딩 미완 안내 */}
-        {!hasOnboarding && (
-          <div
-            className="card-base p-6 mb-5 text-center"
-            style={{ borderStyle: 'dashed' }}
-          >
-            <PackageSearch
-              size={32}
-              style={{ color: 'var(--ink-faint)', margin: '0 auto' }}
-              strokeWidth={1.4}
-            />
-            <div className="mt-3 text-[14px]" style={{ color: 'var(--ink)' }}>
-              회사·제품 정보가 아직 등록되지 않았습니다
-            </div>
-            <div
-              className="mt-1 text-[12px]"
-              style={{ color: 'var(--ink-mute)' }}
-            >
-              온보딩을 먼저 완료하시거나 데모 데이터를 채워보세요.
-            </div>
-            <button
-              onClick={() => nav('/onboarding')}
-              className="btn-primary mt-3"
-            >
-              온보딩 시작 <ArrowRight size={13} />
-            </button>
-          </div>
-        )}
-
-        {hasOnboarding && (
-          <>
-            {/* 탭 */}
-            <div className="flex gap-1 mb-5 overflow-x-auto">
-              <TabButton
-                active={tab === 'product'}
-                onClick={() => setTab('product')}
-                icon={PackageSearch}
-                label="제품"
-                en="PROD-001"
-                count={products.length}
-              />
-              <TabButton
-                active={tab === 'process'}
-                onClick={() => setTab('process')}
-                icon={Workflow}
-                label="공정"
-                en="PROD-002"
-                count={processes.length}
-              />
-              <TabButton
-                active={tab === 'inspection'}
-                onClick={() => setTab('inspection')}
-                icon={FlaskConical}
-                label="검사 항목"
-                en="PROD-003"
-                count={countAllTemplates()}
-              />
-              <TabButton
-                active={tab === 'documents'}
-                onClick={() => setTab('documents')}
-                icon={FileText}
-                label="문서"
-                en="PROD-004"
-                count={product ? productDocs.getLicenses(productKeyOf(product)).length : 0}
-              />
-            </div>
-
-            {/* 탭 내용 */}
-            {tab === 'product' && (
-              <div className="space-y-3">
-                {productView === 'grid' && !addingProduct && (
-                  <ProductCardGrid
-                    products={products}
-                    onOpen={openProduct}
-                    canEdit={canEditProduct}
-                    onAdd={() => setAddingProduct(true)}
-                  />
-                )}
-                {addingProduct && (
-                  <AddProductPanel
-                    onCancel={() => setAddingProduct(false)}
-                    onSaved={(p) => {
-                      setAddingProduct(false)
-                      showToast(productKind(p) === PRODUCT_KIND.NEW ? '신규 제품이 등록되었습니다 · 설계 계획을 시작하세요 · CCR 자동 발의' : '제품이 등록되었습니다 · CCR 자동 발의')
-                      setTimeout(() => window.location.reload(), 600)
-                    }}
-                  />
-                )}
-                {productView === 'detail' && !addingProduct && (
-                  product ? (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between flex-wrap gap-2">
-                        <button onClick={() => setProductView('grid')} className="btn-ghost text-[12px]">
-                          <ChevronLeft size={13} /> 제품 목록으로
-                        </button>
-                        <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--bg-soft)' }}>
-                          <DetailTabBtn active={detailTab === 'info'} onClick={() => setDetailTab('info')} label="기본정보" />
-                          <DetailTabBtn active={detailTab === 'models'} onClick={() => setDetailTab('models')} label="모델 목록" count={productModels.getForProduct(productKeyOf(product)).length} />
-                          {productKind(product) === PRODUCT_KIND.NEW && (
-                            <DetailTabBtn active={detailTab === 'design'} onClick={() => setDetailTab('design')} label="설계 계획" />
-                          )}
-                        </div>
-                      </div>
-                      {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />}
-                      {detailTab === 'models' && <ModelListPanel key={'models-' + (product?.id || 'main')} product={product} onAction={showToast} />}
-                      {detailTab === 'design' && productKind(product) === PRODUCT_KIND.NEW && (
-                        <DesignStagePanel key={'design-' + (product?.id || 'main')} product={product} onAction={showToast} />
-                      )}
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['계획ID', '프로젝트명', '단계', '담당자', '시작일', '완료예정', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {plans.map(p => (
+                <tr key={p.id}>
+                  <TD mono color="var(--moss)">{p.id}</TD>
+                  <TD>{p.name}</TD>
+                  <TD><Badge text={p.phase} tone="blue"/></TD>
+                  <TD muted>{p.manager}</TD>
+                  <TD mono muted>{p.startDate}</TD>
+                  <TD mono muted>{p.endDate}</TD>
+                  <TD>
+                    <StatusSelect value={p.status} options={statusOpts}
+                      onChange={v => setPlans(prev => prev.map(x => x.id === p.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(p); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(p.id)}/>
                     </div>
-                  ) : (
-                    <div className="card-base p-6 text-center" style={{ borderStyle: 'dashed' }}>
-                      <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-                      <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>등록된 제품이 없습니다</div>
-                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'제품 등록' 버튼으로 첫 제품을 등록하세요.</div>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
-            {tab === 'process' && (
-              <ProcessPanel key={productKeyOf(product)} product={product} products={products} selId={selId} setSelId={setSelId} onAction={showToast} />
-            )}
-            {tab === 'inspection' && (
-              <InspectionPanel onAction={showToast} />
-            )}
-            {tab === 'documents' && (
-              <ProductDocumentsPanel key={product?.id || 'main'} product={product} onAction={showToast} initialSub={searchParams.get('docSub')} />
-            )}
-          </>
-        )}
-      </div>
-    </AppLayout>
-  )
-}
-
-function countAllTemplates() {
-  const all = inspectionTemplates.loadAll()
-  return Object.values(all).reduce((sum, list) => sum + list.length, 0)
-}
-
-/* ================================================================
-   TabButton
-   ================================================================ */
-function TabButton({ active, onClick, icon: Icon, label, en, count }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-4 py-2.5 rounded-t-lg flex items-center gap-2 text-[13px] transition shrink-0"
-      style={{
-        background: active ? 'var(--bg-card)' : 'transparent',
-        borderBottom: active
-          ? '2px solid var(--moss)'
-          : '2px solid transparent',
-        color: active ? 'var(--ink)' : 'var(--ink-mute)',
-        fontWeight: active ? 500 : 400,
-      }}
-    >
-      <Icon size={14} />
-      <span>{label}</span>
-      <span
-        className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-        style={{
-          background: active ? 'var(--leaf-soft)' : 'var(--bg-soft)',
-          color: active ? 'var(--moss)' : 'var(--ink-faint)',
-        }}
-      >
-        {count}
-      </span>
-      <span
-        className="font-mono text-[9.5px] tracking-wider"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        {en}
-      </span>
-    </button>
-  )
-}
-
-/* ================================================================
-   PROD-001 제품 패널
-   ================================================================ */
-
-/* ================================================================
-   제품 카드 그리드 — 제품 탭 기본 화면 (기허가/신규 카드 + 페이지네이션)
-   ================================================================ */
-function DetailTabBtn({ active, onClick, label, count }) {
-  return (
-    <button
-      onClick={onClick}
-      className="px-3 py-1.5 rounded-md text-[12.5px] font-medium transition flex items-center gap-1.5"
-      style={active ? { background: 'var(--bg-card)', color: 'var(--ink)', boxShadow: '0 1px 3px rgba(15,26,20,0.12)' } : { color: 'var(--ink-mute)' }}
-    >
-      {label}
-      {typeof count === 'number' && (
-        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: active ? 'var(--leaf-soft)' : 'var(--bg-soft)', color: active ? 'var(--moss)' : 'var(--ink-faint)' }}>
-          {count}
-        </span>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '개발 계획 수정' : '개발 계획 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <PlanForm initial={edit || init} phaseOpts={phaseOpts} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
       )}
-    </button>
+    </div>
   )
 }
-
-const PRODUCT_PAGE_SIZE = 9
-
-function ProductCardGrid({ products, onOpen, canEdit, onAdd }) {
-  const [page, setPage] = useState(0)
-  const totalPages = Math.max(1, Math.ceil(products.length / PRODUCT_PAGE_SIZE))
-  const pageItems = products.slice(page * PRODUCT_PAGE_SIZE, page * PRODUCT_PAGE_SIZE + PRODUCT_PAGE_SIZE)
-
+function PlanForm({ initial, phaseOpts, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initi3eState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-start gap-2 text-[12px] px-3 py-2 rounded-lg flex-1 min-w-[280px]" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-          <AlertCircle size={14} className="shrink-0 mt-0.5" />
-          <span>기허가 제품은 허가 정보 입력으로 등록하고, 신규 개발 제품은 설계 계획부터 시작합니다.</span>
-        </div>
-        {canEdit && (
-          <button onClick={onAdd} className="btn-primary text-[12.5px] shrink-0">
-            <Plus size={13} /> 제품 등록
+      <FL label="프로젝트명 *"><input style={inp} value={f.name} onChange={set('name')} placeholder="개발 프로젝트명"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="개발 단계">
+          <select style={sel} value={f.phase} onChange={set('phase')}>
+            {phaseOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="담당자"><input style={inp} value={f.manager} onChange={set('manager')} placeholder="홍길동"/></FL>
+        <FL label="시작일"><input style={inp} type="date" value={f.startDate} onChange={set('startDate')}/></FL>
+        <FL label="완료 예정일"><input style={inp} type="date" value={f.endDate} onChange={set('endDate')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.name && onSave(f)}>{initial.name ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   설계 입력 뷰
+────────────────────────────────────────────── */
+function InputView({ inputs, setInputs, plans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['초안', '검토중', '확정', '폐기']
+  const catOpts = ['규제·표준', '사용자 요구', '기능', '성능', '안전', '생산성', '기타']
+  const init = { id: '', plan: '', title: '', category: '기능', priority: '보통', date: new Date().toISOString().slice(0, 10), status: '초안' }
+  const save = (f) => {
+    if (edit) { setInputs(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setInputs(p => [...p, { ...init, id: nid('DIN'), ...f }]) }
+    setModal(null)
+  }
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setInputs(p => p.filter(x => x.id !== id)) }
+  return (
+    <div>
+      <SectionTitle breadcrumb="개발 › 설계 입력">설계 입력</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계 입력 요구사항 (ISO 13485 §7.3.3)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 입력 등록
           </button>
-        )}
-      </div>
-
-      {products.length === 0 ? (
-        <div className="card-base p-8 text-center" style={{ borderStyle: 'dashed' }}>
-          <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-          <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>등록된 제품이 없습니다</div>
-          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'제품 등록' 버튼으로 첫 제품을 등록하세요.</div>
         </div>
-      ) : (
-        <>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {pageItems.map((p) => (
-              <ProductCard key={p.id || p.name} product={p} onOpen={onOpen} />
-            ))}
-          </div>
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <button onClick={() => setPage((x) => Math.max(0, x - 1))} disabled={page === 0} className="btn-ghost text-[12px] disabled:opacity-30">
-                <ChevronLeft size={13} /> 이전
-              </button>
-              <span className="font-mono text-[12px]" style={{ color: 'var(--ink-mute)' }}>{page + 1} / {totalPages}</span>
-              <button onClick={() => setPage((x) => Math.min(totalPages - 1, x + 1))} disabled={page >= totalPages - 1} className="btn-ghost text-[12px] disabled:opacity-30">
-                다음 <ChevronRight size={13} />
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  )
-}
-
-function ProductCard({ product, onOpen }) {
-  const key = productKeyOf(product)
-  const kind = productKind(product)
-  const isNew = kind === PRODUCT_KIND.NEW
-  const models = productModels.getForProduct(key)
-
-  const licProg = !isNew ? licensedProgressOf(product, key) : null
-  const desProg = isNew ? designProgressOf(product) : null
-  const pct = isNew ? desProg.pct : licProg.pct
-
-  return (
-    <div className="card-base p-4 flex flex-col gap-3" style={isNew ? { borderColor: 'var(--amber)' } : undefined}>
-      <div>
-        <span
-          className="inline-block text-[10.5px] font-medium px-2 py-0.5 rounded-full mb-2"
-          style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)' } : { background: 'var(--leaf-soft)', color: 'var(--moss)' }}
-        >
-          {isNew ? '신규' : '기허가'}
-        </span>
-        <div className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--ink)' }}>{product.name || '(이름없음)'}</div>
-        <div className="font-mono text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{product.classNo || product.itemName || '\u2014'}</div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 text-[11.5px] pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-        <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>등급</div>
-          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{product.grade ? product.grade + '등급' : (isNew ? '3등급 예정' : '\uBBF8\uBD84\uB958')}</div>
-        </div>
-        <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>허가번호</div>
-          <div className="mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{isNew ? '설계 진행중' : (licProg.primaryLicense?.licenseNo || '미등록')}</div>
-        </div>
-        <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>모델 수</div>
-          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{isNew ? '개발중' : (models.length ? models.length + '개' : '0개')}</div>
-        </div>
-      </div>
-
-      <div>
-        <div className="flex items-center justify-between text-[11px] mb-1">
-          <span style={{ color: 'var(--ink-mute)' }}>{isNew ? '설계 진행률' : '등록 완료'}</span>
-          <span className="font-mono font-medium" style={{ color: isNew ? 'var(--amber)' : 'var(--moss)' }}>{pct}%</span>
-        </div>
-        <div className="h-1.5 rounded-full w-full" style={{ background: 'var(--bg-soft)' }}>
-          <div className="h-1.5 rounded-full" style={{ width: pct + '%', background: isNew ? 'var(--amber)' : 'var(--moss)' }} />
-        </div>
-      </div>
-
-      <div className="flex gap-2">
-        <button onClick={() => onOpen(product, 'models')} className="btn-ghost text-[12px] flex-1 justify-center">
-          모델 목록 <ArrowRight size={12} />
-        </button>
-        {isNew ? (
-          <button onClick={() => onOpen(product, 'design')} className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex-1 flex items-center justify-center gap-1" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-            설계 계속 <ArrowRight size={12} />
-          </button>
-        ) : (
-          <button onClick={() => onOpen(product, 'info')} className="btn-primary text-[12px] flex-1 justify-center">
-            설계 변경 <ArrowRight size={12} />
-          </button>
-        )}
-      </div>
-
-      {isNew ? (
-        <div className="rounded-lg px-3 py-2" style={{ background: 'var(--amber-soft)' }}>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--amber)' }}>현재 단계</div>
-          <div className="text-[12.5px] font-medium mt-0.5" style={{ color: 'var(--ink)' }}>{desProg.currentLabel}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{desProg.done} / {desProg.total} 단계 완료</div>
-        </div>
-      ) : (
-        <div className="rounded-lg p-2" style={{ background: 'var(--bg-soft)' }}>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase mb-1" style={{ color: 'var(--ink-faint)' }}>모델 목록 미리보기</div>
-          {models.length === 0 ? (
-            <div className="text-[11.5px] py-1" style={{ color: 'var(--ink-faint)' }}>등록된 모델이 없습니다.</div>
-          ) : (
-            <div className="space-y-0.5">
-              {models.slice(0, 3).map((m) => (
-                <div key={m.id} className="flex items-center gap-2 text-[11.5px]">
-                  <span className="font-mono shrink-0" style={{ color: 'var(--moss)' }}>{m.code || '(코드없음)'}</span>
-                  <span className="truncate" style={{ color: 'var(--ink-mute)' }}>{m.spec}</span>
-                </div>
-              ))}
-              {models.length > 3 && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>+{models.length - 3}개 더</div>}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ================================================================
-   모델(변형) 목록 패널
-   ================================================================ */
-function ModelListPanel({ product, onAction }) {
-  const key = productKeyOf(product)
-  const canEdit = permissions.can('onb.product.edit')
-  const [models, setModels] = useState(() => productModels.getForProduct(key))
-  const [code, setCode] = useState('')
-  const [spec, setSpec] = useState('')
-
-  const refresh = () => setModels(productModels.getForProduct(key))
-
-  const add = () => {
-    if (!code.trim()) { alert('모델코드는 필수입니다.'); return }
-    productModels.add(key, { code: code.trim(), spec: spec.trim() })
-    setCode(''); setSpec('')
-    refresh()
-    onAction('모델이 추가되었습니다.')
-  }
-
-  const del = (id) => {
-    if (!window.confirm('이 모델을 삭제할까요?')) return
-    productModels.remove(id)
-    refresh()
-    onAction('모델이 삭제되었습니다.')
-  }
-
-  return (
-    <div className="card-base p-5">
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
-          MODEL LIST · {product.name}
-        </span>
-        <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
-          {models.length}개 모델
-        </span>
-      </div>
-
-      {canEdit && (
-        <div className="grid md:grid-cols-[1fr_2fr_auto] gap-2 pb-3 mb-3" style={{ borderBottom: '1px solid var(--line)' }}>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="모델코드 (예: PA-SCS-3522)" className="input-base text-[13px]" />
-          <input value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="규격/설명 (예: SCS M3.5x22mm)" className="input-base text-[13px]" onKeyDown={(e) => e.key === 'Enter' && add()} />
-          <button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> 추가</button>
-        </div>
-      )}
-
-      {models.length === 0 ? (
-        <div className="text-center py-8 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>등록된 모델이 없습니다.</div>
-      ) : (
-        <div className="space-y-1.5">
-          {models.map((m) => (
-            <div key={m.id} className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-              <span className="font-mono text-[12.5px] font-medium shrink-0" style={{ color: 'var(--moss)' }}>{m.code}</span>
-              <span className="text-[12.5px] flex-1 min-w-0 truncate" style={{ color: 'var(--ink-mute)' }}>{m.spec}</span>
-              {canEdit && (
-                <button onClick={() => del(m.id)} className="shrink-0" style={{ color: 'var(--ink-faint)' }}>
-                  <Trash2 size={13} />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-      <ComplianceFooter regs={['ISO 13485 §7.5.8 (식별)', '21 CFR 820.60']} />
-    </div>
-  )
-}
-
-/* ================================================================
-   설계 계획 패널 (신규 제품 · 9단계 설계관리 체크리스트)
-   ================================================================ */
-function DesignStagePanel({ product, onAction }) {
-  const canEdit = permissions.can('onb.product.edit')
-  const steps = designStepsOf(product)
-  const progress = designProgressOf(product)
-
-  const toggleStep = (idx) => {
-    if (!requirePermission('onb.product.edit')) return
-    const next = steps.map((s, i) => (i === idx ? !s : s))
-    const before = { ...product }
-    const after = { ...product, designSteps: next }
-
-    const ob = onboarding.load()
-    const list = Array.isArray(ob.products) ? ob.products.slice() : []
-    const pidx = list.findIndex((p) => (p.id || 'main') === (product.id || 'main'))
-    if (pidx >= 0) list[pidx] = after
-    onboarding.save({ ...ob, products: list })
-
-    commitChange({
-      targetEid: eid(ENTITY_TYPES.PRODUCT, product.id || product.classNo || 'main'),
-      action: CHANGE_ACTIONS.UPDATE,
-      before,
-      after,
-      reason: (next[idx] ? DESIGN_STAGES[idx] + ' 완료' : DESIGN_STAGES[idx] + ' 재개'),
-    })
-
-    onAction(next[idx] ? DESIGN_STAGES[idx] + ' 완료 처리되었습니다.' : DESIGN_STAGES[idx] + ' 를 다시 진행중으로 되돌렸습니다.')
-    setTimeout(() => window.location.reload(), 500)
-  }
-
-  return (
-    <div className="card-base p-5">
-      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--amber)' }}>
-          DESIGN PLAN · {product.name}
-        </span>
-        <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-          {progress.done} / {progress.total} 단계 완료 ({progress.pct}%)
-        </span>
-      </div>
-      <div className="text-[11.5px] mb-4" style={{ color: 'var(--ink-mute)' }}>ISO 13485 §7.3 설계 및 개발 — 단계를 순서대로 완료하며 진행하세요. 완료 처리마다 CCR이 자동 발의됩니다.</div>
-
-      <div className="space-y-1.5">
-        {DESIGN_STAGES.map((label, i) => {
-          const done = steps[i]
-          const current = !done && steps.slice(0, i).every(Boolean)
-          return (
-            <button
-              key={label}
-              onClick={() => canEdit && toggleStep(i)}
-              disabled={!canEdit}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition disabled:cursor-default"
-              style={{ background: current ? 'var(--amber-soft)' : 'var(--bg-soft)' }}
-            >
-              {done ? <CheckCircle2 size={17} style={{ color: 'var(--moss)' }} className="shrink-0" /> : <Circle size={17} style={{ color: current ? 'var(--amber)' : 'var(--ink-faint)' }} className="shrink-0" />}
-              <span className="text-[13px] flex-1" style={{ color: done ? 'var(--ink-mute)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
-                {i + 1}. {label}
-              </span>
-              {current && <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--amber)', color: '#fff' }}>진행중</span>}
-            </button>
-          )
-        })}
-      </div>
-
-      {progress.done === progress.total && (
-        <div className="mt-4 flex items-start gap-2 p-3 rounded-lg" style={{ background: 'var(--leaf-soft)' }}>
-          <Sparkles size={15} style={{ color: 'var(--moss)' }} className="shrink-0 mt-0.5" />
-          <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-            설계 계획 9단계가 모두 완료되었습니다. 허가 신청을 진행한 뒤, '모델 목록'과 '문서' 탭에서 허가정보·모델을 등록하면 기허가 제품으로 전환할 수 있습니다.
-          </div>
-        </div>
-      )}
-      <ComplianceFooter regs={['ISO 13485 §7.3', '21 CFR 820.30', 'ISO 14971']} />
-    </div>
-  )
-}
-
-function AddProductPanel({ onCancel, onSaved }) {
-  const EMPTY = { name: '', itemName: '', grade: '2', classNo: '', cat1: '', cat2: '', etc: '', contact: 'none', software: 'none', track: 'N', modelNumber: '', intendedUse: '', licenseNo: '', issueDate: '' }
-  const [kind, setKind] = useState(PRODUCT_KIND.LICENSED)
-  const [form, setForm] = useState(EMPTY)
-  const [reason, setReason] = useState('')
-  const [draftModels, setDraftModels] = useState([])
-  const [extracting, setExtracting] = useState(false)
-  const [extractedFileName, setExtractedFileName] = useState('')
-  const [extractNote, setExtractNote] = useState('')
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const isNew = kind === PRODUCT_KIND.NEW
-  const mkId = () => 'd' + Math.random().toString(36).slice(2, 9)
-
-  const onPdfSelected = async (file) => {
-    if (!file) return
-    setExtracting(true)
-    setExtractNote('')
-    try {
-      const r = await extractLicenseFromPdf(file)
-      if (!r) {
-        setExtractNote('PDF에서 자동으로 추출하지 못했습니다 — 아래 항목을 직접 입력해주세요.')
-      } else {
-        setForm((f) => ({
-          ...f,
-          itemName: r.itemName || f.itemName,
-          classNo: r.classNo || f.classNo,
-          grade: r.grade || f.grade,
-          licenseNo: r.licenseNo || f.licenseNo,
-          issueDate: r.issueDate || f.issueDate,
-        }))
-        if (r.models && r.models.length) {
-          setDraftModels(r.models.map((m) => ({ id: mkId(), code: m.code || '', name: m.name || '' })))
-        }
-        setExtractNote(`AI 추출 완료 · 모델 ${r.models ? r.models.length : 0}개 — 아래 내용을 검토 후 수정하세요.`)
-      }
-    } finally {
-      setExtractedFileName(file.name)
-      setExtracting(false)
-    }
-  }
-
-  const addDraftModel = () => setDraftModels((list) => [...list, { id: mkId(), code: '', name: '' }])
-  const updateDraftModel = (id, patch) => setDraftModels((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)))
-  const removeDraftModel = (id) => setDraftModels((list) => list.filter((m) => m.id !== id))
-
-  const save = () => {
-    if (isNew) {
-      if (!form.name.trim()) { alert('제품명은 필수입니다.'); return }
-    } else {
-      if (!form.licenseNo.trim()) { alert('허가번호는 필수입니다.'); return }
-      if (!form.itemName.trim()) { alert('품목명은 필수입니다.'); return }
-      if (!form.classNo.trim()) { alert('식약처 분류번호는 필수입니다.'); return }
-    }
-    const autoReason = !isNew && form.licenseNo.trim() ? `허가번호 ${form.licenseNo.trim()} 기준 신규 등록` : ''
-    const finalReason = reason.trim() || autoReason
-    if (!finalReason) {
-      alert((isNew ? '등록' : '추가') + ' 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
-      return
-    }
-
-    const productId = 'prod-' + Date.now()
-    const productName = isNew ? form.name.trim() : (form.name.trim() || form.itemName.trim())
-    const newProduct = isNew
-      ? { name: productName, itemName: form.itemName, classNo: form.classNo, cat1: form.cat1, cat2: form.cat2, id: productId, kind: PRODUCT_KIND.NEW, designSteps: DESIGN_STAGES.map(() => false) }
-      : {
-          name: productName,
-          itemName: form.itemName,
-          classNo: form.classNo,
-          grade: form.grade,
-          cat1: form.cat1,
-          cat2: form.cat2,
-          etc: form.etc,
-          contact: form.contact,
-          software: form.software,
-          track: form.track,
-          modelNumber: form.modelNumber,
-          intendedUse: form.intendedUse,
-          id: productId,
-          kind: PRODUCT_KIND.LICENSED,
-        }
-
-    const ob = onboarding.load()
-    const list = Array.isArray(ob.products) ? ob.products.slice() : []
-    list.push(newProduct)
-    onboarding.save({ ...ob, products: list })
-
-    if (!isNew && form.licenseNo.trim()) {
-      productDocs.addLicense(productKeyOf(newProduct), {
-        licenseNo: form.licenseNo.trim(),
-        productName: newProduct.name,
-        issueDate: form.issueDate.trim(),
-      })
-    }
-    if (!isNew && draftModels.length) {
-      const key = productKeyOf(newProduct)
-      draftModels
-        .filter((m) => m.code.trim() || m.name.trim())
-        .forEach((m) => productModels.add(key, { code: m.code.trim(), spec: m.name.trim() }))
-    }
-
-    commitChange({
-      targetEid: eid(ENTITY_TYPES.PRODUCT, newProduct.id),
-      action: CHANGE_ACTIONS.CREATE,
-      before: null,
-      after: newProduct,
-      reason: finalReason,
-    })
-
-    onSaved(newProduct)
-  }
-
-  return (
-    <div className="card-base p-5">
-      <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
-        <div>
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
-            PROD · 제품 등록 · {isNew ? '신규' : '기허가'}
-          </span>
-          <div className="mt-0.5 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-            제품·공정 <ChevronRight size={11} className="inline align-[-1px]" /> 제품 등록 <ChevronRight size={11} className="inline align-[-1px]" /> {isNew ? '신규 개발 제품 등록' : '기허가 제품 등록'}
-          </div>
-        </div>
-        <button onClick={onCancel} className="btn-ghost text-[12px]">취소</button>
-      </div>
-
-      <div className="flex gap-2 mb-4">
-        <button
-          type="button"
-          onClick={() => setKind(PRODUCT_KIND.LICENSED)}
-          className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
-          style={!isNew ? { background: 'var(--leaf-soft)', color: 'var(--moss)', border: '1.5px solid var(--moss)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
-        >
-          기허가 제품
-          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>이미 허가를 받은 제품 — 허가증 PDF로 자동 등록</div>
-        </button>
-        <button
-          type="button"
-          onClick={() => setKind(PRODUCT_KIND.NEW)}
-          className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
-          style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)', border: '1.5px solid var(--amber)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
-        >
-          신규 개발 제품
-          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>아직 허가가 없는 개발 중 제품 — 설계 계획부터 시작</div>
-        </button>
-      </div>
-
-      {isNew ? (
-        <div className="grid md:grid-cols-2 gap-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-          <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 신규 와이어 제품" required />
-          <FieldEdit label="품목명 (식약처, 예정)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="예정 품목명 (미확정 시 비워두세요)" />
-          <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
-          <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
-        </div>
-      ) : (
-        <div className="space-y-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-          <div className="rounded-xl p-4 text-center" style={{ border: '1.5px dashed var(--line)', background: 'var(--bg-soft)' }}>
-            <input
-              id="license-pdf-input"
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => onPdfSelected(e.target.files && e.target.files[0])}
-            />
-            <label htmlFor="license-pdf-input" className="cursor-pointer inline-flex flex-col items-center gap-1.5">
-              <Upload size={22} style={{ color: 'var(--moss)' }} />
-              <span className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
-                {extracting ? 'AI가 허가증을 분석하는 중…' : '허가증 PDF 업로드'}
-              </span>
-              <span className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
-                업로드하면 AI가 품목명 · 분류번호 · 등급 · 허가번호 · 허가일과 모델 목록을 자동으로 채웁니다
-              </span>
-            </label>
-            {extractedFileName && (
-              <div className="mt-2 text-[11.5px] font-mono" style={{ color: 'var(--ink-mute)' }}>{extractedFileName}</div>
-            )}
-            {extractNote && (
-              <div className="mt-2 text-[11.5px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-                <Sparkles size={12} /> {extractNote}
-              </div>
-            )}
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4">
-            <FieldEdit label="허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="예: 제허 2024-00123" required />
-            <FieldEdit
-              label="품목명 (식약처)"
-              value={form.itemName}
-              onChange={(v) => { setF('itemName', v); if (!form.name.trim()) setF('name', v) }}
-              placeholder="식약처 품목명"
-              required
-            />
-            <FieldEdit label="식약처 분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" required />
-            <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
-            <FieldEdit label="허가일" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
-            <FieldEdit label="제품명 (내부 관리명, 선택)" value={form.name} onChange={(v) => setF('name', v)} placeholder="비워두면 품목명을 사용합니다" />
-          </div>
-
-          <details className="text-[12.5px]">
-            <summary className="cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>추가 항목 (모델번호 · 업종 · 접촉 · SW 등) — 필요 시 펼치기</summary>
-            <div className="grid md:grid-cols-2 gap-4 pt-3">
-              <FieldEdit label="모델 번호" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
-              <SelectEdit label="추적관리 대상" value={form.track} onChange={(v) => setF('track', v)} options={[['N', '비대상'], ['Y', '대상 (Y)']]} />
-              <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
-              <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
-              {(form.cat1 === '기타' || form.cat2 === '기타') && (
-                <FieldEdit label="기타 업종 직접 입력" value={form.etc} onChange={(v) => setF('etc', v)} />
-              )}
-              <SelectEdit label="신체 접촉" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', '신체 비접촉'], ['surface', '피부·점막 접촉 (Surface)'], ['external', '외부 통신 (External Communicating)'], ['implantable', '임플란트 (Implantable)']]} />
-              <SelectEdit label="소프트웨어" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW 없음'], ['embedded', '내장 SW'], ['samd', '독립형 SW (SaMD)']]} />
-              <FieldEdit label="의도된 사용" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
-            </div>
-          </details>
-
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>
-                모델 목록{draftModels.length > 0 ? ` (${draftModels.length}개)` : ''}
-              </span>
-              <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> 행 추가</button>
-            </div>
-            {draftModels.length === 0 ? (
-              <div className="text-center py-6 text-[12px] rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                PDF를 업로드하면 모델 목록이 자동으로 채워집니다. 직접 추가할 수도 있습니다.
-              </div>
-            ) : (
-              <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--line)' }}>
-                <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 text-[10.5px] font-mono uppercase tracking-wide" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                  <span>모델 코드</span>
-                  <span>모델명 / 비고</span>
-                  <span></span>
-                </div>
-                <div className="max-h-64 overflow-y-auto">
-                  {draftModels.map((m) => (
-                    <div key={m.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 items-center" style={{ borderTop: '1px solid var(--line)' }}>
-                      <input value={m.code} onChange={(e) => updateDraftModel(m.id, { code: e.target.value })} className="input-base text-[12.5px] font-mono" placeholder="모델코드" />
-                      <input value={m.name} onChange={(e) => updateDraftModel(m.id, { name: e.target.value })} className="input-base text-[12.5px]" placeholder="모델명 / 규격" />
-                      <button onClick={() => removeDraftModel(m.id)} style={{ color: 'var(--ink-faint)' }}><Trash2 size={13} /></button>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['입력ID', '연계계획', '요구사항', '분류', '우선순위', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {inputs.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD><Badge text={d.category} tone="gray"/></TD>
+                  <TD><Badge text={d.priority} tone={d.priority === '높음' ? 'red' : d.priority === '보통' ? 'amber' : 'gray'}/></TD>
+                  <TD mono muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setInputs(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '설계 입력 수정' : '설계 입력 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <InputForm initial={edit || init} plans={plans} catOpts={catOpts} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
       )}
-
-      <div className="pt-3">
-        <FieldEdit
-          label={(isNew ? '등록' : '추가') + ' 사유 (CCR — ISO 13485 §4.2.4)' + (!isNew ? ' · 비워두면 허가번호 기준으로 자동 기록' : '')}
-          value={reason}
-          onChange={setReason}
-          placeholder={isNew ? '예: 신규 라인업 출시 / 제품 포트폴리오 확장' : '비워두면 자동 기록됩니다 (직접 입력 가능)'}
-          required={isNew}
-        />
+    </div>
+  )
+}
+function InputForm({ initial, plans, catOpts, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <FL label="연계 개발 계획">
+        <select style={sel} value={f.plan} onChange={set('plan')}>
+          <option value="">선택하세요</option>
+          {plans.map(p => <option key={p.id} value={p.id}>{p.id} – {p.name}</option>)}
+        </select>
+      </FL>
+      <FL label="요구사항 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="요구사항 내용을 입력하세요"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="분류">
+          <select style={sel} value={f.category} onChange={set('category')}>
+            {catOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="우선순위">
+          <select style={sel} value={f.priority} onChange={set('priority')}>
+            {['높음', '보통', '낮음'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
       </div>
-
-      <div className="flex justify-end gap-2 pt-3">
-        <button onClick={onCancel} className="btn-ghost">← 이전</button>
-        <button onClick={save} className="btn-primary">{isNew ? '설계 계획 시작' : '등록 완료'} · CCR 발의</button>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
-
-      <ComplianceFooter regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']} />
     </div>
   )
 }
 
-function SelectEdit({ label, value, onChange, options, disabled }) {
+/* ──────────────────────────────────────────────
+   설계 출력 뷰
+────────────────────────────────────────────── */
+function OutputView({ outputs, setOutputs, plans, inputs }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['초안', '검토중', '승인', '릴리즈', '폐기']
+  const catOpts = ['하드웨어', '소프트웨어', '문서', '공정', '포장', '라벨링', '기타']
+  const init = { id: '', plan: '', title: '', category: '문서', relatedInput: '', doc: '', date: new Date().toISOString().slice(0, 10), status: '초안' }
+  const save = (f) => {
+    if (edit) { setOutputs(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setOutputs(p => [...p, { ...init, id: nid('DOT'), ...f }]) }
+    setModal(null)
+  }
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setOutputs(p => p.filter(x => x.id !== id)) }
   return (
     <div>
-      <label
-        className="font-mono text-[10px] tracking-[0.16em] uppercase"
-        style={{ color: 'var(--ink-mute)' }}
-      >
-        {label}
-      </label>
-      <select
-        value={value || ''}
-        onChange={(e) => onChange(e.target.value)}
-        disabled={disabled}
-        className="input-base mt-1 w-full text-[13px]"
-      >
-        {options.map(([v, l]) => (
-          <option key={v} value={v}>{l}</option>
-        ))}
-      </select>
-    </div>
-  )
-}
-
-function ProductPanel({ product, company, onAction }) {
-  const canEdit = permissions.can('onb.product.edit')
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(null)
-  const [reason, setReason] = useState('')
-
-  const productEid = eid(
-    ENTITY_TYPES.PRODUCT,
-    product?.id || product?.classNo || product?.modelNumber || 'main'
-  )
-
-  const ccrs = useMemo(
-    () => getRecordsForEntity(productEid),
-    [productEid, editing]
-  )
-
-  const startEdit = () => {
-    if (!requirePermission('onb.product.edit')) return
-    setDraft({ ...product })
-    setReason('')
-    setEditing(true)
-  }
-
-  const cancelEdit = () => {
-    setEditing(false)
-    setDraft(null)
-    setReason('')
-  }
-
-  const saveEdit = () => {
-    if (!reason.trim()) {
-      alert('변경 사유는 필수입니다 (CCR — ISO 13485 §4.2.4).')
-      return
-    }
-    const before = { ...product }
-    const next = { ...product, ...draft }
-
-    // 온보딩 상태 업데이트 (제품 배열에서 해당 제품만 갱신)
-    const ob = onboarding.load()
-    const list = Array.isArray(ob.products) ? ob.products.slice() : []
-    const idx = list.findIndex((p) => (p.id || 'main') === (product.id || 'main'))
-    if (idx >= 0) list[idx] = next
-    else list.push(next.id ? next : { ...next, id: 'main' })
-    onboarding.save({ ...ob, products: list })
-
-    // CCR 자동 발의
-    commitChange({
-      targetEid: productEid,
-      action: CHANGE_ACTIONS.UPDATE,
-      before,
-      after: next,
-      reason: reason.trim(),
-    })
-
-    setEditing(false)
-    setDraft(null)
-    setReason('')
-    onAction('제품 정보 수정 · CCR 자동 발의')
-    setTimeout(() => window.location.reload(), 600)
-  }
-
-  return (
-    <div className="grid lg:grid-cols-3 gap-4">
-      {/* 좌: 제품 카드 */}
-      <div className="lg:col-span-2">
-        <div className="card-base p-5">
-          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-            <div>
-              <span
-                className="font-mono text-[10px] tracking-[0.18em] uppercase"
-                style={{ color: 'var(--moss)' }}
-              >
-                PRODUCT MASTER · {productEid}
-              </span>
-              <div
-                className="font-display text-[22px] mt-1 leading-tight"
-                style={{ color: 'var(--ink)', fontWeight: 500 }}
-              >
-                {product.name}
-              </div>
-              <div
-                className="font-mono text-[12px] mt-0.5"
-                style={{ color: 'var(--ink-mute)' }}
-              >
-                {[product.classNo, company?.name].filter(Boolean).join(' · ')}
-              </div>
-            </div>
-            {!editing && canEdit && (
-              <button onClick={startEdit} className="btn-ghost text-[12px]">
-                <Edit3 size={12} /> 수정
-              </button>
-            )}
-          </div>
-
-          {!editing ? (
-            <>
-              <div
-                className="grid md:grid-cols-2 gap-4 pt-3"
-                style={{ borderTop: '1px solid var(--line)' }}
-              >
-                <Field label="품목명 (식약처)" value={product.itemName || product.name || '-'} />
-                <Field label="분류번호" value={product.classNo || '-'} />
-                <Field
-                  label="등급 (Class)"
-                  value={
-                    product.grade
-                      ? `${product.grade}등급`
-                      : product.classification
-                      ? `Class ${product.classification}`
-                      : '미분류'
-                  }
-                />
-                <Field
-                  label="인허가 업종"
-                  value={
-                    [product.cat1, product.cat2].filter(Boolean).join(' › ') ||
-                    product.etc ||
-                    '-'
-                  }
-                />
-                <Field
-                  label="신체 접촉"
-                  value={CONTACT_LABELS[product.contact] || '-'}
-                />
-                <Field
-                  label="소프트웨어"
-                  value={SW_LABELS[product.software] || product.software || '-'}
-                />
-                <Field
-                  label="추적관리 대상"
-                  value={product.track === 'Y' ? '대상 (Y)' : '비대상'}
-                />
-                {product.intendedUse && (
-                  <Field label="의도된 사용" value={product.intendedUse} />
-                )}
-              </div>
-            </>
-          ) : (
-            <div
-              className="space-y-3 pt-3"
-              style={{ borderTop: '1px solid var(--line)' }}
-            >
-              <FieldEdit
-                label="제품명"
-                value={draft.name}
-                onChange={(v) => setDraft({ ...draft, name: v })}
-              />
-              <FieldEdit
-                label="모델 번호"
-                value={draft.modelNumber}
-                onChange={(v) => setDraft({ ...draft, modelNumber: v })}
-              />
-              <FieldEdit
-                label="의도된 사용"
-                value={draft.intendedUse}
-                onChange={(v) => setDraft({ ...draft, intendedUse: v })}
-                multiline
-              />
-              <FieldEdit
-                label="분류 (예: IIa, IIb, III)"
-                value={draft.classification || ''}
-                onChange={(v) => setDraft({ ...draft, classification: v })}
-              />
-              <FieldEdit
-                label="변경 사유 (CCR 필수 — ISO 13485 §4.2.4)"
-                value={reason}
-                onChange={setReason}
-                placeholder="예: 임상 평가 결과 의도된 사용 명확화 / 모델 번호 글로벌 표기 통일"
-                required
-              />
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button onClick={cancelEdit} className="btn-ghost">
-                  취소
-                </button>
-                <button onClick={saveEdit} className="btn-primary">
-                  저장 · CCR 발의
-                </button>
-              </div>
-            </div>
-          )}
-
-          <ComplianceFooter
-            regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']}
-          />
+      <SectionTitle breadcrumb="개발 › 설계 출력">설계 출력</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계 출력물 관리 (ISO 13485 §7.3.4)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 출력 등록
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['출력ID', '계획', '산출물명', '분류', '연계입력', '문서번호', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {outputs.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD><Badge text={d.category} tone="blue"/></TD>
+                  <TD mono muted>{d.relatedInput}</TD>
+                  <TD mono muted>{d.doc}</TD>
+                  <TD mono muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setOutputs(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {/* 우: 변경 이력 */}
-      <div className="lg:col-span-1">
-        <ChangeHistoryPanel ccrs={ccrs} />
-      </div>
-    </div>
-  )
-}
-
-const CONTACT_LABELS = {
-  none: '신체 비접촉',
-  surface: '피부·점막 접촉 (Surface)',
-  external: '외부 통신 (External Communicating)',
-  implantable: '임플란트 (Implantable)',
-}
-
-const SW_LABELS = {
-  none: 'SW 없음',
-  embedded: '내장 SW',
-  samd: '독립형 SW (SaMD)',
-}
-
-/* ================================================================
-   PROD-002 공정 패널
-   ================================================================ */
-function ProcessPanel({ product, products, selId, setSelId, onAction }) {
-  const productKey = productKeyOf(product)
-  const [customList, setCustomList] = useState(() => loadCustomBlocks())
-  const [customCat, setCustomCat] = useState('')
-  const allBlocks = useMemo(() => [...PROCESS_BLOCKS, ...customList], [customList])
-  const findBlock = (id) => allBlocks.find((b) => b.id === id)
-  const [list, setList] = useState(() => {
-    const ob = onboarding.load()
-    return getProductProcesses(ob, productKey).slice().sort((a, b) => (a.order || 0) - (b.order || 0))
-  })
-  const [picking, setPicking] = useState(false)
-  const [q, setQ] = useState('')
-
-  const persist = (next) => {
-    const ordered = next.map((p, i) => ({ ...p, order: i + 1 }))
-    setList(ordered)
-    const ob = onboarding.load()
-    onboarding.save(setProductProcesses(ob, productKey, ordered))
-    onAction && onAction('공정 순서가 저장되었습니다')
-  }
-  const addBlock = (b) => { persist([...list, { id: 'p' + Date.now(), blockId: b.id, order: list.length + 1 }]); setPicking(false); setQ('') }
-  const addCustomBlock = () => {
-    const name = q.trim()
-    if (!name) return
-    if (!requirePermission('onb.process.addBlock')) return
-    const nb = { id: 'custom-' + Date.now(), name, en: '', category: customCat || undefined, desc: '사용자 정의 공정', custom: true, sopAuto: [], inspections: [], standards: [], risks: [] }
-    const nextCustom = [...customList, nb]
-    setCustomList(nextCustom)
-    saveCustomBlocks(nextCustom)
-    addBlock(nb)
-    setCustomCat('')
-  }
-  const del = (id) => persist(list.filter((p) => p.id !== id))
-  const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= list.length) return; const n = list.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; persist(n) }
-  const loadDefault = () => { if (list.length && !window.confirm('현재 공정을 기본 6단계 체인으로 대체할까요?')) return; persist(DEFAULT_CHAIN.map((b, i) => ({ id: 'p' + Date.now() + '-' + i, blockId: b.blockId, order: i + 1, customName: b.customName }))) }
-
-  const stats = useMemo(() => {
-    const S = { sop: new Set(), insp: new Set(), std: new Set(), risk: new Set() }
-    list.forEach((p) => { const b = findBlock(p.blockId); if (!b) return; b.sopAuto?.forEach((x) => S.sop.add(x)); b.inspections?.forEach((x) => S.insp.add(x)); b.standards?.forEach((x) => S.std.add(x)); b.risks?.forEach((x) => S.risk.add(x)) })
-    return { sops: S.sop.size, inspections: S.insp.size, standards: S.std.size, risks: S.risk.size }
-  }, [list]) // eslint-disable-line
-
-  const blockChoices = allBlocks.filter((b) => !q || (b.name || '').toLowerCase().includes(q.toLowerCase()) || (b.en || '').toLowerCase().includes(q.toLowerCase()))
-
-  return (
-    <div className="space-y-4">
-      <div className="grid md:grid-cols-4 gap-3">
-        <StatCard label="SOP 자동" value={stats.sops} hint="자동 매핑된 표준작업" />
-        <StatCard label="검사 항목 (자동)" value={stats.inspections} hint="블록별 매핑" />
-        <StatCard label="표준" value={stats.standards} hint="ISO/FDA 인용 조항" />
-        <StatCard label="위험 ID" value={stats.risks} hint="ISO 14971 항목" />
-      </div>
-
-      {Array.isArray(products) && products.length > 1 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11.5px] mr-1" style={{ color: 'var(--ink-mute)' }}>제품별 공정:</span>
-          {products.map((p) => {
-            const on = (p.id || 'main') === (product?.id || 'main')
-            return (
-              <button
-                key={p.id || 'main'}
-                onClick={() => setSelId && setSelId(p.id || 'main')}
-                className="px-3 py-1.5 rounded-lg text-[12.5px] transition"
-                style={{
-                  background: on ? 'var(--moss)' : 'var(--bg-soft)',
-                  color: on ? 'var(--bg)' : 'var(--ink-mute)',
-                }}
-              >
-                {p.name || '(이름없음)'}
-              </button>
-            )
-          })}
-        </div>
-      )}
-
-      <div className="card-base p-3">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>{product?.name ? `${product.name} · ` : ''}제조·검사 공정 순서 ({list.length}단계)</div>
-          <div className="flex gap-2">
-            <button onClick={loadDefault} className="btn-ghost text-[12px]">기본 공정체인 불러오기</button>
-            <button onClick={() => setPicking((v) => !v)} className="btn-primary text-[12px]" style={{ background: 'var(--rust)' }}>+ 공정 추가</button>
-          </div>
-        </div>
-        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>제품마다 서로 다른 공정을 정의할 수 있습니다. 여기서 정의한 순서대로 (선택된 제품의) 작업 지시 단계가 발급됩니다. 진행 중 작업 지시는 발급 시점 스냅샷이 유지됩니다(시간 잠금).</div>
-        {picking && (
-          <div className="rounded-md p-2" style={{ background: 'var(--bg-soft)' }}>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="공정 블록 검색… (목록에 없으면 아래에서 직접 추가)" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
-            <div className="grid sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto">
-              {blockChoices.map((b) => {
-                const cat = PROCESS_CATEGORIES.find((c) => c.id === b.category)
-                return (
-                  <button key={b.id} onClick={() => addBlock(b)} className="text-left px-2.5 py-1.5 rounded-md text-[12px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-                    <span style={{ color: 'var(--ink)' }}>{b.name}</span>
-                    {b.custom && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>직접 추가</span>}
-                    {cat && <span className="ml-1.5" style={{ color: 'var(--ink-faint)' }}>· {cat.name}</span>}
-                  </button>
-                )
-              })}
-            </div>
-            {blockChoices.length === 0 && q.trim() && (
-              <div className="text-[11.5px] mt-2 px-1" style={{ color: 'var(--ink-mute)' }}>'{q.trim()}' 검색 결과가 없습니다. 아래에서 목록에 없는 공정으로 직접 추가할 수 있습니다.</div>
-            )}
-            <div className="mt-2 pt-2 flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid var(--line)' }}>
-              <select value={customCat} onChange={(e) => setCustomCat(e.target.value)} className="input-base text-[12px]" style={{ width: 'auto', padding: '5px 8px' }}>
-                <option value="">분류 선택 안 함</option>
-                {PROCESS_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-              <button onClick={addCustomBlock} disabled={!q.trim()} className="btn-primary text-[12px] disabled:opacity-40" style={{ padding: '5px 10px' }}>
-                + '{q.trim() || '…'}' 목록에 없는 공정으로 추가
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!product && (
-        <div className="card-base p-3 text-[12px]" style={{ color: 'var(--rust)', background: 'var(--rust-soft)', borderStyle: 'dashed' }}>
-          등록된 제품이 없어 기본(공용) 공정 목록을 편집하고 있습니다. '제품' 탭에서 제품을 추가하면 제품별로 다른 공정을 정의할 수 있습니다.
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {list.length === 0 ? (
-          <div className="card-base p-6 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
-            등록된 공정이 없습니다. "기본 공정체인 불러오기" 또는 "공정 추가"로 시작하세요.
-          </div>
-        ) : (
-          list.map((p, idx) => {
-            const block = findBlock(p.blockId)
-            const cat = block && PROCESS_CATEGORIES.find((c) => c.id === block.category)
-            return (
-              <div key={p.id || idx} className="card-base p-3 flex items-center gap-3">
-                <span className="font-mono text-[12px] w-6 text-center" style={{ color: 'var(--rust)' }}>{idx + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[13px] truncate" style={{ color: 'var(--ink)' }}>{p.customName || block?.name || p.blockId}{p.customName && block ? ' · ' + block.name : ''}</div>
-                  {cat && <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{cat.name}{block?.standards?.length ? ' · ' + block.standards.join(', ') : ''}</div>}
-                </div>
-                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>▲</button>
-                <button onClick={() => move(idx, 1)} disabled={idx === list.length - 1} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>▼</button>
-                <button onClick={() => del(p.id)} className="px-2 py-1 rounded-md text-[12px]" style={{ color: 'var(--rust)', border: '1px solid var(--line)' }}>삭제</button>
-              </div>
-            )
-          })
-        )}
-      </div>
-    </div>
-  )
-}
-
-function ProcessRow({ index, process, block, category }) {
-  const [expanded, setExpanded] = useState(false)
-  const blockEid = eid(ENTITY_TYPES.PROCESS_BLOCK, block.id)
-  const tplCount = inspectionTemplates.forBlock(block.id).length
-
-  return (
-    <div className="card-base p-4">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 text-left"
-      >
-        <span
-          className="font-mono text-[11px] w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-          style={{
-            background: 'var(--bg-soft)',
-            color: 'var(--ink-mute)',
-          }}
-        >
-          {index}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span
-              className="text-[14px]"
-              style={{ color: 'var(--ink)', fontWeight: 500 }}
-            >
-              {process.customName || block.name}
-            </span>
-            <span
-              className="font-display italic text-[11.5px]"
-              style={{ color: 'var(--ink-mute)' }}
-            >
-              {block.en}
-            </span>
-            {category && (
-              <span
-                className="font-mono text-[9.5px] px-1.5 py-0.5 rounded"
-                style={{
-                  background: `var(--${category.color}-soft)`,
-                  color: `var(--${category.color})`,
-                }}
-              >
-                {category.name}
-              </span>
-            )}
-            {block.isSpecialProcess && (
-              <span
-                className="font-mono text-[9px] px-1 rounded"
-                style={{
-                  background: 'var(--rust-soft)',
-                  color: 'var(--rust)',
-                  fontWeight: 600,
-                }}
-                title="특수공정 (ISO 13485 §7.5.6)"
-              >
-                SPECIAL
-              </span>
-            )}
-            <span
-              className="font-mono text-[10px] ml-auto"
-              style={{ color: 'var(--ink-faint)' }}
-            >
-              {tplCount}개 검사 항목
-            </span>
-          </div>
-          <div
-            className="text-[12px] mt-0.5"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            {block.desc}
-          </div>
-        </div>
-        <ChevronRight
-          size={14}
-          style={{
-            color: 'var(--ink-faint)',
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s',
-          }}
-        />
-      </button>
-
-      {expanded && (
-        <div
-          className="mt-3 pt-3 grid md:grid-cols-2 gap-4"
-          style={{ borderTop: '1px solid var(--line)' }}
-        >
-          <ChipBlock
-            title="자동 SOP"
-            items={block.sopAuto || []}
-            color="moss"
-          />
-          <ChipBlock
-            title="자동 검사"
-            items={block.inspections || []}
-            color="sky"
-          />
-          <ChipBlock
-            title="적용 표준"
-            items={block.standards || []}
-            color="ink"
-            mono
-          />
-          <ChipBlock
-            title="위험"
-            items={block.risks || []}
-            color="rust"
-          />
-        </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '설계 출력 수정' : '설계 출력 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <OutputForm initial={edit || init} plans={plans} inputs={inputs} catOpts={catOpts} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
       )}
     </div>
   )
 }
+function OutputForm({ initial, plans, inputs, catOpts, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 계획">
+          <select style={sel} value={f.plan} onChange={set('plan')}>
+            <option value="">선택</option>
+            {plans.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </select>
+        </FL>
+        <FL label="분류">
+          <select style={sel} value={f.category} onChange={set('category')}>
+            {catOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <FL label="산출물명 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="산출물 이름을 입력하세요"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 설계 입력">
+          <select style={sel} value={f.relatedInput} onChange={set('relatedInput')}>
+            <option value="">선택</option>
+            {inputs.map(i => <option key={i.id} value={i.id}>{i.id}</option>)}
+          </select>
+        </FL>
+        <FL label="문서번호"><input style={inp} value={f.doc} onChange={set('doc')} placeholder="DOC-XXX"/></FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
 
-function ChipBlock({ title, items, color, mono }) {
-  if (!items || items.length === 0) return null
-  const TONES = {
-    moss: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
-    sky: { bg: 'var(--sky-soft)', fg: 'var(--sky)' },
-    rust: { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
-    ink: { bg: 'var(--bg-soft)', fg: 'var(--ink)' },
+/* ──────────────────────────────────────────────
+   설계 검증 뷰
+────────────────────────────────────────────── */
+function VerificationView({ verifications, setVerifications, plans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['계획', '진행중', '완료', '실패', '보류']
+  const methodOpts = ['시험', '분석', '검사', '데모', '리뷰']
+  const init = { id: '', plan: '', title: '', method: '시험', result: '', tester: '', date: new Date().toISOString().slice(0, 10), status: '계획' }
+  const save = (f) => {
+    if (edit) { setVerifications(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setVerifications(p => [...p, { ...init, id: nid('DVR'), ...f }]) }
+    setModal(null)
   }
-  const t = TONES[color] || TONES.ink
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setVerifications(p => p.filter(x => x.id !== id)) }
   return (
     <div>
-      <div
-        className="font-mono text-[10px] tracking-[0.16em] uppercase mb-1.5"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        {title}
+      <SectionTitle breadcrumb="개발 › 설계 검증">설계 검증</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계 검증 활동 (ISO 13485 §7.3.6)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 검증 등록
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['검증ID', '계획', '검증항목', '방법', '시험자', '결과', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {verifications.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD><Badge text={d.method} tone="gray"/></TD>
+                  <TD muted>{d.tester}</TD>
+                  <TD><Badge text={d.result || '-'} tone={d.result === '합격' ? 'green' : d.result === '불합격' ? 'red' : 'gray'}/></TD>
+                  <TD mono muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setVerifications(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div className="flex flex-wrap gap-1">
-        {items.map((i, idx) => (
-          <span
-            key={idx}
-            className={mono ? 'font-mono text-[10.5px]' : 'text-[11.5px]'}
-            style={{
-              background: t.bg,
-              color: t.fg,
-              padding: '2px 8px',
-              borderRadius: 4,
-            }}
-          >
-            {i}
-          </span>
+      {modal === 'form' && (
+        <Modal title={edit ? '설계 검증 수정' : '설계 검증 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <VVForm initial={edit || init} plans={plans} methodOpts={methodOpts} statusOpts={statusOpts}
+            resultOpts={['합격', '불합격', '조건부합격', '진행중', '']}
+            onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
+      )}
+    </div>
+  )
+}
+function VVForm({ initial, plans, methodOpts, statusOpts, resultOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <FL label="검증 항목 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="검증 항목명"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 계획">
+          <select style={sel} value={f.plan} onChange={set('plan')}>
+            <option value="">선택</option>
+            {plans.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </select>
+        </FL>
+        <FL label="방법">
+          <select style={sel} value={f.method} onChange={set('method')}>
+            {methodOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="시험자"><input style={inp} value={f.tester} onChange={set('tester')} placeholder="담당자명"/></FL>
+        <FL label="결과">
+          <select style={sel} value={f.result} onChange={set('result')}>
+            {resultOpts.map(o => <option key={o} value={o}>{o || '미정'}</option>)}
+          </select>
+        </FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   설계 유효성 확인 뷰
+────────────────────────────────────────────── */
+function ValidationView({ validations, setValidations, plans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['계획', '진행중', '완료', '실패', '보류']
+  const init = { id: '', plan: '', title: '', method: '사용자 시험', site: '', result: '', date: new Date().toISOString().slice(0, 10), status: '계획' }
+  const save = (f) => {
+    if (edit) { setValidations(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setValidations(p => [...p, { ...init, id: nid('DVL'), ...f }]) }
+    setModal(null)
+  }
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setValidations(p => p.filter(x => x.id !== id)) }
+  return (
+    <div>
+      <SectionTitle breadcrumb="개발 › 설계 유효성 확인">설계 유효성 확인</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계 유효성 확인 (ISO 13485 §7.3.7)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 유효성확인 등록
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['ID', '계획', '유효성확인 항목', '방법', '수행기관', '결과', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {validations.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD muted>{d.method}</TD>
+                  <TD muted>{d.site}</TD>
+                  <TD><Badge text={d.result || '-'} tone={d.result === '합격' ? 'green' : d.result === '불합격' ? 'red' : 'gray'}/></TD>
+                  <TD mo.o muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setValidations(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '유효성확인 수정' : '유효성확인 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <ValForm initial={edit || init} plans={plans} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
+      )}
+    </div>
+  )
+}
+function ValForm({ initial, plans, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <FL label="유효성확인 항목 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="유효성확인 항목명"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 계획">
+          <select style={sel} value={f.plan} onChange={set('plan')}>
+            <option value="">선택</option>
+            {plans.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </select>
+        </FL>
+        <FL label="방법"><input style={inp} value={f.method} onChange={set('method')} placeholder="사용자 시험, 임상 등"/></FL>
+        <FL label="수행기관/장소"><input style={inp} value={f.site} onChange={set('site')} placeholder="병원명, 기관명"/></FL>
+        <FL label="결과">
+          <select style={sel} value={f.result} onChange={set('result')}>
+            {['', '합격', '불합격', '조건부합격'].map(o => <option key={o} value={o}>{o || '미정'}</option>)}
+          </select>
+        </FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   설계 변경 뷰
+────────────────────────────────────────────── */
+function ChangeView({ changes, setChanges, plans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['검토요청', '검토중', '승인', '반려', '구현완료']
+  const init = { id: '', plan: '', title: '', reason: '', risk: '낮음', approver: '', date: new Date().toISOString().slice(0, 10), status: '검토요청' }
+  const save = (f) => {
+    if (edit) { setChanges(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setChanges(p => [...p, { ...init, id: nid('DCH'), ...f }]) }
+    setModal(null)
+  }
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setChanges(p => p.filter(x => x.id !== id)) }
+  return (
+    <div>
+      <SectionTitle breadcrumb="개발 › 설계 변경">설계 변경</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>설계 변경 관리 (ISO 13485 §7.3.9)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 변경 등록
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['변경ID', '계획', '변경내용', '변경사유', '위험도', '승인자', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {changes.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD muted>{d.reason}</TD>
+                  <TD><Badge text={d.risk} tone={d.risk === '높음' ? 'red' : d.risk === '보통' ? 'amber' : 'green'}/></TD>
+                  <TD muted>{d.approver}</TD>
+                  <TD mono muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setChanges(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '설계 변경 수정' : '설계 변경 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <ChangeForm initial={edit || init} plans={plans} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
+      )}
+    </div>
+  )
+}
+function ChangeForm({ initial, plans, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <FL label="변경 내용 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="변경 내용을 입력하세요"/></FL>
+      <FL label="변경 사유"><input style={inp} value={f.reason} onChange={set('r%ason')} placeholder="변경 사유"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 계획">
+          <select style={sel} value={f.plan} onChange={set('plan')}>
+            <option value="">선택</option>
+            {plans.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </select>
+        </FL>
+        <FL label="위험도">
+          <select style={sel} value={f.risk} onChange={set('risk')}>
+            {['낮음', '보통', '높음'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="승인자"><input style={inp} value={f.approver} onChange={set('approver')} placeholder="승인자명"/></FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   공정 개발 뷰
+────────────────────────────────────────────── */
+function ProcessView({ processes, setProcesses, plans }) {
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const statusOpts = ['설계', '시운전', '검증완료', '승인', '이관완료']
+  const typeOpts = ['조립', '시험', '세척', '멸균', '포장', '라벨링', '검사', '기타']
+  const init = { id: '', plan: '', title: '', type: '조립', doc: '', validated: '미완료', date: new Date().toISOString().slice(0, 10), status: '설계' }
+  const save = (f) => {
+    if (edit) { setProcesses(p => p.map(x => x.id === edit.id ? { ...x, ...f } : x)); setEdit(null) }
+    else { setProcesses(p => [...p, { ...init, id: nid('PDV'), ...f }]) }
+    setModal(null)
+  }
+  const del = (id) => { if (window.confirm('삭제하시겠습니까?')) setProcesses(p => p.filter(x => x.id !== id)) }
+  return (
+    <div>
+      <SectionTitle breadcrumb="개발 › 공정 개발">공정 개발</SectionTitle>
+      <div className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color: 'var(--ink-faint)' }}>공정 개발 및 밸리데이션 (ISO 13485 §7.5.6)</span>
+          <button onClick={() => { setEdit(null); setModal('form') }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+            style={{ background: 'var(--moss)', color: 'var(--bg)' }}>
+            <Plus size={13}/> 공정 등록
+          </button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr>{['공정ID', '계획', '공정명', '유형', '작업지시서', '밸리데이션', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>
+              {processes.map(d => (
+                <tr key={d.id}>
+                  <TD mono color="var(--moss)">{d.id}</TD>
+                  <TD mono muted>{d.plan}</TD>
+                  <TD>{d.title}</TD>
+                  <TD><Badge text={d.type} tone="blue"/></TD>
+                  <TD mono muted>{d.doc}</TD>
+                  <TD><Badge text={d.validated} tone={d.validated === '완료' ? 'green' : d.validated === '진행중' ? 'amber' : 'gray'}/></TD>
+                  <TD mono muted>{d.date}</TD>
+                  <TD>
+                    <StatusSelect value={d.status} options={statusOpts}
+                      onChange={v => setProcesses(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <ActBtn label="수정" onClick={() => { setEdit(d); setModal('form') }}/>
+                      <ActBtn label="삭제" color="red" onClick={() => del(d.id)}/>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal === 'form' && (
+        <Modal title={edit ? '공정 수정' : '공정 등록'} onClose={() => { setModal(null); setEdit(null) }}>
+          <ProcessForm initial={edit || init} plans={plans} typeOpts={typeOpts} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
+        </Modal>
+      )}
+    </div>
+  )
+}
+function ProcessForm({ initial, plans, typeOpts, statusOpts, onSave, onCancel }) {
+  const [f, sf] = useState(initial)
+  const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
+  return (
+    <div className="space-y-3">
+      <FL label="공정명 *"><input style={inp} value={f.title} onChange={set('title')} placeholder="공정명을 입력하세요"/></FL>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="연계 계획">
+          <select style={sel} value={f.plan} onChange={set('plan')}>
+            <option value="">선택</option>
+            {plans.map(p => <option key={p.id} value={p.id}>{p.id}</option>)}
+          </select>
+        </FL>
+        <FL label="공정 유형">
+          <select style={sel} value={f.type} onChange={set('type')}>
+            {typeOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="작업지시서 번호"><input style={inp} value={f.doc} onChange={set('doc')} placeholder="WI-XXX-XXX"/></FL>
+        <FL label="밸리데이션">
+          <select style={sel} value={f.validated} onChange={set('validated')}>
+            {['미완료', '진행중', '완료'].map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+        <FL label="일자"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="상태">
+          <select style={sel} value={f.status} onChange={set('status')}>
+            {statusOpts.map(o => <option key={o}>{o}</option>)}
+          </select>
+        </FL>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={onCancel} secondary>취소</SBtn>
+      </div>
+    </div>
+  )
+}
+
+/* ──────────────────────────────────────────────
+   개발 홈
+────────────────────────────────────────────── */
+function DevHome({ plans, inputs, outputs, verifications, validations, changes, processes, onNavigate }) {
+  const activePlans = plans.filter(p => !['완료', '보류'].includes(p.status)).length
+  const pendingChanges = changes.filter(c => ['검토요청', '검토중'].includes(c.status)).length
+  const CARDS = [
+    { id: 'plans', icon: FlaskConical, label: '개발 계획', desc: '설계·개발 프로젝트 계획 수립 · 단계 관리 · 담당자 배정', count: `${activePlans}건 진행`, warn: false },
+    { id: 'inputs', icon: FileText, label: '설계 입력', desc: '사용자·규제·성능 요구사항 등록 · 우선순위 관리', count: `${inputs.length}건`, warn: false },
+    { id: 'outputs', icon: ClipboardCheck, label: '설계 출력', desc: '하드웨어·소프트웨어·문서 산출물 추적 관리', count: `${outputs.length}건`, warn: false },
+    { id: 'verifications', icon: CheckSquare, label: '설계 검증', desc: '시험·분석·검사를 통한 설계 요구사항 충족 확인', count: `${verifications.filter(v => v.status !== '완료').length}건 미완료`, warn: verifications.some(v => v.result === '불합격') },
+    { id: 'validations', icon: BarChart2, label: '설계 유효성 확인', desc: '임상·사용자 시험을 통한 의도된 사용 목적 확인', count: `${validations.length}건`, warn: false },
+    { id: 'changes', icon: RefreshCw, label: '설계 변경', desc: '설계 변경 요청 · 위험 평가 · 승인 추적', count: `${pendingChanges}건 검토중`, warn: pendingChanges > 0 },
+    { id: 'processes', icon: Cpu, label: '공정 개발', desc: '제조 공정 설계 · 밸리데이션 · 작업지시서 연계', count: `${processes.length}건`, warn: false },
+  ]
+  const summary = [
+    { label: '진행중 개발 계획', value: `${activePlans}건`, sub: '활성 프로젝트' },
+    { label: '검토중 변경 요청', value: `${pendingChanges}건`, sub: '승인 대기', warn: pendingChanges > 0 },
+    { label: '검증 완료', value: `${verifications.filter(v => v.status === '완료').length}건`, sub: `전체 ${verifications.length}건` },
+    { label: '공정 밸리데이션', value: `${processes.filter(p => p.validated === '완료').length}건`, sub: '완료' },
+  ]
+  return (
+    <div>
+      <div className="mb-5">
+        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>DEV · ISO 13485 §7.3 · §7.5.6</span>
+        <div className="text-[26px] mt-1 font-semibold" style={{ color: 'var(--ink)' }}>개발</div>
+        <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>제품 설계·개발 계획부터 공정 밸리데이션까지 전 주기 관리</div>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {summary.map(s => (
+          <div key={s.label} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[12px] mb-1" style={{ color: 'var(--ink-mute)' }}>{s.label}</div>
+            <div className="text-[24px] font-bold" style={{ color: s.warn ? 'var(--rust)' : 'var(--moss)' }}>{s.value}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{s.sub}</div>
+          </div>
+        ))}
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {CARDS.map(card => (
+          <button key={card.id} onClick={() => onNavigate(card.id)}
+            className="rounded-xl p-4 text-left transition hover:shadow-md"
+            style={{ background: 'var(--bg-card)', border: `1px solid ${card.warn ? 'var(--rust)' : 'var(--line)'}` }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ background: card.warn ? 'var(--rust-soft)' : 'var(--leaf-soft)' }}>
+                <card.icon size={18} style={{ color: card.warn ? 'var(--rust)' : 'var(--moss)' }} strokeWidth={1.7}/>
+              </div>
+              <span className="text-[13px] font-bold" style={{ color: card.warn ? 'var(--rust)' : 'var(--moss)' }}>{card.count}</span>
+            </div>
+            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{card.label}</div>
+            <div className="text-[12px] mt-1" style={{ color: 'var(--ink-mute)' }}>{card.desc}</div>
+          </button>
         ))}
       </div>
     </div>
   )
 }
 
-/* ================================================================
-   PROD-003 검사 항목 마스터
-   ================================================================ */
-function InspectionPanel({ onAction }) {
-  const allBlocks = useMemo(
-    () => [...PROCESS_BLOCKS, ...loadCustomBlocks()],
-    []
-  )
-  const findBlock = (id) => allBlocks.find((b) => b.id === id)
+/* ──────────────────────────────────────────────
+   루트 컴포넌트
+────────────────────────────────────────────── */
+export default function ProductsHub() {
+  const user = auth.current()
+  const [view, setView] = useState('home')
 
-  // 모든 블록 × 모든 템플릿 통합 조회
-  const ob = onboarding.load() || {}
-  const usedBlockIds = getAllUsedBlockIds(ob)
+  const [plans, setPlans] = useLS('qms_dev_plans', INIT_PLANS)
+  const [inputs, setInputs] = useLS('qms_dev_inputs', INIT_INPUTS)
+  const [outputs, setOutputs] = useLS('qms_dev_outputs', INIT_OUTPUTS)
+  const [verifications, setVerifications] = useLS('qms_dev_verifications', INIT_VERIFICATIONS)
+  const [validations, setValidations] = useLS('qms_dev_validations', INIT_VALIDATIONS)
+  const [changes, setChanges] = useLS('qms_dev_changes', INIT_CHANGES)
+  const [processes, setProcesses] = useLS('qms_dev_processes', INIT_PROCESSES)
 
-  const allTemplates = useMemo(() => {
-    const map = inspectionTemplates.loadAll()
-    const out = []
-    Object.entries(map).forEach(([blockId, list]) => {
-      const block = findBlock(blockId)
-      if (!block) return
-      list.forEach((t) => {
-        out.push({
-          ...t,
-          blockId,
-          blockName: block.name,
-          inUse: usedBlockIds.has(blockId),
-        })
-      })
-    })
-    return out
-  }, [allBlocks])
+  const tabLabels = {
+    plans: '개발 계획', inputs: '설계 입력', outputs: '설계 출력',
+    verifications: '설계 검증', validations: '유효성 확인', changes: '설계 변경', processes: '공정 개발',
+  }
 
-  const [search, setSearch] = useState('')
-  const [filterCriticality, setFilterCriticality] = useState('all')
-
-  const filtered = allTemplates.filter((t) => {
-    if (search) {
-      const q = search.toLowerCase()
-      if (
-        !t.label?.toLowerCase().includes(q) &&
-        !t.blockName?.toLowerCase().includes(q)
-      )
-        return false
-    }
-    if (filterCriticality !== 'all' && t.criticality !== filterCriticality)
-      return false
-    return true
-  })
-
-  // 통계
-  const stats = useMemo(() => {
-    const counts = { Critical: 0, Major: 0, Minor: 0 }
-    allTemplates.forEach((t) => {
-      if (counts[t.criticality] !== undefined) counts[t.criticality]++
-    })
-    return counts
-  }, [allTemplates])
+  const viewMap = {
+    home: <DevHome plans={plans} inputs={inputs} outputs={outputs} verifications={verifications}
+                   validations={validations} changes={changes} processes={processes} onNavigate={setView}/>,
+    plans: <PlanView plans={plans} setPlans={setPlans}/>,
+    inputs: <InputView inputs={inputs} setInputs={setInputs} plans={plans}/>,
+    outputs: <OutputView outputs={outputs} setOutputs={setOutputs} plans={plans} inputs={inputs}/>,
+    verifications: <VerificationView verifications={verifications} setVerifications={setVerifications} plans={plans}/>,
+    validations: <ValidationView validations={validations} setValidations={setValidations} plans={plans}/>,
+    changes: <ChangeView changes={changes} setChanges={setChanges} plans={plans}/>,
+    processes: <ProcessView processes={processes} setProcesses={setProcesses} plans={plans}/>,
+  }
 
   return (
-    <div className="space-y-4">
-      {/* 통계 */}
-      <div className="grid md:grid-cols-3 gap-3">
-        <StatCard
-          label="Critical 검사 항목"
-          value={stats.Critical}
-          hint="안전·필수 성능"
-          tone="rust"
-        />
-        <StatCard
-          label="Major 검사 항목"
-          value={stats.Major}
-          hint="주요 품질"
-          tone="amber"
-        />
-        <StatCard
-          label="Minor 검사 항목"
-          value={stats.Minor}
-          hint="외관·일반"
-          tone="ink-mute"
-        />
-      </div>
-
-      {/* 필터 */}
-      <div className="card-base p-3 flex items-center gap-2 flex-wrap">
-        <div
-          className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md"
-          style={{ background: 'var(--bg-soft)' }}
-        >
-          <Search size={13} style={{ color: 'var(--ink-faint)' }} />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="검사 항목·공정 검색…"
-            className="bg-transparent outline-none text-[12.5px] flex-1"
-          />
-        </div>
-        <div className="flex gap-1">
-          {[
-            { id: 'all', label: '전체' },
-            { id: 'Critical', label: 'Critical' },
-            { id: 'Major', label: 'Major' },
-            { id: 'Minor', label: 'Minor' },
-          ].map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFilterCriticality(f.id)}
-              className="text-[11.5px] px-2.5 py-1 rounded-md transition"
-              style={{
-                background:
-                  filterCriticality === f.id ? 'var(--moss)' : 'var(--bg-soft)',
-                color:
-                  filterCriticality === f.id ? 'var(--bg)' : 'var(--ink-mute)',
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 안내 */}
-      <div
-        className="rounded-lg p-3 flex items-start gap-2 text-[12px]"
-        style={{
-          background: 'var(--bg-soft)',
-          color: 'var(--ink-mute)',
-        }}
-      >
-        <AlertCircle
-          size={13}
-          style={{ color: 'var(--ink-mute)', marginTop: 2 }}
-        />
-        <div>
-          검사 항목의 신규 정의·수정·삭제는 <strong>eBR 화면(작업 지시
-          진행 중)</strong> 또는 <strong>온보딩 ONB-003</strong>에서
-          이루어집니다. 본 화면은 통합 조회·감사 추적을 위한 마스터 뷰입니다. 모든 변경은 CCR 자동 발의되며 진행 중 작업 지시는 시간 잠금됩니다.
-        </div>
-      </div>
-
-      {/* 목록 */}
-      {filtered.length === 0 ? (
-        <div
-          className="card-base p-6 text-center text-[13px]"
-          style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}
-        >
-          {allTemplates.length === 0
-            ? '정의된 검사 항목이 없습니다. eBR 화면에서 매니저가 추가할 수 있습니다.'
-            : '검색·필터 결과 없음'}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((t) => (
-            <InspectionTemplateRow key={t.id} template={t} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function InspectionTemplateRow({ template }) {
-  const sevColor = {
-    Critical: 'var(--rust)',
-    Major: 'var(--amber)',
-    Minor: 'var(--ink-mute)',
-  }[template.criticality]
-
-  const tplEid = eid(ENTITY_TYPES.INSPECTION_TEMPLATE, template.id)
-  const ccrCount = getRecordsForEntity(tplEid).length
-
-  return (
-    <div
-      className="card-base p-3.5"
-      style={{ borderLeft: `3px solid ${sevColor}` }}
-    >
-      <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded uppercase"
-          style={{
-            background: sevColor,
-            color: 'var(--bg)',
-            fontWeight: 500,
-          }}
-        >
-          {template.criticality}
-        </span>
-        <span className="text-[14px]" style={{ color: 'var(--ink)', fontWeight: 500 }}>
-          {template.label}
-        </span>
-        {template.unit && (
-          <span
-            className="font-mono text-[11px]"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            ({template.unit})
-          </span>
+    <AppLayout user={user} title="개발" subtitle="개발 계획 · 설계 입력·출력 · 검증 · 유효성 확인 · 설계 변경 · 공정 개발">
+      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+        {view !== 'home' && (
+          <button onClick={() => setView('home')}
+            className="flex items-center gap-1.5 mb-5 text-[13px]"
+            style={{ color: 'var(--moss)' }}>
+            <ArrowLeft size={14}/> 개발 홈
+          </button>
         )}
-        <span
-          className="text-[11.5px]"
-          style={{ color: 'var(--ink-mute)' }}
-        >
-          ← {template.blockName}
-        </span>
-        {template.inUse ? (
-          <span
-            className="font-mono text-[9.5px] px-1.5 py-0.5 rounded ml-auto"
-            style={{
-              background: 'var(--leaf-soft)',
-              color: 'var(--moss)',
-            }}
-          >
-            현재 사용 중
-          </span>
-        ) : (
-          <span
-            className="font-mono text-[9.5px] px-1.5 py-0.5 rounded ml-auto"
-            style={{
-              background: 'var(--bg-soft)',
-              color: 'var(--ink-faint)',
-            }}
-          >
-            라이브러리
-          </span>
-        )}
-      </div>
-      <div
-        className="font-mono text-[11px] mt-1.5 flex items-center gap-3 flex-wrap"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        <span>
-          규격: {template.specMin}~{template.specMax}
-          {template.unit ? ' ' + template.unit : ''}
-        </span>
-        {template.specNominal !== '' && template.specNominal != null && (
-          <span>공칭: {template.specNominal}</span>
-        )}
-        {template.method && <span>방법: {template.method}</span>}
-        <span>v{template.version || 1}</span>
-        {ccrCount > 0 && (
-          <span style={{ color: 'var(--amber)' }}>
-            <History size={9} style={{ display: 'inline' }} /> CCR {ccrCount}건
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ================================================================
-   변경 이력 패널 (CCR)
-   ================================================================ */
-function ChangeHistoryPanel({ ccrs }) {
-  return (
-    <div className="card-base p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <GitBranch size={13} style={{ color: 'var(--moss)' }} />
-        <span
-          className="font-mono text-[10px] tracking-[0.16em] uppercase"
-          style={{ color: 'var(--ink-mute)' }}
-        >
-          CHANGE HISTORY · 변경 이력
-        </span>
-        <span
-          className="font-mono text-[10px] px-1.5 py-0.5 rounded ml-auto"
-          style={{
-            background: 'var(--leaf-soft)',
-            color: 'var(--moss)',
-            fontWeight: 500,
-          }}
-        >
-          {ccrs.length}
-        </span>
-      </div>
-
-      {ccrs.length === 0 ? (
-        <div
-          className="text-[12px] text-center py-4 rounded"
-          style={{
-            background: 'var(--bg-soft)',
-            color: 'var(--ink-faint)',
-          }}
-        >
-          변경 이력 없음
-        </div>
-      ) : (
-        <div className="space-y-2 max-h-[500px] overflow-y-auto">
-          {ccrs
-            .slice()
-            .reverse()
-            .slice(0, 20)
-            .map((r) => (
-              <div
-                key={r.id}
-                className="rounded-md p-2.5 text-[11.5px]"
-                style={{ background: 'var(--bg-soft)' }}
-              >
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                    style={{
-                      background:
-                        r.action === 'CREATE'
-                          ? 'var(--leaf-soft)'
-                          : r.action === 'DELETE'
-                          ? 'var(--rust-soft)'
-                          : 'var(--amber-soft)',
-                      color:
-                        r.action === 'CREATE'
-                          ? 'var(--moss)'
-                          : r.action === 'DELETE'
-                          ? 'var(--rust)'
-                          : 'var(--amber)',
-                    }}
-                  >
-                    {r.action}
-                  </span>
-                  <span
-                    className="font-mono text-[10px]"
-                    style={{ color: 'var(--ink-faint)' }}
-                  >
-                    {r.id}
-                  </span>
-                </div>
-                <div
-                  className="mt-1"
-                  style={{ color: 'var(--ink)' }}
-                >
-                  {r.reason}
-                </div>
-                <div
-                  className="font-mono text-[10px] mt-1"
-                  style={{ color: 'var(--ink-faint)' }}
-                >
-                  {new Date(r.performedAt).toLocaleString('ko-KR')} ·{' '}
-                  {r.performedBy.name} ({r.performedBy.levelLabel})
-                </div>
-              </div>
+        {view !== 'home' && (
+          <div className="flex gap-1 flex-wrap mb-5">
+            {Object.entries(tabLabels).map(([id, label]) => (
+              <button key={id} onClick={() => setView(id)}
+                className="text-[12px] px-3 py-1.5 rounded-lg border transition"
+                style={{
+                  background: view === id ? 'var(--moss)' : 'var(--bg-card)',
+                  color: view === id ? 'var(--bg)' : 'var(--ink-mute)',
+                  borderColor: view === id ? 'var(--moss)' : 'var(--line)',
+                }}>{label}</button>
             ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ================================================================
-   부속 컴포넌트
-   ================================================================ */
-function StatCard({ label, value, hint, tone = 'moss' }) {
-  const tones = {
-    moss: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
-    rust: { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
-    amber: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
-    'ink-mute': { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
-  }
-  const t = tones[tone] || tones.moss
-  return (
-    <div className="card-base p-3.5">
-      <div className="flex items-baseline justify-between">
-        <span className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
-          {label}
-        </span>
-        <span
-          className="font-display text-[24px]"
-          style={{ color: t.fg, fontWeight: 500 }}
-        >
-          {value}
-        </span>
+          </div>
+        )}
+        {viewMap[view] || viewMap.home}
       </div>
-      {hint && (
-        <div
-          className="text-[10.5px] mt-0.5"
-          style={{ color: 'var(--ink-faint)' }}
-        >
-          {hint}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function Field({ label, value }) {
-  return (
-    <div>
-      <div
-        className="font-mono text-[10px] tracking-[0.16em] uppercase"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        {label}
-      </div>
-      <div className="mt-0.5 text-[13px]" style={{ color: 'var(--ink)' }}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function FieldEdit({
-  label,
-  value,
-  onChange,
-  multiline,
-  placeholder,
-  required,
-  type,
-}) {
-  return (
-    <div>
-      <label
-        className="font-mono text-[10px] tracking-[0.16em] uppercase"
-        style={{ color: required ? 'var(--rust)' : 'var(--ink-mute)' }}
-      >
-        {label}
-        {required && ' *'}
-      </label>
-      {multiline ? (
-        <textarea
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="input-base mt-1 w-full text-[13px]"
-          rows={2}
-        />
-      ) : (
-        <input
-          type={type || 'text'}
-          value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          className="input-base mt-1 w-full text-[13px]"
-        />
-      )}
-    </div>
-  )
-}
-
-function ComplianceFooter({ regs }) {
-  return (
-    <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-      <div
-        className="font-mono text-[10px] tracking-[0.16em] uppercase mb-1.5"
-        style={{ color: 'var(--ink-faint)' }}
-      >
-        REGULATORY MAPPING
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {regs.map((r, i) => (
-          <span
-            key={i}
-            className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-            style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}
-          >
-            {r}
-          </span>
-        ))}
-      </div>
-    </div>
+    </AppLayout>
   )
 }
