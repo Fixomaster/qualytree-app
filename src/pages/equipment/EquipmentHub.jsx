@@ -4,7 +4,7 @@ import { Wrench, Calendar, AlertTriangle, ArrowLeft, Plus, X, Clock, Activity } 
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 
-function useLS(key,init){const[v,setV]=useState(()=>{try{return JSON.parse(localStorage.getItem(key))??init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
+function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
 const inp={width:'100%',padding:'7px 10px',borderRadius:'7px',border:'1px solid var(--line)',background:'var(--bg)',color:'var(--ink)',fontSize:'13px',outline:'none'}
 const sel={...inp,appearance:'none'}

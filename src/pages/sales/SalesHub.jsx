@@ -13,7 +13,12 @@ import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSyn
 /* ─── util ─── */
 function useLS(key, init) {
   const [v, setV] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(key)) ?? init } catch { return init }
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw != null) return JSON.parse(raw)
+      localStorage.setItem(key, JSON.stringify(init))
+      return init
+    } catch { return init }
   })
   const set = (u) => {
     const n = typeof u === 'function' ? u(v) : u
