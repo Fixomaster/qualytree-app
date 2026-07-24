@@ -539,7 +539,13 @@ function QuotesView({ quotes, setQuotes, customers }) {
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
   const statusOpts = ['검토중','발송완료','협의중','수주확정','견적취소']
-  const init = { id:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), validUntil:'', amount:'', status:'검토중' }
+  const defaultValidUntil = () => {
+    const d = new Date()
+    d.setMonth(d.getMonth() + 1)
+    return d.toISOString().slice(0,10)
+  }
+  const init = { id:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), validUntil:defaultValidUntil(), amount:'', status:'검토중',
+    lineItems:[{ name:'', qty:'', price:'' }] }
 
   const save = (f) => {
     if (edit) { setQuotes(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
@@ -601,32 +607,45 @@ function QuotesView({ quotes, setQuotes, customers }) {
         </div>
       </div>
       {modal==='form' && (
-        <Modal title={edit?'견적 수정':'견적 등록'} onClose={()=>{setModal(null);setEdit(null)}}>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <FL label="고객사 *">
-                <select style={sel} value={(edit||init).customer}
-                  onChange={e=>setEdit(p=>({...(p||init),customer:e.target.value}))||!edit&&setModal(p=>({...p,customer:e.target.value}))}>
-                  <option value="">선택</option>
-                  {customers.map(c=><option key={c.id}>{c.name}</option>)}
-                </select>
-              </FL>
-              <FL label="상태">
-                <select style={sel} value={(edit||init).status} onChange={e=>edit?setEdit(p=>({...p,status:e.target.value})):null}>
-                  {statusOpts.map(o=><option key={o}>{o}</option>)}
-                </select>
-              </FL>
-            </div>
-            <QuoteFormInner initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
-          </div>
+        <Modal title={edit?'견적 수정':'견적 등록'} onClose={()=>{setModal(null);setEdit(null)}} wide>
+          <QuoteForm initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
         </Modal>
       )}
     </div>
   )
 }
-function QuoteFormInner({ initial, customers, onSave, onCancel, statusOpts }) {
-  const [f, sf] = useState(initial)
+function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
+  const legacyLine = () => {
+    if (!initial.items) return [{ name:'', qty:'', price:'' }]
+    const qty = parseFloat(initial.qty) || ''
+    const amt = parseFloat(initial.amount) || 0
+    const price = qty ? Math.round(amt / qty) : (amt || '')
+    return [{ name: initial.items, qty, price }]
+  }
+  const [f, sf] = useState({
+    ...initial,
+    lineItems: (initial.lineItems && initial.lineItems.length ? initial.lineItems : legacyLine()),
+  })
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
+
+  const setLine = (i, k, v) => sf(p=>({ ...p, lineItems: p.lineItems.map((li,idx)=>idx===i?{...li,[k]:v}:li) }))
+  const addLine = () => sf(p=>({ ...p, lineItems:[...p.lineItems, { name:'', qty:'', price:'' }] }))
+  const delLine = (i) => sf(p=>({ ...p, lineItems: p.lineItems.length>1 ? p.lineItems.filter((_,idx)=>idx!==i) : p.lineItems }))
+
+  const lineAmount = (li) => (parseFloat(li.qty)||0) * (parseFloat(li.price)||0)
+  const totalAmount = f.lineItems.reduce((s,li)=>s+lineAmount(li), 0)
+  const totalQty = f.lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||0), 0)
+
+  const validItems = f.lineItems.filter(li=>li.name && li.name.trim())
+  const ok = !!f.customer && validItems.length > 0
+
+  const doSave = () => {
+    const items = validItems.length <= 1
+      ? (validItems[0]?.name || '')
+      : `${validItems[0].name} 외 ${validItems.length - 1}건`
+    onSave({ ...f, lineItems: validItems, items, qty: `${totalQty}EA`, amount: String(totalAmount) })
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -641,13 +660,76 @@ function QuoteFormInner({ initial, customers, onSave, onCancel, statusOpts }) {
             {statusOpts.map(o=><option key={o}>{o}</option>)}
           </select>
         </FL>
-        <FL label="품목 *"><input style={inp} value={f.items} onChange={set('items')} placeholder="예) SCS M3.5×22mm 500EA"/></FL>
-        <FL label="금액(원)"><input style={inp} value={f.amount} onChange={set('amount')} placeholder="15750000 또는 견적예정"/></FL>
         <FL label="작성일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
-        <FL label="유효기간까지"><input style={inp} type="date" value={f.validUntil} onChange={set('validUntil')}/></FL>
+        <FL label="유효기간까지 (기본 1개월)"><input style={inp} type="date" value={f.validUntil} onChange={set('validUntil')}/></FL>
       </div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[11.5px] font-medium" style={{ color:'var(--ink-mute)' }}>품목 (전표) *</div>
+          <button onClick={addLine} className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg font-medium"
+            style={{ background:'var(--leaf-soft)', color:'var(--moss)' }}>
+            <Plus size={11}/> 품목 추가
+          </button>
+        </div>
+        <div className="rounded-lg overflow-hidden" style={{ border:'1px solid var(--line)' }}>
+          <table className="w-full">
+            <thead>
+              <tr style={{ background:'var(--bg-soft)' }}>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium" style={{color:'var(--ink-faint)'}}>품목명</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-20" style={{color:'var(--ink-faint)'}}>수량</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-28" style={{color:'var(--ink-faint)'}}>단가(원)</th>
+                <th className="text-right px-2 py-1.5 text-[10.5px] font-medium w-28" style={{color:'var(--ink-faint)'}}>금액(원)</th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.lineItems.map((li,i)=>(
+                <tr key={i} style={{ borderTop:'1px solid var(--line)' }}>
+                  <td className="p-1">
+                    <input value={li.name} onChange={e=>setLine(i,'name',e.target.value)}
+                      placeholder="예) SCS M3.5×22mm"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.qty} onChange={e=>setLine(i,'qty',e.target.value)}
+                      placeholder="200" type="number"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.price} onChange={e=>setLine(i,'price',e.target.value)}
+                      placeholder="21000" type="number"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1 text-right text-[12.5px] tabular-nums" style={{ color:'var(--ink-mute)' }}>
+                    {lineAmount(li).toLocaleString()}
+                  </td>
+                  <td className="p-1 text-center">
+                    <button onClick={()=>delLine(i)} disabled={f.lineItems.length===1}
+                      style={{ color: f.lineItems.length===1 ? 'var(--ink-faint)' : 'var(--rust)', opacity: f.lineItems.length===1?0.4:1 }}>
+                      <Trash2 size={13}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop:'1px solid var(--line)', background:'var(--bg-soft)' }}>
+                <td className="px-2 py-1.5 text-[11.5px] font-medium" style={{color:'var(--ink-mute)'}} colSpan={2}>합계 {totalQty}EA</td>
+                <td className="px-2 py-1.5 text-[11.5px] font-medium text-right" style={{color:'var(--ink-mute)'}}>총액</td>
+                <td className="px-2 py-1.5 text-[13px] font-bold text-right tabular-nums" style={{color:'var(--moss)'}}>{totalAmount.toLocaleString()}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={()=>f.customer&&f.items&&onSave(f)}>{initial.customer?'수정 저장':'등록'}</SBtn>
+        <SBtn onClick={()=>ok&&doSave()} secondary={!ok}>{initial.customer?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
