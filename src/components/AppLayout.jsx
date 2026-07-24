@@ -1,5 +1,6 @@
 // src/components/AppLayout.jsx
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import DeptSelectModal from './DeptSelectModal'
@@ -7,6 +8,7 @@ import { deptAuth } from '../lib/deptAuth'
 
 export default function AppLayout({ user, title, subtitle, children }) {
   const [showDeptModal, setShowDeptModal] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     // 부서 미선택 시 모달 표시 (첫 로그인)
@@ -14,7 +16,7 @@ export default function AppLayout({ user, title, subtitle, children }) {
       setShowDeptModal(true)
     }
 
-    // 다른 컴포넌트에서 모달을 열고 싶을 때 (선택적)
+    // 부서 강제 재선택 이벤트 (null 이벤트 수신 시)
     const handler = (e) => {
       if (e.detail === null) setShowDeptModal(true)
     }
@@ -25,6 +27,8 @@ export default function AppLayout({ user, title, subtitle, children }) {
   const handleDeptSelect = (dept) => {
     deptAuth.setDepartment(dept)
     setShowDeptModal(false)
+    // 부서 선택 후 홈 대시보드로 이동
+    navigate('/home')
   }
 
   return (
