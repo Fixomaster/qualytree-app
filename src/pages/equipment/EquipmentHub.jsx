@@ -39,11 +39,12 @@ const INIT_HIST=[
   {id:'EH-2405-006',eqp:'EQP-M-002',name:'마이크로미터',date:'24-06-01',type:'교정',desc:'정기교정 (6개월)',technician:'한국교정연구원',result:'합격 (성적서 CAL-2406-002)',next:'24-12-01'},
 ]
 
-/* ─── 측정기기 목록 ─── */  const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
+/* ─── 측정기기 목록 ─── */
 
 function InstrumentsView({instruments,setInstruments}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
   const [srch, setSrch] = useState('')
+  const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
   const statusOpts=['사용가능','교정임박','교정중','사용제한','폐기']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInstruments(p=>p.filter(x=>x.id!==id))}
   const save=f=>{if(edit){setInstruments(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setInstruments(p=>[...p,{id:nid('EQP'),...f}])};setModal(null)}
