@@ -50,6 +50,7 @@ const BADGE_ICONS = {
   PRD:  PackageSearch,
   ALL:  Building2,
   HOME: Home,
+  FLOW: Workflow,
 }
 
 // 배지 색상
