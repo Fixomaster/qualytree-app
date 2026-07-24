@@ -40,6 +40,9 @@ function Badge({ text, tone = 'gray' }) {
   const [bg, fg] = colors[tone] || colors.gray
   return <span className="px-2 py-0.5 rounded-full text-[11px] font-medium" style={{ background: bg, color: fg }}>{text}</span>
 }
+function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</td></tr>)}
+function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
+
 function StatusSelect({ value, options, onChange }) {
   return <select style={{ ...sel, width: 'auto', padding: '4px 8px', fontSize: 12 }} value={value} onChange={e => onChange(e.target.value)}>{options.map(o => <option key={o}>{o}</option>)}</select>
 }
@@ -122,8 +125,8 @@ function PlanView({ plans, setPlans }) {
           <table className="w-full">
             <thead><tr>{['계획ID', '프로젝트명', '단계', '담당자', '시작일', '완료예정', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {plans.map(p => (
-                <tr key={p.id}>
+              {plans.length===0?<EmptyRow/>:plans.map(p=>(
+      <tr key={p.id}>
                   <TD mono color="var(--moss)">{p.id}</TD>
                   <TD>{p.name}</TD>
                   <TD><Badge text={p.phase} tone="blue"/></TD>
@@ -175,7 +178,7 @@ function PlanForm({ initial, phaseOpts, statusOpts, onSave, onCancel }) {
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.name && onSave(f)}>{initial.name ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.name||!String(f.name).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.name ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -213,8 +216,8 @@ function InputView({ inputs, setInputs, plans }) {
           <table className="w-full">
             <thead><tr>{['입력ID', '연계계획', '요구사항', '분류', '우선순위', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {inputs.map(d => (
-                <tr key={d.id}>
+              {inputs.length===0?<EmptyRow/>:inputs.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -276,7 +279,7 @@ function InputForm({ initial, plans, catOpts, statusOpts, onSave, onCancel }) {
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -314,8 +317,8 @@ function OutputView({ outputs, setOutputs, plans, inputs }) {
           <table className="w-full">
             <thead><tr>{['출력ID', '계획', '산출물명', '분류', '연계입력', '문서번호', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {outputs.map(d => (
-                <tr key={d.id}>
+              {outputs.length===0?<EmptyRow/>:outputs.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -382,7 +385,7 @@ function OutputForm({ initial, plans, inputs, catOpts, statusOpts, onSave, onCan
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -420,8 +423,8 @@ function VerificationView({ verifications, setVerifications, plans }) {
           <table className="w-full">
             <thead><tr>{['검증ID', '계획', '검증항목', '방법', '시험자', '결과', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {verifications.map(d => (
-                <tr key={d.id}>
+              {verifications.length===0?<EmptyRow/>:verifications.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -487,7 +490,7 @@ function VVForm({ initial, plans, methodOpts, statusOpts, resultOpts, onSave, on
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -524,8 +527,8 @@ function ValidationView({ validations, setValidations, plans }) {
           <table className="w-full">
             <thead><tr>{['ID', '계획', '유효성확인 항목', '방법', '수행기관', '결과', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {validations.map(d => (
-                <tr key={d.id}>
+              {validations.length===0?<EmptyRow/>:validations.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -585,7 +588,7 @@ function ValForm({ initial, plans, statusOpts, onSave, onCancel }) {
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -622,8 +625,8 @@ function ChangeView({ changes, setChanges, plans }) {
           <table className="w-full">
             <thead><tr>{['변경ID', '계획', '변경내용', '변경사유', '위험도', '승인자', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {changes.map(d => (
-                <tr key={d.id}>
+              {changes.length===0?<EmptyRow/>:changes.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -683,7 +686,7 @@ function ChangeForm({ initial, plans, statusOpts, onSave, onCancel }) {
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -721,8 +724,8 @@ function ProcessView({ processes, setProcesses, plans }) {
           <table className="w-full">
             <thead><tr>{['공정ID', '계획', '공정명', '유형', '작업지시서', '밸리데이션', '일자', '상태', '작업'].map(h => <TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>
-              {processes.map(d => (
-                <tr key={d.id}>
+              {processes.length===0?<EmptyRow/>:processes.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.plan}</TD>
                   <TD>{d.title}</TD>
@@ -786,7 +789,7 @@ function ProcessForm({ initial, plans, typeOpts, statusOpts, onSave, onCancel })
         </FL>
       </div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={() => f.title && onSave(f)}>{initial.title ? '수정 저장' : '등록'}</SBtn>
+        <SBtn onClick={()=>{if(!f.title||!String(f.title).trim()){alert("필수 항목(*)을 입력하세요.");return;}onSave(f)}}>{initial.title ? '수정 저장' : '등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -822,8 +825,8 @@ function DevHome({ plans, inputs, outputs, verifications, validations, changes, 
         <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>제품 설계·개발 계획부터 공정 밸리데이션까지 전 주기 관리</div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {summary.map(s => (
-          <div key={s.label} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        {summary.length===0?<EmptyCard/>:summary.map(s=>(
+      <div key={s.label} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
             <div className="text-[12px] mb-1" style={{ color: 'var(--ink-mute)' }}>{s.label}</div>
             <div className="text-[24px] font-bold" style={{ color: s.warn ? 'var(--rust)' : 'var(--moss)' }}>{s.value}</div>
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{s.sub}</div>
