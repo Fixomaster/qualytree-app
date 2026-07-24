@@ -1,586 +1,648 @@
-import React, { useState } from 'react'
+// src/pages/audit/AuditHub.jsx
+// ISO 13485:2016 §8.2.2 내부감사 허브
+import React, { useState, useMemo } from 'react'
 import {
-  ClipboardCheck,
-  ListChecks,
-  FileText,
-  Wrench,
-  Plus,
-  Trash2,
-  ChevronRight,
-  CheckCircle2,
-  AlertTriangle,
-  ArrowRight,
+  Search, Plus, ChevronRight, CheckCircle2,
+  Clock, AlertTriangle, Calendar, Users,
+  FileText, BarChart2, ClipboardList, XCircle,
+  ChevronDown, Download, Filter,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
-import { permissions, requirePermission } from '../../lib/permissions'
-import { audits, checklist, findings, AUDIT_STATUS, FINDING_CLASS, FINDING_STATUS, CHECKLIST_RESULT } from '../../lib/internalAuditState'
-import { CARDS } from '../../lib/gmpProgress'
-import { capa, CAPA_STATUS, CAPA_STATUS_LABEL } from '../../lib/capaState'
+
+const STORAGE_KEY = 'qualytree.audits'
+const CAR_KEY = 'qualytree.audit_cars'  // Corrective Action Requests from audit
+
+// 감사 상태
+const AUDIT_STATUS = {
+  PLANNED:     'planned',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED:   'completed',
+  CLOSED:      'closed',
+}
+
+const AUDIT_STATUS_LABEL = {
+  planned:     '계획',
+  in_progress: '진행 중',
+  completed:   '완료 (시정조치 대기)',
+  closed:      '종결',
+}
+
+const AUDIT_STATUS_COLOR = {
+  planned:     '#6B7280',
+  in_progress: '#F59E0B',
+  completed:   '#3B82F6',
+  closed:      '#10B981',
+}
+
+// CAR 상태
+const CAR_STATUS = {
+  OPEN:     'open',
+  PROGRESS: 'in_progress',
+  VERIFIED: 'verified',
+  CLOSED:   'closed',
+}
+const CAR_STATUS_LABEL = { open: '미처리', in_progress: '조치 중', verified: '검증 완료', closed: '종결' }
+const CAR_STATUS_COLOR = { open: '#EF4444', in_progress: '#F59E0B', verified: '#3B82F6', closed: '#10B981' }
+
+// ISO 13485 감사 기준 체크리스트 (주요 항목)
+const AUDIT_CHECKLIST = [
+  { iso: '4.1', item: '품질경영시스템 일반 요건' },
+  { iso: '4.2', item: '문서화 요건 (매뉴얼·절차·기록)' },
+  { iso: '5.1', item: '경영진 책임 및 의지' },
+  { iso: '5.4', item: '품질목표 및 계획' },
+  { iso: '6.2', item: '인적 자원 (교육·역량)' },
+  { iso: '6.3', item: '기반구조 (설비·환경)' },
+  { iso: '7.2', item: '고객 관련 프로세스 (요구사항)' },
+  { iso: '7.3', item: '설계 및 개발' },
+  { iso: '7.4', item: '구매 (공급업체 관리)' },
+  { iso: '7.5', item: '생산 및 서비스 제공' },
+  { iso: '7.6', item: '모니터링 및 측정장치 관리' },
+  { iso: '8.2.1', item: '고객만족 모니터링' },
+  { iso: '8.2.4', item: '제품 모니터링 및 측정' },
+  { iso: '8.3', item: '부적합 제품 관리' },
+  { iso: '8.4', item: '데이터 분석' },
+  { iso: '8.5', item: '개선 (CAPA)' },
+]
+
+function loadAudits() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+}
+function saveAudits(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+}
+function loadCARs() {
+  try { return JSON.parse(localStorage.getItem(CAR_KEY) || '[]') } catch { return [] }
+}
+function saveCARs(data) {
+  localStorage.setItem(CAR_KEY, JSON.stringify(data))
+}
+function genId(prefix) {
+  return `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
+}
 
 export default function AuditHub() {
   const user = auth.current()
-  const [tick, setTick] = useState(0)
-  const refresh = () => setTick((x) => x + 1)
-  const [toast, setToast] = useState(null)
-  const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
+  const [tab, setTab] = useState('audits') // audits | cars | checklist
+  const [audits, setAudits] = useState(() => loadAudits())
+  const [cars, setCARs] = useState(() => loadCARs())
+  const [showForm, setShowForm] = useState(false)
+  const [showCARForm, setShowCARForm] = useState(false)
+  const [selectedAudit, setSelectedAudit] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [, forceRefresh] = useState(0)
+  const refresh = () => forceRefresh(t => t + 1)
 
-  const list = audits.getAll()
-  const [selId, setSelId] = useState(list[0]?.id || null)
-  const sel = list.find((a) => a.id === selId) || null
-  const [adding, setAdding] = useState(list.length === 0)
-
-  const allFindings = findings.getAll()
-  const openFindings = allFindings.filter((f) => f.status !== FINDING_STATUS.CLOSED)
-  const inProgressCount = list.filter((a) => a.status !== AUDIT_STATUS.COMPLETED).length
-
-  const canEditPlan = permissions.can('audit.plan.edit')
-
-  const EMPTY = { title: '', scope: '', cardIds: [], plannedDate: '', leadAuditor: '', auditors: '' }
-  const [form, setForm] = useState(EMPTY)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const toggleCard = (cardId) => setForm((f) => ({ ...f, cardIds: f.cardIds.includes(cardId) ? f.cardIds.filter((c) => c !== cardId) : [...f.cardIds, cardId] }))
-
-  const createAudit = () => {
-    if (!requirePermission('audit.plan.edit')) return
-    if (!form.title.trim() || form.cardIds.length === 0) { window.alert('심사명과 심사 대상 카드를 입력하세요.'); return }
-    const rec = audits.add(form)
-    setSelId(rec.id)
-    setForm(EMPTY)
-    setAdding(false)
-    showToast('내부심사 계획이 생성되었습니다.')
-    refresh()
+  const reload = () => {
+    setAudits(loadAudits())
+    setCARs(loadCARs())
   }
 
-  const delAudit = (id) => {
-    if (!requirePermission('audit.plan.edit')) return
-    if (!window.confirm('이 심사와 관련된 체크리스트·시정조치가 함께 삭제됩니다. 계속할까요?')) return
-    audits.delete(id)
-    const next = audits.getAll()
-    setSelId(next[0]?.id || null)
-    showToast('심사가 삭제되었습니다.')
-    refresh()
-  }
+  // 통계
+  const stats = useMemo(() => ({
+    total: audits.length,
+    planned: audits.filter(a => a.status === AUDIT_STATUS.PLANNED).length,
+    inProgress: audits.filter(a => a.status === AUDIT_STATUS.IN_PROGRESS).length,
+    completed: audits.filter(a => a.status === AUDIT_STATUS.COMPLETED).length,
+    carOpen: cars.filter(c => c.status === CAR_STATUS.OPEN).length,
+    carTotal: cars.length,
+  }), [audits, cars])
+
+  const filteredAudits = useMemo(() => {
+    let arr = [...audits].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    if (filterStatus !== 'all') arr = arr.filter(a => a.status === filterStatus)
+    return arr
+  }, [audits, filterStatus])
 
   return (
-    <AppLayout user={user} title="내부심사" subtitle="계획 / 체크리스트 / 보고서 / 시정조치">
-      <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto fade-in">
-        {toast && (
-          <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
-            style={{ background: 'var(--moss)', color: 'var(--bg)', boxShadow: '0 6px 20px rgba(15,26,20,0.18)', fontWeight: 500 }}>
-            ✓ {toast}
-          </div>
+    <AppLayout user={user} title="내부감사" subtitle="ISO 13485 §8.2.2 · 내부감사 계획·실시·시정조치">
+      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+
+        {/* KPI 카드 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[
+            { label: '계획된 감사', value: stats.planned, icon: Calendar, color: '#6B7280' },
+            { label: '진행 중', value: stats.inProgress, icon: Clock, color: '#F59E0B' },
+            { label: '완료', value: stats.completed, icon: CheckCircle2, color: '#3B82F6' },
+            { label: '미결 CAR', value: stats.carOpen, icon: AlertTriangle, color: '#EF4444', urgent: stats.carOpen > 0 },
+          ].map((kpi) => (
+            <div
+              key={kpi.label}
+              className="p-4 rounded-2xl"
+              style={{
+                background: 'var(--bg-card)',
+                border: `1px solid ${kpi.urgent ? '#EF444440' : 'var(--line)'}`,
+                boxShadow: kpi.urgent ? '0 0 0 2px #EF444420' : 'none',
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{kpi.label}</span>
+                <kpi.icon size={15} style={{ color: kpi.color }} />
+              </div>
+              <div className="text-[26px] font-bold" style={{ color: kpi.urgent ? '#EF4444' : 'var(--ink)' }}>
+                {kpi.value}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 탭 */}
+        <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
+          {[
+            { key: 'audits', label: '감사 계획·실시', icon: Search },
+            { key: 'cars', label: '시정조치 요청 (CAR)', icon: AlertTriangle },
+            { key: 'checklist', label: '체크리스트', icon: ClipboardList },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-medium transition"
+              style={{
+                background: tab === key ? 'var(--bg-card)' : 'transparent',
+                color: tab === key ? 'var(--ink)' : 'var(--ink-faint)',
+                boxShadow: tab === key ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                border: 'none', cursor: 'pointer',
+              }}
+            >
+              <Icon size={14} />
+              {label}
+              {key === 'cars' && stats.carOpen > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#EF4444', color: '#fff' }}>
+                  {stats.carOpen}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 탭 콘텐츠 */}
+        {tab === 'audits' && (
+          <AuditsTab
+            audits={filteredAudits}
+            filterStatus={filterStatus}
+            setFilterStatus={setFilterStatus}
+            showForm={showForm}
+            setShowForm={setShowForm}
+            selectedAudit={selectedAudit}
+            setSelectedAudit={setSelectedAudit}
+            onSave={(form) => {
+              const updated = selectedAudit
+                ? audits.map(a => a.id === selectedAudit.id ? { ...a, ...form, updatedAt: new Date().toISOString() } : a)
+                : [...audits, {
+                    ...form,
+                    id: genId('AUD'),
+                    status: AUDIT_STATUS.PLANNED,
+                    createdAt: new Date().toISOString(),
+                    createdBy: user?.name || 'Unknown',
+                    findings: [],
+                  }]
+              saveAudits(updated)
+              setAudits(updated)
+              setShowForm(false)
+              setSelectedAudit(null)
+            }}
+            onStatusChange={(id, status) => {
+              const updated = audits.map(a => a.id === id ? { ...a, status, updatedAt: new Date().toISOString() } : a)
+              saveAudits(updated)
+              setAudits(updated)
+            }}
+          />
         )}
 
-        <div className="mb-5">
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>AUD · INTERNAL AUDIT</span>
-          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>내부심사</div>
-          <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            ISO 13485 §8.2.4 / FDA QMSR §820.22 — 계획 승인 → 체크리스트 → 보고서 승인 → 시정조치 종결까지 한 흐름으로 관리합니다.
-          </div>
-        </div>
+        {tab === 'cars' && (
+          <CARsTab
+            cars={cars}
+            showCARForm={showCARForm}
+            setShowCARForm={setShowCARForm}
+            onSave={(form) => {
+              const updated = [...cars, {
+                ...form,
+                id: genId('CAR'),
+                status: CAR_STATUS.OPEN,
+                createdAt: new Date().toISOString(),
+                createdBy: user?.name || 'Unknown',
+              }]
+              saveCARs(updated)
+              setCARs(updated)
+              setShowCARForm(false)
+            }}
+            onStatusChange={(id, status) => {
+              const updated = cars.map(c => c.id === id ? { ...c, status, updatedAt: new Date().toISOString() } : c)
+              saveCARs(updated)
+              setCARs(updated)
+            }}
+          />
+        )}
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <StatCard label="전체 심사" value={list.length} hint="누적 발행 건수" icon={ClipboardCheck} />
-          <StatCard label="진행 중" value={inProgressCount} hint="완료되지 않은 심사" icon={ListChecks} />
-          <StatCard label="미종결 시정조치" value={openFindings.length} hint="Major/Minor/관찰 포함" icon={AlertTriangle} tone={openFindings.length > 0 ? 'amber' : undefined} />
-        </div>
-
-        <div className="grid lg:grid-cols-[320px_1fr] gap-5">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>심사 목록 ({list.length}건)</div>
-              {canEditPlan && (
-                <button onClick={() => { setAdding((v) => !v); setForm(EMPTY) }} className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--moss)' }}>
-                  <Plus size={13} /> 심사 추가
-                </button>
-              )}
-            </div>
-
-            {adding && canEditPlan && (
-              <div className="card-base p-3 mb-3 space-y-2">
-                <Field label="심사명 *" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: 2026년 정기 내부심사 1차" />
-                <Field label="심사 범위·목적" value={form.scope} onChange={(v) => setF('scope', v)} placeholder="예: 설계·제조·QC 프로세스" />
-                <Field label="예정일" type="date" value={form.plannedDate} onChange={(v) => setF('plannedDate', v)} />
-                <Field label="리드 심사원" value={form.leadAuditor} onChange={(v) => setF('leadAuditor', v)} />
-                <Field label="심사원(팀원)" value={form.auditors} onChange={(v) => setF('auditors', v)} placeholder="쉼표로 구분" />
-                <div>
-                  <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>심사 대상 카드 *</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {CARDS.map((c) => (
-                      <button key={c.id} type="button" onClick={() => toggleCard(c.id)}
-                        className="px-2 py-1 rounded text-[11px] border"
-                        style={{ borderColor: form.cardIds.includes(c.id) ? 'var(--moss)' : 'var(--line)', background: form.cardIds.includes(c.id) ? 'var(--leaf-soft)' : 'transparent', color: form.cardIds.includes(c.id) ? 'var(--moss)' : 'var(--ink-mute)' }}>
-                        {c.index}. {c.title}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
-                  <button onClick={createAudit} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><Plus size={13} /> 생성</button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              {list.map((a) => (
-                <button key={a.id} onClick={() => setSelId(a.id)} className="w-full text-left px-3 py-2.5 rounded-lg border flex items-center gap-2 transition"
-                  style={{ borderColor: a.id === selId ? 'var(--moss)' : 'var(--line)', background: a.id === selId ? 'var(--leaf-soft)' : 'var(--bg-card)' }}>
-                  <ClipboardCheck size={14} style={{ color: 'var(--moss)' }} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13px] font-medium truncate" style={{ color: 'var(--ink)' }}>{a.title || '(제목없음)'}</span>
-                    <span className="block text-[11px]" style={{ color: 'var(--ink-faint)' }}>{a.id} · {a.status}</span>
-                  </span>
-                  <ChevronRight size={14} style={{ color: 'var(--ink-faint)' }} />
-                </button>
-              ))}
-              {list.length === 0 && !adding && <EmptyState icon={ClipboardCheck} text="등록된 내부심사가 없습니다." />}
-            </div>
-          </div>
-
-          <div>
-            {sel ? (
-              <AuditDetail key={sel.id} audit={sel} onAction={showToast} refresh={refresh} onDelete={() => delAudit(sel.id)} />
-            ) : (
-              <EmptyState icon={ClipboardCheck} text="왼쪽에서 심사를 선택하거나 새로 등록하세요." />
-            )}
-          </div>
-        </div>
+        {tab === 'checklist' && (
+          <ChecklistTab />
+        )}
       </div>
     </AppLayout>
   )
 }
 
-/* ================================================================
-   공통 UI
-   ================================================================ */
-function StatCard({ label, value, hint, icon: Icon, tone }) {
-  return (
-    <div className="card-base p-4 flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: tone === 'amber' ? 'var(--amber-soft)' : 'var(--leaf-soft)', color: tone === 'amber' ? 'var(--amber)' : 'var(--moss)' }}>
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>{label}</div>
-        <div className="text-[20px] font-bold tabular-nums" style={{ color: 'var(--ink)' }}>{value}</div>
-        <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{hint}</div>
-      </div>
-    </div>
-  )
-}
-function Field({ label, value, onChange, placeholder, type = 'text', className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <input type={type} className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  )
-}
-function SelectField({ label, value, onChange, options, className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => (typeof o === 'string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>))}
-      </select>
-    </label>
-  )
-}
-function TextAreaField({ label, value, onChange, placeholder, minHeight = 70, className = '' }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight }} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  )
-}
-function EmptyState({ icon: Icon, text }) {
-  return (
-    <div className="card-base p-8 text-center" style={{ borderStyle: 'dashed' }}>
-      <Icon size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-      <div className="mt-2 text-[13px]" style={{ color: 'var(--ink-mute)' }}>{text}</div>
-    </div>
-  )
-}
-function Badge({ text, tone = 'slate' }) {
-  const map = {
-    emerald: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
-    amber: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
-    rose: { bg: '#fdecec', fg: '#c0392b' },
-    slate: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
-  }
-  const c = map[tone] || map.slate
-  return <span className="text-[10.5px] px-1.5 py-0.5 rounded font-semibold" style={{ background: c.bg, color: c.fg }}>{text}</span>
-}
-function auditStatusTone(status) {
-  if (status === AUDIT_STATUS.COMPLETED) return 'emerald'
-  if (status === AUDIT_STATUS.PLANNING) return 'slate'
-  return 'amber'
-}
-function SubTab({ active, onClick, icon: Icon, label, badge }) {
-  return (
-    <button onClick={onClick} className="px-4 py-2.5 rounded-t-lg flex items-center gap-2 text-[13px] transition shrink-0"
-      style={{ background: active ? 'var(--bg-card)' : 'transparent', borderBottom: active ? '2px solid var(--moss)' : '2px solid transparent', color: active ? 'var(--ink)' : 'var(--ink-mute)', fontWeight: active ? 500 : 400 }}>
-      <Icon size={14} />
-      <span>{label}</span>
-      {badge != null && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: active ? 'var(--leaf-soft)' : 'var(--bg-soft)', color: active ? 'var(--moss)' : 'var(--ink-faint)' }}>{badge}</span>}
-    </button>
-  )
-}
+/* ── 감사 목록 탭 ── */
+function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, onSave, onStatusChange }) {
+  const [form, setForm] = useState({
+    title: '', scope: '', auditDate: '', auditor: '', auditee: '',
+    type: 'internal', standard: 'ISO 13485',
+  })
 
-/* ================================================================
-   심사 상세 — 계획 / 체크리스트 / 보고서 / 시정조치
-   ================================================================ */
-function AuditDetail({ audit, onAction, refresh, onDelete }) {
-  const [sub, setSub] = useState('plan')
-  const rows = checklist.getForAudit(audit.id)
-  const fnds = findings.getForAudit(audit.id)
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[12px]" style={{ color: 'var(--moss)' }}>{audit.id}</span>
-          <Badge text={audit.status} tone={auditStatusTone(audit.status)} />
-        </div>
-        {permissions.can('audit.plan.edit') && audit.status === AUDIT_STATUS.PLANNING && (
-          <button onClick={onDelete} className="text-[12px] inline-flex items-center gap-1" style={{ color: 'var(--rust)' }}><Trash2 size={13} /> 심사 삭제</button>
-        )}
-      </div>
-
-      <div className="flex gap-1 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
-        <SubTab active={sub === 'plan'} onClick={() => setSub('plan')} icon={ClipboardCheck} label="계획" />
-        <SubTab active={sub === 'checklist'} onClick={() => setSub('checklist')} icon={ListChecks} label="체크리스트" badge={rows.length} />
-        <SubTab active={sub === 'report'} onClick={() => setSub('report')} icon={FileText} label="보고서" />
-        <SubTab active={sub === 'findings'} onClick={() => setSub('findings')} icon={Wrench} label="시정조치" badge={fnds.filter((f) => f.status !== FINDING_STATUS.CLOSED).length} />
-      </div>
-
-      {sub === 'plan' && <PlanTab audit={audit} onAction={onAction} refresh={refresh} />}
-      {sub === 'checklist' && <ChecklistTab audit={audit} rows={rows} onAction={onAction} refresh={refresh} />}
-      {sub === 'report' && <ReportTab audit={audit} rows={rows} fnds={fnds} onAction={onAction} refresh={refresh} />}
-      {sub === 'findings' && <FindingsTab audit={audit} fnds={fnds} onAction={onAction} refresh={refresh} />}
-    </div>
-  )
-}
-
-/* ---------------- 계획 ---------------- */
-function PlanTab({ audit, onAction, refresh }) {
-  const canEdit = permissions.can('audit.plan.edit') && audit.status === AUDIT_STATUS.PLANNING
-  const canApprove = permissions.can('audit.plan.approve')
-  const [form, setForm] = useState(audit)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const dirty = JSON.stringify(form) !== JSON.stringify(audit)
-
-  const save = () => {
-    if (!requirePermission('audit.plan.edit')) return
-    audits.update(audit.id, form)
-    onAction('계획이 저장되었습니다.')
-    refresh()
+  const startEdit = (audit) => {
+    setSelectedAudit(audit)
+    setForm({ title: audit.title, scope: audit.scope || '', auditDate: audit.auditDate || '', auditor: audit.auditor || '', auditee: audit.auditee || '', type: audit.type || 'internal', standard: audit.standard || 'ISO 13485' })
+    setShowForm(true)
   }
 
-  const approve = () => {
-    if (!requirePermission('audit.plan.approve')) return
-    const cur = auth.current()
-    try {
-      audits.approvePlan(audit.id, cur?.name || '승인자')
-      onAction('계획이 승인되었습니다 · 체크리스트가 자동 발행되었습니다.')
-      refresh()
-    } catch (e) {
-      window.alert((e && e.message) || String(e))
-    }
+  const resetForm = () => {
+    setSelectedAudit(null)
+    setForm({ title: '', scope: '', auditDate: '', auditor: '', auditee: '', type: 'internal', standard: 'ISO 13485' })
   }
 
   return (
-    <div className="card-base p-4 space-y-3">
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="심사명" value={form.title} onChange={(v) => setF('title', v)} className={!canEdit ? 'opacity-70 pointer-events-none' : ''} />
-        <Field label="예정일" type="date" value={form.plannedDate} onChange={(v) => setF('plannedDate', v)} className={!canEdit ? 'opacity-70 pointer-events-none' : ''} />
-        <Field label="리드 심사원" value={form.leadAuditor} onChange={(v) => setF('leadAuditor', v)} className={!canEdit ? 'opacity-70 pointer-events-none' : ''} />
-        <Field label="심사원(팀원)" value={form.auditors} onChange={(v) => setF('auditors', v)} className={!canEdit ? 'opacity-70 pointer-events-none' : ''} />
-      </div>
-      <TextAreaField label="심사 범위·목적" value={form.scope} onChange={(v) => setF('scope', v)} />
-      <div>
-        <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>심사 대상 카드</span>
-        <div className="flex flex-wrap gap-1.5">
-          {audit.cardIds.map((cid) => {
-            const c = CARDS.find((x) => x.id === cid)
-            return <Badge key={cid} text={c ? `${c.index}. ${c.title}` : cid} tone="slate" />
-          })}
+    <>
+      {/* 액션바 */}
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div className="flex gap-2 flex-wrap">
+          {['all', ...Object.values(AUDIT_STATUS)].map((s) => (
+            <button
+              key={s}
+              onClick={() => setFilterStatus(s)}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
+              style={{
+                background: filterStatus === s ? '#6366F1' : 'var(--bg-soft)',
+                color: filterStatus === s ? '#fff' : 'var(--ink-soft)',
+                border: 'none', cursor: 'pointer',
+              }}
+            >
+              {s === 'all' ? '전체' : AUDIT_STATUS_LABEL[s]}
+            </button>
+          ))}
         </div>
+        <button
+          onClick={() => { resetForm(); setShowForm(true) }}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: '#6366F1', color: '#fff', border: 'none', cursor: 'pointer' }}
+        >
+          <Plus size={15} />
+          감사 등록
+        </button>
       </div>
 
-      {audit.status === AUDIT_STATUS.PLANNING ? (
-        <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-          {canEdit && <button onClick={save} disabled={!dirty} className="btn-ghost text-[12.5px]">변경사항 저장</button>}
-          {canApprove && <button onClick={approve} className="btn-primary text-[12.5px]"><CheckCircle2 size={14} /> 계획 승인 · 체크리스트 발행</button>}
-        </div>
+      {/* 폼 */}
+      {showForm && (
+        <AuditForm
+          form={form}
+          setForm={setForm}
+          isEdit={!!selectedAudit}
+          onSubmit={() => onSave(form)}
+          onCancel={() => { setShowForm(false); resetForm() }}
+        />
+      )}
+
+      {/* 목록 */}
+      {audits.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="등록된 감사가 없습니다"
+          desc="내부감사 계획을 등록하고 ISO 13485 준수 현황을 관리하세요."
+        />
       ) : (
-        <div className="text-[12px] pt-2" style={{ borderTop: '1px solid var(--line)', color: 'var(--moss)' }}>
-          <CheckCircle2 size={13} className="inline mr-1" /> {audit.planApprovedAt ? new Date(audit.planApprovedAt).toLocaleString('ko-KR') : ''} · {audit.planApprovedBy} 승인
+        <div className="space-y-3">
+          {audits.map((audit) => (
+            <AuditCard
+              key={audit.id}
+              audit={audit}
+              onEdit={() => startEdit(audit)}
+              onStatusChange={(status) => onStatusChange(audit.id, status)}
+            />
+          ))}
         </div>
       )}
-    </div>
+    </>
   )
 }
 
-/* ---------------- 체크리스트 ---------------- */
-const RESULT_OPTIONS = ['', ...Object.values(CHECKLIST_RESULT)]
-
-function ChecklistTab({ audit, rows, onAction, refresh }) {
-  const canEdit = permissions.can('audit.checklist.edit') && audit.status !== AUDIT_STATUS.PLANNING && audit.status !== AUDIT_STATUS.COMPLETED
-
-  if (audit.status === AUDIT_STATUS.PLANNING) {
-    return <EmptyState icon={ListChecks} text="계획이 승인되면 체크리스트가 자동 발행됩니다." />
-  }
-
-  const byCard = {}
-  rows.forEach((r) => { (byCard[r.cardId] = byCard[r.cardId] || []).push(r) })
-
-  const setResult = (row, patch) => {
-    if (!requirePermission('audit.checklist.edit')) return
-    const cur = auth.current()
-    checklist.setResult(row.id, { ...patch, checkedBy: cur?.name || '' })
-    onAction('체크리스트 결과가 저장되었습니다.')
-    refresh()
-  }
+function AuditCard({ audit, onEdit, onStatusChange }) {
+  const [open, setOpen] = useState(false)
+  const statusColor = AUDIT_STATUS_COLOR[audit.status] || '#6B7280'
 
   return (
-    <div className="space-y-4">
-      {Object.entries(byCard).map(([cardId, items]) => (
-        <div key={cardId} className="card-base p-4">
-          <div className="text-[13.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>{items[0].cardTitle}</div>
-          <div className="space-y-2">
-            {items.map((r) => (
-              <ChecklistRow key={r.id} row={r} canEdit={canEdit} onSave={(patch) => setResult(r, patch)} />
-            ))}
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}
+    >
+      <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setOpen(o => !o)}>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: statusColor }} />
+          <div className="flex-1 min-w-0">
+            <div className="text-[14px] font-semibold truncate" style={{ color: 'var(--ink)' }}>
+              {audit.id} · {audit.title}
+            </div>
+            <div className="flex items-center gap-3 mt-1 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+              {audit.auditDate && <span>📅 {audit.auditDate}</span>}
+              {audit.auditor && <span>👤 {audit.auditor}</span>}
+              {audit.scope && <span className="truncate max-w-[200px]">📋 {audit.scope}</span>}
+            </div>
           </div>
         </div>
-      ))}
-      {rows.length === 0 && <EmptyState icon={ListChecks} text="발행된 체크리스트 항목이 없습니다." />}
-    </div>
-  )
-}
-
-function ChecklistRow({ row, canEdit, onSave }) {
-  const [result, setResultV] = useState(row.result)
-  const [evidence, setEvidence] = useState(row.evidence)
-  const [notes, setNotes] = useState(row.notes)
-  const dirty = result !== row.result || evidence !== row.evidence || notes !== row.notes
-  const tone = row.result === CHECKLIST_RESULT.MET ? 'emerald' : row.result === CHECKLIST_RESULT.UNMET ? 'rose' : row.result === CHECKLIST_RESULT.PARTIAL ? 'amber' : 'slate'
-
-  return (
-    <div className="p-3 rounded-lg border" style={{ borderColor: 'var(--line)' }}>
-      <div className="flex items-start justify-between gap-2 flex-wrap">
-        <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{row.label}</div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {row.result && <Badge text={row.result} tone={tone} />}
-          <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>시스템 참고: {row.systemFulfillment}</span>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span
+            className="text-[11px] font-medium px-2.5 py-1 rounded-full"
+            style={{ background: `${statusColor}20`, color: statusColor }}
+          >
+            {AUDIT_STATUS_LABEL[audit.status]}
+          </span>
+          <ChevronDown size={15} style={{ color: 'var(--ink-faint)', transform: open ? 'rotate(180deg)' : 'none', transition: '0.15s' }} />
         </div>
       </div>
-      {canEdit ? (
-        <div className="grid sm:grid-cols-3 gap-2 mt-2">
-          <SelectField label="심사 결과" value={result} onChange={setResultV} options={RESULT_OPTIONS.map((o) => o || '(미평가)')} />
-          <Field label="증거" value={evidence} onChange={setEvidence} placeholder="근거 기록·문서 번호 등" className="sm:col-span-1" />
-          <Field label="비고" value={notes} onChange={setNotes} className="sm:col-span-1" />
-        </div>
-      ) : (
-        (row.evidence || row.notes) && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>{row.evidence} {row.notes}</div>
-      )}
-      {canEdit && dirty && (
-        <div className="flex justify-end mt-2">
-          <button onClick={() => onSave({ result: result === '(미평가)' ? '' : result, evidence, notes })} className="btn-primary" style={{ padding: '0.35rem 0.8rem', fontSize: 12 }}>저장</button>
-        </div>
-      )}
-    </div>
-  )
-}
 
-/* ---------------- 보고서 ---------------- */
-function ReportTab({ audit, rows, fnds, onAction, refresh }) {
-  const canDraft = permissions.can('audit.report.edit') && audit.status === AUDIT_STATUS.IN_PROGRESS
-  const canApprove = permissions.can('audit.report.approve') && audit.status === AUDIT_STATUS.REPORT_DRAFT
-  const [overview, setOverview] = useState(audit.report?.overview || '')
-  const [conclusion, setConclusion] = useState(audit.report?.conclusion || '')
-
-  if (audit.status === AUDIT_STATUS.PLANNING) {
-    return <EmptyState icon={FileText} text="계획 승인 후 체크리스트를 진행하면 보고서를 작성할 수 있습니다." />
-  }
-
-  const draft = () => {
-    if (!requirePermission('audit.report.edit')) return
-    const cur = auth.current()
-    audits.draftReport(audit.id, { overview, conclusion, preparedBy: cur?.name || '' })
-    onAction('보고서 초안이 저장되었습니다.')
-    refresh()
-  }
-
-  const approve = () => {
-    if (!requirePermission('audit.report.approve')) return
-    const cur = auth.current()
-    audits.approveReport(audit.id, cur?.name || '승인자')
-    onAction('보고서가 승인되었습니다 · 심사가 완료되었습니다.')
-    refresh()
-  }
-
-  const unmet = rows.filter((r) => r.result === CHECKLIST_RESULT.UNMET).length
-  const partial = rows.filter((r) => r.result === CHECKLIST_RESULT.PARTIAL).length
-  const unchecked = rows.filter((r) => !r.result).length
-
-  return (
-    <div className="card-base p-4 space-y-3">
-      <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 text-center">
-        <MiniStat label="전체" value={rows.length} />
-        <MiniStat label="미충족" value={unmet} tone="rose" />
-        <MiniStat label="부분충족" value={partial} tone="amber" />
-        <MiniStat label="미평가" value={unchecked} tone="slate" />
-        <MiniStat label="시정조치" value={fnds.length} tone="amber" />
-      </div>
-
-      {audit.status === AUDIT_STATUS.IN_PROGRESS && (
-        <>
-          {unchecked > 0 && <div className="text-[11.5px]" style={{ color: 'var(--amber)' }}><AlertTriangle size={12} className="inline mr-1" />아직 평가되지 않은 항목이 {unchecked}건 있습니다. 보고서는 작성할 수 있으나 확인을 권장합니다.</div>}
-          <TextAreaField label="심사 개요" value={overview} onChange={setOverview} minHeight={90} placeholder="심사 목적·범위·방법·수행 경과" />
-          <TextAreaField label="결론·종합 의견" value={conclusion} onChange={setConclusion} minHeight={90} placeholder="종합 판정 및 권고사항" />
-          {canDraft && (
-            <div className="flex justify-end"><button onClick={draft} className="btn-primary text-[12.5px]"><FileText size={13} /> 보고서 작성</button></div>
-          )}
-        </>
-      )}
-
-      {(audit.status === AUDIT_STATUS.REPORT_DRAFT || audit.status === AUDIT_STATUS.COMPLETED) && audit.report && (
-        <>
-          <div className="text-[12.5px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}><b>개요</b><br />{audit.report.overview}</div>
-          <div className="text-[12.5px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}><b>결론</b><br />{audit.report.conclusion}</div>
-          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>작성: {audit.report.preparedBy} · {audit.report.preparedAt ? new Date(audit.report.preparedAt).toLocaleString('ko-KR') : ''}</div>
-          {audit.status === AUDIT_STATUS.REPORT_DRAFT && canApprove && (
-            <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-              <button onClick={approve} className="btn-primary text-[12.5px]"><CheckCircle2 size={14} /> 보고서 승인 · 심사 완료</button>
+      {open && (
+        <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--line)' }}>
+          <div className="pt-4 flex flex-wrap gap-2">
+            {/* 상태 전환 버튼 */}
+            {audit.status === AUDIT_STATUS.PLANNED && (
+              <ActionBtn color="#F59E0B" onClick={() => onStatusChange(AUDIT_STATUS.IN_PROGRESS)}>
+                감사 시작
+              </ActionBtn>
+            )}
+            {audit.status === AUDIT_STATUS.IN_PROGRESS && (
+              <ActionBtn color="#3B82F6" onClick={() => onStatusChange(AUDIT_STATUS.COMPLETED)}>
+                감사 완료
+              </ActionBtn>
+            )}
+            {audit.status === AUDIT_STATUS.COMPLETED && (
+              <ActionBtn color="#10B981" onClick={() => onStatusChange(AUDIT_STATUS.CLOSED)}>
+                감사 종결
+              </ActionBtn>
+            )}
+            <ActionBtn color="#6B7280" onClick={onEdit}>수정</ActionBtn>
+          </div>
+          {audit.findings && audit.findings.length > 0 && (
+            <div className="mt-3">
+              <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>부적합 사항</div>
+              {audit.findings.map((f, i) => (
+                <div key={i} className="text-[12px] p-2 rounded-lg mb-1" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+                  {f}
+                </div>
+              ))}
             </div>
           )}
-          {audit.status === AUDIT_STATUS.COMPLETED && (
-            <div className="text-[12px]" style={{ color: 'var(--moss)' }}><CheckCircle2 size={13} className="inline mr-1" /> {audit.report.approvedBy} 승인 · {audit.report.approvedAt ? new Date(audit.report.approvedAt).toLocaleString('ko-KR') : ''}</div>
-          )}
-        </>
+        </div>
       )}
     </div>
   )
 }
-function MiniStat({ label, value, tone = 'slate' }) {
-  const map = { rose: 'var(--rust)', amber: 'var(--amber)', slate: 'var(--ink-mute)' }
+
+function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
+  const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
   return (
-    <div className="rounded-lg py-2" style={{ background: 'var(--bg-soft)' }}>
-      <div className="text-[16px] font-bold tabular-nums" style={{ color: map[tone] || 'var(--ink)' }}>{value}</div>
-      <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
+    <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
+        {isEdit ? '감사 수정' : '내부감사 등록'}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <FormField label="감사명 *" required>
+          <input {...f('title')} placeholder="예: 생산부 정기 내부감사 2026-Q3" className="qt-input" />
+        </FormField>
+        <FormField label="감사 유형">
+          <select {...f('type')} className="qt-input">
+            <option value="internal">내부감사</option>
+            <option value="supplier">공급업체 감사</option>
+            <option value="certification">인증 심사</option>
+          </select>
+        </FormField>
+        <FormField label="감사 범위">
+          <input {...f('scope')} placeholder="예: 생산부 전체, 구매 프로세스" className="qt-input" />
+        </FormField>
+        <FormField label="감사 기준">
+          <input {...f('standard')} placeholder="예: ISO 13485:2016" className="qt-input" />
+        </FormField>
+        <FormField label="감사일">
+          <input type="date" {...f('auditDate')} className="qt-input" />
+        </FormField>
+        <FormField label="감사원">
+          <input {...f('auditor')} placeholder="감사원 이름" className="qt-input" />
+        </FormField>
+        <FormField label="피감사 부서">
+          <input {...f('auditee')} placeholder="예: 생산부" className="qt-input" />
+        </FormField>
+      </div>
+      <div className="flex justify-end gap-3 mt-4">
+        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+        <button
+          onClick={onSubmit}
+          disabled={!form.title}
+          className="px-5 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: form.title ? '#6366F1' : 'var(--bg-soft)', color: form.title ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.title ? 'pointer' : 'not-allowed' }}
+        >
+          {isEdit ? '저장' : '등록'}
+        </button>
+      </div>
     </div>
   )
 }
 
-/* ---------------- 시정조치 ---------------- */
-const FINDING_CLASS_OPTIONS = Object.values(FINDING_CLASS)
-
-function FindingsTab({ audit, fnds, onAction, refresh }) {
-  const canEdit = permissions.can('audit.finding.edit')
-  const EMPTY = { cardId: audit.cardIds[0] || '', classification: FINDING_CLASS.MINOR, description: '', evidence: '', dueDate: '' }
-  const [form, setForm] = useState(EMPTY)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const add = () => {
-    if (!requirePermission('audit.finding.edit')) return
-    if (!form.description.trim()) { window.alert('시정조치 내용을 입력하세요.'); return }
-    findings.add(audit.id, form)
-    setForm(EMPTY)
-    onAction('시정조치가 등록되었습니다.')
-    refresh()
-  }
-
-  const raiseCapa = (f) => {
-    if (!requirePermission('audit.finding.edit')) return
-    const rec = capa.raise({
-      title: `내부심사 ${audit.id} 시정조치 — ${f.description.slice(0, 40)}`,
-      description: f.description,
-      trigger: 'audit-finding',
-      triggerReason: `내부심사 ${audit.id} · ${f.classification} 지적사항 (증거: ${f.evidence || '—'})`,
-    })
-    findings.linkCapa(f.id, rec.id)
-    onAction('CAPA가 발의되었습니다 · CAPA 메뉴에서 원인분석·시정·예방·효과검증을 진행하세요.')
-    refresh()
-  }
-
-  const closeDirect = (f) => {
-    if (!requirePermission('audit.finding.edit')) return
-    if (!window.confirm('CAPA 연계 없이 직접 종결하시겠습니까? (Minor/관찰 항목에 한해 권장)')) return
-    findings.close(f.id)
-    onAction('시정조치가 종결되었습니다.')
-    refresh()
-  }
-
-  const closeAfterCapa = (f) => {
-    if (!requirePermission('audit.finding.edit')) return
-    findings.close(f.id)
-    onAction('시정조치가 종결되었습니다.')
-    refresh()
-  }
-
-  const delFinding = (id) => {
-    if (!requirePermission('audit.finding.edit')) return
-    findings.delete(id)
-    refresh()
-  }
+/* ── CAR 탭 ── */
+function CARsTab({ cars, showCARForm, setShowCARForm, onSave, onStatusChange }) {
+  const [form, setForm] = useState({ auditId: '', finding: '', requirement: '', assignee: '', dueDate: '', severity: 'major' })
+  const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
 
   return (
-    <div className="space-y-3">
-      {canEdit && (
-        <div className="card-base p-4 space-y-2">
-          <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>시정조치 등록</div>
-          <div className="grid sm:grid-cols-3 gap-2">
-            <SelectField label="관련 카드" value={form.cardId} onChange={(v) => setF('cardId', v)} options={audit.cardIds.map((cid) => { const c = CARDS.find((x) => x.id === cid); return { value: cid, label: c ? c.title : cid } })} />
-            <SelectField label="분류" value={form.classification} onChange={(v) => setF('classification', v)} options={FINDING_CLASS_OPTIONS} />
-            <Field label="조치 기한" type="date" value={form.dueDate} onChange={(v) => setF('dueDate', v)} />
+    <>
+      <div className="flex justify-between items-center mb-4">
+        <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>
+          시정조치 요청 (CAR) — Corrective Action Request
+        </div>
+        <button
+          onClick={() => setShowCARForm(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
+          style={{ background: '#EF4444', color: '#fff', border: 'none', cursor: 'pointer' }}
+        >
+          <Plus size={15} /> CAR 발행
+        </button>
+      </div>
+
+      {showCARForm && (
+        <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>CAR 발행</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField label="관련 감사 ID">
+              <input {...f('auditId')} placeholder="예: AUD-2026-12345" className="qt-input" />
+            </FormField>
+            <FormField label="부적합 심각도">
+              <select {...f('severity')} className="qt-input">
+                <option value="major">중요 부적합 (Major)</option>
+                <option value="minor">경미한 부적합 (Minor)</option>
+                <option value="observation">관찰 사항 (Observation)</option>
+              </select>
+            </FormField>
+            <FormField label="부적합 내용 *" colSpan>
+              <textarea {...f('finding')} rows={3} placeholder="부적합 사항을 구체적으로 기술하세요" className="qt-input" style={{ resize: 'vertical' }} />
+            </FormField>
+            <FormField label="관련 요건 (ISO 조항)">
+              <input {...f('requirement')} placeholder="예: ISO 13485 §7.4.1" className="qt-input" />
+            </FormField>
+            <FormField label="담당자">
+              <input {...f('assignee')} placeholder="조치 담당자" className="qt-input" />
+            </FormField>
+            <FormField label="완료 목표일">
+              <input type="date" {...f('dueDate')} className="qt-input" />
+            </FormField>
           </div>
-          <TextAreaField label="지적사항 내용" value={form.description} onChange={(v) => setF('description', v)} placeholder="부적합 내용을 구체적으로 기술" />
-          <Field label="증거" value={form.evidence} onChange={(v) => setF('evidence', v)} placeholder="근거 기록·문서 번호 등" />
-          <div className="flex justify-end"><button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> 등록</button></div>
+          <div className="flex justify-end gap-3 mt-4">
+            <button onClick={() => setShowCARForm(false)} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+            <button
+              onClick={() => { if (form.finding) onSave(form) }}
+              disabled={!form.finding}
+              className="px-5 py-2 rounded-xl text-[13px] font-semibold"
+              style={{ background: form.finding ? '#EF4444' : 'var(--bg-soft)', color: form.finding ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.finding ? 'pointer' : 'not-allowed' }}
+            >
+              CAR 발행
+            </button>
+          </div>
         </div>
       )}
 
-      <div className="space-y-2">
-        {fnds.map((f) => {
-          const linkedCapa = f.capaId ? capa.findById(f.capaId) : null
-          const tone = f.classification === FINDING_CLASS.MAJOR ? 'rose' : f.classification === FINDING_CLASS.MINOR ? 'amber' : 'slate'
-          return (
-            <div key={f.id} className="card-base p-3.5">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge text={f.classification} tone={tone} />
-                    <Badge text={f.status} tone={f.status === FINDING_STATUS.CLOSED ? 'emerald' : 'slate'} />
-                    {f.dueDate && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>기한 {f.dueDate}</span>}
-                  </div>
-                  <div className="text-[12.5px] mt-1" style={{ color: 'var(--ink)' }}>{f.description}</div>
-                  {f.evidence && <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>증거: {f.evidence}</div>}
-                  {linkedCapa && (
-                    <div className="text-[11.5px] mt-1.5">
-                      연계 CAPA: <span className="font-mono">{linkedCapa.id}</span> ·{' '}
-                      <Badge text={CAPA_STATUS_LABEL[linkedCapa.status]?.ko || linkedCapa.status} tone={linkedCapa.status === CAPA_STATUS.CLOSED ? 'emerald' : 'amber'} />
+      {cars.length === 0 ? (
+        <EmptyState icon={CheckCircle2} title="발행된 CAR 없음" desc="감사에서 부적합 사항 발견 시 CAR을 발행하세요." />
+      ) : (
+        <div className="space-y-3">
+          {[...cars].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((car) => {
+            const sc = CAR_STATUS_COLOR[car.status] || '#6B7280'
+            const severityColor = car.severity === 'major' ? '#EF4444' : car.severity === 'minor' ? '#F59E0B' : '#6B7280'
+            const severityLabel = car.severity === 'major' ? 'Major' : car.severity === 'minor' ? 'Minor' : 'Obs.'
+            return (
+              <div key={car.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--ink-faint)' }}>{car.id}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${severityColor}20`, color: severityColor }}>{severityLabel}</span>
                     </div>
-                  )}
-                </div>
-                {canEdit && f.status !== FINDING_STATUS.CLOSED && (
-                  <div className="flex gap-2 shrink-0 flex-wrap">
-                    {!f.capaId && <button onClick={() => raiseCapa(f)} className="btn-ghost text-[11.5px]"><ArrowRight size={12} /> CAPA 발의</button>}
-                    {!f.capaId && <button onClick={() => closeDirect(f)} className="btn-ghost text-[11.5px]">직접 종결</button>}
-                    {f.capaId && linkedCapa?.status === CAPA_STATUS.CLOSED && <button onClick={() => closeAfterCapa(f)} className="btn-primary text-[11.5px]"><CheckCircle2 size={12} /> 종결</button>}
-                    {f.capaId && linkedCapa?.status !== CAPA_STATUS.CLOSED && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>CAPA 종결 후 이곳에서 종결 가능</span>}
-                    <button onClick={() => delFinding(f.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>
+                    <div className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{car.finding}</div>
+                    {car.requirement && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>요건: {car.requirement}</div>}
+                    <div className="flex gap-4 mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                      {car.assignee && <span>👤 {car.assignee}</span>}
+                      {car.dueDate && <span>📅 목표: {car.dueDate}</span>}
+                    </div>
                   </div>
-                )}
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ background: `${sc}20`, color: sc }}>{CAR_STATUS_LABEL[car.status]}</span>
+                    {car.status !== CAR_STATUS.CLOSED && (
+                      <select
+                        value={car.status}
+                        onChange={(e) => onStatusChange(car.id, e.target.value)}
+                        className="text-[11px] px-2 py-1 rounded-lg border"
+                        style={{ borderColor: 'var(--line)', background: 'var(--bg)', color: 'var(--ink-soft)', cursor: 'pointer' }}
+                      >
+                        {Object.entries(CAR_STATUS_LABEL).map(([k, v]) => (
+                          <option key={k} value={k}>{v}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+}
+
+/* ── 체크리스트 탭 ── */
+function ChecklistTab() {
+  const [checks, setChecks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('qualytree.audit_checklist') || '{}') } catch { return {} }
+  })
+  const toggle = (iso, val) => {
+    const updated = { ...checks, [iso]: val }
+    setChecks(updated)
+    localStorage.setItem('qualytree.audit_checklist', JSON.stringify(updated))
+  }
+  const done = AUDIT_CHECKLIST.filter(c => checks[c.iso] === 'ok').length
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>ISO 13485 감사 체크리스트</div>
+          <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>
+            적합: {done}/{AUDIT_CHECKLIST.length} 항목
+          </div>
+        </div>
+        <div className="w-32 h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
+          <div className="h-2 rounded-full transition-all" style={{ width: `${(done / AUDIT_CHECKLIST.length) * 100}%`, background: '#10B981' }} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        {AUDIT_CHECKLIST.map((c) => {
+          const val = checks[c.iso] || 'pending'
+          return (
+            <div key={c.iso} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <span className="font-mono text-[11px] font-bold w-14 flex-shrink-0" style={{ color: 'var(--ink-faint)' }}>§{c.iso}</span>
+              <span className="flex-1 text-[13px]" style={{ color: 'var(--ink)' }}>{c.item}</span>
+              <div className="flex gap-2">
+                {[
+                  { val: 'ok', label: '적합', color: '#10B981' },
+                  { val: 'nc', label: '부적합', color: '#EF4444' },
+                  { val: 'na', label: 'N/A', color: '#6B7280' },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    onClick={() => toggle(c.iso, val === opt.val ? 'pending' : opt.val)}
+                    className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition"
+                    style={{
+                      background: val === opt.val ? opt.color : 'var(--bg-soft)',
+                      color: val === opt.val ? '#fff' : 'var(--ink-faint)',
+                      border: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           )
         })}
-        {fnds.length === 0 && <EmptyState icon={Wrench} text="등록된 시정조치가 없습니다." />}
       </div>
+    </>
+  )
+}
+
+/* ── 공통 컴포넌트 ── */
+function ActionBtn({ color, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
+      style={{ background: `${color}18`, color, border: `1px solid ${color}30`, cursor: 'pointer' }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function FormField({ label, children, colSpan, required }) {
+  return (
+    <div className={colSpan ? 'md:col-span-2' : ''}>
+      <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--ink-soft)' }}>
+        {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+function EmptyState({ icon: Icon, title, desc }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center" style={{ color: 'var(--ink-faint)' }}>
+      <Icon size={40} strokeWidth={1.2} className="mb-3" style={{ opacity: 0.35 }} />
+      <div className="text-[15px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{title}</div>
+      <div className="text-[13px] max-w-xs">{desc}</div>
     </div>
   )
 }
