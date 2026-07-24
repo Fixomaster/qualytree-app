@@ -1,3 +1,4 @@
+// src/App.jsx
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
@@ -6,6 +7,7 @@ import SignupSuccess from './pages/SignupSuccess'
 import OperatorConsole from './pages/OperatorConsole'
 import PlanAdmin from './pages/operator/PlanAdmin'
 import MemberAdmin from './pages/manager/MemberAdmin'
+import Dashboard from './pages/Dashboard'
 import GMPSection from './pages/section/GMPSection'
 import Onboarding from './pages/onboarding/Onboarding'
 import WorkOrderQueue from './pages/operations/WorkOrderQueue'
@@ -17,20 +19,19 @@ import ProductsHub from './pages/products/ProductsHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
-import SalesHub from './pages/sales/SalesHub'
-import PurchaseHub from './pages/purchase/PurchaseHub'
-import ManufacturingHub from './pages/manufacturing/ManufacturingHub'
-import EquipmentHub from './pages/equipment/EquipmentHub'
-import MonitoringHub from './pages/monitoring/MonitoringHub'
-import TrainingHub from './pages/training/TrainingHub'
-import KgmpHub from './pages/kgmp/KgmpHub'
-import ForeignManufacturerHub from './pages/importgmp/ForeignManufacturerHub'
-import CompanyHub from './pages/company/CompanyHub'
-import AdminHub from './pages/admin/AdminHub'
-import PermissionAdmin from './pages/admin/PermissionAdmin'
-import Iso13485Hub from './pages/iso13485/Iso13485Hub'
-import ManagementReviewHub from './pages/mreview/ManagementReviewHub'
+import AuditHub from './pages/audit/AuditHub'
+import ImprovementHub from './pages/improvement/ImprovementHub'
 import { auth } from './lib/auth'
+
+// 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
+let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
+try { SalesHub = React.lazy(() => import('./pages/sales/SalesHub')) } catch {}
+try { PurchaseHub = React.lazy(() => import('./pages/purchase/PurchaseHub')) } catch {}
+try { ManufacturingHub = React.lazy(() => import('./pages/manufacturing/ManufacturingHub')) } catch {}
+try { EquipmentHub = React.lazy(() => import('./pages/equipment/EquipmentHub')) } catch {}
+try { DevHub = React.lazy(() => import('./pages/development/DevHub')) } catch {}
+try { ManagementReviewHub = React.lazy(() => import('./pages/management/ManagementReviewHub')) } catch {}
+try { TrainingHub = React.lazy(() => import('./pages/training/TrainingHub')) } catch {}
 
 function ProtectedRoute({ children }) {
   if (!auth.isSignedIn()) return <Navigate to="/login" replace />
@@ -38,20 +39,30 @@ function ProtectedRoute({ children }) {
 }
 
 function PublicRoute({ children }) {
-  if (auth.isSignedIn()) return <Navigate to="/monitoring" replace />
+  if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
   return children
+}
+
+function LazyRoute({ Component, fallback }) {
+  if (!Component) return fallback || <Navigate to="/dashboard" replace />
+  return (
+    <React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>로딩 중...</div>}>
+      <Component />
+    </React.Suspense>
+  )
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/monitoring" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
       <Route path="/signup/success" element={<PublicRoute><SignupSuccess /></PublicRoute>} />
       <Route path="/operator" element={<OperatorConsole />} />
       <Route path="/operator/plans" element={<PlanAdmin />} />
       <Route path="/manager/accounts" element={<MemberAdmin />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/section/:cardId" element={<ProtectedRoute><GMPSection /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/operations" element={<ProtectedRoute><WorkOrderQueue /></ProtectedRoute>} />
@@ -63,21 +74,21 @@ export default function App() {
       <Route path="/regulatory" element={<ProtectedRoute><RegulatoryHub /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/preview" element={<PreviewHub />} />
-      {/* 신규 모듈 */}
-      <Route path="/sales" element={<ProtectedRoute><SalesHub /></ProtectedRoute>} />
-      <Route path="/purchase" element={<ProtectedRoute><PurchaseHub /></ProtectedRoute>} />
-      <Route path="/manufacturing" element={<ProtectedRoute><ManufacturingHub /></ProtectedRoute>} />
-      <Route path="/equipment" element={<ProtectedRoute><EquipmentHub /></ProtectedRoute>} />
-      <Route path="/monitoring" element={<ProtectedRoute><MonitoringHub /></ProtectedRoute>} />
-      <Route path="/training" element={<ProtectedRoute><TrainingHub /></ProtectedRoute>} />
-      <Route path="/kgmp" element={<ProtectedRoute><KgmpHub /></ProtectedRoute>} />
-      <Route path="/foreign-manufacturers" element={<ProtectedRoute><ForeignManufacturerHub /></ProtectedRoute>} />
-      <Route path="/company" element={<ProtectedRoute><CompanyHub /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminHub /></ProtectedRoute>} />
-      <Route path="/admin/permissions" element={<ProtectedRoute><PermissionAdmin /></ProtectedRoute>} />
-      <Route path="/iso13485" element={<ProtectedRoute><Iso13485Hub /></ProtectedRoute>} />
-      <Route path="/management-review" element={<ProtectedRoute><ManagementReviewHub /></ProtectedRoute>} />
-      <Route path="*" element={<Navigate to="/monitoring" replace />} />
+
+      {/* ─── 신규 허브 (Task #30) ─── */}
+      <Route path="/audit" element={<ProtectedRoute><AuditHub /></ProtectedRoute>} />
+      <Route path="/improvement" element={<ProtectedRoute><ImprovementHub /></ProtectedRoute>} />
+
+      {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
+      <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
+      <Route path="/purchase/*" element={<ProtectedRoute><LazyRoute Component={PurchaseHub} /></ProtectedRoute>} />
+      <Route path="/manufacturing/*" element={<ProtectedRoute><LazyRoute Component={ManufacturingHub} /></ProtectedRoute>} />
+      <Route path="/equipment/*" element={<ProtectedRoute><LazyRoute Component={EquipmentHub} /></ProtectedRoute>} />
+      <Route path="/development/*" element={<ProtectedRoute><LazyRoute Component={DevHub} /></ProtectedRoute>} />
+      <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
+      <Route path="/training/*" element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
+
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }
