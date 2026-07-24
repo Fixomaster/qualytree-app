@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Wrench, Calendar, AlertTriangle, ArrowLeft, Plus, X, Clock, Activity } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -41,9 +42,12 @@ const INIT_HIST=[
 
 /* ─── 측정기기 목록 ─── */
 
-function InstrumentsView({instruments,setInstruments}){
+function InstrumentsView({instruments,setInstruments,openId}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
   const [srch, setSrch] = useState('')
+  useEffect(() => {
+    if (openId) { const item = instruments.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
   const statusOpts=['사용가능','교정임박','교정중','사용제한','폐기']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInstruments(p=>p.filter(x=>x.id!==id))}
@@ -290,13 +294,16 @@ function EqpHome({instruments,history,onNavigate}){
 }
 
 export default function EquipmentHub(){
-  const user=auth.current();const[view,setView]=useState('home')
+  const user=auth.current()
+  const [searchParams] = useSearchParams()
+  const[view,setView]=useState(searchParams.get('tab') || 'home')
+  const editId = searchParams.get('edit')
   const[instruments,setInstruments]=useLS('qms_eqp_instruments',INIT_INSTR)
   const[history,setHistory]=useLS('qms_eqp_history',INIT_HIST)
   const tabLabels={instruments:'측정기기',history:'이력관리',schedule:'교정일정'}
   const viewMap={
     home:<EqpHome instruments={instruments} history={history} onNavigate={setView}/>,
-    instruments:<InstrumentsView instruments={instruments} setInstruments={setInstruments}/>,
+    instruments:<InstrumentsView instruments={instruments} setInstruments={setInstruments} openId={editId}/>,
     history:<HistoryView history={history} setHistory={setHistory} instruments={instruments}/>,
     schedule:<ScheduleView instruments={instruments} setInstruments={setInstruments}/>,
   }

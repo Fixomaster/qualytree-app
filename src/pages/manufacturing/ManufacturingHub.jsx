@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Cog, ClipboardList, AlertTriangle, ArrowLeft, Plus, X, Activity, FileText, Wrench } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -46,8 +47,11 @@ const INIT_NCR=[
 ]
 
 /* ─── 작업지시 (WO) ─── */
-function WoView({wo,setWo}){
+function WoView({wo,setWo,openId}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
+  useEffect(() => {
+    if (openId) { const item = wo.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const statusOpts=['대기','진행중','검사중','완료','취소']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
   const save=f=>{if(edit){setWo(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setWo(p=>[...p,{id:nid('WO'),...f}])};setModal(null)}
@@ -241,8 +245,11 @@ function InspectForm({initial,wo,onSave,onCancel,statusOpts}){
 }
 
 /* ─── 부적합 관리 (NCR) ─── */
-function NcrView({ncr,setNcr,wo}){
+function NcrView({ncr,setNcr,wo,openId}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
+  useEffect(() => {
+    if (openId) { const item = ncr.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const statusOpts=['접수','조치중','검토중','CAPA연동','종결']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setNcr(p=>p.filter(x=>x.id!==id))}
   const save=f=>{if(edit){setNcr(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setNcr(p=>[...p,{id:nid('NC'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
@@ -405,7 +412,10 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
 
 /* ─── 메인 ─── */
 export default function ManufacturingHub(){
-  const user=auth.current();const[view,setView]=useState('home')
+  const user=auth.current()
+  const [searchParams] = useSearchParams()
+  const[view,setView]=useState(searchParams.get('tab') || 'home')
+  const editId = searchParams.get('edit')
   const[wo,setWo]=useLS('qms_mfg_wo',INIT_WO)
   const[proc,setProc]=useLS('qms_mfg_proc',INIT_PROC)
   const[inspect,setInspect]=useLS('qms_mfg_inspect',INIT_INSPECT)
@@ -413,10 +423,10 @@ export default function ManufacturingHub(){
   const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적'}
   const viewMap={
     home:<MfgHome wo={wo} ncr={ncr} inspect={inspect} proc={proc} onNavigate={setView}/>,
-    wo:<WoView wo={wo} setWo={setWo}/>,
+    wo:<WoView wo={wo} setWo={setWo} openId={editId}/>,
     proc:<ProcRecView proc={proc} setProc={setProc} wo={wo}/>,
     inspect:<InspectView inspect={inspect} setInspect={setInspect} wo={wo}/>,
-    ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo}/>,
+    ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo} openId={editId}/>,
     perf:<PerfView wo={wo}/>,
   }
   return(

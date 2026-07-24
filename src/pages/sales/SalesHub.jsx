@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   TrendingUp, Users, ShoppingCart, ClipboardList,
   FileText, MessageSquare, Truck, BarChart2,
@@ -255,9 +256,12 @@ function CustomersView({ customers, setCustomers }) {
 }
 
 /* ─── 수주 관리 ─── */
-function OrdersView({ orders, setOrders, customers }) {
+function OrdersView({ orders, setOrders, customers, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  useEffect(() => {
+    if (openId) { const item = orders.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const statusOpts = ['수주접수','생산요청','생산중','검사중','납품대기','납품완료','취소']
   const init = { id:'', customer:'', items:'', qty:'', dueDate:'', amount:'', wo:'—', status:'수주접수' }
 
@@ -476,9 +480,12 @@ function QuoteFormInner({ initial, customers, onSave, onCancel, statusOpts }) {
 }
 
 /* ─── 고객 불만 ─── */
-function ComplaintsView({ complaints, setComplaints }) {
+function ComplaintsView({ complaints, setComplaints, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  useEffect(() => {
+    if (openId) { const item = complaints.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const statusOpts = ['접수','조사중','조치중','CAPA완료','종결']
   const init = { id:'', date:new Date().toISOString().slice(0,10), customer:'', content:'', severity:'중요', deadline:'', capa:'', status:'접수' }
 
@@ -579,9 +586,12 @@ function ComplaintForm({ initial, onSave, onCancel, statusOpts }) {
 }
 
 /* ─── 납품 이력 ─── */
-function DeliveryView({ deliveries, setDeliveries, orders }) {
+function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  useEffect(() => {
+    if (openId) { const item = deliveries.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+  }, [openId])
   const init = { id:'', so:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), lot:'', udi:'', status:'납품완료' }
 
   const save = (f) => {
@@ -1016,7 +1026,9 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
 /* ─── 메인 ─── */
 export default function SalesHub() {
   const user = auth.current()
-  const [view, setView] = useState('home')
+  const [searchParams] = useSearchParams()
+  const [view, setView] = useState(searchParams.get('tab') || 'home')
+  const editId = searchParams.get('edit')
 
   const [customers, setCustomers] = useLS('qms_sal_customers', INIT_CUSTOMERS)
   const [orders, setOrders] = useLS('qms_sal_orders', INIT_ORDERS)
@@ -1034,10 +1046,10 @@ export default function SalesHub() {
     home: <SalesHome customers={customers} orders={orders} complaints={complaints}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
-    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers}/>,
+    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId}/>,
     quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers}/>,
-    complaints: <ComplaintsView complaints={complaints} setComplaints={setComplaints}/>,
-    delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders}/>,
+    complaints: <ComplaintsView complaints={complaints} setComplaints={setComplaints} openId={editId}/>,
+    delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
     performance: <PerformanceView orders={orders} deliveries={deliveries} complaints={complaints}/>,
     'prod-req': <ProdRequestView prodReqs={prodReqs} setProdReqs={setProdReqs} orders={orders}/>,
     'market': <MarketResView />,

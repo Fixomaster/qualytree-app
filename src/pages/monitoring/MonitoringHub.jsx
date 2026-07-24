@@ -33,6 +33,29 @@ function daysUntil(dateStr) {
   return Math.ceil((d - new Date()) / (1000 * 60 * 60 * 24))
 }
 
+/* ─── 클릭 시 이동할 페이지 매핑 ─────────────── */
+const ROUTE = {
+  order:      { path: '/sales',         tab: 'orders' },
+  complaint:  { path: '/sales',         tab: 'complaints' },
+  delivery:   { path: '/sales',         tab: 'delivery' },
+  stock:      { path: '/purchase',      tab: 'inventory' },
+  iqc:        { path: '/purchase',      tab: 'iqc' },
+  po:         { path: '/purchase',      tab: 'orders' },
+  incoming:   { path: '/purchase',      tab: 'incoming' },
+  wo:         { path: '/manufacturing', tab: 'wo' },
+  ncr:        { path: '/manufacturing', tab: 'ncr' },
+  instrument: { path: '/equipment',     tab: 'instruments' },
+  cal:        { path: '/equipment',     tab: 'instruments' },
+}
+function goTo(navigate, type, id) {
+  const r = ROUTE[type]
+  if (!r) return
+  const params = new URLSearchParams()
+  if (r.tab) params.set('tab', r.tab)
+  if (id) params.set('edit', id)
+  navigate(`${r.path}?${params.toString()}`)
+}
+
 /* ─── 공통 UI ───────────────────────────────── */
 function Badge({ label, color = 'gray' }) {
   const map = {
@@ -48,10 +71,11 @@ function Badge({ label, color = 'gray' }) {
   return <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: c.bg, color: c.fg }}>{label}</span>
 }
 
-function KpiCard({ label, value, sub, ok, icon: Icon }) {
+function KpiCard({ label, value, sub, ok, icon: Icon, onClick }) {
   const accent = ok === true ? 'var(--moss)' : ok === false ? 'var(--rust)' : 'var(--sky)'
   return (
-    <div className="card-base p-4" style={{ borderLeft: `3px solid ${accent}` }}>
+    <div className={`card-base p-4 transition ${onClick ? 'cursor-pointer hover:opacity-80' : ''}`}
+      style={{ borderLeft: `3px solid ${accent}` }} onClick={onClick}>
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[11.5px] mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</p>
@@ -78,9 +102,10 @@ function SectionCard({ title, children, empty, action, onAction }) {
   )
 }
 
-function Row({ left, right, badge, color, sub }) {
+function Row({ left, right, badge, color, sub, onClick }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 last:border-0 transition" style={{ borderBottom: '1px solid var(--line)' }}>
+    <div className={`flex items-center justify-between px-4 py-2.5 last:border-0 transition ${onClick ? 'cursor-pointer hover:opacity-70' : ''}`}
+      style={{ borderBottom: '1px solid var(--line)' }} onClick={onClick}>
       <div>
         <p className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{left}</p>
         {sub && <p className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{sub}</p>}
@@ -88,12 +113,13 @@ function Row({ left, right, badge, color, sub }) {
       <div className="flex items-center gap-2">
         {badge && <Badge label={badge} color={color} />}
         {right && <span className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>{right}</span>}
+        {onClick && <ChevronRight size={14} style={{ color: 'var(--ink-faint)' }} />}
       </div>
     </div>
   )
 }
 
-function AlertRow({ icon: Icon, msg, color }) {
+function AlertRow({ icon: Icon, msg, color, onClick }) {
   const map = {
     red:    { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
     orange: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
@@ -102,9 +128,11 @@ function AlertRow({ icon: Icon, msg, color }) {
   }
   const c = map[color] || map.blue
   return (
-    <div className="flex items-start gap-2 px-3 py-2 rounded-lg mb-1.5" style={{ background: c.bg, color: c.fg }}>
+    <div className={`flex items-start gap-2 px-3 py-2 rounded-lg mb-1.5 transition ${onClick ? 'cursor-pointer hover:opacity-70' : ''}`}
+      style={{ background: c.bg, color: c.fg }} onClick={onClick}>
       <Icon size={14} className="mt-0.5 shrink-0" />
-      <p className="text-[11.5px]">{msg}</p>
+      <p className="text-[11.5px] flex-1">{msg}</p>
+      {onClick && <ChevronRight size={13} className="mt-0.5 shrink-0" />}
     </div>
   )
 }
@@ -179,19 +207,19 @@ function useMonitorData() {
 
     // ── 전체 알림 목록
     const alerts = []
-    openComplaints.forEach(c => alerts.push({ type: 'complaint', color: 'red',
+    openComplaints.forEach(c => alerts.push({ type: 'complaint', color: 'red', id: c.id,
       msg: `[고객불만] ${c.customer} — ${c.content?.substring(0,30)}` }))
-    openNcr.forEach(n => alerts.push({ type: 'ncr', color: 'orange',
+    openNcr.forEach(n => alerts.push({ type: 'ncr', color: 'orange', id: n.id,
       msg: `[NCR] ${n.id} — ${n.desc?.substring(0,30) ?? n.step}` }))
-    lowStock.forEach(i => alerts.push({ type: 'stock', color: 'yellow',
+    lowStock.forEach(i => alerts.push({ type: 'stock', color: 'yellow', id: i.id,
       msg: `[재고부족] ${i.name} — 현재 ${i.stock}${i.unit ?? ''} (최소 ${i.min}${i.unit ?? ''})` }))
-    calOverdue.forEach(e => alerts.push({ type: 'cal', color: 'red',
+    calOverdue.forEach(e => alerts.push({ type: 'cal', color: 'red', id: e.id,
       msg: `[교정초과] ${e.name} — 교정일 ${e.nextCalib ?? e.calibDue} 경과` }))
-    urgentOrders.forEach(o => alerts.push({ type: 'order', color: 'orange',
+    urgentOrders.forEach(o => alerts.push({ type: 'order', color: 'orange', id: o.id,
       msg: `[납기임박] ${o.id} ${o.customer} — D-${daysUntil(o.dueDate)}일` }))
-    overdueWo.forEach(w => alerts.push({ type: 'wo', color: 'red',
+    overdueWo.forEach(w => alerts.push({ type: 'wo', color: 'red', id: w.id,
       msg: `[WO지연] ${w.id} ${w.product} — 납기 ${Math.abs(daysUntil(w.dueDate))}일 초과` }))
-    iqcPending.forEach(i => alerts.push({ type: 'iqc', color: 'blue',
+    iqcPending.forEach(i => alerts.push({ type: 'iqc', color: 'blue', id: i.id,
       msg: `[IQC대기] ${i.items} (${i.vendor}) — 검사 대기 중` }))
 
     return {
@@ -210,36 +238,36 @@ function useMonitorData() {
 }
 
 /* ─── 홈(대시보드) 뷰 ────────────────────────── */
-function HomeView({ data, setView }) {
+function HomeView({ data, navigate }) {
   const { sal, pur, mfg, eqp, dev, alerts } = data
 
   const kpis = [
     { label: '진행중 수주', value: sal.activeOrders.length + '건',
       sub: `납기임박 ${sal.urgentOrders.length}건`, ok: sal.urgentOrders.length === 0,
-      icon: FileText },
+      icon: FileText, onClick: () => goTo(navigate, 'order') },
     { label: '미결 고객불만', value: sal.openComplaints.length + '건',
       sub: `목표 ≤2건`, ok: sal.openComplaints.length <= 2,
-      icon: AlertCircle },
+      icon: AlertCircle, onClick: () => goTo(navigate, 'complaint') },
     { label: '진행중 WO', value: mfg.activeWo.length + '건',
       sub: `지연 ${mfg.overdueWo.length}건`, ok: mfg.overdueWo.length === 0,
-      icon: Activity },
+      icon: Activity, onClick: () => goTo(navigate, 'wo') },
     { label: '교정 임박', value: eqp.calDue.length + '개',
       sub: `초과 ${eqp.calOverdue.length}개`, ok: eqp.calOverdue.length === 0,
-      icon: Wrench },
+      icon: Wrench, onClick: () => goTo(navigate, 'instrument') },
     { label: '재고 부족', value: pur.lowStock.length + '개',
       sub: `IQC 대기 ${pur.iqcPending.length}건`, ok: pur.lowStock.length === 0,
-      icon: Package },
+      icon: Package, onClick: () => goTo(navigate, 'stock') },
     { label: '미결 NCR', value: mfg.openNcr.length + '건',
       sub: mfg.defectRate !== null ? `불량률 ${mfg.defectRate.toFixed(1)}%` : '검사기록 없음',
       ok: mfg.openNcr.length === 0,
-      icon: XCircle },
+      icon: XCircle, onClick: () => goTo(navigate, 'ncr') },
   ]
 
   const moduleCards = [
-    { id: 'sales',    icon: FileText,   label: '영업',      desc: `수주 ${sal.orders.length}건 · 불만 ${sal.complaints.length}건`,   color: 'blue' },
-    { id: 'purchase', icon: Package,    label: '구매자재',  desc: `재고 ${pur.inventory.length}품목 · 부족 ${pur.lowStock.length}개`, color: 'yellow' },
-    { id: 'mfg',      icon: Activity,   label: '생산',      desc: `WO ${mfg.wo.length}건 · NCR ${mfg.ncr.length}건`,               color: 'purple' },
-    { id: 'equip',    icon: Wrench,     label: '설비·교정', desc: `기기 ${eqp.total}개 · 교정임박 ${eqp.calDue.length}개`,          color: 'orange' },
+    { id: 'sales',    icon: FileText,   label: '영업',      desc: `수주 ${sal.orders.length}건 · 불만 ${sal.complaints.length}건`,   color: 'blue',   path: '/sales' },
+    { id: 'purchase', icon: Package,    label: '구매자재',  desc: `재고 ${pur.inventory.length}품목 · 부족 ${pur.lowStock.length}개`, color: 'yellow', path: '/purchase' },
+    { id: 'mfg',      icon: Activity,   label: '생산',      desc: `WO ${mfg.wo.length}건 · NCR ${mfg.ncr.length}건`,               color: 'purple', path: '/manufacturing' },
+    { id: 'equip',    icon: Wrench,     label: '설비·교정', desc: `기기 ${eqp.total}개 · 교정임박 ${eqp.calDue.length}개`,          color: 'orange', path: '/equipment' },
   ]
   const colorMap = { blue: { bg: 'var(--sky-soft)', line: 'var(--sky)', icon: 'var(--sky)' },
                       yellow: { bg: 'var(--amber-soft)', line: 'var(--amber)', icon: 'var(--amber)' },
@@ -261,7 +289,7 @@ function HomeView({ data, setView }) {
             {alerts.slice(0, 8).map((a, i) => (
               <AlertRow key={i}
                 icon={a.color === 'red' ? XCircle : a.color === 'orange' ? AlertTriangle : a.color === 'yellow' ? AlertCircle : Clock}
-                msg={a.msg} color={a.color} />
+                msg={a.msg} color={a.color} onClick={() => goTo(navigate, a.type, a.id)} />
             ))}
             {alerts.length > 8 && <p className="text-[11px] text-center mt-1" style={{ color: 'var(--ink-faint)' }}>외 {alerts.length - 8}건 더 있음</p>}
           </div>
@@ -281,7 +309,7 @@ function HomeView({ data, setView }) {
       {/* 모듈 카드 */}
       <div className="grid grid-cols-4 gap-3">
         {moduleCards.map(m => (
-          <button key={m.id} onClick={() => setView(m.id)}
+          <button key={m.id} onClick={() => navigate(m.path)}
             className="flex items-start gap-3 p-3 rounded-xl text-left transition hover:opacity-90"
             style={{ background: colorMap[m.color].bg, border: `1px solid ${colorMap[m.color].line}` }}>
             <m.icon size={18} style={{ color: colorMap[m.color].icon, marginTop: 2 }} />
@@ -297,14 +325,14 @@ function HomeView({ data, setView }) {
 }
 
 /* ─── 영업 뷰 ───────────────────────────────── */
-function SalesView({ data }) {
+function SalesView({ data, navigate }) {
   const { orders, complaints, deliveries, activeOrders, openComplaints, urgentOrders } = data
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="진행중 수주" value={activeOrders.length + '건'} icon={FileText} />
-        <KpiCard label="납기임박" value={urgentOrders.length + '건'} ok={urgentOrders.length === 0} icon={Clock} />
-        <KpiCard label="미결 불만" value={openComplaints.length + '건'} ok={openComplaints.length <= 2} icon={AlertCircle} />
+        <KpiCard label="진행중 수주" value={activeOrders.length + '건'} icon={FileText} onClick={() => goTo(navigate, 'order')} />
+        <KpiCard label="납기임박" value={urgentOrders.length + '건'} ok={urgentOrders.length === 0} icon={Clock} onClick={() => goTo(navigate, 'order')} />
+        <KpiCard label="미결 불만" value={openComplaints.length + '건'} ok={openComplaints.length <= 2} icon={AlertCircle} onClick={() => goTo(navigate, 'complaint')} />
       </div>
 
       <SectionCard title="수주 현황" empty={orders.length === 0}>
@@ -314,21 +342,24 @@ function SalesView({ data }) {
               const days = daysUntil(o.dueDate)
               const color = days !== null && days <= 3 ? 'red' : days !== null && days <= 7 ? 'orange' : 'blue'
               return <Row key={o.id} left={`${o.id}`} sub={`${o.customer} · ${o.items}`}
-                badge={o.status} color={color} right={days !== null ? `D-${days}` : o.dueDate} />
+                badge={o.status} color={color} right={days !== null ? `D-${days}` : o.dueDate}
+                onClick={() => goTo(navigate, 'order', o.id)} />
             })}
       </SectionCard>
 
       <SectionCard title="미결 고객불만" empty={openComplaints.length === 0}>
         {openComplaints.map(c => (
           <Row key={c.id} left={c.id} sub={`${c.customer} — ${c.content?.substring(0,35)}`}
-            badge={c.status} color={c.severity === '심각' ? 'red' : c.severity === '중요' ? 'orange' : 'yellow'} />
+            badge={c.status} color={c.severity === '심각' ? 'red' : c.severity === '중요' ? 'orange' : 'yellow'}
+            onClick={() => goTo(navigate, 'complaint', c.id)} />
         ))}
       </SectionCard>
 
       <SectionCard title="최근 납품" empty={deliveries.length === 0}>
         {deliveries.slice(0, 5).map(d => (
           <Row key={d.id} left={d.id} sub={d.customer ?? d.order}
-            badge={d.status} color={d.status === '완료' ? 'green' : 'blue'} right={d.date ?? d.deliveryDate} />
+            badge={d.status} color={d.status === '완료' ? 'green' : 'blue'} right={d.date ?? d.deliveryDate}
+            onClick={() => goTo(navigate, 'delivery', d.id)} />
         ))}
       </SectionCard>
     </div>
@@ -336,34 +367,34 @@ function SalesView({ data }) {
 }
 
 /* ─── 구매자재 뷰 ───────────────────────────── */
-function PurchaseView({ data }) {
+function PurchaseView({ data, navigate }) {
   const { orders, inventory, iqc, lowStock, iqcPending, incomingSoon } = data
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="재고 부족" value={lowStock.length + '품목'} ok={lowStock.length === 0} icon={Package} />
-        <KpiCard label="IQC 대기" value={iqcPending.length + '건'} ok={iqcPending.length === 0} icon={CheckCircle} />
-        <KpiCard label="입고 예정(7일)" value={incomingSoon.length + '건'} icon={Layers} />
+        <KpiCard label="재고 부족" value={lowStock.length + '품목'} ok={lowStock.length === 0} icon={Package} onClick={() => goTo(navigate, 'stock')} />
+        <KpiCard label="IQC 대기" value={iqcPending.length + '건'} ok={iqcPending.length === 0} icon={CheckCircle} onClick={() => goTo(navigate, 'iqc')} />
+        <KpiCard label="입고 예정(7일)" value={incomingSoon.length + '건'} icon={Layers} onClick={() => goTo(navigate, 'incoming')} />
       </div>
 
       <SectionCard title="재고 부족 자재" empty={lowStock.length === 0}>
         {lowStock.map(i => (
           <Row key={i.id} left={i.name} sub={`현재고 ${i.stock}${i.unit ?? ''} / 최소 ${i.min}${i.unit ?? ''}`}
-            badge="부족" color="red" right={i.location} />
+            badge="부족" color="red" right={i.location} onClick={() => goTo(navigate, 'stock', i.id)} />
         ))}
       </SectionCard>
 
       <SectionCard title="IQC 대기" empty={iqcPending.length === 0}>
         {iqcPending.map(i => (
           <Row key={i.id} left={i.items} sub={`${i.vendor} · ${i.qty}`}
-            badge={i.status} color="orange" right={i.date} />
+            badge={i.status} color="orange" right={i.date} onClick={() => goTo(navigate, 'iqc', i.id)} />
         ))}
       </SectionCard>
 
       <SectionCard title="진행중 발주" empty={orders.filter(o=>!['완료','취소'].includes(o.status)).length === 0}>
         {orders.filter(o=>!['완료','취소'].includes(o.status)).slice(0,8).map(o => (
           <Row key={o.id} left={o.id} sub={`${o.vendor} · ${o.items}`}
-            badge={o.status} color="blue" right={o.eta ?? o.dueDate} />
+            badge={o.status} color="blue" right={o.eta ?? o.dueDate} onClick={() => goTo(navigate, 'po', o.id)} />
         ))}
       </SectionCard>
     </div>
@@ -371,14 +402,14 @@ function PurchaseView({ data }) {
 }
 
 /* ─── 생산 뷰 ───────────────────────────────── */
-function ManufacturingView({ data }) {
+function ManufacturingView({ data, navigate }) {
   const { wo, ncr, activeWo, openNcr, overdueWo, defectRate } = data
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="진행중 WO" value={activeWo.length + '건'} icon={Activity} />
-        <KpiCard label="WO 지연" value={overdueWo.length + '건'} ok={overdueWo.length === 0} icon={Clock} />
-        <KpiCard label="미결 NCR" value={openNcr.length + '건'} ok={openNcr.length === 0} icon={XCircle} />
+        <KpiCard label="진행중 WO" value={activeWo.length + '건'} icon={Activity} onClick={() => goTo(navigate, 'wo')} />
+        <KpiCard label="WO 지연" value={overdueWo.length + '건'} ok={overdueWo.length === 0} icon={Clock} onClick={() => goTo(navigate, 'wo')} />
+        <KpiCard label="미결 NCR" value={openNcr.length + '건'} ok={openNcr.length === 0} icon={XCircle} onClick={() => goTo(navigate, 'ncr')} />
       </div>
 
       {defectRate !== null && (
@@ -404,7 +435,7 @@ function ManufacturingView({ data }) {
             <Row key={w.id} left={w.id} sub={`${w.product} ${w.qty}EA · ${w.step ?? w.status}`}
               badge={days !== null && days < 0 ? '지연' : w.status}
               color={days !== null && days < 0 ? 'red' : days !== null && days <= 3 ? 'orange' : 'blue'}
-              right={`D-${days ?? '?'}`} />
+              right={`D-${days ?? '?'}`} onClick={() => goTo(navigate, 'wo', w.id)} />
           )
         })}
       </SectionCard>
@@ -413,7 +444,8 @@ function ManufacturingView({ data }) {
         {openNcr.map(n => (
           <Row key={n.id} left={n.id} sub={`${n.step ?? ''} — ${n.desc?.substring(0,35)}`}
             badge={n.severity ?? n.status}
-            color={n.severity === '심각' ? 'red' : n.severity === '중요' ? 'orange' : 'yellow'} />
+            color={n.severity === '심각' ? 'red' : n.severity === '중요' ? 'orange' : 'yellow'}
+            onClick={() => goTo(navigate, 'ncr', n.id)} />
         ))}
       </SectionCard>
     </div>
@@ -421,14 +453,14 @@ function ManufacturingView({ data }) {
 }
 
 /* ─── 설비·교정 뷰 ──────────────────────────── */
-function EquipmentView({ data }) {
+function EquipmentView({ data, navigate }) {
   const { instruments, calDue, calOverdue, restricted, total } = data
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="전체 기기" value={total + '개'} icon={Wrench} />
-        <KpiCard label="교정 임박(30일)" value={calDue.length + '개'} ok={calDue.length === 0} icon={Clock} />
-        <KpiCard label="교정 초과" value={calOverdue.length + '개'} ok={calOverdue.length === 0} icon={AlertTriangle} />
+        <KpiCard label="전체 기기" value={total + '개'} icon={Wrench} onClick={() => goTo(navigate, 'instrument')} />
+        <KpiCard label="교정 임박(30일)" value={calDue.length + '개'} ok={calDue.length === 0} icon={Clock} onClick={() => goTo(navigate, 'instrument')} />
+        <KpiCard label="교정 초과" value={calOverdue.length + '개'} ok={calOverdue.length === 0} icon={AlertTriangle} onClick={() => goTo(navigate, 'instrument')} />
       </div>
 
       <SectionCard title="교정 초과 / 임박 기기" empty={calDue.length === 0 && calOverdue.length === 0}>
@@ -439,7 +471,7 @@ function EquipmentView({ data }) {
             <Row key={e.id} left={e.name} sub={`S/N ${e.serial ?? '—'} · ${e.location ?? ''}`}
               badge={overdue ? '초과' : `D-${days}`}
               color={overdue ? 'red' : days <= 7 ? 'orange' : 'yellow'}
-              right={e.nextCalib ?? e.calibDue} />
+              right={e.nextCalib ?? e.calibDue} onClick={() => goTo(navigate, 'instrument', e.id)} />
           )
         })}
       </SectionCard>
@@ -447,7 +479,7 @@ function EquipmentView({ data }) {
       <SectionCard title="사용제한 기기" empty={restricted.length === 0}>
         {restricted.map(e => (
           <Row key={e.id} left={e.name} sub={`${e.model ?? ''} · S/N ${e.serial ?? ''}`}
-            badge={e.status} color="red" right={e.location} />
+            badge={e.status} color="red" right={e.location} onClick={() => goTo(navigate, 'instrument', e.id)} />
         ))}
       </SectionCard>
 
@@ -458,7 +490,7 @@ function EquipmentView({ data }) {
             <Row key={e.id} left={e.name} sub={`${e.range ?? ''} · ${e.location ?? ''}`}
               badge={e.status ?? '사용가능'}
               color={e.status === '사용제한' ? 'red' : days !== null && days < 0 ? 'red' : days !== null && days <= 30 ? 'orange' : 'green'}
-              right={e.nextCalib ?? e.calibDue} />
+              right={e.nextCalib ?? e.calibDue} onClick={() => goTo(navigate, 'instrument', e.id)} />
           )
         })}
       </SectionCard>
@@ -482,11 +514,11 @@ export default function MonitoringHub() {
   ]
 
   const viewMap = {
-    home:     <HomeView data={data} setView={setView} />,
-    sales:    <SalesView data={data.sal} />,
-    purchase: <PurchaseView data={data.pur} />,
-    mfg:      <ManufacturingView data={data.mfg} />,
-    equip:    <EquipmentView data={data.eqp} />,
+    home:     <HomeView data={data} navigate={navigate} />,
+    sales:    <SalesView data={data.sal} navigate={navigate} />,
+    purchase: <PurchaseView data={data.pur} navigate={navigate} />,
+    mfg:      <ManufacturingView data={data.mfg} navigate={navigate} />,
+    equip:    <EquipmentView data={data.eqp} navigate={navigate} />,
   }
 
   // 전체 알림 수 계산
