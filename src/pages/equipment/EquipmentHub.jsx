@@ -16,6 +16,9 @@ const FL=({label,children})=><div><div className="text-[11.5px] font-medium mb-1
 const Card=({children})=><div className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>{children}</div>
 const StatusSelect=({value,options,onChange})=><select value={value} onChange={e=>onChange(e.target.value)} style={{...sel,padding:'3px 6px',fontSize:'11px',width:'auto'}}>{options.map(o=><option key={o}>{o}</option>)}</select>
 const SectionTitle=({children,breadcrumb})=><div className="mb-5">{breadcrumb&&<div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-1" style={{color:'var(--ink-faint)'}}>설비·교정 / {breadcrumb}</div>}<h2 className="text-[22px]" style={{color:'var(--ink)',fontWeight:500}}>{children}</h2></div>
+function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</td></tr>)}
+function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
+
 function Modal({title,onClose,children}){return <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.45)'}} onClick={e=>e.target===e.currentTarget&&onClose()}><div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto" style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}><div className="flex items-center justify-between mb-5"><h3 className="text-[17px] font-semibold" style={{color:'var(--ink)'}}>{title}</h3><button onClick={onClose} style={{color:'var(--ink-faint)'}}><X size={18}/></button></div>{children}</div></div>}
 
 /* ─── 초기 데이터 ─── */
@@ -55,8 +58,8 @@ function InstrumentsView({instruments,setInstruments}){
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['기기ID','기기명','모델','S/N','범위','최근교정','차기교정','주기','위치','기관','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{instruments.map(i=>(
-              <tr key={i.id}>
+            <tbody>{instruments.length===0?<EmptyRow/>:instruments.map(i=>(
+      <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
                 <TD><span className="font-medium">{i.name}</span></TD>
                 <TD muted>{i.model}</TD>
@@ -126,8 +129,8 @@ function HistoryView({history,setHistory,instruments}){
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 이력 추가</button>
         </div>
         <div className="space-y-2">
-          {history.map(h=>(
-            <div key={h.id} className="p-3 rounded-xl flex items-start gap-3" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
+          {history.length===0?<EmptyCard/>:history.map(h=>(
+      <div key={h.id} className="p-3 rounded-xl flex items-start gap-3" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <span className="font-mono text-[11px] font-bold" style={{color:'var(--moss)'}}>{h.id}</span>
@@ -248,8 +251,8 @@ function EqpHome({instruments,history,onNavigate}){
         <div className="text-[12.5px] mt-0.5" style={{color:'var(--ink-mute)'}}>측정기기 관리 · 교정 일정 · PM 이력</div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {summary.map(s=>(
-          <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
+        {summary.length===0?<EmptyCard/>:summary.map(s=>(
+      <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{color:'var(--ink-mute)'}}>{s.label}</div>
             <div className="text-[24px] font-bold" style={{color:s.warn?'var(--rust)':'var(--moss)'}}>{s.value}</div>
             <div className="text-[11px] mt-0.5" style={{color:'var(--ink-faint)'}}>{s.sub}</div>
