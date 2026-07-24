@@ -18,6 +18,9 @@ const FL=({label,children})=><div><div className="text-[11.5px] font-medium mb-1
 const Card=({children})=><div className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>{children}</div>
 const StatusSelect=({value,options,onChange})=><select value={value} onChange={e=>onChange(e.target.value)} style={{...sel,padding:'3px 6px',fontSize:'11px',width:'auto'}}>{options.map(o=><option key={o}>{o}</option>)}</select>
 const SectionTitle=({children,breadcrumb})=><div className="mb-5">{breadcrumb&&<div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-1" style={{color:'var(--ink-faint)'}}>생산 / {breadcrumb}</div>}<h2 className="text-[22px]" style={{color:'var(--ink)',fontWeight:500}}>{children}</h2></div>
+function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</td></tr>)}
+function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
+
 function Modal({title,onClose,children}){return <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.45)'}} onClick={e=>e.target===e.currentTarget&&onClose()}><div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto" style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}><div className="flex items-center justify-between mb-5"><h3 className="text-[17px] font-semibold" style={{color:'var(--ink)'}}>{title}</h3><button onClick={onClose} style={{color:'var(--ink-faint)'}}><X size={18}/></button></div>{children}</div></div>}
 
 /* ─── 초기 데이터 ─── */
@@ -57,8 +60,8 @@ function WoView({wo,setWo}){
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> WO 발행</button>
         </div>
         <div className="space-y-3">
-          {wo.map(w=>(
-            <div key={w.id} className="p-3 rounded-xl" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
+          {wo.length===0?<EmptyCard/>:wo.map(w=>(
+      <div key={w.id} className="p-3 rounded-xl" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-[12px] font-bold" style={{color:'var(--moss)'}}>{w.id}</span>
@@ -142,8 +145,8 @@ function ProcRecView({proc,setProc,wo}){
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['기록ID','WO','일자','공정단계','설비','작업자','공정 파라미터','결과','비고','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{proc.map(p=>(
-              <tr key={p.id}>
+            <tbody>{proc.length===0?<EmptyRow/>:proc.map(p=>(
+      <tr key={p.id}>
                 <TD mono color="var(--moss)">{p.id}</TD>
                 <TD mono muted>{p.wo}</TD>
                 <TD mono muted>{p.date}</TD>
@@ -199,8 +202,8 @@ function InspectView({inspect,setInspect,wo}){
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격','측정값','결과','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{inspect.map(i=>(
-              <tr key={i.id}>
+            <tbody>{inspect.length===0?<EmptyRow/>:inspect.map(i=>(
+      <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
                 <TD mono muted>{i.wo}</TD>
                 <TD>{i.step}</TD>
@@ -254,8 +257,8 @@ function NcrView({ncr,setNcr,wo}){
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--rust)',color:'white'}}><Plus size={13}/> 부적합 발행</button>
         </div>
         <div className="space-y-3">
-          {ncr.map(n=>(
-            <div key={n.id} className="p-3 rounded-xl" style={{border:`1px solid ${n.status!=='종결'?'var(--rust)':'var(--line)'}`,background:'var(--bg)'}}>
+          {ncr.length===0?<EmptyCard/>:ncr.map(n=>(
+      <div key={n.id} className="p-3 rounded-xl" style={{border:`1px solid ${n.status!=='종결'?'var(--rust)':'var(--line)'}`,background:'var(--bg)'}}>
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-[12px] font-bold" style={{color:'var(--rust)'}}>{n.id}</span>
@@ -321,8 +324,8 @@ function PerfView({wo}){
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['WO번호','제품','수량','시작일','납기일','담당','진행률','상태'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{wo.map(w=>(
-              <tr key={w.id}>
+            <tbody>{wo.length===0?<EmptyRow/>:wo.map(w=>(
+      <tr key={w.id}>
                 <TD mono color="var(--moss)">{w.id}</TD>
                 <TD>{w.product}</TD>
                 <TD right>{w.qty}EA</TD>
@@ -372,8 +375,8 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
         <div className="text-[12.5px] mt-0.5" style={{color:'var(--ink-mute)'}}>작업지시 · 공정기록 · 검사 · 부적합 관리</div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {summary.map(s=>(
-          <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
+        {summary.length===0?<EmptyCard/>:summary.map(s=>(
+      <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{color:'var(--ink-mute)'}}>{s.label}</div>
             <div className="text-[24px] font-bold" style={{color:s.warn?'var(--rust)':'var(--moss)'}}>{s.value}</div>
             <div className="text-[11px] mt-0.5" style={{color:'var(--ink-faint)'}}>{s.sub}</div>
