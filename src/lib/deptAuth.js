@@ -78,6 +78,7 @@ export const deptAuth = {
 
 // 부서별 사이드바 메뉴 정의
 const HOME = { to: '/home', label: '홈 대시보드', badge: 'HOME' }
+const FLOW = { to: '/flow', label: '업무 흐름도', badge: 'FLOW' }
 
 export const DEPT_NAV = {
   SAL: [
@@ -102,6 +103,7 @@ export const DEPT_NAV = {
   QUA: [
     HOME,
     { to: '/quality',      label: '품질 허브',    badge: 'QUA' },
+    FLOW,
     { to: '/audit',        label: '내부감사',     badge: 'AUD' },
     { to: '/improvement',  label: '개선활동',     badge: 'IMP' },
     { to: '/operations',   label: '작업지시',     badge: 'OPS' },
@@ -129,6 +131,7 @@ export const DEPT_NAV = {
   MR: [
     HOME,
     { to: '/dashboard',         label: '경영 현황',  badge: 'MR' },
+    FLOW,
     { to: '/management-review', label: '경영검토',   badge: 'MR' },
     { to: '/quality',           label: '품질 현황',  badge: 'QUA' },
     { to: '/audit',             label: '내부감사',   badge: 'AUD' },
@@ -160,6 +163,7 @@ export const DEPT_NAV = {
   ],
   ALL: [
     HOME,
+    FLOW,
     { to: '/dashboard',         label: '대시보드',   badge: 'MR' },
     { to: '/sales',             label: '영업',       badge: 'SAL' },
     { to: '/manufacturing',     label: '생산',       badge: 'MFG' },
