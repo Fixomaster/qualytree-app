@@ -14,6 +14,7 @@ import {
   HelpCircle,
   GitCommit,
   FileSearch,
+  Wrench,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -22,6 +23,7 @@ import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
 import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
 import { getAllRecords as getCcrRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/changeControl'
 import { permissions, requirePermission } from '../../lib/permissions'
+import EquipmentHub from '../equipment/EquipmentHub'
 
 export default function QualityHub() {
   const nav = useNavigate()
@@ -55,6 +57,13 @@ export default function QualityHub() {
     ncrOpen: ncr.getOpenCount(),
     capaOpen: capa.getOpenCount(),
     quarantineActive: quarantine.getActiveCount(),
+    equipCalibDue: (() => {
+      try {
+        const raw = localStorage.getItem('qms_eqp_instruments')
+        const list = raw ? JSON.parse(raw) : []
+        return list.filter((i) => i.status === '교정임박').length
+      } catch { return 0 }
+    })(),
   }
 
   return (
@@ -86,7 +95,7 @@ export default function QualityHub() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid md:grid-cols-4 gap-3 mb-5">
+        <div className="grid md:grid-cols-5 gap-3 mb-5">
           <StatCard
             icon={AlertTriangle}
             label="진행 중 NCR"
@@ -118,6 +127,14 @@ export default function QualityHub() {
             tone="moss"
             onClick={() => setTab('ccr')}
             active={tab === 'ccr'}
+          />
+          <StatCard
+            icon={Wrench}
+            label="설비·교정 임박"
+            value={counts.equipCalibDue}
+            tone="amber"
+            onClick={() => setTab('equipment')}
+            active={tab === 'equipment'}
           />
         </div>
 
@@ -161,6 +178,7 @@ export default function QualityHub() {
         {tab === 'capa' && <CapaList capas={allCapas} selectedId={selectedCapaId} onSelect={setSelectedCapaId} onChanged={refresh} />}
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} selectedId={selectedQId} onSelect={setSelectedQId} onChanged={refresh} />}
         {tab === 'ccr' && <CcrList records={allCcrs} selectedId={selectedCcrId} onSelect={setSelectedCcrId} onChanged={refresh} />}
+        {tab === 'equipment' && <EquipmentHub embedded />}
       </div>
     </AppLayout>
   )

@@ -45,7 +45,16 @@ const DEFAULT_PROCESSES = [
   { id: 'def-6', blockId: 'labeling', order: 6, customName: '라벨링' },
 ]
 
-export default function WorkOrderQueue() {
+function OpsShell({ embedded, user, title, subtitle, children }) {
+  if (embedded) return <>{children}</>
+  return (
+    <AppLayout user={user} title={title} subtitle={subtitle}>
+      {children}
+    </AppLayout>
+  )
+}
+
+export default function WorkOrderQueue({ embedded = false } = {}) {
   const nav = useNavigate()
   const user = auth.current()
   const onbState = onboarding.load()
@@ -113,7 +122,8 @@ export default function WorkOrderQueue() {
   // 온보딩 미완료 화면
   if (!onboardingComplete) {
     return (
-      <AppLayout
+      <OpsShell
+        embedded={embedded}
         user={user}
         title="작업 지시"
         subtitle="현장 운영 시작 전 온보딩이 필요합니다"
@@ -156,12 +166,13 @@ export default function WorkOrderQueue() {
             </button>
           </div>
         </div>
-      </AppLayout>
+      </OpsShell>
     )
   }
 
   return (
-    <AppLayout
+    <OpsShell
+      embedded={embedded}
       user={user}
       title="작업 지시"
       subtitle={`${onbState.company?.name || ''} · ${
@@ -318,7 +329,7 @@ export default function WorkOrderQueue() {
           }}
         />
       )}
-    </AppLayout>
+    </OpsShell>
   )
 }
 

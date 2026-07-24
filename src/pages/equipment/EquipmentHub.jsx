@@ -293,7 +293,7 @@ function EqpHome({instruments,history,onNavigate}){
   )
 }
 
-export default function EquipmentHub(){
+export default function EquipmentHub({ embedded = false } = {}){
   const user=auth.current()
   const [searchParams] = useSearchParams()
   const[view,setView]=useState(searchParams.get('tab') || 'home')
@@ -307,13 +307,17 @@ export default function EquipmentHub(){
     history:<HistoryView history={history} setHistory={setHistory} instruments={instruments}/>,
     schedule:<ScheduleView instruments={instruments} setInstruments={setInstruments}/>,
   }
+  const content = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
+      {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
+      {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+      {viewMap[view]||viewMap.home}
+    </div>
+  )
+  if (embedded) return content
   return(
     <AppLayout user={user} title="설비·교정" subtitle="측정기기 관리 · 교정 일정 · PM 이력">
-      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
-        {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
-        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
-        {viewMap[view]||viewMap.home}
-      </div>
+      {content}
     </AppLayout>
   )
 }

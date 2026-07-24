@@ -2,7 +2,6 @@ import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   PackageSearch,
-  Workflow,
   FileCheck2,
   FileText,
   Settings,
@@ -12,7 +11,6 @@ import {
   Package,
   Cog,
   Shield,
-  Wrench,
   BarChart2,
   GraduationCap,
   Stamp,
@@ -33,8 +31,6 @@ const NAV = [
   { to: '/purchase',     label: '구매자재',   en: 'Purchase & Materials', icon: Package,         area: 'PUR' },
   { to: '/manufacturing',label: '생산',        en: 'Manufacturing',       icon: Cog,             area: 'MFG' },
   { to: '/quality',      label: '품질',        en: 'Quality & NCR',       icon: Shield,          area: 'QUA' },
-  { to: '/operations',   label: '현장 운영',  en: 'Operations',          icon: Workflow,        area: 'OPS' },
-  { to: '/equipment',    label: '설비·교정',  en: 'Equipment',           icon: Wrench,          area: 'EQP' },
   { to: '/documents',    label: '품질 문서',  en: 'Documents',           icon: FileText,        area: 'DOC' },
   { to: '/management-review', label: '경영검토', en: 'Management Review',  icon: ScrollText,      area: 'MR'  },
   { to: '/training',     label: '교육',        en: 'Training',            icon: GraduationCap,   area: 'TRN' },
