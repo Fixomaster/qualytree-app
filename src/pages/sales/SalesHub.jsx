@@ -3,7 +3,7 @@ import {
   TrendingUp, Users, ShoppingCart, ClipboardList,
   FileText, MessageSquare, Truck, BarChart2,
   Plus, ArrowLeft, AlertTriangle, X, Edit2, Trash2,
-  CheckCircle, Package,
+  CheckCircle, Package, Search,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -821,8 +821,144 @@ function PerformanceView({ orders, deliveries, complaints }) {
 }
 
 /* ─── 영업 홈 ─── */
+
+function MarketResView() {
+  const [items, setItems] = useLS('qms_sal_mktres', [])
+  const [modal, setModal] = useState(null)
+  const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
+
+  const del = (id) => { if (window.confirm('삭제할까요?')) setItems(items.filter(i => i.id !== id)) }
+  const save = (f) => {
+    if (edit) {
+      setItems(items.map(i => i.id === edit.id ? { ...f, id: edit.id, date: edit.date } : i))
+    } else {
+      const now = new Date()
+      const yr = String(now.getFullYear()).slice(2)
+      const mo = String(now.getMonth() + 1).padStart(2, '0')
+      const dy = String(now.getDate()).padStart(2, '0')
+      setItems([{ ...f, id: 'MR-' + Date.now().toString().slice(-6), date: yr + '-' + mo + '-' + dy }, ...items])
+    }
+    setModal(null); setEdit(null)
+  }
+  const shown = srch
+    ? items.filter(i => [i.src, i.product, i.content, i.linkage].some(v => v && v.toLowerCase().includes(srch.toLowerCase())))
+    : items
+
+  return (
+    <div>
+      <SectionTitle breadcrumb="시장조사·고객요구">시장조사 · 고객 요구사항</SectionTitle>
+      {modal === 'form' && (
+        <Modal onClose={() => { setModal(null); setEdit(null) }}>
+          <h3 className="font-medium text-[15px] mb-4" style={{ color: 'var(--ink)' }}>
+            {edit ? '요구사항 수정' : '요구사항 등록'}
+          </h3>
+          <MarketResForm init={edit} onSave={save} />
+        </Modal>
+      )}
+      <div className="mb-3 p-3 rounded-lg text-[12.5px]"
+        style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-mute)' }}>
+        ℹ 고객·시장에서 수집된 요구사항은 제품 설계 입력(설계 계획)과 연동됩니다 · ISO 13485 §7.2.1
+      </div>
+      <div className="card-base p-4">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <input
+            className="flex-1 min-w-[180px] text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+            placeholder="출처 · 제품 · 내용 검색..."
+            value={srch} onChange={e => setSrch(e.target.value)}
+          />
+          {srch && <button onClick={() => setSrch('')} className="text-xs px-2 rounded" style={{ color: 'var(--ink-mute)' }}>✕</button>}
+          <ActBtn icon={Plus} onClick={() => setModal('form')}>등록</ActBtn>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                {['요구 출처', '제품 분류', '요구 내용', '등록일', '설계 연동', '처리 상태', ''].map(h => <TH key={h}>{h}</TH>)}
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0
+                ? <EmptyRow msg={srch ? '검색 결과가 없습니다.' : '등록된 요구사항이 없습니다. 고객 요청이나 시장조사 결과를 등록하세요.'} />
+                : shown.map(r => (
+                <tr key={r.id}>
+                  <TD>
+                    <Badge
+                      text={r.src}
+                      tone={r.src === '고객요청' ? 'blue' : r.src === '시장조사' ? 'amber' : 'gray'}
+                    />
+                  </TD>
+                  <TD color="var(--ink-mute)">{r.product || '—'}</TD>
+                  <TD>{r.content}</TD>
+                  <TD mono color="var(--ink-faint)">{r.date}</TD>
+                  <TD mono color="var(--ink-faint)">{r.linkage || '—'}</TD>
+                  <TD>
+                    <Badge
+                      text={r.state}
+                      tone={r.state === '설계반영' ? 'green' : r.state === '설계진행중' ? 'amber' : r.state === '보류' ? 'red' : 'gray'}
+                    />
+                  </TD>
+                  <TD>
+                    <div className="flex gap-1">
+                      <button
+                        className="text-[11px] px-2 py-0.5 rounded"
+                        style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}
+                        onClick={() => { setEdit(r); setModal('form') }}
+                      >수정</button>
+                      <button
+                        className="text-[11px] px-2 py-0.5 rounded"
+                        style={{ background: 'var(--rust-soft)', color: 'var(--rust)' }}
+                        onClick={() => del(r.id)}
+                      >삭제</button>
+                    </div>
+                  </TD>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MarketResForm({ init, onSave }) {
+  const [f, setF] = useState(init || { src: '고객요청', product: '', content: '', linkage: '', state: '검토중' })
+  const up = (k, v) => setF(p => ({ ...p, [k]: v }))
+  return (
+    <div className="space-y-3">
+      <FL label="요구 출처 *">
+        <StatusSelect opts={['고객요청', '시장조사', '전시회', '내부검토']} val={f.src} onChange={v => up('src', v)} />
+      </FL>
+      <FL label="제품 분류">
+        <input className="inp" value={f.product} onChange={e => up('product', e.target.value)} placeholder="예: 골절합용나사, 골절합용판" />
+      </FL>
+      <FL label="요구 내용 *">
+        <textarea className="inp min-h-[72px] resize-none" value={f.content} onChange={e => up('content', e.target.value)} placeholder="고객 또는 시장에서 수집된 요구사항을 구체적으로 입력하세요" />
+      </FL>
+      <FL label="설계 연동">
+        <input className="inp" value={f.linkage} onChange={e => up('linkage', e.target.value)} placeholder="예: 설계변경 #1, 신규 설계 계획" />
+      </FL>
+      <FL label="처리 상태">
+        <StatusSelect opts={['검토중', '설계반영', '설계진행중', '보류']} val={f.state} onChange={v => up('state', v)} />
+      </FL>
+      <div className="flex justify-end pt-2">
+        <button
+          className="btn-secondary text-xs px-4 py-2"
+          onClick={() => {
+            if (!f.content.trim()) { alert('요구 내용을 입력하세요.'); return }
+            onSave(f)
+          }}
+        >저장</button>
+      </div>
+    </div>
+  )
+}
+
 function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavigate }) {
   const active = orders.filter(o=>!['납품완료','취소'].includes(o.status)).length
+  const [mktItems] = useLS('qms_sal_mktres', [])
   const openCmp = complaints.filter(c=>c.status!=='종결').length
   const CARDS = [
     { id:'customers', icon:Users, label:'고객사 관리', desc:'고객사 등록 · 등급 · 담당자 · 수주이력', count:`${customers.length}개사` },
@@ -832,6 +968,7 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
     { id:'delivery', icon:Truck, label:'납품 이력', desc:'납품 완료 · UDI·Lot 추적 · 증빙 관리', count:`${deliveries.length}건` },
     { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'prod-req', icon:ShoppingCart, label:'생산 요청', desc:'수주 기반 생산 요청 발행 · WO 연동', count:`${prodReqs.length}건` },
+    { id:'market', icon:Search, label:'시장조사·고객요구', desc:'고객·시장 요구사항 수집 · 설계 입력 연동', count:`${mktItems.length}건` },
   ]
   const summary = [
     { label:'진행중 수주', value:`${active}건`, sub:'WO 연동 포함' },
@@ -890,7 +1027,7 @@ export default function SalesHub() {
 
   const tabLabels = {
     customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
-    complaints:'고객 불만', delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청',
+    complaints:'고객 불만', delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'시장조사·고객요구',
   }
 
   const viewMap = {
@@ -903,6 +1040,7 @@ export default function SalesHub() {
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders}/>,
     performance: <PerformanceView orders={orders} deliveries={deliveries} complaints={complaints}/>,
     'prod-req': <ProdRequestView prodReqs={prodReqs} setProdReqs={setProdReqs} orders={orders}/>,
+    'market': <MarketResView />,
   }
 
   return (
