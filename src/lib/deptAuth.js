@@ -84,7 +84,8 @@ export const DEPT_NAV = {
   SAL: [
     HOME,
     { to: '/sales',        label: '영업 허브',    badge: 'SAL' },
-    { to: '/quality',      label: '고객불만 · NCR', badge: 'QUA' },
+    { to: '/complaints',   label: '고객불만',     badge: 'SAL' },
+    { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   MFG: [
@@ -106,6 +107,7 @@ export const DEPT_NAV = {
     { to: '/quality',      label: '품질 허브',    badge: 'QUA' },
     FLOW,
     { to: '/risk',         label: '위험관리 (FMEA)', badge: 'RA' },
+    { to: '/complaints',   label: '고객불만',     badge: 'SAL' },
     { to: '/audit',        label: '내부감사',     badge: 'AUD' },
     { to: '/improvement',  label: '개선활동',     badge: 'IMP' },
     { to: '/operations',   label: '작업지시',     badge: 'OPS' },
@@ -187,6 +189,7 @@ export const DEPT_NAV = {
     { to: '/risk',              label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/calibration',       label: '교정 관리',      badge: 'EQP' },
     { to: '/suppliers',         label: '공급업체 관리',  badge: 'PUR' },
+    { to: '/complaints',        label: '고객불만',       badge: 'SAL' },
     { to: '/export',            label: '기록 내보내기',  badge: 'DOC' },
   ],
 }
