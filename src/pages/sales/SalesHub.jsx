@@ -100,6 +100,9 @@ function Modal({ title, onClose, children }) {
   )
 }
 
+function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</td></tr>)}
+function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
+
 function StatusSelect({ value, options, onChange }) {
   return (
     <select value={value} onChange={e=>onChange(e.target.value)} style={{ ...sel, padding:'3px 6px', fontSize:'11px', width:'auto' }}>
@@ -216,8 +219,8 @@ function CustomersView({ customers, setCustomers }) {
               {['ID','고객사명','유형','담당자','연락처','주요품목','등급','최근수주','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {customers.map(c=>(
-                <tr key={c.id}>
+              {customers.length===0?<EmptyRow/>:customers.map(c=>(
+      <tr key={c.id}>
                   <TD mono color="var(--moss)">{c.id}</TD>
                   <TD><span className="font-medium">{c.name}</span></TD>
                   <TD muted>{c.type}</TD>
@@ -298,8 +301,8 @@ function OrdersView({ orders, setOrders, customers }) {
               {['SO번호','고객사','품목','수량','납기일','금액(원)','WO','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {orders.map(o=>(
-                <tr key={o.id}>
+              {orders.length===0?<EmptyRow/>:orders.map(o=>(
+      <tr key={o.id}>
                   <TD mono color="var(--moss)">{o.id}</TD>
                   <TD>{o.customer}</TD>
                   <TD muted>{o.items}</TD>
@@ -394,8 +397,8 @@ function QuotesView({ quotes, setQuotes, customers }) {
               {['견적번호','고객사','품목','작성일','유효기간','금액(원)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {quotes.map(q=>(
-                <tr key={q.id}>
+              {quotes.length===0?<EmptyRow/>:quotes.map(q=>(
+      <tr key={q.id}>
                   <TD mono color="var(--moss)">{q.id}</TD>
                   <TD><span className="font-medium">{q.customer}</span></TD>
                   <TD muted>{q.items}</TD>
@@ -508,8 +511,8 @@ function ComplaintsView({ complaints, setComplaints }) {
           </button>
         </div>
         <div className="space-y-3">
-          {complaints.map(c=>(
-            <div key={c.id} className="p-3 rounded-xl" style={{ border:'1px solid var(--line)', background:'var(--bg)' }}>
+          {complaints.length===0?<EmptyCard/>:complaints.map(c=>(
+      <div key={c.id} className="p-3 rounded-xl" style={{ border:'1px solid var(--line)', background:'var(--bg)' }}>
               <div className="flex items-start gap-3 flex-wrap justify-between mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-[11.5px] font-medium" style={{ color:'var(--rust)' }}>{c.id}</span>
@@ -606,8 +609,8 @@ function DeliveryView({ deliveries, setDeliveries, orders }) {
               {['납품번호','SO','고객사','품목','납품일','LOT','UDI','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {deliveries.map(d=>(
-                <tr key={d.id}>
+              {deliveries.length===0?<EmptyRow/>:deliveries.map(d=>(
+      <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.so}</TD>
                   <TD>{d.customer}</TD>
@@ -704,8 +707,8 @@ function ProdRequestView({ prodReqs, setProdReqs, orders }) {
               {['요청ID','SO','품목','수량','납기일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {prodReqs.map(r=>(
-                <tr key={r.id}>
+              {prodReqs.length===0?<EmptyRow/>:prodReqs.map(r=>(
+      <tr key={r.id}>
                   <TD mono color="var(--moss)">{r.id}</TD>
                   <TD mono muted>{r.so}</TD>
                   <TD>{r.item}</TD>
@@ -844,8 +847,8 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
         <div className="text-[12.5px] mt-0.5" style={{ color:'var(--ink-mute)' }}>고객사 통합 현황 · 수주에서 납품까지 추적</div>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        {summary.map(s=>(
-          <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
+        {summary.length===0?<EmptyCard/>:summary.map(s=>(
+      <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{ color:'var(--ink-mute)' }}>{s.label}</div>
             <div className="text-[24px] font-bold" style={{ color:s.warn?'var(--rust)':'var(--moss)' }}>{s.value}</div>
             <div className="text-[11px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{s.sub}</div>
