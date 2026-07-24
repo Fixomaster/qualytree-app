@@ -77,24 +77,30 @@ export const deptAuth = {
 }
 
 // 부서별 사이드바 메뉴 정의
+const HOME = { to: '/home', label: '홈 대시보드', badge: 'HOME' }
+
 export const DEPT_NAV = {
   SAL: [
+    HOME,
     { to: '/sales',        label: '영업 허브',    badge: 'SAL' },
     { to: '/quality',      label: '고객불만 · NCR', badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   MFG: [
+    HOME,
     { to: '/manufacturing', label: '생산 허브',   badge: 'MFG' },
     { to: '/operations',    label: '작업지시',    badge: 'OPS' },
     { to: '/quality',       label: 'NCR / CAPA', badge: 'QUA' },
     { to: '/documents',     label: '품질 문서',   badge: 'DOC' },
   ],
   PUR: [
+    HOME,
     { to: '/purchase',   label: '구매 허브',      badge: 'PUR' },
     { to: '/quality',    label: '수입검사 · IQC', badge: 'QUA' },
     { to: '/documents',  label: '품질 문서',      badge: 'DOC' },
   ],
   QUA: [
+    HOME,
     { to: '/quality',      label: '품질 허브',    badge: 'QUA' },
     { to: '/audit',        label: '내부감사',     badge: 'AUD' },
     { to: '/improvement',  label: '개선활동',     badge: 'IMP' },
@@ -102,22 +108,26 @@ export const DEPT_NAV = {
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   EQP: [
+    HOME,
     { to: '/equipment',    label: '설비 허브',    badge: 'EQP' },
     { to: '/operations',   label: '작업지시',     badge: 'OPS' },
     { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   DEV: [
+    HOME,
     { to: '/development',  label: '개발 허브',    badge: 'DEV' },
     { to: '/products',     label: '제품 · 공정',  badge: 'PRD' },
     { to: '/regulatory',   label: '인허가',       badge: 'RA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   DOC: [
+    HOME,
     { to: '/documents',    label: '문서 허브',    badge: 'DOC' },
     { to: '/quality',      label: '품질 기록',    badge: 'QUA' },
   ],
   MR: [
+    HOME,
     { to: '/dashboard',         label: '경영 현황',  badge: 'MR' },
     { to: '/management-review', label: '경영검토',   badge: 'MR' },
     { to: '/quality',           label: '품질 현황',  badge: 'QUA' },
@@ -125,26 +135,31 @@ export const DEPT_NAV = {
     { to: '/improvement',       label: '개선활동',   badge: 'IMP' },
   ],
   TRN: [
+    HOME,
     { to: '/training',     label: '교육 허브',    badge: 'TRN' },
     { to: '/documents',    label: '교육 문서',    badge: 'DOC' },
   ],
   RA: [
+    HOME,
     { to: '/regulatory',   label: '인허가 허브',  badge: 'RA' },
     { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
     { to: '/tree',         label: 'Quality Tree', badge: 'TREE' },
   ],
   AUD: [
+    HOME,
     { to: '/audit',        label: '감사 허브',    badge: 'AUD' },
     { to: '/quality',      label: '품질 기록',    badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   IMP: [
+    HOME,
     { to: '/improvement',  label: '개선 허브',    badge: 'IMP' },
     { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
   ],
   ALL: [
+    HOME,
     { to: '/dashboard',         label: '대시보드',   badge: 'MR' },
     { to: '/sales',             label: '영업',       badge: 'SAL' },
     { to: '/manufacturing',     label: '생산',       badge: 'MFG' },
