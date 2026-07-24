@@ -35,29 +35,30 @@ function daysUntil(dateStr) {
 
 /* ─── 공통 UI ───────────────────────────────── */
 function Badge({ label, color = 'gray' }) {
-  const colors = {
-    red:    'bg-red-100 text-red-700',
-    orange: 'bg-orange-100 text-orange-700',
-    yellow: 'bg-yellow-100 text-yellow-700',
-    green:  'bg-green-100 text-green-700',
-    blue:   'bg-blue-100 text-blue-700',
-    gray:   'bg-gray-100 text-gray-600',
-    purple: 'bg-purple-100 text-purple-700',
+  const map = {
+    red:    { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
+    orange: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
+    yellow: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
+    green:  { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
+    blue:   { bg: 'var(--sky-soft)', fg: 'var(--sky)' },
+    purple: { bg: 'var(--leaf-soft)', fg: 'var(--moss-mid)' },
+    gray:   { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
   }
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[color] || colors.gray}`}>{label}</span>
+  const c = map[color] || map.gray
+  return <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: c.bg, color: c.fg }}>{label}</span>
 }
 
-function KpiCard({ label, value, sub, ok, icon: Icon, color }) {
-  const borderColor = ok === true ? 'border-l-green-400' : ok === false ? 'border-l-red-400' : 'border-l-blue-400'
+function KpiCard({ label, value, sub, ok, icon: Icon }) {
+  const accent = ok === true ? 'var(--moss)' : ok === false ? 'var(--rust)' : 'var(--sky)'
   return (
-    <div className={`bg-white rounded-xl border border-gray-100 border-l-4 ${borderColor} p-4 shadow-sm`}>
+    <div className="card-base p-4" style={{ borderLeft: `3px solid ${accent}` }}>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-gray-500 mb-1">{label}</p>
-          <p className="text-2xl font-bold text-gray-800">{value ?? '—'}</p>
-          {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
+          <p className="text-[11.5px] mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</p>
+          <p className="text-[20px] font-bold tabular-nums" style={{ color: 'var(--ink)' }}>{value ?? '—'}</p>
+          {sub && <p className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>{sub}</p>}
         </div>
-        {Icon && <Icon className={`w-5 h-5 mt-1 ${color || 'text-gray-300'}`} />}
+        {Icon && <Icon size={17} style={{ color: 'var(--ink-faint)', marginTop: 2 }} />}
       </div>
     </div>
   )
@@ -65,13 +66,13 @@ function KpiCard({ label, value, sub, ok, icon: Icon, color }) {
 
 function SectionCard({ title, children, empty, action, onAction }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-        {action && <button onClick={onAction} className="text-xs text-blue-500 hover:text-blue-700">{action}</button>}
+    <div className="card-base overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--line)' }}>
+        <h3 className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{title}</h3>
+        {action && <button onClick={onAction} className="text-[11.5px] font-medium" style={{ color: 'var(--moss)' }}>{action}</button>}
       </div>
       {empty
-        ? <div className="py-8 text-center text-xs text-gray-400">데이터 없음</div>
+        ? <div className="py-8 text-center text-[12px]" style={{ color: 'var(--ink-faint)' }}>데이터 없음</div>
         : <div>{children}</div>}
     </div>
   )
@@ -79,25 +80,31 @@ function SectionCard({ title, children, empty, action, onAction }) {
 
 function Row({ left, right, badge, color, sub }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+    <div className="flex items-center justify-between px-4 py-2.5 last:border-0 transition" style={{ borderBottom: '1px solid var(--line)' }}>
       <div>
-        <p className="text-sm text-gray-700">{left}</p>
-        {sub && <p className="text-xs text-gray-400">{sub}</p>}
+        <p className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{left}</p>
+        {sub && <p className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{sub}</p>}
       </div>
       <div className="flex items-center gap-2">
         {badge && <Badge label={badge} color={color} />}
-        {right && <span className="text-xs text-gray-500">{right}</span>}
+        {right && <span className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>{right}</span>}
       </div>
     </div>
   )
 }
 
 function AlertRow({ icon: Icon, msg, color }) {
-  const colors = { red: 'text-red-500 bg-red-50', orange: 'text-orange-500 bg-orange-50', yellow: 'text-yellow-600 bg-yellow-50', blue: 'text-blue-500 bg-blue-50' }
+  const map = {
+    red:    { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
+    orange: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
+    yellow: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
+    blue:   { bg: 'var(--sky-soft)', fg: 'var(--sky)' },
+  }
+  const c = map[color] || map.blue
   return (
-    <div className={`flex items-start gap-2 px-3 py-2 rounded-lg mb-1.5 ${colors[color] || colors.blue}`}>
-      <Icon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-      <p className="text-xs">{msg}</p>
+    <div className="flex items-start gap-2 px-3 py-2 rounded-lg mb-1.5" style={{ background: c.bg, color: c.fg }}>
+      <Icon size={14} className="mt-0.5 shrink-0" />
+      <p className="text-[11.5px]">{msg}</p>
     </div>
   )
 }
@@ -209,76 +216,78 @@ function HomeView({ data, setView }) {
   const kpis = [
     { label: '진행중 수주', value: sal.activeOrders.length + '건',
       sub: `납기임박 ${sal.urgentOrders.length}건`, ok: sal.urgentOrders.length === 0,
-      icon: FileText, color: 'text-blue-400' },
+      icon: FileText },
     { label: '미결 고객불만', value: sal.openComplaints.length + '건',
       sub: `목표 ≤2건`, ok: sal.openComplaints.length <= 2,
-      icon: AlertCircle, color: 'text-red-400' },
+      icon: AlertCircle },
     { label: '진행중 WO', value: mfg.activeWo.length + '건',
       sub: `지연 ${mfg.overdueWo.length}건`, ok: mfg.overdueWo.length === 0,
-      icon: Activity, color: 'text-purple-400' },
+      icon: Activity },
     { label: '교정 임박', value: eqp.calDue.length + '개',
       sub: `초과 ${eqp.calOverdue.length}개`, ok: eqp.calOverdue.length === 0,
-      icon: Wrench, color: 'text-orange-400' },
+      icon: Wrench },
     { label: '재고 부족', value: pur.lowStock.length + '개',
       sub: `IQC 대기 ${pur.iqcPending.length}건`, ok: pur.lowStock.length === 0,
-      icon: Package, color: 'text-yellow-500' },
+      icon: Package },
     { label: '미결 NCR', value: mfg.openNcr.length + '건',
       sub: mfg.defectRate !== null ? `불량률 ${mfg.defectRate.toFixed(1)}%` : '검사기록 없음',
       ok: mfg.openNcr.length === 0,
-      icon: XCircle, color: 'text-red-400' },
+      icon: XCircle },
   ]
 
   const moduleCards = [
-    { id: 'sales',    icon: FileText,     label: '영업',      desc: `수주 ${sal.orders.length}건 · 불만 ${sal.complaints.length}건`,   color: 'blue' },
-    { id: 'purchase', icon: Package,      label: '구매자재',  desc: `재고 ${pur.inventory.length}품목 · 부족 ${pur.lowStock.length}개`, color: 'yellow' },
-    { id: 'mfg',      icon: Activity,    label: '생산',      desc: `WO ${mfg.wo.length}건 · NCR ${mfg.ncr.length}건`,               color: 'purple' },
-    { id: 'equip',    icon: Wrench,       label: '설비·교정', desc: `기기 ${eqp.total}개 · 교정임박 ${eqp.calDue.length}개`,          color: 'orange' },
+    { id: 'sales',    icon: FileText,   label: '영업',      desc: `수주 ${sal.orders.length}건 · 불만 ${sal.complaints.length}건`,   color: 'blue' },
+    { id: 'purchase', icon: Package,    label: '구매자재',  desc: `재고 ${pur.inventory.length}품목 · 부족 ${pur.lowStock.length}개`, color: 'yellow' },
+    { id: 'mfg',      icon: Activity,   label: '생산',      desc: `WO ${mfg.wo.length}건 · NCR ${mfg.ncr.length}건`,               color: 'purple' },
+    { id: 'equip',    icon: Wrench,     label: '설비·교정', desc: `기기 ${eqp.total}개 · 교정임박 ${eqp.calDue.length}개`,          color: 'orange' },
   ]
-  const colorMap = { blue: 'bg-blue-50 border-blue-100', yellow: 'bg-yellow-50 border-yellow-100',
-                     purple: 'bg-purple-50 border-purple-100', orange: 'bg-orange-50 border-orange-100' }
-  const iconColorMap = { blue: 'text-blue-500', yellow: 'text-yellow-600', purple: 'text-purple-500', orange: 'text-orange-500' }
+  const colorMap = { blue: { bg: 'var(--sky-soft)', line: 'var(--sky)', icon: 'var(--sky)' },
+                      yellow: { bg: 'var(--amber-soft)', line: 'var(--amber)', icon: 'var(--amber)' },
+                      purple: { bg: 'var(--leaf-soft)', line: 'var(--moss-mid)', icon: 'var(--moss-mid)' },
+                      orange: { bg: 'var(--amber-soft)', line: 'var(--amber)', icon: 'var(--amber)' } }
 
   return (
     <div className="space-y-4">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         {kpis.map((k, i) => <KpiCard key={i} {...k} />)}
       </div>
 
       {/* 알림 */}
       {alerts.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-gray-500 mb-2">⚡ 조치 필요 ({alerts.length}건)</p>
+          <p className="text-[11.5px] font-semibold mb-2" style={{ color: 'var(--ink-mute)' }}>⚡ 조치 필요 ({alerts.length}건)</p>
           <div>
             {alerts.slice(0, 8).map((a, i) => (
               <AlertRow key={i}
                 icon={a.color === 'red' ? XCircle : a.color === 'orange' ? AlertTriangle : a.color === 'yellow' ? AlertCircle : Clock}
                 msg={a.msg} color={a.color} />
             ))}
-            {alerts.length > 8 && <p className="text-xs text-gray-400 text-center mt-1">외 {alerts.length - 8}건 더 있음</p>}
+            {alerts.length > 8 && <p className="text-[11px] text-center mt-1" style={{ color: 'var(--ink-faint)' }}>외 {alerts.length - 8}건 더 있음</p>}
           </div>
         </div>
       )}
 
       {alerts.length === 0 && (
-        <div className="bg-green-50 border border-green-100 rounded-xl p-4 flex items-center gap-3">
-          <CheckCircle className="w-5 h-5 text-green-500" />
+        <div className="rounded-xl p-4 flex items-center gap-3" style={{ background: 'var(--leaf-soft)', border: '1px solid var(--leaf)' }}>
+          <CheckCircle size={18} style={{ color: 'var(--moss)' }} />
           <div>
-            <p className="text-sm font-semibold text-green-700">모든 지표 정상</p>
-            <p className="text-xs text-green-600">조치가 필요한 항목이 없습니다.</p>
+            <p className="text-[13px] font-semibold" style={{ color: 'var(--moss)' }}>모든 지표 정상</p>
+            <p className="text-[11.5px]" style={{ color: 'var(--moss-mid)' }}>조치가 필요한 항목이 없습니다.</p>
           </div>
         </div>
       )}
 
       {/* 모듈 카드 */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {moduleCards.map(m => (
           <button key={m.id} onClick={() => setView(m.id)}
-            className={`flex items-start gap-3 p-3 rounded-xl border text-left transition hover:shadow-md ${colorMap[m.color]}`}>
-            <m.icon className={`w-5 h-5 mt-0.5 ${iconColorMap[m.color]}`} />
+            className="flex items-start gap-3 p-3 rounded-xl text-left transition hover:opacity-90"
+            style={{ background: colorMap[m.color].bg, border: `1px solid ${colorMap[m.color].line}` }}>
+            <m.icon size={18} style={{ color: colorMap[m.color].icon, marginTop: 2 }} />
             <div>
-              <p className="text-sm font-semibold text-gray-700">{m.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{m.desc}</p>
+              <p className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{m.label}</p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{m.desc}</p>
             </div>
           </button>
         ))}
@@ -293,14 +302,14 @@ function SalesView({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="진행중 수주" value={activeOrders.length + '건'} icon={FileText} color="text-blue-400" />
-        <KpiCard label="납기임박" value={urgentOrders.length + '건'} ok={urgentOrders.length === 0} icon={Clock} color="text-orange-400" />
-        <KpiCard label="미결 불만" value={openComplaints.length + '건'} ok={openComplaints.length <= 2} icon={AlertCircle} color="text-red-400" />
+        <KpiCard label="진행중 수주" value={activeOrders.length + '건'} icon={FileText} />
+        <KpiCard label="납기임박" value={urgentOrders.length + '건'} ok={urgentOrders.length === 0} icon={Clock} />
+        <KpiCard label="미결 불만" value={openComplaints.length + '건'} ok={openComplaints.length <= 2} icon={AlertCircle} />
       </div>
 
       <SectionCard title="수주 현황" empty={orders.length === 0}>
         {activeOrders.length === 0
-          ? <div className="py-6 text-center text-xs text-gray-400">진행중인 수주가 없습니다.</div>
+          ? <div className="py-6 text-center text-[12px]" style={{ color: 'var(--ink-faint)' }}>진행중인 수주가 없습니다.</div>
           : activeOrders.slice(0, 10).map(o => {
               const days = daysUntil(o.dueDate)
               const color = days !== null && days <= 3 ? 'red' : days !== null && days <= 7 ? 'orange' : 'blue'
@@ -332,9 +341,9 @@ function PurchaseView({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="재고 부족" value={lowStock.length + '품목'} ok={lowStock.length === 0} icon={Package} color="text-yellow-500" />
-        <KpiCard label="IQC 대기" value={iqcPending.length + '건'} ok={iqcPending.length === 0} icon={CheckCircle} color="text-blue-400" />
-        <KpiCard label="입고 예정(7일)" value={incomingSoon.length + '건'} icon={Layers} color="text-purple-400" />
+        <KpiCard label="재고 부족" value={lowStock.length + '품목'} ok={lowStock.length === 0} icon={Package} />
+        <KpiCard label="IQC 대기" value={iqcPending.length + '건'} ok={iqcPending.length === 0} icon={CheckCircle} />
+        <KpiCard label="입고 예정(7일)" value={incomingSoon.length + '건'} icon={Layers} />
       </div>
 
       <SectionCard title="재고 부족 자재" empty={lowStock.length === 0}>
@@ -367,22 +376,22 @@ function ManufacturingView({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="진행중 WO" value={activeWo.length + '건'} icon={Activity} color="text-purple-400" />
-        <KpiCard label="WO 지연" value={overdueWo.length + '건'} ok={overdueWo.length === 0} icon={Clock} color="text-red-400" />
-        <KpiCard label="미결 NCR" value={openNcr.length + '건'} ok={openNcr.length === 0} icon={XCircle} color="text-orange-400" />
+        <KpiCard label="진행중 WO" value={activeWo.length + '건'} icon={Activity} />
+        <KpiCard label="WO 지연" value={overdueWo.length + '건'} ok={overdueWo.length === 0} icon={Clock} />
+        <KpiCard label="미결 NCR" value={openNcr.length + '건'} ok={openNcr.length === 0} icon={XCircle} />
       </div>
 
       {defectRate !== null && (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-          <p className="text-xs text-gray-500">불량률 (검사 기록 기준)</p>
-          <p className="text-2xl font-bold mt-1" style={{color: defectRate > 2 ? '#ef4444' : '#16a34a'}}>
+        <div className="card-base p-4">
+          <p className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>불량률 (검사 기록 기준)</p>
+          <p className="text-[20px] font-bold mt-1 tabular-nums" style={{ color: defectRate > 2 ? 'var(--rust)' : 'var(--moss)' }}>
             {defectRate.toFixed(2)}%
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">목표: ≤2.0%</p>
-          <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <p className="text-[10.5px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>목표: ≤2.0%</p>
+          <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--bg-soft)' }}>
             <div className="h-full rounded-full transition-all" style={{
               width: `${Math.min(defectRate / 4 * 100, 100)}%`,
-              backgroundColor: defectRate > 2 ? '#ef4444' : '#16a34a'
+              background: defectRate > 2 ? 'var(--rust)' : 'var(--moss)'
             }}/>
           </div>
         </div>
@@ -417,9 +426,9 @@ function EquipmentView({ data }) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-3 gap-3">
-        <KpiCard label="전체 기기" value={total + '개'} icon={Wrench} color="text-gray-400" />
-        <KpiCard label="교정 임박(30일)" value={calDue.length + '개'} ok={calDue.length === 0} icon={Clock} color="text-orange-400" />
-        <KpiCard label="교정 초과" value={calOverdue.length + '개'} ok={calOverdue.length === 0} icon={AlertTriangle} color="text-red-400" />
+        <KpiCard label="전체 기기" value={total + '개'} icon={Wrench} />
+        <KpiCard label="교정 임박(30일)" value={calDue.length + '개'} ok={calDue.length === 0} icon={Clock} />
+        <KpiCard label="교정 초과" value={calOverdue.length + '개'} ok={calOverdue.length === 0} icon={AlertTriangle} />
       </div>
 
       <SectionCard title="교정 초과 / 임박 기기" empty={calDue.length === 0 && calOverdue.length === 0}>
@@ -484,33 +493,35 @@ export default function MonitoringHub() {
   const alertCount = data.alerts.length
 
   return (
-    <AppLayout>
-      <div className="p-4 space-y-4 max-w-2xl mx-auto">
+    <AppLayout user={user} title="모니터링" subtitle="전사 KPI 실시간 집계 · 읽기 전용 · 역할별 권한 제어">
+      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {/* 헤더 */}
-        <div className="flex items-center justify-between">
+        <div className="mb-5 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-              <BarChart2 className="w-3.5 h-3.5" />
-              MON · ISO 13485 §8.2.3 / §8.4
-            </div>
-            <h1 className="text-xl font-bold text-gray-800">모니터링</h1>
-            <p className="text-xs text-gray-500 mt-0.5">전사 KPI 실시간 집계 · {user?.name ?? user?.email}</p>
+            <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>MON · MONITORING</span>
+            <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>모니터링</div>
+            <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>ISO 13485 §8.2.3 / §8.4 — 전부서 통합 현황 · 읽기 전용</div>
           </div>
-          <button onClick={() => window.location.reload()}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 p-2">
-            <RefreshCw className="w-3.5 h-3.5" /> 새로고침
+          <button onClick={() => window.location.reload()} className="btn-ghost text-[12.5px]">
+            <RefreshCw size={13} /> 새로고침
           </button>
         </div>
 
         {/* 탭 */}
-        <div className="flex gap-0.5 bg-gray-100 p-1 rounded-xl overflow-x-auto">
+        <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setView(t.id)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
-                ${view === t.id ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-              {t.label}
-              {t.id === 'home' && alertCount > 0 &&
-                <span className="ml-1 bg-red-500 text-white text-[10px] rounded-full px-1">{alertCount}</span>}
+              className="px-4 py-2.5 rounded-t-lg flex items-center gap-2 text-[13px] transition shrink-0"
+              style={{
+                background: view === t.id ? 'var(--bg-card)' : 'transparent',
+                borderBottom: view === t.id ? '2px solid var(--moss)' : '2px solid transparent',
+                color: view === t.id ? 'var(--ink)' : 'var(--ink-mute)',
+                fontWeight: view === t.id ? 500 : 400,
+              }}>
+              <span>{t.label}</span>
+              {t.id === 'home' && alertCount > 0 && (
+                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--rust-soft)', color: 'var(--rust)' }}>{alertCount}</span>
+              )}
             </button>
           ))}
         </div>
