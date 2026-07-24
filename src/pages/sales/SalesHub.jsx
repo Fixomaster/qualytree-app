@@ -288,7 +288,7 @@ function OrdersView({ orders, setOrders, customers, openId }) {
   const save = (f) => {
     if (edit) { setOrders(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
     else {
-      let newOrder = { ...init, id: nid('SO'), ...f }
+      let newOrder = { ...init, ...f, id: nid('SO') }
       if (!newOrder.wo) {
         const result = fulfillOrderLineItems(newOrder)
         if (result.createdWos.length > 0) {
@@ -543,7 +543,7 @@ function QuotesView({ quotes, setQuotes, customers }) {
 
   const save = (f) => {
     if (edit) { setQuotes(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setQuotes(p=>[...p, { ...init, id:nid('QT'), ...f }]) }
+    else { setQuotes(p=>[...p, { ...init, ...f, id:nid('QT') }]) }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setQuotes(p=>p.filter(x=>x.id!==id)) }
@@ -667,7 +667,7 @@ function ComplaintsView({ complaints, setComplaints, openId }) {
 
   const save = (f) => {
     if (edit) { setComplaints(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setComplaints(p=>[...p, { ...init, id:nid('CMP'), ...f }]) }
+    else { setComplaints(p=>[...p, { ...init, ...f, id:nid('CMP') }]) }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setComplaints(p=>p.filter(x=>x.id!==id)) }
@@ -783,7 +783,7 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
 
   const save = (f) => {
     if (edit) { setDeliveries(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setDeliveries(p=>[...p, { ...init, id:nid('DL'), ...f }]) }
+    else { setDeliveries(p=>[...p, { ...init, ...f, id:nid('DL') }]) }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setDeliveries(p=>p.filter(x=>x.id!==id)) }
@@ -892,7 +892,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders }) {
 
   const save = (f) => {
     if (edit) { setProdReqs(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setProdReqs(p=>[...p, { ...init, id:nid('PR'), ...f }]) }
+    else { setProdReqs(p=>[...p, { ...init, ...f, id:nid('PR') }]) }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setProdReqs(p=>p.filter(x=>x.id!==id)) }
