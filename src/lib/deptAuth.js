@@ -127,6 +127,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/documents',    label: '문서 허브',    badge: 'DOC' },
     { to: '/quality',      label: '품질 기록',    badge: 'QUA' },
+    { to: '/export',       label: '기록 내보내기', badge: 'DOC' },
   ],
   MR: [
     HOME,
@@ -179,5 +180,6 @@ export const DEPT_NAV = {
     { to: '/management-review', label: '경영검토',   badge: 'MR' },
     { to: '/training',          label: '교육',       badge: 'TRN' },
     { to: '/tree',              label: 'Quality Tree', badge: 'TREE' },
+    { to: '/export',            label: '기록 내보내기', badge: 'DOC' },
   ],
 }
