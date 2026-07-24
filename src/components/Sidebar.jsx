@@ -25,6 +25,7 @@ import {
   Settings,
   HelpCircle,
   RefreshCw,
+  Home,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -48,6 +49,7 @@ const BADGE_ICONS = {
   TREE: GitBranch,
   PRD:  PackageSearch,
   ALL:  Building2,
+  HOME: Home,
 }
 
 // 배지 색상
