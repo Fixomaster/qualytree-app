@@ -165,7 +165,7 @@ function CustomerForm({ initial={}, customers, onSave, onCancel }) {
         <FL label="고객사명 *"><input style={inp} value={f.name} onChange={set('name')} placeholder="예) 삼성의료기기㈜" /></FL>
         <FL label="유형">
           <select style={sel} value={f.type} onChange={set('type')}>
-            {['직접','병원','대리점','수출'].map(o=><option key={o}>{o}</option>)}
+            {['직접','병원','대리점','수출','기타'].map(o=><option key={o}>{o}</option>)}
           </select>
         </FL>
         <FL label="담당자"><input style={inp} value={f.contact} onChange={set('contact')} placeholder="이름 직함" /></FL>
@@ -193,6 +193,7 @@ function CustomerForm({ initial={}, customers, onSave, onCancel }) {
 function CustomersView({ customers, setCustomers }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
 
   const save = (f) => {
     if (edit) { setCustomers(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
@@ -201,6 +202,9 @@ function CustomersView({ customers, setCustomers }) {
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setCustomers(p=>p.filter(x=>x.id!==id)) }
   const statusOpts = ['활성','휴면','블랙리스트']
+  const shown = srch
+    ? customers.filter(c=>[c.id,c.name,c.type,c.contact,c.phone,c.items].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : customers
 
   return (
     <div>
@@ -214,13 +218,20 @@ function CustomersView({ customers, setCustomers }) {
             <Plus size={13}/> 고객사 등록
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="고객사명 · 유형 · 담당자 · 연락처 · 품목 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
               {['ID','고객사명','유형','담당자','연락처','주요품목','등급','최근수주','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {customers.length===0?<EmptyRow/>:customers.map(c=>(
+              {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(c=>(
       <tr key={c.id}>
                   <TD mono color="var(--moss)">{c.id}</TD>
                   <TD><span className="font-medium">{c.name}</span></TD>
@@ -273,6 +284,10 @@ function OrdersView({ orders, setOrders, customers, openId }) {
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setOrders(p=>p.filter(x=>x.id!==id)) }
 
   const active = orders.filter(o=>!['납품완료','취소'].includes(o.status))
+  const [srch, setSrch] = useState('')
+  const shown = srch
+    ? orders.filter(o=>[o.id,o.customer,o.items,o.wo,o.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : orders
   return (
     <div>
       <SectionTitle breadcrumb="수주 관리">수주 관리</SectionTitle>
@@ -299,13 +314,20 @@ function OrdersView({ orders, setOrders, customers, openId }) {
             <Plus size={13}/> 수주 등록
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="SO번호 · 고객사 · 품목 · WO · 상태 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
               {['SO번호','고객사','품목','수량','납기일','금액(원)','WO','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {orders.length===0?<EmptyRow/>:orders.map(o=>(
+              {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(o=>(
       <tr key={o.id}>
                   <TD mono color="var(--moss)">{o.id}</TD>
                   <TD>{o.customer}</TD>
@@ -373,6 +395,7 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
 function QuotesView({ quotes, setQuotes, customers }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
   const statusOpts = ['검토중','발송완료','협의중','수주확정','견적취소']
   const init = { id:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), validUntil:'', amount:'', status:'검토중' }
 
@@ -382,6 +405,9 @@ function QuotesView({ quotes, setQuotes, customers }) {
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setQuotes(p=>p.filter(x=>x.id!==id)) }
+  const shown = srch
+    ? quotes.filter(q=>[q.id,q.customer,q.items,q.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : quotes
 
   return (
     <div>
@@ -395,13 +421,20 @@ function QuotesView({ quotes, setQuotes, customers }) {
             <Plus size={13}/> 견적 등록
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="견적번호 · 고객사 · 품목 · 상태 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
               {['견적번호','고객사','품목','작성일','유효기간','금액(원)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {quotes.length===0?<EmptyRow/>:quotes.map(q=>(
+              {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(q=>(
       <tr key={q.id}>
                   <TD mono color="var(--moss)">{q.id}</TD>
                   <TD><span className="font-medium">{q.customer}</span></TD>
@@ -483,6 +516,7 @@ function QuoteFormInner({ initial, customers, onSave, onCancel, statusOpts }) {
 function ComplaintsView({ complaints, setComplaints, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
   useEffect(() => {
     if (openId) { const item = complaints.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -496,6 +530,9 @@ function ComplaintsView({ complaints, setComplaints, openId }) {
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setComplaints(p=>p.filter(x=>x.id!==id)) }
   const open = complaints.filter(c=>c.status!=='종결')
+  const shown = srch
+    ? complaints.filter(c=>[c.id,c.customer,c.content,c.severity,c.status,c.capa].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : complaints
 
   return (
     <div>
@@ -517,8 +554,15 @@ function ComplaintsView({ complaints, setComplaints, openId }) {
             <Plus size={13}/> 불만 접수
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="불만번호 · 고객사 · 내용 · CAPA번호 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="space-y-3">
-          {complaints.length===0?<EmptyCard/>:complaints.map(c=>(
+          {shown.length===0?<EmptyCard msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(c=>(
       <div key={c.id} className="p-3 rounded-xl" style={{ border:'1px solid var(--line)', background:'var(--bg)' }}>
               <div className="flex items-start gap-3 flex-wrap justify-between mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -589,6 +633,7 @@ function ComplaintForm({ initial, onSave, onCancel, statusOpts }) {
 function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
   useEffect(() => {
     if (openId) { const item = deliveries.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -600,6 +645,9 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setDeliveries(p=>p.filter(x=>x.id!==id)) }
+  const shown = srch
+    ? deliveries.filter(d=>[d.id,d.so,d.customer,d.items,d.lot,d.udi].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : deliveries
 
   return (
     <div>
@@ -613,13 +661,20 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
             <Plus size={13}/> 납품 등록
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="납품번호 · SO · 고객사 · 품목 · LOT · UDI 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
               {['납품번호','SO','고객사','품목','납품일','LOT','UDI','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {deliveries.length===0?<EmptyRow/>:deliveries.map(d=>(
+              {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(d=>(
       <tr key={d.id}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.so}</TD>
@@ -689,6 +744,7 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
 function ProdRequestView({ prodReqs, setProdReqs, orders }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [srch, setSrch] = useState('')
   const statusOpts = ['WO대기','WO발행완료','생산중','완료','취소']
   const init = { id:'', so:'', item:'', qty:'', dueDate:'', priority:'보통', status:'WO대기' }
 
@@ -698,6 +754,9 @@ function ProdRequestView({ prodReqs, setProdReqs, orders }) {
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setProdReqs(p=>p.filter(x=>x.id!==id)) }
+  const shown = srch
+    ? prodReqs.filter(r=>[r.id,r.so,r.item,r.priority,r.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : prodReqs
 
   return (
     <div>
@@ -711,13 +770,20 @@ function ProdRequestView({ prodReqs, setProdReqs, orders }) {
             <Plus size={13}/> 생산 요청
           </button>
         </div>
+        <div className="flex items-center gap-2 mb-3">
+          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
+            placeholder="요청ID · SO · 품목 · 우선순위 · 상태 검색..."
+            value={srch} onChange={e=>setSrch(e.target.value)}/>
+          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
               {['요청ID','SO','품목','수량','납기일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
-              {prodReqs.length===0?<EmptyRow/>:prodReqs.map(r=>(
+              {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(r=>(
       <tr key={r.id}>
                   <TD mono color="var(--moss)">{r.id}</TD>
                   <TD mono muted>{r.so}</TD>
