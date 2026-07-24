@@ -153,11 +153,12 @@ function PlanView({ plans, setPlans }) {
           <PlanForm initial={edit || init} phaseOpts={phaseOpts} statusOpts={statusOpts} onSave={save} onCancel={() => { setModal(null); setEdit(null) }}/>
         </Modal>
       )}
+      </div>
     </div>
   )
 }
 function PlanForm({ initial, phaseOpts, statusOpts, onSave, onCancel }) {
-  const [f, sf] = useState(initi3eState(initial)
+  const [f, sf] = useState(initial)
   const set = k => e => sf(p => ({ ...p, [k]: e.target.value }))
   return (
     <div className="space-y-3">
@@ -535,7 +536,7 @@ function ValidationView({ validations, setValidations, plans }) {
                   <TD muted>{d.method}</TD>
                   <TD muted>{d.site}</TD>
                   <TD><Badge text={d.result || '-'} tone={d.result === '합격' ? 'green' : d.result === '불합격' ? 'red' : 'gray'}/></TD>
-                  <TD mo.o muted>{d.date}</TD>
+                  <TD mono muted>{d.date}</TD>
                   <TD>
                     <StatusSelect value={d.status} options={statusOpts}
                       onChange={v => setValidations(p => p.map(x => x.id === d.id ? { ...x, status: v } : x))}/>
