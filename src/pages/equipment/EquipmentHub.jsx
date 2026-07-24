@@ -39,9 +39,11 @@ const INIT_HIST=[
   {id:'EH-2405-006',eqp:'EQP-M-002',name:'마이크로미터',date:'24-06-01',type:'교정',desc:'정기교정 (6개월)',technician:'한국교정연구원',result:'합격 (성적서 CAL-2406-002)',next:'24-12-01'},
 ]
 
-/* ─── 측정기기 목록 ─── */
+/* ─── 측정기기 목록 ─── */  const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
+
 function InstrumentsView({instruments,setInstruments}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
+  const [srch, setSrch] = useState('')
   const statusOpts=['사용가능','교정임박','교정중','사용제한','폐기']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInstruments(p=>p.filter(x=>x.id!==id))}
   const save=f=>{if(edit){setInstruments(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setInstruments(p=>[...p,{id:nid('EQP'),...f}])};setModal(null)}
@@ -55,10 +57,17 @@ function InstrumentsView({instruments,setInstruments}){
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>측정기기 목록 (ISO 13485 §7.6) — {instruments.length}개</span>
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 기기 등록</button>
         </div>
+      <div className="flex items-center gap-2 mb-3">
+        <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
+          style={{background:"var(--bg-soft)",border:"1px solid var(--line)",color:"var(--ink)"}}
+          placeholder="기기명 · 모델 · S/N · 위치 검색..."
+          value={srch} onChange={e=>setSrch(e.target.value)}/>
+        {srch&&<button onClick={()=>setSrch("")} className="text-xs px-2 rounded" style={{color:"var(--ink-mute)"}}>✕</button>}
+      </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['기기ID','기기명','모델','S/N','범위','최근교정','차기교정','주기','위치','기관','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{instruments.length===0?<EmptyRow/>:instruments.map(i=>(
+            <tbody>{shown.length===0?<EmptyRow msg={srch?"검색 결과가 없습니다.":undefined}/>:shown.map(i=>(
       <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
                 <TD><span className="font-medium">{i.name}</span></TD>
