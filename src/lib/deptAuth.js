@@ -104,6 +104,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/quality',      label: '품질 허브',    badge: 'QUA' },
     FLOW,
+    { to: '/risk',         label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/audit',        label: '내부감사',     badge: 'AUD' },
     { to: '/improvement',  label: '개선활동',     badge: 'IMP' },
     { to: '/operations',   label: '작업지시',     badge: 'OPS' },
@@ -119,6 +120,7 @@ export const DEPT_NAV = {
   DEV: [
     HOME,
     { to: '/development',  label: '개발 허브',    badge: 'DEV' },
+    { to: '/risk',         label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/products',     label: '제품 · 공정',  badge: 'PRD' },
     { to: '/regulatory',   label: '인허가',       badge: 'RA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
@@ -180,6 +182,7 @@ export const DEPT_NAV = {
     { to: '/management-review', label: '경영검토',   badge: 'MR' },
     { to: '/training',          label: '교육',       badge: 'TRN' },
     { to: '/tree',              label: 'Quality Tree', badge: 'TREE' },
+    { to: '/risk',              label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/export',            label: '기록 내보내기', badge: 'DOC' },
   ],
 }
