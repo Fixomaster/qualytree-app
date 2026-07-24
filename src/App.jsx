@@ -23,6 +23,7 @@ import AuditHub from './pages/audit/AuditHub'
 import ImprovementHub from './pages/improvement/ImprovementHub'
 import DeptHome from './pages/home/DeptHome'
 import ProcessFlow from './pages/flow/ProcessFlow'
+import ExportHub from './pages/export/ExportHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -86,6 +87,9 @@ export default function App() {
       {/* ─── 신규 허브 (Task #30) ─── */}
       <Route path="/audit" element={<ProtectedRoute><AuditHub /></ProtectedRoute>} />
       <Route path="/improvement" element={<ProtectedRoute><ImprovementHub /></ProtectedRoute>} />
+
+      {/* ─── 기록 내보내기 (Task #32) ─── */}
+      <Route path="/export" element={<ProtectedRoute><ExportHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
