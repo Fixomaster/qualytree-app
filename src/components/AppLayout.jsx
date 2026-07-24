@@ -1,25 +1,43 @@
-import React from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+// src/components/AppLayout.jsx
+import React, { useState, useEffect } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import DeptSelectModal from './DeptSelectModal'
+import { deptAuth } from '../lib/deptAuth'
 
 export default function AppLayout({ user, title, subtitle, children }) {
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const returnTo = searchParams.get('returnTo')
+  const [showDeptModal, setShowDeptModal] = useState(false)
+
+  useEffect(() => {
+    // 부서 미선택 시 모달 표시 (첫 로그인)
+    if (!deptAuth.getDepartment()) {
+      setShowDeptModal(true)
+    }
+
+    // 다른 컴포넌트에서 모달을 열고 싶을 때 (선택적)
+    const handler = (e) => {
+      if (e.detail === null) setShowDeptModal(true)
+    }
+    window.addEventListener('qt-dept-changed', handler)
+    return () => window.removeEventListener('qt-dept-changed', handler)
+  }, [])
+
+  const handleDeptSelect = (dept) => {
+    deptAuth.setDepartment(dept)
+    setShowDeptModal(false)
+  }
+
   return (
     <div className="flex">
       <Sidebar />
       <div className="flex-1 min-w-0">
         <TopBar user={user} title={title} subtitle={subtitle} />
-        {returnTo && (
-          <div className="bg-indigo-50 border-b border-indigo-100 px-6 py-2 flex items-center justify-between">
-            <span className="text-sm text-indigo-700">저장이 완료되었다면 원래 보던 GMP 항목으로 돌아가서 충족 여부를 다시 확인할 수 있어요.</span>
-            <button onClick={() => navigate(returnTo)} className="text-sm font-medium text-indigo-600 hover:text-indigo-800 whitespace-nowrap ml-4">← GMP 항목으로 돌아가기</button>
-          </div>
-        )}
         <main>{children}</main>
       </div>
+
+      {showDeptModal && (
+        <DeptSelectModal onSelect={handleDeptSelect} />
+      )}
     </div>
   )
 }
