@@ -26,6 +26,7 @@ import ProcessFlow from './pages/flow/ProcessFlow'
 import ExportHub from './pages/export/ExportHub'
 import RiskHub from './pages/risk/RiskHub'
 import CalibrationHub from './pages/calibration/CalibrationHub'
+import SupplierHub from './pages/supplier/SupplierHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -98,6 +99,9 @@ export default function App() {
 
       {/* ─── 교정 관리 허브 (Task #34) ─── */}
       <Route path="/calibration" element={<ProtectedRoute><CalibrationHub /></ProtectedRoute>} />
+
+      {/* ─── 공급업체 관리 허브 (Task #35) ─── */}
+      <Route path="/suppliers" element={<ProtectedRoute><SupplierHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
