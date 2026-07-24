@@ -29,6 +29,7 @@ import CalibrationHub from './pages/calibration/CalibrationHub'
 import SupplierHub from './pages/supplier/SupplierHub'
 import ComplaintHub from './pages/complaint/ComplaintHub'
 import TraceabilityHub from './pages/traceability/TraceabilityHub'
+import ChangeControlHub from './pages/change/ChangeControlHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -110,6 +111,9 @@ export default function App() {
 
       {/* ─── 제품 추적성 허브 (Task #37) ─── */}
       <Route path="/traceability" element={<ProtectedRoute><TraceabilityHub /></ProtectedRoute>} />
+
+      {/* ─── 변경 관리 허브 (Task #38) ─── */}
+      <Route path="/change-control" element={<ProtectedRoute><ChangeControlHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
