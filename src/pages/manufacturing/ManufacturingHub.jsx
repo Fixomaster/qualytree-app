@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Cog, ClipboardList, AlertTriangle, ArrowLeft, Plus, X, Activity, FileText, Wrench } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { syncOrderStatusFromWo } from '../../lib/woSync'
 
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{return JSON.parse(localStorage.getItem(key))??init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
@@ -54,7 +55,12 @@ function WoView({wo,setWo,openId}){
   }, [openId])
   const statusOpts=['대기','진행중','검사중','완료','취소']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setWo(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setWo(p=>[...p,{id:nid('WO'),...f}])};setModal(null)}
+  const save=f=>{
+    const id = edit ? edit.id : nid('WO')
+    if(edit){setWo(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setWo(p=>[...p,{id,...f}])}
+    syncOrderStatusFromWo(id, f.status)
+    setModal(null)
+  }
   return(
     <div>
       <SectionTitle breadcrumb="작업지시 (WO)">작업지시 관리</SectionTitle>
@@ -74,7 +80,7 @@ function WoView({wo,setWo,openId}){
                   {w.so&&<span className="font-mono text-[10px]" style={{color:'var(--ink-faint)'}}>{w.so}</span>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>setWo(p=>p.map(x=>x.id===w.id?{...x,status:v}:x))}/>
+                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>p.map(x=>x.id===w.id?{...x,status:v}:x));syncOrderStatusFromWo(w.id,v)}}/>
                   <ActBtn label="수정" onClick={()=>{setEdit(w);setModal('form')}}/>
                   <ActBtn label="삭제" color="red" onClick={()=>del(w.id)}/>
                 </div>
@@ -95,7 +101,11 @@ function WoView({wo,setWo,openId}){
               {w.status==='진행중'&&(
                 <div className="flex gap-1 mt-2">
                   {[10,25,50,75,90,100].map(p=>(
-                    <button key={p} onClick={()=>setWo(prev=>prev.map(x=>x.id===w.id?{...x,progress:String(p),status:p===100?'완료':x.status}:x))}
+                    <button key={p} onClick={()=>{
+                      const newStatus = p===100?'완료':w.status
+                      setWo(prev=>prev.map(x=>x.id===w.id?{...x,progress:String(p),status:newStatus}:x))
+                      if (newStatus !== w.status) syncOrderStatusFromWo(w.id, newStatus)
+                    }}
                       className="text-[10px] px-2 py-0.5 rounded font-mono transition"
                       style={{background:Number(w.progress)===p?'var(--moss)':'var(--bg-soft)',color:Number(w.progress)===p?'var(--bg)':'var(--ink-mute)'}}>
                       {p}%
