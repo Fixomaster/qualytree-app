@@ -97,6 +97,7 @@ export const DEPT_NAV = {
   PUR: [
     HOME,
     { to: '/purchase',   label: '구매 허브',      badge: 'PUR' },
+    { to: '/suppliers',  label: '공급업체 관리',  badge: 'PUR' },
     { to: '/quality',    label: '수입검사 · IQC', badge: 'QUA' },
     { to: '/documents',  label: '품질 문서',      badge: 'DOC' },
   ],
@@ -185,6 +186,7 @@ export const DEPT_NAV = {
     { to: '/tree',              label: 'Quality Tree', badge: 'TREE' },
     { to: '/risk',              label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/calibration',       label: '교정 관리',      badge: 'EQP' },
+    { to: '/suppliers',         label: '공급업체 관리',  badge: 'PUR' },
     { to: '/export',            label: '기록 내보내기',  badge: 'DOC' },
   ],
 }
