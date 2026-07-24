@@ -9,6 +9,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
+import { fulfillOrderLineItems } from '../../lib/orderFulfillment'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -276,6 +277,7 @@ function CustomersView({ customers, setCustomers }) {
 function OrdersView({ orders, setOrders, customers, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
+  const [fulfillMsg, setFulfillMsg] = useState(null)
   useEffect(() => {
     if (openId) { const item = orders.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -285,7 +287,22 @@ function OrdersView({ orders, setOrders, customers, openId }) {
 
   const save = (f) => {
     if (edit) { setOrders(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setOrders(p=>[...p, { ...init, id:nid('SO'), ...f }]) }
+    else {
+      let newOrder = { ...init, id: nid('SO'), ...f }
+      if (!newOrder.wo) {
+        const result = fulfillOrderLineItems(newOrder)
+        if (result.createdWos.length > 0) {
+          newOrder = { ...newOrder, wo: result.firstWoId, status: WO_STATUS_TO_ORDER_STATUS['대기'] }
+        } else if (result.shipped.length > 0) {
+          newOrder = { ...newOrder, status: '납품대기' }
+        }
+        const parts = []
+        if (result.shipped.length) parts.push(`완제품재고에서 ${result.shipped.map(s=>`${s.name} ${s.qty}개`).join(', ')} 자동 출고`)
+        if (result.createdWos.length) parts.push(`재고 부족으로 ${result.createdWos.map(w=>w.id).join(', ')} 작업지시 자동 발행`)
+        if (parts.length) setFulfillMsg(parts.join(' · '))
+      }
+      setOrders(p=>[...p, newOrder])
+    }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setOrders(p=>p.filter(x=>x.id!==id)) }
@@ -298,6 +315,15 @@ function OrdersView({ orders, setOrders, customers, openId }) {
   return (
     <div>
       <SectionTitle breadcrumb="수주 관리">수주 관리</SectionTitle>
+      {fulfillMsg && (
+        <div className="mb-4 p-3 rounded-lg flex items-start justify-between gap-2" style={{ background:'var(--sky-soft)', border:'1px solid var(--sky)' }}>
+          <div className="flex items-start gap-2">
+            <CheckCircle size={14} style={{ color:'var(--sky)', marginTop:2, flexShrink:0 }}/>
+            <div className="text-[12.5px]" style={{ color:'var(--sky)' }}>{fulfillMsg}</div>
+          </div>
+          <button onClick={()=>setFulfillMsg(null)} style={{ color:'var(--sky)' }}><X size={14}/></button>
+        </div>
+      )}
       <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="rounded-xl p-3" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
           <div className="text-[12px]" style={{color:'var(--ink-mute)'}}>진행중</div>
