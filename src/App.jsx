@@ -21,6 +21,7 @@ import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
 import AuditHub from './pages/audit/AuditHub'
 import ImprovementHub from './pages/improvement/ImprovementHub'
+import DeptHome from './pages/home/DeptHome'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -74,6 +75,9 @@ export default function App() {
       <Route path="/regulatory" element={<ProtectedRoute><RegulatoryHub /></ProtectedRoute>} />
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/preview" element={<PreviewHub />} />
+
+      {/* ─── 부서별 홈 대시보드 (Task #28) ─── */}
+      <Route path="/home" element={<ProtectedRoute><DeptHome /></ProtectedRoute>} />
 
       {/* ─── 신규 허브 (Task #30) ─── */}
       <Route path="/audit" element={<ProtectedRoute><AuditHub /></ProtectedRoute>} />
