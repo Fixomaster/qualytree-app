@@ -113,6 +113,7 @@ export const DEPT_NAV = {
   EQP: [
     HOME,
     { to: '/equipment',    label: '설비 허브',    badge: 'EQP' },
+    { to: '/calibration',  label: '교정 관리',    badge: 'EQP' },
     { to: '/operations',   label: '작업지시',     badge: 'OPS' },
     { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
@@ -183,6 +184,7 @@ export const DEPT_NAV = {
     { to: '/training',          label: '교육',       badge: 'TRN' },
     { to: '/tree',              label: 'Quality Tree', badge: 'TREE' },
     { to: '/risk',              label: '위험관리 (FMEA)', badge: 'RA' },
-    { to: '/export',            label: '기록 내보내기', badge: 'DOC' },
+    { to: '/calibration',       label: '교정 관리',      badge: 'EQP' },
+    { to: '/export',            label: '기록 내보내기',  badge: 'DOC' },
   ],
 }
