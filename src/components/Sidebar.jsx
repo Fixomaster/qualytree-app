@@ -46,7 +46,7 @@ const DOMAINS = [
       { to: '/product-id',         label: '제품식별·상태' },
       { to: '/preservation',       label: '제품보존·취급' },
       { to: '/cleanliness',        label: '청결·오염 관리' },
-      { to: '/sterile',            label: '멸균 의료기기' },
+      { to: '/sterile',            label: '멸�� 의료기기' },
       { to: '/service',            label: '설치·서비스' },
     ],
   },
@@ -91,7 +91,7 @@ const DOMAINS = [
   {
     label: '교육·인력', icon: GraduationCap,
     items: [
-      { to: '/competency',        label: '역량관리' },
+      { to: '/competency',         label: '역량관리' },
       { to: '/org-responsibility', label: '조직·책임' },
     ],
   },
@@ -111,7 +111,6 @@ export default function Sidebar() {
   const cur = auth.current()
   const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
 
-  // 권한 기반 도메인 필터링
   const allowed = useMemo(() => menuPermissions.getAllowedDomains(userId), [userId])
   const visibleDomains = DOMAINS.filter(d => allowed.includes(d.label))
 
@@ -144,7 +143,6 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 py-3 overflow-y-auto">
-        {/* 홈 */}
         <NavLink
           to="/home"
           className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
@@ -176,11 +174,7 @@ export default function Sidebar() {
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition"
                 style={{
                   color: isActive ? 'var(--moss)' : 'var(--ink)',
-                  background: isOpen
-                    ? 'var(--bg-soft)'
-                    : isActive
-                    ? 'var(--leaf-soft)'
-                    : 'transparent',
+                  background: isOpen ? 'var(--bg-soft)' : isActive ? 'var(--leaf-soft)' : 'transparent',
                   fontWeight: 500,
                   textAlign: 'left',
                   border: 'none',
@@ -224,7 +218,6 @@ export default function Sidebar() {
           )
         })}
 
-        {/* Operator 메뉴 */}
         {auth.identityKind() === 'operator' && (
           <>
             <div
@@ -258,7 +251,6 @@ export default function Sidebar() {
           </>
         )}
 
-        {/* System */}
         <div
           className="px-3 mt-4 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase"
           style={{ color: 'var(--ink-faint)' }}
@@ -275,7 +267,6 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      {/* 온보딩 CTA */}
       <div className="p-3 border-t" style={{ borderColor: 'var(--line)' }}>
         <NavLink
           to="/onboarding"

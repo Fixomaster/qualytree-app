@@ -1,7 +1,4 @@
 // src/pages/manager/MemberAdmin.jsx
-// 매니저(관리자) 계정 관리 — 작업자(operator)·검사관(inspector) 생성·승인·관리
-// 작업자/검사관은 이메일 없이 "사업자번호 + 이름 + 비밀번호"로 로그인한다.
-// 백엔드 RPC: manager_context / manager_create_member(p_name,p_role,p_password,p_expires_at) / manager_update_member
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy, LayoutGrid } from 'lucide-react'
@@ -25,9 +22,7 @@ export default function MemberAdmin() {
   const [busy, setBusy] = useState(false)
   const [created, setCreated] = useState(null)
   const [rowMsg, setRowMsg] = useState(null)
-
-  // 메뉴 권한 패널
-  const [expandedPerms, setExpandedPerms] = useState(null) // member id
+  const [expandedPerms, setExpandedPerms] = useState(null)
   const [localPerms, setLocalPerms] = useState({})
 
   const getPerms = (id) => {
@@ -120,7 +115,6 @@ export default function MemberAdmin() {
 
         {err && <div className="mb-3 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">{err}</div>}
 
-        {/* 생성 폼 */}
         <form onSubmit={create} className="bg-white border border-slate-200 rounded-xl p-4 mb-4 mt-2">
           <div className="text-[15px] font-semibold text-slate-900 mb-3 flex items-center gap-1.5"><UserPlus size={16} /> 계정 발급</div>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -157,16 +151,15 @@ export default function MemberAdmin() {
 
           {created && (
             <div className="mt-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-900">
-              <div className="font-semibold mb-1">✓ {ROLE_LABEL[created.role === 'operator' ? 1 : 2]} 계정이 생성되었습니다 {created.status === 'pending' && '(승인대기)'}</div>
+              <div className="font-semibold mb-1">✓ 계정이 생성되었습니다 {created.status === 'pending' && '(승인대기)'}</div>
               <div className="mt-1 p-2 rounded bg-white border border-emerald-200 leading-relaxed">
-                <div className="font-medium text-slate-700 mb-0.5">본인에게 아래 로그인 정보를 전달하세요</div>
                 <div>· 사업자번호: <code className="font-bold">{created.business_number || bizNo}</code></div>
                 <div>· 이름: <code className="font-bold">{created.name}</code></div>
                 <div className="flex items-center gap-2">· 비밀번호: <code className="font-bold">{created.password}</code>
                   <button type="button" onClick={() => copy(created.password)} className="text-emerald-700"><Copy size={13} /></button>
                 </div>
               </div>
-              <div className="text-emerald-700 mt-1">{created.status === 'pending' && '아래 목록에서 "승인"해야 로그인이 활성화됩니다.'}</div>
+              {created.status === 'pending' && <div className="text-emerald-700 mt-1">아래 목록에서 "승인"해야 로그인이 활성화됩니다.</div>}
             </div>
           )}
           {rowMsg && (
@@ -175,12 +168,10 @@ export default function MemberAdmin() {
               <div className="flex items-center gap-2">새 임시 비밀번호: <code className="font-bold">{rowMsg.temp_password}</code>
                 <button type="button" onClick={() => copy(rowMsg.temp_password)} className="text-sky-700"><Copy size={13} /></button>
               </div>
-              <div className="text-sky-700 mt-0.5">본인에게 전달하세요 (사업자번호 + 이름 + 이 비밀번호로 로그인).</div>
             </div>
           )}
         </form>
 
-        {/* 승인 대기 */}
         {pending.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
             <div className="text-[14px] font-semibold text-amber-800 mb-2">승인 대기 {pending.length}건</div>
@@ -196,7 +187,6 @@ export default function MemberAdmin() {
           </div>
         )}
 
-        {/* 전체 목록 */}
         <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
           <table className="w-full text-[13px]">
             <thead className="bg-slate-50 text-slate-500">
@@ -209,17 +199,15 @@ export default function MemberAdmin() {
             </thead>
             <tbody>
               {members.map((m) => (
-                <>
-                  <tr key={m.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2.5">
-                      <div className="text-slate-900 font-medium">{m.name}</div>
-                    </td>
+                <React.Fragment key={m.id}>
+                  <tr className="border-t border-slate-100">
+                    <td className="px-4 py-2.5 text-slate-900 font-medium">{m.name}</td>
                     <td className="px-3 py-2.5 text-slate-700">
                       {ROLE_LABEL[m.permission_level]}{m.is_admin && ' (관리자)'}
                       {m.expires_at && <div className="text-[11px] text-slate-400">~{String(m.expires_at).slice(0, 10)}</div>}
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS_COLOR[m.status] || 'bg-slate-100 text-slate-500'}`}>
+                      <span className={'px-2 py-0.5 rounded-full text-[11px] ' + (STATUS_COLOR[m.status] || 'bg-slate-100 text-slate-500')}>
                         {STATUS_LABEL[m.status] || m.status}
                       </span>
                     </td>
@@ -245,11 +233,7 @@ export default function MemberAdmin() {
                           <button
                             title="메뉴 권한"
                             onClick={() => setExpandedPerms(expandedPerms === m.id ? null : m.id)}
-                            className={`p-1.5 rounded border ${
-                              expandedPerms === m.id
-                                ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
-                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                            }`}
+                            className={'p-1.5 rounded border ' + (expandedPerms === m.id ? 'border-emerald-400 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-500 hover:bg-slate-50')}
                           >
                             <LayoutGrid size={14} />
                           </button>
@@ -258,10 +242,9 @@ export default function MemberAdmin() {
                     </td>
                   </tr>
                   {expandedPerms === m.id && (
-                    <tr key={m.id + '_perms'} className="bg-slate-50 border-t border-slate-100">
+                    <tr className="bg-slate-50 border-t border-slate-100">
                       <td colSpan={4} className="px-6 py-4">
-                        <div className="text-[12px] font-semibold text-slate-600 mb-2.5 flex items-center gap-1.5">
-                          <LayoutGrid size={13} className="text-emerald-600" />
+                        <div className="text-[12px] font-semibold text-slate-600 mb-2.5">
                           메뉴 노출 권한 — {m.name}
                         </div>
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -278,10 +261,8 @@ export default function MemberAdmin() {
                           ))}
                         </div>
                         <div className="mt-2 flex items-center gap-3">
-                          <button
-                            onClick={() => resetPerms(m.id)}
-                            className="text-[11px] text-slate-400 hover:text-slate-700 underline"
-                          >
+                          <button onClick={() => resetPerms(m.id)}
+                            className="text-[11px] text-slate-400 hover:text-slate-700 underline">
                             전체 허용으로 초기화
                           </button>
                           <span className="text-[11px] text-slate-300">변경 즉시 저장됩니다</span>
@@ -289,7 +270,7 @@ export default function MemberAdmin() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
