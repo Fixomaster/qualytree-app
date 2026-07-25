@@ -4,10 +4,9 @@
 // 백엔드 RPC: manager_context / manager_create_member(p_name,p_role,p_password,p_expires_at) / manager_update_member
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy } from 'lucide-react'
+import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy, LayoutGrid } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import AppLayout from '../../components/AppLayout'
-import { auth } from '../../lib/auth'
+import { menuPermissions, DOMAIN_KEYS } from '../../lib/menuPermissions'
 
 const ROLE_LABEL = { 1: '작업자', 2: '검사관', 3: '매니저' }
 const STATUS_LABEL = { active: '활성', pending: '승인대기', suspended: '정지', removed: '삭제됨' }
@@ -24,8 +23,26 @@ export default function MemberAdmin() {
   const [ctx, setCtx] = useState(null)
   const [form, setForm] = useState({ name: '', role: 'operator', password: '', expires_at: '' })
   const [busy, setBusy] = useState(false)
-  const [created, setCreated] = useState(null) // {name, role, status, business_number, password}
-  const [rowMsg, setRowMsg] = useState(null) // {email?, temp_password}
+  const [created, setCreated] = useState(null)
+  const [rowMsg, setRowMsg] = useState(null)
+
+  // 메뉴 권한 패널
+  const [expandedPerms, setExpandedPerms] = useState(null) // member id
+  const [localPerms, setLocalPerms] = useState({})
+
+  const getPerms = (id) => {
+    if (localPerms[id]) return localPerms[id]
+    const saved = menuPermissions.getForUser(id)
+    return saved || Object.fromEntries(DOMAIN_KEYS.map(k => [k, true]))
+  }
+  const togglePerm = (id, key, val) => {
+    menuPermissions.toggle(id, key, val)
+    setLocalPerms(p => ({ ...p, [id]: { ...getPerms(id), [key]: val } }))
+  }
+  const resetPerms = (id) => {
+    menuPermissions.reset(id)
+    setLocalPerms(p => { const n = { ...p }; delete n[id]; return n })
+  }
 
   const load = async () => {
     setErr('')
@@ -73,7 +90,7 @@ export default function MemberAdmin() {
       <div className="min-h-screen grid place-items-center px-6">
         <div className="text-center">
           <p className="text-slate-700 mb-3">{err || '매니저 권한이 필요합니다.'}</p>
-          <button onClick={() => nav('/monitoring')} className="text-emerald-700 text-sm">← 모니터링으로</button>
+          <button onClick={() => nav('/home')} className="text-emerald-700 text-sm">← 홈으로</button>
         </div>
       </div>
     )
@@ -83,14 +100,11 @@ export default function MemberAdmin() {
   const members = Array.isArray(ctx.members) ? ctx.members : []
   const pending = members.filter((m) => m.status === 'pending')
 
-  const user = auth.current()
-
   return (
-    <AppLayout user={user} title="사용자 관리" subtitle="작업자·검사관 계정 발급 및 관리">
-    <div className="px-6 py-6">
+    <div className="min-h-screen bg-slate-50 px-6 py-6">
       <div className="max-w-4xl mx-auto">
-        <button onClick={() => nav('/admin')} className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800 mb-3">
-          <ArrowLeft size={15} /> 관리자 화면으로
+        <button onClick={() => nav('/home')} className="flex items-center gap-1.5 text-[13px] text-slate-500 hover:text-slate-800 mb-3">
+          <ArrowLeft size={15} /> 홈으로
         </button>
 
         <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
@@ -152,7 +166,7 @@ export default function MemberAdmin() {
                   <button type="button" onClick={() => copy(created.password)} className="text-emerald-700"><Copy size={13} /></button>
                 </div>
               </div>
-              <div className="text-emerald-700 mt-1">{created.status === 'pending' && '아래 목록에서 “승인”해야 로그인이 활성화됩니다.'}</div>
+              <div className="text-emerald-700 mt-1">{created.status === 'pending' && '아래 목록에서 "승인"해야 로그인이 활성화됩니다.'}</div>
             </div>
           )}
           {rowMsg && (
@@ -195,30 +209,92 @@ export default function MemberAdmin() {
             </thead>
             <tbody>
               {members.map((m) => (
-                <tr key={m.id} className="border-t border-slate-100">
-                  <td className="px-4 py-2.5">
-                    <div className="text-slate-900 font-medium">{m.name}</div>
-                  </td>
-                  <td className="px-3 py-2.5 text-slate-700">{ROLE_LABEL[m.permission_level]}{m.is_admin && ' (관리자)'}{m.expires_at && <div className="text-[11px] text-slate-400">~{String(m.expires_at).slice(0, 10)}</div>}</td>
-                  <td className="px-3 py-2.5"><span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS_COLOR[m.status] || 'bg-slate-100 text-slate-500'}`}>{STATUS_LABEL[m.status] || m.status}</span></td>
-                  <td className="px-4 py-2.5 text-right">
-                    {m.is_admin ? <span className="text-slate-300">—</span> : (
-                      <span className="inline-flex gap-1.5">
-                        {m.status === 'pending' && <button title="승인" onClick={() => act(m.id, 'approve')} disabled={busy} className="p-1.5 rounded border border-slate-200 text-emerald-600 hover:bg-emerald-50"><Check size={14} /></button>}
-                        {m.status === 'active' && <button title="정지" onClick={() => act(m.id, 'suspend')} disabled={busy} className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-50"><Pause size={14} /></button>}
-                        {m.status === 'suspended' && <button title="재활성" onClick={() => act(m.id, 'reactivate')} disabled={busy} className="p-1.5 rounded border border-slate-200 text-emerald-600 hover:bg-emerald-50"><Play size={14} /></button>}
-                        <button title="비밀번호 재발급" onClick={() => act(m.id, 'reset_password')} disabled={busy} className="p-1.5 rounded border border-slate-200 text-sky-600 hover:bg-sky-50"><RotateCcw size={14} /></button>
-                        <button title="삭제" onClick={() => act(m.id, 'remove')} disabled={busy} className="p-1.5 rounded border border-slate-200 text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
+                <>
+                  <tr key={m.id} className="border-t border-slate-100">
+                    <td className="px-4 py-2.5">
+                      <div className="text-slate-900 font-medium">{m.name}</div>
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-700">
+                      {ROLE_LABEL[m.permission_level]}{m.is_admin && ' (관리자)'}
+                      {m.expires_at && <div className="text-[11px] text-slate-400">~{String(m.expires_at).slice(0, 10)}</div>}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] ${STATUS_COLOR[m.status] || 'bg-slate-100 text-slate-500'}`}>
+                        {STATUS_LABEL[m.status] || m.status}
                       </span>
-                    )}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {m.is_admin ? <span className="text-slate-300">—</span> : (
+                        <span className="inline-flex gap-1.5">
+                          {m.status === 'pending' && (
+                            <button title="승인" onClick={() => act(m.id, 'approve')} disabled={busy}
+                              className="p-1.5 rounded border border-slate-200 text-emerald-600 hover:bg-emerald-50"><Check size={14} /></button>
+                          )}
+                          {m.status === 'active' && (
+                            <button title="정지" onClick={() => act(m.id, 'suspend')} disabled={busy}
+                              className="p-1.5 rounded border border-slate-200 text-slate-500 hover:bg-slate-50"><Pause size={14} /></button>
+                          )}
+                          {m.status === 'suspended' && (
+                            <button title="재활성" onClick={() => act(m.id, 'reactivate')} disabled={busy}
+                              className="p-1.5 rounded border border-slate-200 text-emerald-600 hover:bg-emerald-50"><Play size={14} /></button>
+                          )}
+                          <button title="비밀번호 재발급" onClick={() => act(m.id, 'reset_password')} disabled={busy}
+                            className="p-1.5 rounded border border-slate-200 text-sky-600 hover:bg-sky-50"><RotateCcw size={14} /></button>
+                          <button title="삭제" onClick={() => act(m.id, 'remove')} disabled={busy}
+                            className="p-1.5 rounded border border-slate-200 text-rose-600 hover:bg-rose-50"><Trash2 size={14} /></button>
+                          <button
+                            title="메뉴 권한"
+                            onClick={() => setExpandedPerms(expandedPerms === m.id ? null : m.id)}
+                            className={`p-1.5 rounded border ${
+                              expandedPerms === m.id
+                                ? 'border-emerald-400 text-emerald-600 bg-emerald-50'
+                                : 'border-slate-200 text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            <LayoutGrid size={14} />
+                          </button>
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                  {expandedPerms === m.id && (
+                    <tr key={m.id + '_perms'} className="bg-slate-50 border-t border-slate-100">
+                      <td colSpan={4} className="px-6 py-4">
+                        <div className="text-[12px] font-semibold text-slate-600 mb-2.5 flex items-center gap-1.5">
+                          <LayoutGrid size={13} className="text-emerald-600" />
+                          메뉴 노출 권한 — {m.name}
+                        </div>
+                        <div className="flex flex-wrap gap-x-5 gap-y-2">
+                          {DOMAIN_KEYS.map(k => (
+                            <label key={k} className="flex items-center gap-1.5 text-[12px] text-slate-700 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={getPerms(m.id)[k] !== false}
+                                onChange={e => togglePerm(m.id, k, e.target.checked)}
+                                className="accent-emerald-600 w-3.5 h-3.5 cursor-pointer"
+                              />
+                              {k}
+                            </label>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center gap-3">
+                          <button
+                            onClick={() => resetPerms(m.id)}
+                            className="text-[11px] text-slate-400 hover:text-slate-700 underline"
+                          >
+                            전체 허용으로 초기화
+                          </button>
+                          <span className="text-[11px] text-slate-300">변경 즉시 저장됩니다</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </>
               ))}
             </tbody>
           </table>
         </div>
       </div>
     </div>
-    </AppLayout>
   )
 }

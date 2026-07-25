@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Home,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
+import { menuPermissions } from '../lib/menuPermissions'
 
 const DOMAINS = [
   {
@@ -38,75 +39,81 @@ const DOMAINS = [
   {
     label: '생산·제조', icon: Factory,
     items: [
-      { to: '/manufacturing',     label: '생산 허브' },
-      { to: '/production-control',label: '생산제어계획' },
-      { to: '/process-validation',label: '공정유효성' },
-      { to: '/traceability',      label: '제품추적성' },
-      { to: '/product-id',        label: '제품식별·상태' },
-      { to: '/preservation',      label: '제품보존·취급' },
-      { to: '/cleanliness',       label: '청결·오염 관리' },
-      { to: '/sterile',           label: '멸균 의료기기' },
-      { to: '/service',           label: '설치·서비스' },
+      { to: '/manufacturing',      label: '생산 허브' },
+      { to: '/production-control', label: '생산제어계획' },
+      { to: '/process-validation', label: '공정유효성' },
+      { to: '/traceability',       label: '제품추적성' },
+      { to: '/product-id',         label: '제품식별·상태' },
+      { to: '/preservation',       label: '제품보존·취급' },
+      { to: '/cleanliness',        label: '청결·오염 관리' },
+      { to: '/sterile',            label: '멸균 의료기기' },
+      { to: '/service',            label: '설치·서비스' },
     ],
   },
   {
     label: '품질·검사', icon: ShieldCheck,
     items: [
-      { to: '/inspection',  label: '공정·최종 검사' },
-      { to: '/quality',     label: 'NCR·품질' },
-      { to: '/improvement', label: 'CAPA·개선' },
-      { to: '/risk',        label: '위험관리' },
+      { to: '/inspection',     label: '공정·최종 검사' },
+      { to: '/quality',        label: 'NCR·품질' },
+      { to: '/improvement',    label: 'CAPA·개선' },
+      { to: '/risk',           label: '위험관리' },
       { to: '/change-control', label: '변경관리' },
-      { to: '/audit',       label: '내부감사' },
-      { to: '/workenv',     label: '작업환경관리' },
-      { to: '/measurement', label: '측정·분석·개선' },
-      { to: '/kpi-dashboard', label: '품질 KPI' },
+      { to: '/audit',          label: '내부감사' },
+      { to: '/workenv',        label: '작업환경관리' },
+      { to: '/measurement',    label: '측정·분석·개선' },
+      { to: '/kpi-dashboard',  label: '품질 KPI' },
     ],
   },
   {
     label: '설계·개발', icon: Code2,
     items: [
-      { to: '/development',   label: '개발 허브' },
-      { to: '/design-history',label: '설계이력파일' },
+      { to: '/development',    label: '개발 허브' },
+      { to: '/design-history', label: '설계이력파일' },
     ],
   },
   {
     label: '문서·규정', icon: FileText,
     items: [
-      { to: '/document-control',   label: '문서관리' },
-      { to: '/quality-manual',     label: '품질매뉴얼' },
-      { to: '/medical-device-file',label: '의료기기파일' },
-      { to: '/regulatory',         label: '인허가' },
+      { to: '/document-control',    label: '문서관리' },
+      { to: '/quality-manual',      label: '품질매뉴얼' },
+      { to: '/medical-device-file', label: '의료기기파일' },
+      { to: '/regulatory',          label: '인허가' },
     ],
   },
   {
     label: '설비·교정', icon: Wrench,
     items: [
-      { to: '/equipment',     label: '설비 허브' },
-      { to: '/calibration',   label: '교정관리' },
-      { to: '/infrastructure',label: '인프라관리' },
+      { to: '/equipment',      label: '설비 허브' },
+      { to: '/calibration',    label: '교정관리' },
+      { to: '/infrastructure', label: '인프라관리' },
     ],
   },
   {
     label: '교육·인력', icon: GraduationCap,
     items: [
-      { to: '/competency',       label: '역량관리' },
-      { to: '/org-responsibility',label: '조직·책임' },
+      { to: '/competency',        label: '역량관리' },
+      { to: '/org-responsibility', label: '조직·책임' },
     ],
   },
   {
     label: '경영·전략', icon: BarChart3,
     items: [
-      { to: '/management-review',      label: '경영검토' },
-      { to: '/quality-objectives',     label: '품질목표' },
-      { to: '/quality-plan',           label: '품질계획' },
-      { to: '/management-commitment',  label: '경영의지·방침' },
+      { to: '/management-review',     label: '경영검토' },
+      { to: '/quality-objectives',    label: '품질목표' },
+      { to: '/quality-plan',          label: '품질계획' },
+      { to: '/management-commitment', label: '경영의지·방침' },
     ],
   },
 ]
 
 export default function Sidebar() {
   const loc = useLocation()
+  const cur = auth.current()
+  const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
+
+  // 권한 기반 도메인 필터링
+  const allowed = useMemo(() => menuPermissions.getAllowedDomains(userId), [userId])
+  const visibleDomains = DOMAINS.filter(d => allowed.includes(d.label))
 
   const [open, setOpen] = useState(() => {
     const s = {}
@@ -123,7 +130,6 @@ export default function Sidebar() {
       className="hidden md:flex flex-col shrink-0 h-screen sticky top-0"
       style={{ width: 248, background: 'var(--bg-card)', borderRight: '1px solid var(--line)' }}
     >
-      {/* 헤더 */}
       <div
         className="px-5 py-5 flex items-center justify-between"
         style={{ borderBottom: '1px solid var(--line)' }}
@@ -159,8 +165,8 @@ export default function Sidebar() {
           Workspace
         </div>
 
-        {/* 도메인 그룹 */}
-        {DOMAINS.map((domain, i) => {
+        {visibleDomains.map((domain) => {
+          const i = DOMAINS.indexOf(domain)
           const isActive = domain.items.some(item => loc.pathname.startsWith(item.to))
           const isOpen = open[i]
           return (
@@ -170,7 +176,11 @@ export default function Sidebar() {
                 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition"
                 style={{
                   color: isActive ? 'var(--moss)' : 'var(--ink)',
-                  background: isOpen ? 'var(--bg-soft)' : isActive ? 'var(--leaf-soft)' : 'transparent',
+                  background: isOpen
+                    ? 'var(--bg-soft)'
+                    : isActive
+                    ? 'var(--leaf-soft)'
+                    : 'transparent',
                   fontWeight: 500,
                   textAlign: 'left',
                   border: 'none',
@@ -214,7 +224,7 @@ export default function Sidebar() {
           )
         })}
 
-        {/* Operator */}
+        {/* Operator 메뉴 */}
         {auth.identityKind() === 'operator' && (
           <>
             <div
