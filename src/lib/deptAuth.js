@@ -170,6 +170,7 @@ export const DEPT_NAV = {
     { to: '/doc-control',          label: '문서 관리 대장',    badge: 'DOC' },
     { to: '/quality-objectives',  label: '품질 목표 관리',    badge: 'MR' },
     { to: '/quality-plan',        label: '품질 계획 (QP)',    badge: 'MR' },
+    { to: '/org-responsibility',  label: '조직·책임 관리',    badge: 'MR' },
     { to: '/infrastructure',      label: '인프라 관리',       badge: 'MR' },
     { to: '/competency',          label: '역량 관리',         badge: 'MR' },
     { to: '/quality',             label: '품질 현황',         badge: 'QUA' },
@@ -238,6 +239,7 @@ export const DEPT_NAV = {
     { to: '/doc-control',          label: '문서 관리 대장',       badge: 'DOC' },
     { to: '/quality-objectives',   label: '품질 목표 관리',       badge: 'MR' },
     { to: '/product-id',           label: '제품 식별·상태',       badge: 'MFG' },
+    { to: '/org-responsibility',   label: '조직·책임 관리',       badge: 'MR' },
     { to: '/export',               label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
