@@ -149,13 +149,14 @@ export const DEPT_NAV = {
   ],
   MR: [
     HOME,
-    { to: '/dashboard',           label: '경영 현황',       badge: 'MR' },
+    { to: '/dashboard',           label: '경영 현황',         badge: 'MR' },
     FLOW,
-    { to: '/management-review',   label: '경영검토',        badge: 'MR' },
+    { to: '/management-review',   label: '경영검토',          badge: 'MR' },
     { to: '/quality-dashboard',   label: '품질 KPI 대시보드', badge: 'QUA' },
-    { to: '/quality',             label: '품질 현황',       badge: 'QUA' },
-    { to: '/audit',               label: '내부감사',        badge: 'AUD' },
-    { to: '/improvement',         label: '개선활동',        badge: 'IMP' },
+    { to: '/competency',          label: '역량 관리',         badge: 'MR' },
+    { to: '/quality',             label: '품질 현황',         badge: 'QUA' },
+    { to: '/audit',               label: '내부감사',          badge: 'AUD' },
+    { to: '/improvement',         label: '개선활동',          badge: 'IMP' },
   ],
   TRN: [
     HOME,
@@ -210,6 +211,7 @@ export const DEPT_NAV = {
     { to: '/validation',         label: '공정 밸리데이션',  badge: 'DEV' },
     { to: '/quality-dashboard',  label: '품질 KPI 대시보드',    badge: 'QUA' },
     { to: '/dhf',                label: '설계 이력 파일 (DHF)', badge: 'DEV' },
+    { to: '/competency',         label: '역량 관리',            badge: 'MR' },
     { to: '/export',             label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
