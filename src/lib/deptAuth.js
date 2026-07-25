@@ -158,8 +158,9 @@ export const DEPT_NAV = {
   ],
   DOC: [
     HOME,
-    { to: '/documents',    label: '문서 허브',     badge: 'DOC' },
-    { to: '/doc-control',  label: '문서 관리 대장', badge: 'DOC' },
+    { to: '/documents',       label: '문서 허브',     badge: 'DOC' },
+    { to: '/doc-control',     label: '문서 관리 대장', badge: 'DOC' },
+    { to: '/quality-manual',  label: '품질 매뉴얼',    badge: 'DOC' },
     { to: '/quality',      label: '품질 기록',     badge: 'QUA' },
     { to: '/export',       label: '기록 내보내기', badge: 'DOC' },
   ],
@@ -173,6 +174,7 @@ export const DEPT_NAV = {
     { to: '/quality-objectives',  label: '품질 목표 관리',    badge: 'MR' },
     { to: '/quality-plan',        label: '품질 계획 (QP)',    badge: 'MR' },
     { to: '/org-responsibility',  label: '조직·책임 관리',    badge: 'MR' },
+    { to: '/quality-manual',      label: '품질 매뉴얼',       badge: 'MR' },
     { to: '/infrastructure',      label: '인프라 관리',       badge: 'MR' },
     { to: '/competency',          label: '역량 관리',         badge: 'MR' },
     { to: '/quality',             label: '품질 현황',         badge: 'QUA' },
@@ -243,6 +245,7 @@ export const DEPT_NAV = {
     { to: '/product-id',           label: '제품 식별·상태',       badge: 'MFG' },
     { to: '/org-responsibility',     label: '조직·책임 관리',       badge: 'MR' },
     { to: '/purchase-verification',  label: '구매 정보·수입검사',   badge: 'PUR' },
+    { to: '/quality-manual',         label: '품질 매뉴얼',          badge: 'DOC' },
     { to: '/export',                 label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
