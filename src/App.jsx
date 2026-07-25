@@ -52,6 +52,7 @@ import ProductionControlHub from './pages/production-control/ProductionControlHu
 import QualityPolicyHub from './pages/quality-policy/QualityPolicyHub'
 import MeasurementPlanHub from './pages/measurement-plan/MeasurementPlanHub'
 import CleanlinessHub from './pages/cleanliness/CleanlinessHub'
+import SterileControlHub from './pages/sterile-control/SterileControlHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -202,6 +203,9 @@ export default function App() {
 
       {/* ─── 제품 청결·오염 관리 허브 (Task #60) ─── */}
       <Route path="/cleanliness" element={<ProtectedRoute><CleanlinessHub /></ProtectedRoute>} />
+
+      {/* ─── 멸균 의료기기 관리 허브 (Task #61) ─── */}
+      <Route path="/sterile-control" element={<ProtectedRoute><SterileControlHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
