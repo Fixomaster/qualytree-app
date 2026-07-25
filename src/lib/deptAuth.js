@@ -102,6 +102,7 @@ export const DEPT_NAV = {
     { to: '/product-id',         label: '제품 식별·상태',  badge: 'MFG' },
     { to: '/production-control', label: '생산 제어 계획',  badge: 'MFG' },
     { to: '/cleanliness',        label: '제품 청결·오염 관리', badge: 'MFG' },
+    { to: '/sterile-control',    label: '멸균 의료기기 관리', badge: 'MFG' },
     { to: '/traceability',   label: '제품 추적성',     badge: 'MFG' },
     { to: '/quality',        label: 'NCR / CAPA',     badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',       badge: 'DOC' },
@@ -130,6 +131,7 @@ export const DEPT_NAV = {
     { to: '/product-id',             label: '제품 식별·상태',      badge: 'QUA' },
     { to: '/purchase-verification',  label: '구매 정보·수입검사',  badge: 'PUR' },
     { to: '/production-control',     label: '생산 제어 계획',       badge: 'QUA' },
+    { to: '/sterile-control',        label: '멸균 의료기기 관리',   badge: 'QUA' },
     { to: '/change-control',     label: '변경 관리',         badge: 'QUA' },
     { to: '/traceability',       label: '제품 추적성',       badge: 'QUA' },
     { to: '/audit',              label: '내부감사',          badge: 'AUD' },
@@ -260,6 +262,7 @@ export const DEPT_NAV = {
     { to: '/quality-policy',         label: '경영 의지·품질 방침', badge: 'MR' },
     { to: '/measurement-plan',       label: '측정·분석·개선 계획', badge: 'QUA' },
     { to: '/cleanliness',            label: '제품 청결·오염 관리',  badge: 'MFG' },
+    { to: '/sterile-control',        label: '멸균 의료기기 관리',   badge: 'MFG' },
     { to: '/export',                 label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
