@@ -99,6 +99,7 @@ export const DEPT_NAV = {
     { to: '/work-env',        label: '작업환경 관리',   badge: 'MFG' },
     { to: '/infrastructure',  label: '인프라 관리',     badge: 'MFG' },
     { to: '/preservation',    label: '제품 보존·취급',  badge: 'MFG' },
+    { to: '/product-id',      label: '제품 식별·상태',  badge: 'MFG' },
     { to: '/traceability',   label: '제품 추적성',     badge: 'MFG' },
     { to: '/quality',        label: 'NCR / CAPA',     badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',       badge: 'DOC' },
@@ -122,6 +123,7 @@ export const DEPT_NAV = {
     { to: '/doc-control',           label: '문서 관리 대장',    badge: 'DOC' },
     { to: '/quality-objectives',   label: '품질 목표 관리',    badge: 'QUA' },
     { to: '/quality-plan',         label: '품질 계획 (QP)',    badge: 'QUA' },
+    { to: '/product-id',           label: '제품 식별·상태',    badge: 'QUA' },
     { to: '/change-control',     label: '변경 관리',         badge: 'QUA' },
     { to: '/traceability',       label: '제품 추적성',       badge: 'QUA' },
     { to: '/audit',              label: '내부감사',          badge: 'AUD' },
@@ -235,6 +237,7 @@ export const DEPT_NAV = {
     { to: '/infrastructure',     label: '인프라 관리',          badge: 'EQP' },
     { to: '/doc-control',          label: '문서 관리 대장',       badge: 'DOC' },
     { to: '/quality-objectives',   label: '품질 목표 관리',       badge: 'MR' },
+    { to: '/product-id',           label: '제품 식별·상태',       badge: 'MFG' },
     { to: '/export',               label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
