@@ -57,13 +57,13 @@ import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
-try { SalesHub = React.lazy(() => import('./pages/sales/SalesHub')) } catch {}
-try { PurchaseHub = React.lazy(() => import('./pages/purchase/PurchaseHub')) } catch {}
-try { ManufacturingHub = React.lazy(() => import('./pages/manufacturing/ManufacturingHub')) } catch {}
-try { EquipmentHub = React.lazy(() => import('./pages/equipment/EquipmentHub')) } catch {}
-try { DevHub = React.lazy(() => import('./pages/development/DevHub')) } catch {}
-try { ManagementReviewHub = React.lazy(() => import('./pages/management/ManagementReviewHub')) } catch {}
-try { TrainingHub = React.lazy(() => import('./pages/training/TrainingHub')) } catch {}
+try { SalesHub = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
+try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
+try { ManufacturingHub = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
+try { EquipmentHub = React.lazy(() => import(/* @vite-ignore */ './pages/equipment/EquipmentHub')) } catch {}
+try { DevHub = React.lazy(() => import(/* @vite-ignore */ './pages/development/DevHub')) } catch {}
+try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/management/ManagementReviewHub')) } catch {}
+try { TrainingHub = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
 
 function ProtectedRoute({ children }) {
   if (!auth.isSignedIn()) return <Navigate to="/login" replace />
