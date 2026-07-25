@@ -5,8 +5,10 @@ import {
   Plus, Search, Trash2, AlertTriangle, ChevronDown,
   ChevronUp, X, Package, Users, RotateCcw, Edit3,
   MapPin, Hash, Calendar, TrendingUp, List,
+  GitBranch,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -115,6 +117,15 @@ export default function TraceabilityHub() {
     <AppLayout user={user} title="제품 추적성" subtitle="ISO 13485 §7.5.9 · LOT 배포 이력 · 고객 추적 · 리콜 시뮬레이션">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
+        <HubBanner
+          title="제품 추적성 관리"
+          subtitle="ISO 13485 §7.5.9 · 제품·로트 추적성 · 공급망 기록 유지 · 리콜 대응"
+          icon={GitBranch}
+          color="#8B5CF6"
+          quickActions={[{ label: '추적 기록 추가', icon: Plus, onClick: openNew, primary: true }]}
+          workflow={['원자재 식별', '제조 이력', '공정 기록', '최종품 식별', '납품 추적', '리콜 대응']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -194,15 +205,6 @@ export default function TraceabilityHub() {
           />
         )}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>📦 ISO 13485 §7.5.8/7.5.9 추적성 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §7.5.8 — 제품 식별 및 추적성: 제품을 고유하게 식별하고 추적할 수 있도록 기록 유지 &nbsp;|&nbsp;
-            §7.5.9 — 이식형 의료기기 특별 요건: 배포된 모든 이식형 기기의 고객명·주소·LOT·시리얼 기록 의무 &nbsp;|&nbsp;
-            리콜 시 30분 이내 영향 고객 파악 가능 체계 권장
-          </div>
-        </div>
       </div>
 
       {showForm && <DistForm form={form} fld={fld} editId={editId} lots={lots} products={products} onSubmit={submit} onClose={() => setShowForm(false)} />}

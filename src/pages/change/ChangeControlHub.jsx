@@ -8,6 +8,7 @@ import {
   ClipboardList, Eye,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -146,6 +147,15 @@ export default function ChangeControlHub() {
           </div>
         )}
 
+        <HubBanner
+          title="변경 관리"
+          subtitle="ISO 13485 §4.1.4 / §7.3.9 · 제품·공정·문서·SW 변경 · 영향평가 · 승인 · 이행 추적"
+          icon={RefreshCw}
+          color="#2563EB"
+          quickActions={[{ label: '변경 요청 등록', icon: Plus, onClick: openNew, primary: true }]}
+          workflow={['변경 요청', '영향 평가', '검토', '승인', '이행', '완료 기록']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -214,15 +224,6 @@ export default function ChangeControlHub() {
         {/* ── 현황 분석 탭 ── */}
         {tab === 'analysis' && <ChangeAnalysis records={records} counts={counts} />}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>📋 ISO 13485 §4.1.4 / §7.3.9 변경 관리 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §4.1.4 — 품질 경영시스템 변경: 프로세스 변경 시 영향 평가 후 승인 필요 &nbsp;|&nbsp;
-            §7.3.9 — 설계 및 개발 변경 관리: 변경 식별·검토·검증·유효성확인·승인 후 이행 &nbsp;|&nbsp;
-            규제당국 신고 기준: 제품·라벨 변경, 용도 변경, 제조업체 변경 등 주요 변경 시 사전 허가 필요
-          </div>
-        </div>
       </div>
 
       {showForm && (

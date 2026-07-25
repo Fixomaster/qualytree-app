@@ -5,8 +5,10 @@ import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, AlertTriangle, CheckCircle2, MessageSquare,
   FileWarning, Clock, BarChart2, List, Phone,
+  AlertOctagon,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -124,6 +126,15 @@ export default function ComplaintHub() {
     <AppLayout user={user} title="고객불만 관리" subtitle="ISO 13485 §8.2.1 · 고객불만 접수 · 조사 · 규제보고 · 종결">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
+        <HubBanner
+          title="고객불만 관리"
+          subtitle="ISO 13485 §8.2.1 · 고객불만 접수 · 조사 · 시정조치 · 규제 보고"
+          icon={AlertOctagon}
+          color="#EF4444"
+          quickActions={[{ label: '불만 접수', icon: Plus, onClick: openNew, primary: true }]}
+          workflow={['불만 접수', '초기 평가', '조사', '시정조치', '고객 통보', '규제 보고']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
           {[
@@ -208,13 +219,6 @@ export default function ComplaintHub() {
         {/* ── MDR 탭 ── */}
         {tab === 'mdr' && <MdrView items={items} onEdit={openEdit} />}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>📋 ISO 13485 §8.2.1 및 규제 보고 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            ① 모든 고객불만을 문서화하고 평가 ② 규제 보고 여부(MDR) 결정 ③ 사망/중상해: 즉시 ~ 30일 이내 식약처 보고 ④ 조사 결론 및 시정조치 연결 ⑤ 기록 보관 (의료기기 수명 + 2년 이상)
-          </div>
-        </div>
       </div>
 
       {showForm && <ComplaintForm form={form} fld={fld} editId={editId} onSubmit={submit} onClose={() => setShowForm(false)} />}

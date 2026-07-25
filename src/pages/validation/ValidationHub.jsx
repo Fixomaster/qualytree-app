@@ -8,6 +8,7 @@ import {
   BadgeCheck, Cpu,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -183,6 +184,15 @@ export default function ValidationHub() {
           </div>
         )}
 
+        <HubBanner
+          title="공정 유효성 확인"
+          subtitle="ISO 13485 §7.5.6 · IQ/OQ/PQ 공정 밸리데이션 · 재검증 주기 관리"
+          icon={FlaskConical}
+          color="#7C3AED"
+          quickActions={[{ label: '검증 프로젝트 등록', icon: Plus, onClick: openNew, primary: true }]}
+          workflow={['검증 계획', '프로토콜 작성', 'IQ/OQ/PQ', '결과 검토', '보고서 승인', '주기적 재검증']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -255,17 +265,6 @@ export default function ValidationHub() {
         {/* ── 현황 분석 탭 ── */}
         {tab === 'analysis' && <ValAnalysis records={records} />}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>⚗ ISO 13485 §7.5.6 공정 유효성 확인 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §7.5.6 — 조직은 출력물을 후속 모니터링·측정으로 검증할 수 없는 모든 특수 공정을 유효성 확인하여야 한다 &nbsp;|&nbsp;
-            IQ: 설비·유틸리티가 설계대로 설치됨을 확인 &nbsp;|&nbsp;
-            OQ: 공정 파라미터가 허용 범위 내에서 운전됨을 확인 &nbsp;|&nbsp;
-            PQ: 공정이 반복적으로 기준 적합 제품을 생산함을 확인 &nbsp;|&nbsp;
-            재밸리데이션: 공정 변경, 장비 이전, 설비 고장 후 수행
-          </div>
-        </div>
       </div>
 
       {showForm && (

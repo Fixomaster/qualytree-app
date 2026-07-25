@@ -6,8 +6,10 @@ import {
   CheckCircle2, XCircle, AlertTriangle, ClipboardList,
   TrendingUp, Microscope, FlaskConical, Package, BarChart2,
   FileWarning, BadgeCheck,
+  ClipboardCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -167,6 +169,15 @@ export default function InspectionHub() {
           </div>
         )}
 
+        <HubBanner
+          title="검사 관리"
+          subtitle="ISO 13485 §8.2.3/§8.2.4 · 공정검사 · 최종검사 · 합격판정 · 검사 기록 유지"
+          icon={ClipboardCheck}
+          color="#0EA5E9"
+          quickActions={[{ label: '검사 기록 추가', icon: Plus, onClick: openNew, primary: true }]}
+          workflow={['수입검사', '공정검사', '최종검사', '합격/불합격 판정', '기록 보관', '출하 승인']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -239,15 +250,6 @@ export default function InspectionHub() {
           <StdTab standards={standards} onNew={openNewStd} onDelete={removeStd} />
         )}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>🔬 ISO 13485 §8.2.3/8.2.4 검사 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §8.2.3 — 공정 중 모니터링 및 측정: 공정이 계획된 대로 진행됨을 확인하는 기록 유지 &nbsp;|&nbsp;
-            §8.2.4 — 제품의 모니터링 및 측정: 출하 전 제품이 요구사항을 충족함을 검증, 권한 있는 자의 서명 필요 &nbsp;|&nbsp;
-            불합격 제품은 §8.3 부적합 제품 관리(NCR) 절차에 따라 처리
-          </div>
-        </div>
       </div>
 
       {showForm && (

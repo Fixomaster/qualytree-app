@@ -8,6 +8,7 @@ import {
   TrendingUp, Building2, Package,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -165,6 +166,15 @@ export default function SupplierHub() {
     <AppLayout user={user} title="공급업체 관리" subtitle="ISO 13485 §7.4.1 · 승인 공급업체 목록 · 수입검사 · 공급업체 평가">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
+        <HubBanner
+          title="공급업체 관리"
+          subtitle="ISO 13485 §7.4.1 · 승인 공급업체 목록(ASL) · 수입검사(IQC) · 공급업체 평가"
+          icon={Building2}
+          color="#059669"
+          quickActions={[{ label: '공급업체 등록', icon: Plus, onClick: openNewSup, primary: true }]}
+          workflow={['공급업체 등록', '초기 평가', '승인 등록', '정기 재평가', 'IQC 실시', '이력 관리']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
           {[
@@ -262,15 +272,6 @@ export default function SupplierHub() {
           </>
         )}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>📦 ISO 13485 §7.4 공급업체 관리 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §7.4.1 구매 프로세스 — 승인 공급업체 목록(ASL) 유지, 연간 평가 · 재승인 &nbsp;|&nbsp;
-            §7.4.2 구매 정보 — 구매 사양서 명확히 기술 &nbsp;|&nbsp;
-            §7.4.3 구매 제품 검증 — 수입검사(IQC) 기준 및 기록 유지
-          </div>
-        </div>
       </div>
 
       {/* 모달들 */}
