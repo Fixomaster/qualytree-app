@@ -48,6 +48,7 @@ import OrgResponsibilityHub from './pages/org-responsibility/OrgResponsibilityHu
 import PurchaseVerificationHub from './pages/purchase-verification/PurchaseVerificationHub'
 import QualityManualHub from './pages/quality-manual/QualityManualHub'
 import DeviceFileHub from './pages/device-file/DeviceFileHub'
+import ProductionControlHub from './pages/production-control/ProductionControlHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -186,6 +187,9 @@ export default function App() {
 
       {/* ─── 의료기기 파일 관리 허브 (Task #56) ─── */}
       <Route path="/device-file" element={<ProtectedRoute><DeviceFileHub /></ProtectedRoute>} />
+
+      {/* ─── 생산 제어 계획 허브 (Task #57) ─── */}
+      <Route path="/production-control" element={<ProtectedRoute><ProductionControlHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
