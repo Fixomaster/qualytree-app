@@ -94,6 +94,7 @@ export const DEPT_NAV = {
     { to: '/manufacturing',  label: '생산 허브',     badge: 'MFG' },
     { to: '/operations',     label: '작업지시',      badge: 'OPS' },
     { to: '/inspection',     label: '공정·검사',     badge: 'MFG' },
+    { to: '/work-env',       label: '작업환경 관리', badge: 'MFG' },
     { to: '/traceability',   label: '제품 추적성',   badge: 'MFG' },
     { to: '/quality',        label: 'NCR / CAPA',   badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',     badge: 'DOC' },
@@ -200,6 +201,7 @@ export const DEPT_NAV = {
     { to: '/traceability',      label: '제품 추적성',    badge: 'MFG' },
     { to: '/change-control',    label: '변경 관리',      badge: 'QUA' },
     { to: '/inspection',        label: '검사 관리',      badge: 'QUA' },
+    { to: '/work-env',          label: '작업환경 관리',  badge: 'MFG' },
     { to: '/export',            label: '기록 내보내기',  badge: 'DOC' },
   ],
 }
