@@ -20,20 +20,17 @@ function save(data) {
 export const menuPermissions = {
   DOMAIN_KEYS,
 
-  /** 사용자 권한 맵 반환 (없으면 null = 전체 허용) */
   getForUser(userId) {
     if (!userId) return null
     return load()[userId] ?? null
   },
 
-  /** 사용자에게 보여줄 도메인 label 목록 */
   getAllowedDomains(userId) {
     const perms = this.getForUser(userId)
-    if (!perms) return DOMAIN_KEYS          // 미설정 → 전체 허용
+    if (!perms) return DOMAIN_KEYS
     return DOMAIN_KEYS.filter(k => perms[k] !== false)
   },
 
-  /** 단일 도메인 토글 */
   toggle(userId, domainKey, visible) {
     if (!userId) return
     const all = load()
@@ -42,7 +39,6 @@ export const menuPermissions = {
     save(all)
   },
 
-  /** 전체 허용으로 초기화 */
   reset(userId) {
     if (!userId) return
     const all = load()

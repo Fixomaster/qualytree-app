@@ -23,15 +23,15 @@ const DOMAINS = [
   {
     label: '수주·고객', icon: TrendingUp,
     items: [
-      { to: '/sales',        label: '영업 허브' },
-      { to: '/customer-req', label: '고객 요구사항' },
+      { to: '/sales',        label: '영업 현황' },
+      { to: '/customer-req', label: '고객 요구사항 검토' },
       { to: '/complaints',   label: '고객불만 관리' },
     ],
   },
   {
     label: '구매·자재', icon: ShoppingCart,
     items: [
-      { to: '/purchase',      label: '구매 허브' },
+      { to: '/purchase',      label: '구매 현황' },
       { to: '/supplier',      label: '공급업체 관리' },
       { to: '/purchase-info', label: '구매정보·수입검사' },
     ],
@@ -39,35 +39,35 @@ const DOMAINS = [
   {
     label: '생산·제조', icon: Factory,
     items: [
-      { to: '/manufacturing',      label: '생산 허브' },
-      { to: '/production-control', label: '생산제어계획' },
-      { to: '/process-validation', label: '공정유효성' },
-      { to: '/traceability',       label: '제품추적성' },
-      { to: '/product-id',         label: '제품식별·상태' },
-      { to: '/preservation',       label: '제품보존·취급' },
-      { to: '/cleanliness',        label: '청결·오염 관리' },
-      { to: '/sterile',            label: '멸�� 의료기기' },
-      { to: '/service',            label: '설치·서비스' },
+      { to: '/manufacturing',       label: '생산 현황' },
+      { to: '/production-control',  label: '생산제어계획' },
+      { to: '/process-validation',  label: '공정유효성확인' },
+      { to: '/traceability',        label: '제품추적성관리' },
+      { to: '/product-id',          label: '제품식별·상태' },
+      { to: '/preservation',        label: '제품보존·취급' },
+      { to: '/cleanliness',         label: '청결·오염 관리' },
+      { to: '/sterile',             label: '멸균 의료기기' },
+      { to: '/service',             label: '설치·서비스' },
     ],
   },
   {
     label: '품질·검사', icon: ShieldCheck,
     items: [
-      { to: '/inspection',     label: '공정·최종 검사' },
-      { to: '/quality',        label: 'NCR·품질' },
-      { to: '/improvement',    label: 'CAPA·개선' },
-      { to: '/risk',           label: '위험관리' },
-      { to: '/change-control', label: '변경관리' },
-      { to: '/audit',          label: '내부감사' },
-      { to: '/workenv',        label: '작업환경관리' },
-      { to: '/measurement',    label: '측정·분석·개선' },
-      { to: '/kpi-dashboard',  label: '품질 KPI' },
+      { to: '/inspection',    label: '공정·최종 검사' },
+      { to: '/quality',       label: 'NCR·부적합' },
+      { to: '/improvement',   label: 'CAPA·개선' },
+      { to: '/risk',          label: '리스크관리' },
+      { to: '/change-control',label: '변경관리' },
+      { to: '/audit',         label: '내부감사' },
+      { to: '/workenv',       label: '작업환경관리' },
+      { to: '/measurement',   label: '측정·분석·개선' },
+      { to: '/kpi-dashboard', label: '품질 KPI' },
     ],
   },
   {
     label: '설계·개발', icon: Code2,
     items: [
-      { to: '/development',    label: '개발 허브' },
+      { to: '/development',    label: '개발 현황' },
       { to: '/design-history', label: '설계이력파일' },
     ],
   },
@@ -83,7 +83,7 @@ const DOMAINS = [
   {
     label: '설비·교정', icon: Wrench,
     items: [
-      { to: '/equipment',      label: '설비 허브' },
+      { to: '/equipment',      label: '설비 현황' },
       { to: '/calibration',    label: '교정관리' },
       { to: '/infrastructure', label: '인프라관리' },
     ],
@@ -91,17 +91,17 @@ const DOMAINS = [
   {
     label: '교육·인력', icon: GraduationCap,
     items: [
-      { to: '/competency',         label: '역량관리' },
-      { to: '/org-responsibility', label: '조직·책임' },
+      { to: '/competency',          label: '역량관리' },
+      { to: '/org-responsibility',  label: '조직·책임' },
     ],
   },
   {
     label: '경영·전략', icon: BarChart3,
     items: [
-      { to: '/management-review',     label: '경영검토' },
-      { to: '/quality-objectives',    label: '품질목표' },
-      { to: '/quality-plan',          label: '품질계획' },
-      { to: '/management-commitment', label: '경영의지·방침' },
+      { to: '/management-review',      label: '경영검토' },
+      { to: '/quality-objectives',     label: '품질목표' },
+      { to: '/quality-plan',           label: '품질계획' },
+      { to: '/management-commitment',  label: '경영의지·방침' },
     ],
   },
 ]

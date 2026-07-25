@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, UserPlus, Check, RotateCcw, Trash2, Pause, Play, Copy, LayoutGrid } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { menuPermissions, DOMAIN_KEYS } from '../../lib/menuPermissions'
+import React from 'react'
 
 const ROLE_LABEL = { 1: '작업자', 2: '검사관', 3: '매니저' }
 const STATUS_LABEL = { active: '활성', pending: '승인대기', suspended: '정지', removed: '삭제됨' }
@@ -91,7 +92,7 @@ export default function MemberAdmin() {
     )
   }
 
-  const seatText = ctx.seats > 0 ? `${ctx.used_seats} / ${ctx.seats}석` : `${ctx.used_seats}명 (무제한)`
+  const seatText = ctx.seats > 0 ? ctx.used_seats + ' / ' + ctx.seats + '석' : ctx.used_seats + '명 (무제한)'
   const members = Array.isArray(ctx.members) ? ctx.members : []
   const pending = members.filter((m) => m.status === 'pending')
 
@@ -105,11 +106,11 @@ export default function MemberAdmin() {
         <div className="flex items-end justify-between flex-wrap gap-3 mb-2">
           <div>
             <h1 className="text-2xl font-bold text-slate-900">계정 관리 <span className="text-base font-normal text-slate-500">{ctx.company_name}</span></h1>
-            <p className="text-xs text-slate-500 mt-1">작업자·검사관은 <b>사업자번호 + 이름 + 비밀번호</b>로 로그인합니다 (이메일 불필요).</p>
+            <p className="text-xs text-slate-500 mt-1">작업자·검사관은 <b>사업자번호 + 이름 + 비밀번호</b>로 로그인합니다.</p>
           </div>
           <div className="text-sm text-slate-600 text-right">
             <div>좌석 사용: <b className="text-slate-900">{seatText}</b></div>
-            {bizNo && <div className="text-[12px] text-slate-500">회사 사업자번호: <b className="text-slate-700">{bizNo}</b></div>}
+            {bizNo && <div className="text-[12px] text-slate-500">사업자번호: <b className="text-slate-700">{bizNo}</b></div>}
           </div>
         </div>
 
@@ -132,8 +133,8 @@ export default function MemberAdmin() {
               <span className="block text-[12px] font-medium text-slate-600 mb-1">역할</span>
               <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-emerald-500">
-                <option value="operator">작업자 — 공정·검사 입력 (승인 후 활성, 좌석 차감)</option>
-                <option value="inspector">검사관 — 읽기 전용 임시 계정 (즉시 활성, 좌석 무관)</option>
+                <option value="operator">작업자 — 공정·검사 입력 (승인 후 활성)</option>
+                <option value="inspector">검사관 — 읽기 전용 임시 계정 (즉시 활성)</option>
               </select>
             </label>
             {form.role === 'inspector' && (
@@ -159,12 +160,11 @@ export default function MemberAdmin() {
                   <button type="button" onClick={() => copy(created.password)} className="text-emerald-700"><Copy size={13} /></button>
                 </div>
               </div>
-              {created.status === 'pending' && <div className="text-emerald-700 mt-1">아래 목록에서 "승인"해야 로그인이 활성화됩니다.</div>}
             </div>
           )}
           {rowMsg && (
             <div className="mt-3 p-3 rounded-lg bg-sky-50 border border-sky-200 text-[13px] text-sky-900">
-              <div className="font-semibold mb-1">비밀번호가 재발급되었습니다</div>
+              <div className="font-semibold mb-1">비밀번호 재발급 완료</div>
               <div className="flex items-center gap-2">새 임시 비밀번호: <code className="font-bold">{rowMsg.temp_password}</code>
                 <button type="button" onClick={() => copy(rowMsg.temp_password)} className="text-sky-700"><Copy size={13} /></button>
               </div>
@@ -245,7 +245,7 @@ export default function MemberAdmin() {
                     <tr className="bg-slate-50 border-t border-slate-100">
                       <td colSpan={4} className="px-6 py-4">
                         <div className="text-[12px] font-semibold text-slate-600 mb-2.5">
-                          메뉴 노출 권한 — {m.name}
+                          메뉴 권한 — {m.name}
                         </div>
                         <div className="flex flex-wrap gap-x-5 gap-y-2">
                           {DOMAIN_KEYS.map(k => (
