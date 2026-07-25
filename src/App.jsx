@@ -1,27 +1,35 @@
-// src/App.jsx  — v3: all new hubs lazy-loaded so Vite never statically analyzes them
+// src/App.jsx — v4: ZERO static page imports. Only auth + react-router-dom stay static.
+// Every page is lazy+vite-ignore → Vite builds nothing page-level at compile time.
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import Login from './pages/Login'
-import Signup from './pages/Signup'
-import SignupSuccess from './pages/SignupSuccess'
-import OperatorConsole from './pages/OperatorConsole'
-import PlanAdmin from './pages/operator/PlanAdmin'
-import MemberAdmin from './pages/manager/MemberAdmin'
-import Dashboard from './pages/Dashboard'
-import GMPSection from './pages/section/GMPSection'
-import Onboarding from './pages/onboarding/Onboarding'
-import WorkOrderQueue from './pages/operations/WorkOrderQueue'
-import EBatchRecord from './pages/operations/EBatchRecord'
-import InspectionStages from './pages/operations/InspectionStages'
-import QualityHub from './pages/quality/QualityHub'
-import QualityTree from './pages/tree/QualityTree'
-import ProductsHub from './pages/products/ProductsHub'
-import RegulatoryHub from './pages/regulatory/RegulatoryHub'
-import Documents from './pages/Documents'
-import PreviewHub from './pages/PreviewHub'
 import { auth } from './lib/auth'
 
-// Tasks #28-#61 신규 허브 — 전부 lazy+vite-ignore → Vite 정적 분석 없음
+// ── 기존 페이지 (pre-existing) ──────────────────────────────────────
+let Login, Signup, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
+let Dashboard, GMPSection, Onboarding
+let WorkOrderQueue, EBatchRecord, InspectionStages
+let QualityHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
+
+try { Login          = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
+try { Signup         = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
+try { SignupSuccess   = React.lazy(() => import(/* @vite-ignore */ './pages/SignupSuccess')) } catch {}
+try { OperatorConsole= React.lazy(() => import(/* @vite-ignore */ './pages/OperatorConsole')) } catch {}
+try { PlanAdmin      = React.lazy(() => import(/* @vite-ignore */ './pages/operator/PlanAdmin')) } catch {}
+try { MemberAdmin    = React.lazy(() => import(/* @vite-ignore */ './pages/manager/MemberAdmin')) } catch {}
+try { Dashboard      = React.lazy(() => import(/* @vite-ignore */ './pages/Dashboard')) } catch {}
+try { GMPSection     = React.lazy(() => import(/* @vite-ignore */ './pages/section/GMPSection')) } catch {}
+try { Onboarding     = React.lazy(() => import(/* @vite-ignore */ './pages/onboarding/Onboarding')) } catch {}
+try { WorkOrderQueue = React.lazy(() => import(/* @vite-ignore */ './pages/operations/WorkOrderQueue')) } catch {}
+try { EBatchRecord   = React.lazy(() => import(/* @vite-ignore */ './pages/operations/EBatchRecord')) } catch {}
+try { InspectionStages= React.lazy(() => import(/* @vite-ignore */ './pages/operations/InspectionStages')) } catch {}
+try { QualityHub     = React.lazy(() => import(/* @vite-ignore */ './pages/quality/QualityHub')) } catch {}
+try { QualityTree    = React.lazy(() => import(/* @vite-ignore */ './pages/tree/QualityTree')) } catch {}
+try { ProductsHub    = React.lazy(() => import(/* @vite-ignore */ './pages/products/ProductsHub')) } catch {}
+try { RegulatoryHub  = React.lazy(() => import(/* @vite-ignore */ './pages/regulatory/RegulatoryHub')) } catch {}
+try { Documents      = React.lazy(() => import(/* @vite-ignore */ './pages/Documents')) } catch {}
+try { PreviewHub     = React.lazy(() => import(/* @vite-ignore */ './pages/PreviewHub')) } catch {}
+
+// ── 신규 허브 (Tasks #28-#61) ────────────────────────────────────────
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
 let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
@@ -65,7 +73,7 @@ try { MeasurementPlanHub    = React.lazy(() => import(/* @vite-ignore */ './page
 try { CleanlinessHub        = React.lazy(() => import(/* @vite-ignore */ './pages/cleanliness/CleanlinessHub')) } catch {}
 try { SterileControlHub     = React.lazy(() => import(/* @vite-ignore */ './pages/sterile-control/SterileControlHub')) } catch {}
 
-// CEO 추가 허브 (없으면 graceful 404)
+// ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
 try { SalesHub            = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub         = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
@@ -75,16 +83,15 @@ try { DevHub              = React.lazy(() => import(/* @vite-ignore */ './pages/
 try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/management/ManagementReviewHub')) } catch {}
 try { TrainingHub         = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
 
+// ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
   if (!auth.isSignedIn()) return <Navigate to="/login" replace />
   return children
 }
-
 function PublicRoute({ children }) {
   if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
   return children
 }
-
 function LazyRoute({ Component, fallback }) {
   if (!Component) return fallback || <Navigate to="/dashboard" replace />
   return (
@@ -98,24 +105,24 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-      <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-      <Route path="/signup/success" element={<PublicRoute><SignupSuccess /></PublicRoute>} />
-      <Route path="/operator" element={<OperatorConsole />} />
-      <Route path="/operator/plans" element={<PlanAdmin />} />
-      <Route path="/manager/accounts" element={<MemberAdmin />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/section/:cardId" element={<ProtectedRoute><GMPSection /></ProtectedRoute>} />
-      <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-      <Route path="/operations" element={<ProtectedRoute><WorkOrderQueue /></ProtectedRoute>} />
-      <Route path="/operations/:woId/ebr" element={<ProtectedRoute><EBatchRecord /></ProtectedRoute>} />
-      <Route path="/operations/:woId/inspection" element={<ProtectedRoute><InspectionStages /></ProtectedRoute>} />
-      <Route path="/quality" element={<ProtectedRoute><QualityHub /></ProtectedRoute>} />
-      <Route path="/tree" element={<ProtectedRoute><QualityTree /></ProtectedRoute>} />
-      <Route path="/products" element={<ProtectedRoute><ProductsHub /></ProtectedRoute>} />
-      <Route path="/regulatory" element={<ProtectedRoute><RegulatoryHub /></ProtectedRoute>} />
-      <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
-      <Route path="/preview" element={<PreviewHub />} />
+      <Route path="/login"          element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
+      <Route path="/signup"         element={<PublicRoute><LazyRoute Component={Signup} /></PublicRoute>} />
+      <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
+      <Route path="/operator"       element={<LazyRoute Component={OperatorConsole} />} />
+      <Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />} />
+      <Route path="/manager/accounts" element={<LazyRoute Component={MemberAdmin} />} />
+      <Route path="/dashboard"      element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
+      <Route path="/section/:cardId" element={<ProtectedRoute><LazyRoute Component={GMPSection} /></ProtectedRoute>} />
+      <Route path="/onboarding"     element={<ProtectedRoute><LazyRoute Component={Onboarding} /></ProtectedRoute>} />
+      <Route path="/operations"     element={<ProtectedRoute><LazyRoute Component={WorkOrderQueue} /></ProtectedRoute>} />
+      <Route path="/operations/:woId/ebr"        element={<ProtectedRoute><LazyRoute Component={EBatchRecord} /></ProtectedRoute>} />
+      <Route path="/operations/:woId/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionStages} /></ProtectedRoute>} />
+      <Route path="/quality"        element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
+      <Route path="/tree"           element={<ProtectedRoute><LazyRoute Component={QualityTree} /></ProtectedRoute>} />
+      <Route path="/products"       element={<ProtectedRoute><LazyRoute Component={ProductsHub} /></ProtectedRoute>} />
+      <Route path="/regulatory"     element={<ProtectedRoute><LazyRoute Component={RegulatoryHub} /></ProtectedRoute>} />
+      <Route path="/documents"      element={<ProtectedRoute><LazyRoute Component={Documents} /></ProtectedRoute>} />
+      <Route path="/preview"        element={<LazyRoute Component={PreviewHub} />} />
 
       <Route path="/home"              element={<ProtectedRoute><LazyRoute Component={DeptHome} /></ProtectedRoute>} />
       <Route path="/flow"              element={<ProtectedRoute><LazyRoute Component={ProcessFlow} /></ProtectedRoute>} />
