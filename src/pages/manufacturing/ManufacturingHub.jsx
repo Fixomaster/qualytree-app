@@ -406,7 +406,7 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
           subtitle="ISO 13485 §7.5 · 작업지시 · 공정 관리 · 생산 이력 · UDI"
           icon={Factory}
           color="#D97706"
-          quickActions={[{label:'작업지시 등록',icon:Plus,onClick:()=>setView('wo'),primary:true}]}
+          quickActions={[{label:'작업지시 등록',icon:Plus,onClick:()=>onNavigate('wo'),primary:true}]}
           workflow={['계획 수립','작업지시 발행','자재 출고','공정 작업','공정검사','완제품 입고']}
         />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -461,8 +461,8 @@ export default function ManufacturingHub(){
   return(
     <AppLayout user={user} title="생산" subtitle="작업지시 · 공정기록 · 검사 · 부적합 관리">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
-        {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
-        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+        {view!=='home'&&<button onClick={()=>onNavigate('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
+        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>onNavigate(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
         {viewMap[view]||viewMap.home}
       </div>
     </AppLayout>

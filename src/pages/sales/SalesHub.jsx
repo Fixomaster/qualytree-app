@@ -1297,7 +1297,7 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
           subtitle="ISO 13485 §7.2 · §8.2.1 · 고객사 통합 현황 · 수주에서 납품까지 추적"
           icon={TrendingUp}
           color="#059669"
-          quickActions={[{label:'수주 등록',icon:Plus,onClick:()=>setView('orders'),primary:true},{label:'고객사 관리',icon:Users,onClick:()=>setView('customers')}]}
+          quickActions={[{label:'수주 등록',icon:Plus,onClick:()=>onNavigate('orders'),primary:true},{label:'고객사 관리',icon:Users,onClick:()=>onNavigate('customers')}]}
           workflow={['수주 접수','영업 검토','생산 요청','제조 완료','납품','고객 피드백']}
         />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -1366,7 +1366,7 @@ export default function SalesHub() {
     <AppLayout user={user} title="영업" subtitle="고객사 관리 · 수주 · 납품 · 고객불만">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
         {view!=='home' && (
-          <button onClick={()=>setView('home')}
+          <button onClick={()=>onNavigate('home')}
             className="flex items-center gap-1.5 mb-5 text-[13px]"
             style={{ color:'var(--moss)' }}>
             <ArrowLeft size={14}/> 영업 홈
@@ -1375,7 +1375,7 @@ export default function SalesHub() {
         {view!=='home' && (
           <div className="flex gap-1 flex-wrap mb-5">
             {Object.entries(tabLabels).map(([id,label])=>(
-              <button key={id} onClick={()=>setView(id)}
+              <button key={id} onClick={()=>onNavigate(id)}
                 className="text-[12px] px-3 py-1.5 rounded-lg border transition"
                 style={{
                   background:view===id?'var(--moss)':'var(--bg-card)',

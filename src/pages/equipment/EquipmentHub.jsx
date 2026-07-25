@@ -275,7 +275,7 @@ function EqpHome({instruments,history,onNavigate}){
           subtitle="ISO 13485 §7.6 · 측정기기 · 교정 일정 · PM 이력 · D-day 관리"
           icon={Settings2}
           color="#0284C7"
-          quickActions={[{label:'기기 등록',icon:Plus,onClick:()=>setView('instruments'),primary:true},{label:'교정 일정',icon:Calendar,onClick:()=>setView('schedule')}]}
+          quickActions={[{label:'기기 등록',icon:Plus,onClick:()=>onNavigate('instruments'),primary:true},{label:'교정 일정',icon:Calendar,onClick:()=>onNavigate('schedule')}]}
           workflow={['기기 등록','교정 주기 설정','교정 실시','성적서 등록','상태 업데이트','차기 일정 예약']}
         />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -323,8 +323,8 @@ export default function EquipmentHub({ embedded = false } = {}){
   }
   const content = (
     <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
-      {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
-      {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+      {view!=='home'&&<button onClick={()=>onNavigate('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
+      {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>onNavigate(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
       {viewMap[view]||viewMap.home}
     </div>
   )
