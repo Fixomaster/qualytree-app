@@ -4,8 +4,10 @@ import {
   FileText, ShieldCheck, AlertTriangle, Settings, RefreshCw,
   ClipboardList, Package, Globe, ChevronRight, FlaskConical,
   Users, Target, BookOpen, Layers, Search
+}  Code2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 /* ── navigation menu items ── */
@@ -191,33 +193,17 @@ export default function DevHub() {
     <AppLayout user={user} title="개발" subtitle="설계·개발 관리 | ISO 13485 §7.3">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
-        {/* header */}
-        <div className="mb-6 p-5 rounded-2xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--line)' }}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#eef2ff' }}>
-              <FlaskConical size={18} color="#6366f1" />
-            </div>
-            <div>
-              <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>개발부 업무 포털</div>
-              <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-                ISO 13485 §7.3 설계·개발 관리 전 과정
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {[
-              { label: '관리 메뉴', value: `${MENU.length}개` },
-              { label: 'ISO 규격', value: 'ISO 13485 / ISO 14971' },
-              { label: '부서', value: '개발부 (DEV)' },
-            ].map(s => (
-              <div key={s.label} className="flex items-center gap-1.5 text-[12px] px-3 py-1 rounded-full"
-                style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
-                <span style={{ color: 'var(--ink-faint)' }}>{s.label}</span>
-                <span className="font-medium" style={{ color: 'var(--ink)' }}>{s.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <HubBanner
+          title="개발 관리"
+          subtitle="ISO 13485 §7.3 · 설계·개발 전 과정 관리 · DHF · DMR · 위험관리"
+          icon={Code2}
+          color="#6366F1"
+          quickActions={[
+            {label:'DHF 열기', icon:FileText, onClick:()=>navigate('/dhf'), primary:true},
+            {label:'위험관리', icon:AlertTriangle, onClick:()=>navigate('/risk')},
+          ]}
+          workflow={['개발 기획','요구사항 정의','설계','프로토타입','검증','양산 이전']}
+        />
 
         {/* search */}
         <SearchBar query={query} onChange={setQuery} />
