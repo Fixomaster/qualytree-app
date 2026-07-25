@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Cog, ClipboardList, AlertTriangle, ArrowLeft, Plus, X, Activity, FileText, Wrench, Workflow } from 'lucide-react'
+import { Cog, ClipboardList, AlertTriangle, ArrowLeft, Plus, X, Activity, FileText, Wrench, Workflow   Factory,
+} from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { syncOrderStatusFromWo } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
@@ -388,12 +390,15 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
   ]
   return(
     <div>
-      <div className="mb-5">
-        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{color:'var(--moss)'}}>MFG · ISO 13485 §7.5</span>
-        <div className="text-[26px] mt-1 font-semibold" style={{color:'var(--ink)'}}>생산</div>
-        <div className="text-[12.5px] mt-0.5" style={{color:'var(--ink-mute)'}}>작업지시 · 공정기록 · 검사 · 부적합 관리</div>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <HubBanner
+          title="생산 관리"
+          subtitle="ISO 13485 §7.5 · 작업지시 · 공정 관리 · 생산 이력 · UDI"
+          icon={Factory}
+          color="#D97706"
+          quickActions={[{label:'작업지시 등록',icon:Plus,onClick:()=>setView('wo'),primary:true}]}
+          workflow={['계획 수립','작업지시 발행','자재 출고','공정 작업','공정검사','완제품 입고']}
+        />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {summary.length===0?<EmptyCard/>:summary.map(s=>(
       <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{color:'var(--ink-mute)'}}>{s.label}</div>

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Wrench, Calendar, AlertTriangle, ArrowLeft, Plus, X, Clock, Activity } from 'lucide-react'
+import { Wrench, Calendar, AlertTriangle, ArrowLeft, Plus, X, Clock, Activity   Settings2,
+} from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
@@ -259,12 +261,15 @@ function EqpHome({instruments,history,onNavigate}){
   ]
   return(
     <div>
-      <div className="mb-5">
-        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{color:'var(--moss)'}}>EQP · ISO 13485 §7.6</span>
-        <div className="text-[26px] mt-1 font-semibold" style={{color:'var(--ink)'}}>설비·교정</div>
-        <div className="text-[12.5px] mt-0.5" style={{color:'var(--ink-mute)'}}>측정기기 관리 · 교정 일정 · PM 이력</div>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <HubBanner
+          title="설비·교정 관리"
+          subtitle="ISO 13485 §7.6 · 측정기기 · 교정 일정 · PM 이력 · D-day 관리"
+          icon={Settings2}
+          color="#0284C7"
+          quickActions={[{label:'기기 등록',icon:Plus,onClick:()=>setView('instruments'),primary:true},{label:'교정 일정',icon:Calendar,onClick:()=>setView('schedule')}]}
+          workflow={['기기 등록','교정 주기 설정','교정 실시','성적서 등록','상태 업데이트','차기 일정 예약']}
+        />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {summary.length===0?<EmptyCard/>:summary.map(s=>(
       <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{color:'var(--ink-mute)'}}>{s.label}</div>

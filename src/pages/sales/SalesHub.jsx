@@ -7,6 +7,7 @@ import {
   CheckCircle, Package, Search,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
 import { fulfillOrderLineItems } from '../../lib/orderFulfillment'
@@ -1278,12 +1279,15 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
   ]
   return (
     <div>
-      <div className="mb-5">
-        <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color:'var(--moss)' }}>SAL · ISO 13485 §7.2 · §8.2.1</span>
-        <div className="text-[26px] mt-1 font-semibold" style={{ color:'var(--ink)' }}>영업</div>
-        <div className="text-[12.5px] mt-0.5" style={{ color:'var(--ink-mute)' }}>고객사 통합 현황 · 수주에서 납품까지 추적</div>
-      </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <HubBanner
+          title="영업 관리"
+          subtitle="ISO 13485 §7.2 · §8.2.1 · 고객사 통합 현황 · 수주에서 납품까지 추적"
+          icon={TrendingUp}
+          color="#059669"
+          quickActions={[{label:'수주 등록',icon:Plus,onClick:()=>setView('orders'),primary:true},{label:'고객사 관리',icon:Users,onClick:()=>setView('customers')}]}
+          workflow={['수주 접수','영업 검토','생산 요청','제조 완료','납품','고객 피드백']}
+        />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {summary.length===0?<EmptyCard/>:summary.map(s=>(
       <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
             <div className="text-[12px] mb-1" style={{ color:'var(--ink-mute)' }}>{s.label}</div>
