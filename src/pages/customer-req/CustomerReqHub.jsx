@@ -1,0 +1,747 @@
+// src/pages/customer-req/CustomerReqHub.jsx
+// ISO 13485 §7.2 — 고객 관련 프로세스 (요구사항 결정·검토·커뮤니케이션)
+import React, { useState, useMemo } from 'react'
+import {
+  Plus, Save, Edit2, Trash2, FileText, Link2,
+  CheckCircle2, Clock, AlertTriangle, MessageSquare,
+  ClipboardList, BarChart2, ChevronDown, ChevronUp,
+  User, Phone, Mail, Package,
+} from 'lucide-react'
+import AppLayout from '../../components/AppLayout'
+import { auth } from '../../lib/auth'
+
+// ── 상수 ─────────────────────────────────────────────────────
+const LS_KEY = 'qualytree.customer_reqs'
+
+const REQ_STATUSES = {
+  captured:  { label: '접수',    color: '#6366F1', bg: '#EEF2FF' },
+  reviewing: { label: '검토 중', color: '#D97706', bg: '#FEF3C7' },
+  accepted:  { label: '수락',    color: '#059669', bg: '#D1FAE5' },
+  rejected:  { label: '반려',    color: '#DC2626', bg: '#FEE2E2' },
+  closed:    { label: '완료',    color: '#9CA3AF', bg: '#F3F4F6' },
+}
+
+const REQ_TYPES = [
+  '제품 사양 요구사항',
+  '납기·납품 조건',
+  '인도 후 활동 (설치·서비스·교육)',
+  '법적·규제 요구사항',
+  '포장·라벨링 요구사항',
+  '품질보증·시험성적서',
+  '고객 지급 자재·설비',
+  '추가 요구사항 (미명시)',
+]
+
+const COMM_TYPES = [
+  '이메일', '전화', '미팅', '공문', '견적서 검토', '계약서', '기타',
+]
+
+const REVIEW_ITEMS = [
+  '요구사항이 충분히 명확하게 정의되었는가?',
+  '문서로 명시되지 않은 요구사항이 파악되었는가?',
+  '고객이 명시하지 않았으나 의도된 사용에 필요한 요건이 반영되었는가?',
+  '법적·규제 요건이 충족 가능한가?',
+  '이전 계약·주문과 차이가 있을 경우 검토되었는가?',
+  '현재 생산 능력으로 이행 가능한가?',
+  '납기 일정이 현실적인가?',
+  '필요 문서(성적서, 인증서 등) 제공 가능한가?',
+]
+
+function genId() { return `CR-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
+function today() { return new Date().toISOString().slice(0, 10) }
+
+const EMPTY_FORM = {
+  customerName: '', customerCode: '', contactPerson: '', contactPhone: '', contactEmail: '',
+  productName: '', productCode: '', orderNo: '',
+  inquiryDate: today(), reviewDate: '', acceptedDate: '',
+  status: 'captured',
+  requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true })),
+  reviewItems: REVIEW_ITEMS.map(text => ({ text, result: null, note: '' })),
+  reviewedBy: '', approvedBy: '',
+  linkedSalesId: '', linkedQualityPlanId: '', linkedDhfId: '',
+  notes: '',
+  communications: [],
+}
+
+// ── 메인 ─────────────────────────────────────────────────────
+export default function CustomerReqHub() {
+  const user = auth.current()
+  const canEdit = user?.level >= 2
+
+  const [records, setRecords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+  })
+
+  const [tab, setTab] = useState('list')        // list | detail | analysis
+  const [selectedId, setSelectedId] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [editId, setEditId] = useState(null)
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [commForm, setCommForm] = useState({ date: today(), type: '이메일', summary: '', by: '' })
+  const [showCommForm, setShowCommForm] = useState(false)
+
+  function save(list) { setRecords(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
+
+  function submitRecord() {
+    if (!form.customerName.trim()) return alert('고객사명을 입력하세요.')
+    if (!form.productName.trim()) return alert('제품명을 입력하세요.')
+    const next = editId
+      ? records.map(r => r.id === editId ? { ...r, ...form } : r)
+      : [{ id: genId(), createdAt: today(), ...form }, ...records]
+    save(next)
+    setShowForm(false); setForm(EMPTY_FORM); setEditId(null)
+  }
+
+  function deleteRecord(id) {
+    if (!confirm('고객 요구사항 기록을 삭제하시겠습니까?')) return
+    save(records.filter(r => r.id !== id))
+    if (selectedId === id) { setSelectedId(null); setTab('list') }
+  }
+
+  function quickStatus(id, status) {
+    const upd = { status }
+    if (status === 'accepted') upd.acceptedDate = today()
+    if (status === 'reviewing') upd.reviewDate = today()
+    save(records.map(r => r.id === id ? { ...r, ...upd } : r))
+    // 선택된 기록이 업데이트되는 경우 즉시 반영
+    if (selectedId === id) {
+      setSelectedId(id)
+    }
+  }
+
+  function updateReviewItem(recId, idx, field, value) {
+    const next = records.map(r => {
+      if (r.id !== recId) return r
+      const items = [...(r.reviewItems || [])]
+      items[idx] = { ...items[idx], [field]: value }
+      return { ...r, reviewItems: items }
+    })
+    save(next)
+  }
+
+  function updateRequirement(recId, idx, field, value) {
+    const next = records.map(r => {
+      if (r.id !== recId) return r
+      const reqs = [...(r.requirements || [])]
+      reqs[idx] = { ...reqs[idx], [field]: value }
+      return { ...r, requirements: reqs }
+    })
+    save(next)
+  }
+
+  function addCommunication(recId) {
+    if (!commForm.summary.trim()) return alert('내용을 입력하세요.')
+    const entry = { ...commForm, id: Date.now() }
+    const next = records.map(r => {
+      if (r.id !== recId) return r
+      return { ...r, communications: [...(r.communications || []), entry] }
+    })
+    save(next)
+    setCommForm({ date: today(), type: '이메일', summary: '', by: '' })
+    setShowCommForm(false)
+  }
+
+  function deleteComm(recId, commId) {
+    const next = records.map(r => {
+      if (r.id !== recId) return r
+      return { ...r, communications: (r.communications || []).filter(c => c.id !== commId) }
+    })
+    save(next)
+  }
+
+  const selected = records.find(r => r.id === selectedId)
+
+  const filteredRecords = useMemo(() => records.filter(r => {
+    if (filterStatus !== 'all' && r.status !== filterStatus) return false
+    return true
+  }), [records, filterStatus])
+
+  function reviewProgress(rec) {
+    const items = (rec.reviewItems || [])
+    const decided = items.filter(i => i.result !== null && i.result !== undefined)
+    return items.length ? Math.round((decided.length / items.length) * 100) : 0
+  }
+
+  function reviewPassed(rec) {
+    return (rec.reviewItems || []).every(i => i.result === 'pass' || i.result === 'na')
+  }
+
+  // 분석
+  const analysis = useMemo(() => {
+    const byStatus = {}
+    Object.keys(REQ_STATUSES).forEach(k => { byStatus[k] = records.filter(r => r.status === k).length })
+    const pendingReview = records.filter(r => r.status === 'captured' || r.status === 'reviewing')
+    const recentComms = records.flatMap(r =>
+      (r.communications || []).map(c => ({ ...c, recId: r.id, customerName: r.customerName, productName: r.productName }))
+    ).sort((a, b) => (b.date > a.date ? 1 : -1)).slice(0, 5)
+    return { byStatus, pendingReview, recentComms }
+  }, [records])
+
+  return (
+    <AppLayout user={user} title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 요구사항 결정·검토·커뮤니케이션">
+      <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+
+        {/* 탭 */}
+        <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
+          {[
+            { key: 'list',     label: `요구사항 목록 (${records.length})` },
+            { key: 'detail',   label: '상세 검토', disabled: !selectedId },
+            { key: 'analysis', label: '현황 분석' },
+          ].map(t => (
+            <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
+              className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
+              style={{
+                background: tab === t.key ? 'var(--bg-card)' : 'transparent',
+                color: t.disabled ? 'var(--ink-faint)' : tab === t.key ? 'var(--moss)' : 'var(--ink-soft)',
+                boxShadow: tab === t.key ? '0 1px 3px rgba(0,0,0,.08)' : 'none',
+                border: 'none', cursor: t.disabled ? 'not-allowed' : 'pointer',
+              }}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── 목록 탭 ── */}
+        {tab === 'list' && (
+          <div>
+            <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
+              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                className="px-3 py-1.5 rounded-xl text-[13px]"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+                <option value="all">전체 상태</option>
+                {Object.entries(REQ_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+              {canEdit && (
+                <button onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
+                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                  <Plus size={14} /> 신규 요구사항 등록
+                </button>
+              )}
+            </div>
+
+            {showForm && (
+              <RecordForm form={form} setForm={setForm} onSave={submitRecord}
+                onCancel={() => { setShowForm(false); setForm(EMPTY_FORM); setEditId(null) }}
+                isEdit={!!editId} />
+            )}
+
+            {filteredRecords.length === 0 ? (
+              <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
+                <ClipboardList size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+                <div className="text-[14px]">등록된 고객 요구사항이 없습니다.</div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredRecords.map(rec => {
+                  const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
+                  const prog = reviewProgress(rec)
+                  const passed = reviewPassed(rec)
+                  return (
+                    <div key={rec.id} className="p-4 rounded-2xl cursor-pointer transition"
+                      style={{ background: 'var(--bg-card)', border: '1.5px solid var(--line)' }}
+                      onClick={() => { setSelectedId(rec.id); setTab('detail') }}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{rec.id}</span>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                            {rec.status === 'accepted' && passed && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#D1FAE5', color: '#059669' }}>검토 통과</span>
+                            )}
+                          </div>
+                          <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>{rec.customerName}</div>
+                          <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{rec.productName} {rec.productCode ? `(${rec.productCode})` : ''}</div>
+                          <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>
+                            접수: {rec.inquiryDate}
+                            {rec.contactPerson && ` · 담당: ${rec.contactPerson}`}
+                            {rec.orderNo && ` · 주문번호: ${rec.orderNo}`}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1">
+                          {/* 검토 진행률 */}
+                          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>검토 {prog}%</div>
+                          <div className="h-1.5 rounded-full w-24" style={{ background: 'var(--bg-soft)' }}>
+                            <div className="h-1.5 rounded-full" style={{ width: `${prog}%`, background: prog === 100 ? '#059669' : '#D97706' }} />
+                          </div>
+                          {(rec.communications || []).length > 0 && (
+                            <div className="text-[10.5px] flex items-center gap-1" style={{ color: '#2563EB' }}>
+                              <MessageSquare size={9} /> {rec.communications.length}건
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {canEdit && (
+                        <div className="flex gap-1 mt-3 flex-wrap" onClick={e => e.stopPropagation()}>
+                          {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
+                          {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
+                          {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
+                          {rec.status === 'accepted'  && <QuickBtn label="완료" color="#9CA3AF" onClick={() => quickStatus(rec.id, 'closed')} />}
+                          <button onClick={() => { setForm({ ...EMPTY_FORM, ...rec }); setEditId(rec.id); setShowForm(true) }}
+                            className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
+                            <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
+                          </button>
+                          <button onClick={() => deleteRecord(rec.id)}
+                            className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
+                            <Trash2 size={12} style={{ color: '#DC2626' }} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 상세 탭 ── */}
+        {tab === 'detail' && selected && (
+          <DetailView
+            rec={selected} canEdit={canEdit}
+            updateReviewItem={updateReviewItem} updateRequirement={updateRequirement}
+            commForm={commForm} setCommForm={setCommForm}
+            showCommForm={showCommForm} setShowCommForm={setShowCommForm}
+            addCommunication={addCommunication} deleteComm={deleteComm}
+            quickStatus={quickStatus} reviewProgress={reviewProgress} reviewPassed={reviewPassed}
+          />
+        )}
+
+        {/* ── 분석 탭 ── */}
+        {tab === 'analysis' && (
+          <AnalysisView analysis={analysis} setSelectedId={setSelectedId} setTab={setTab} />
+        )}
+      </div>
+    </AppLayout>
+  )
+}
+
+// ── 상세 뷰 ──────────────────────────────────────────────────
+function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
+  commForm, setCommForm, showCommForm, setShowCommForm, addCommunication, deleteComm,
+  quickStatus, reviewProgress, reviewPassed }) {
+  const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
+  const prog = reviewProgress(rec)
+  const passed = reviewPassed(rec)
+  const [openSec, setOpenSec] = useState({ reqs: true, review: true, comms: true })
+  const toggle = k => setOpenSec(s => ({ ...s, [k]: !s[k] }))
+
+  return (
+    <div className="space-y-4">
+      {/* 헤더 카드 */}
+      <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+          <div>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[12px] font-mono" style={{ color: 'var(--ink-faint)' }}>{rec.id}</span>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+              {passed && rec.status === 'accepted' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#D1FAE5', color: '#059669' }}>검토 통과</span>
+              )}
+            </div>
+            <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{rec.customerName}</div>
+            <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{rec.productName} {rec.productCode ? `(${rec.productCode})` : ''}</div>
+          </div>
+          <div className="text-right text-[12px] space-y-0.5" style={{ color: 'var(--ink-faint)' }}>
+            {rec.contactPerson && <div className="flex items-center gap-1 justify-end"><User size={10} />{rec.contactPerson}</div>}
+            {rec.contactPhone && <div className="flex items-center gap-1 justify-end"><Phone size={10} />{rec.contactPhone}</div>}
+            {rec.contactEmail && <div className="flex items-center gap-1 justify-end"><Mail size={10} />{rec.contactEmail}</div>}
+          </div>
+        </div>
+
+        {/* 날짜·담당 메타 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          {[
+            { label: '접수일', value: rec.inquiryDate },
+            { label: '검토일', value: rec.reviewDate || '-' },
+            { label: '수락일', value: rec.acceptedDate || '-' },
+            { label: '주문번호', value: rec.orderNo || '-' },
+          ].map(({ label, value }) => (
+            <div key={label} className="p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
+              <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
+              <div className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* 검토 진행률 */}
+        <div className="mb-3">
+          <div className="flex justify-between text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>
+            <span className="font-semibold">계약 전 검토 진행률 (§7.2.2)</span>
+            <span className="font-bold" style={{ color: prog === 100 ? '#059669' : '#D97706' }}>{prog}%</span>
+          </div>
+          <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
+            <div className="h-2 rounded-full transition-all" style={{ width: `${prog}%`, background: prog === 100 ? '#059669' : '#D97706' }} />
+          </div>
+        </div>
+
+        {/* 연결 링크 */}
+        {(rec.linkedSalesId || rec.linkedQualityPlanId || rec.linkedDhfId) && (
+          <div className="flex gap-2 flex-wrap mb-2">
+            {rec.linkedSalesId && <LinkChip label={`영업: ${rec.linkedSalesId}`} color="#2563EB" />}
+            {rec.linkedQualityPlanId && <LinkChip label={`QP: ${rec.linkedQualityPlanId}`} color="#7C3AED" />}
+            {rec.linkedDhfId && <LinkChip label={`DHF: ${rec.linkedDhfId}`} color="#EC4899" />}
+          </div>
+        )}
+
+        {rec.notes && (
+          <div className="p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+            {rec.notes}
+          </div>
+        )}
+
+        {/* 빠른 상태 변경 */}
+        {canEdit && (
+          <div className="flex gap-2 mt-3 flex-wrap">
+            {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
+            {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
+            {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
+            {rec.status === 'accepted'  && <QuickBtn label="완료" color="#9CA3AF" onClick={() => quickStatus(rec.id, 'closed')} />}
+          </div>
+        )}
+      </div>
+
+      {/* §7.2.1 요구사항 섹션 */}
+      <SectionCard title="§7.2.1 요구사항 결정" open={openSec.reqs} onToggle={() => toggle('reqs')}>
+        <div className="space-y-3">
+          {(rec.requirements || []).map((req, i) => (
+            <div key={i} className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{req.type}</span>
+                {canEdit && (
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input type="checkbox" checked={req.applicable !== false}
+                      onChange={e => updateRequirement(rec.id, i, 'applicable', e.target.checked)}
+                      className="accent-green-500" />
+                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>해당</span>
+                  </label>
+                )}
+              </div>
+              {req.applicable !== false ? (
+                canEdit ? (
+                  <textarea value={req.content || ''} rows={2} placeholder="요구사항 내용 입력..."
+                    onChange={e => updateRequirement(rec.id, i, 'content', e.target.value)}
+                    className="w-full px-3 py-1.5 rounded-lg text-[12.5px] resize-none"
+                    style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+                ) : (
+                  <div className="text-[12.5px]" style={{ color: req.content ? 'var(--ink-soft)' : 'var(--ink-faint)' }}>
+                    {req.content || '내용 없음'}
+                  </div>
+                )
+              ) : (
+                <div className="text-[11.5px] italic" style={{ color: 'var(--ink-faint)' }}>해당 없음 (N/A)</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* §7.2.2 계약 전 검토 섹션 */}
+      <SectionCard title="§7.2.2 요구사항 검토 체크리스트" open={openSec.review} onToggle={() => toggle('review')}>
+        <div className="mb-3 p-3 rounded-xl text-[12px]" style={{ background: '#EFF6FF', color: '#1E40AF' }}>
+          💡 수주·계약 전에 모든 항목을 검토하고 통과/해당없음으로 표시해야 합니다.
+        </div>
+        <div className="space-y-2">
+          {(rec.reviewItems || []).map((item, i) => {
+            const resultColor = item.result === 'pass' ? '#059669' : item.result === 'fail' ? '#DC2626' : item.result === 'na' ? '#9CA3AF' : '#D97706'
+            return (
+              <div key={i} className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: `1px solid ${item.result ? resultColor + '40' : 'var(--line)'}` }}>
+                <div className="flex items-start gap-3">
+                  <div className="flex-1">
+                    <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink)' }}>{item.text}</div>
+                    {canEdit && (
+                      <input type="text" value={item.note || ''} placeholder="비고 (선택)"
+                        onChange={e => updateReviewItem(rec.id, i, 'note', e.target.value)}
+                        className="w-full px-2 py-1 rounded-lg text-[11.5px]"
+                        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+                    )}
+                    {!canEdit && item.note && (
+                      <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{item.note}</div>
+                    )}
+                  </div>
+                  {canEdit ? (
+                    <div className="flex gap-1 shrink-0 mt-0.5">
+                      {[
+                        { v: 'pass', label: '통과', c: '#059669' },
+                        { v: 'fail', label: '미통과', c: '#DC2626' },
+                        { v: 'na',   label: 'N/A',    c: '#9CA3AF' },
+                      ].map(({ v, label, c }) => (
+                        <button key={v} onClick={() => updateReviewItem(rec.id, i, 'result', item.result === v ? null : v)}
+                          className="px-2 py-0.5 rounded-lg text-[10.5px] font-bold"
+                          style={{
+                            background: item.result === v ? c : 'var(--bg)',
+                            color: item.result === v ? '#fff' : c,
+                            border: `1px solid ${c}60`, cursor: 'pointer',
+                          }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                      style={{ background: resultColor + '20', color: resultColor }}>
+                      {item.result === 'pass' ? '통과' : item.result === 'fail' ? '미통과' : item.result === 'na' ? 'N/A' : '미검토'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        {(rec.reviewedBy || rec.approvedBy) && (
+          <div className="mt-3 flex gap-4 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+            {rec.reviewedBy && <span>검토자: <strong style={{ color: 'var(--ink)' }}>{rec.reviewedBy}</strong></span>}
+            {rec.approvedBy && <span>승인자: <strong style={{ color: 'var(--ink)' }}>{rec.approvedBy}</strong></span>}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* §7.2.3 커뮤니케이션 섹션 */}
+      <SectionCard title={`§7.2.3 고객 커뮤니케이션 (${(rec.communications || []).length}건)`}
+        open={openSec.comms} onToggle={() => toggle('comms')}>
+        {canEdit && !showCommForm && (
+          <button onClick={() => setShowCommForm(true)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12.5px] font-semibold mb-3"
+            style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
+            <Plus size={13} /> 커뮤니케이션 기록 추가
+          </button>
+        )}
+        {showCommForm && (
+          <div className="p-4 rounded-xl mb-3" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+              <div>
+                <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>일자</label>
+                <input type="date" value={commForm.date} onChange={e => setCommForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-2 py-1 rounded-lg text-[12px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>유형</label>
+                <select value={commForm.type} onChange={e => setCommForm(f => ({ ...f, type: e.target.value }))}
+                  className="w-full px-2 py-1 rounded-lg text-[12px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+                  {COMM_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>담당자</label>
+                <input type="text" value={commForm.by} onChange={e => setCommForm(f => ({ ...f, by: e.target.value }))} placeholder="이름"
+                  className="w-full px-2 py-1 rounded-lg text-[12px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+            </div>
+            <div className="mb-3">
+              <label className="block text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>내용 *</label>
+              <textarea value={commForm.summary} onChange={e => setCommForm(f => ({ ...f, summary: e.target.value }))}
+                rows={2} placeholder="커뮤니케이션 내용 요약..."
+                className="w-full px-3 py-1.5 rounded-lg text-[12.5px] resize-none"
+                style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => addCommunication(rec.id)}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>저장</button>
+              <button onClick={() => setShowCommForm(false)}
+                className="px-3 py-1.5 rounded-lg text-[12px]"
+                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2">
+          {(rec.communications || []).slice().reverse().map(c => (
+            <div key={c.id} className="flex items-start gap-3 p-3 rounded-xl"
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+              <MessageSquare size={14} style={{ color: '#2563EB', marginTop: 2, flexShrink: 0 }} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: '#DBEAFE', color: '#1E40AF' }}>{c.type}</span>
+                  <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{c.date}</span>
+                  {c.by && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>· {c.by}</span>}
+                </div>
+                <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{c.summary}</div>
+              </div>
+              {canEdit && (
+                <button onClick={() => deleteComm(rec.id, c.id)}
+                  className="p-1 rounded-lg shrink-0" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
+                  <Trash2 size={10} style={{ color: '#DC2626' }} />
+                </button>
+              )}
+            </div>
+          ))}
+          {(rec.communications || []).length === 0 && (
+            <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>커뮤니케이션 기록 없음</div>
+          )}
+        </div>
+      </SectionCard>
+    </div>
+  )
+}
+
+// ── 분석 탭 ──────────────────────────────────────────────────
+function AnalysisView({ analysis, setSelectedId, setTab }) {
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {Object.entries(REQ_STATUSES).map(([k, v]) => (
+          <div key={k} className="p-4 rounded-2xl text-center" style={{ background: v.bg, border: `1px solid ${v.color}40` }}>
+            <div className="text-[26px] font-bold" style={{ color: v.color }}>{analysis.byStatus[k] || 0}</div>
+            <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{v.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {analysis.pendingReview.length > 0 && (
+        <div className="p-5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>⏳ 검토 대기 중 ({analysis.pendingReview.length}건)</div>
+          <div className="space-y-1.5">
+            {analysis.pendingReview.map(rec => {
+              const sm = REQ_STATUSES[rec.status]
+              return (
+                <div key={rec.id} className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer"
+                  style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}
+                  onClick={() => { setSelectedId(rec.id); setTab('detail') }}>
+                  <div>
+                    <span className="text-[12px] font-bold" style={{ color: '#78350F' }}>{rec.customerName}</span>
+                    <span className="ml-2 text-[12px]" style={{ color: '#D97706' }}>{rec.productName}</span>
+                  </div>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {analysis.recentComms.length > 0 && (
+        <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>최근 고객 커뮤니케이션</div>
+          <div className="space-y-2">
+            {analysis.recentComms.map((c, i) => (
+              <div key={i} className="flex items-start gap-3 p-2.5 rounded-xl cursor-pointer"
+                style={{ background: 'var(--bg-soft)' }}
+                onClick={() => { setSelectedId(c.recId); setTab('detail') }}>
+                <MessageSquare size={13} style={{ color: '#2563EB', marginTop: 2 }} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{c.date} · {c.type} · {c.customerName} / {c.productName}</div>
+                  <div className="text-[12.5px] truncate" style={{ color: 'var(--ink)' }}>{c.summary}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 폼 ───────────────────────────────────────────────────────
+function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
+  const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  return (
+    <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
+        {isEdit ? '고객 요구사항 수정' : '고객 요구사항 신규 등록'}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <Field label="고객사명 *" value={form.customerName} onChange={v => F('customerName', v)} />
+        <Field label="고객 코드" value={form.customerCode} onChange={v => F('customerCode', v)} />
+        <Field label="담당자명" value={form.contactPerson} onChange={v => F('contactPerson', v)} />
+        <Field label="연락처" value={form.contactPhone} onChange={v => F('contactPhone', v)} />
+        <Field label="이메일" value={form.contactEmail} onChange={v => F('contactEmail', v)} />
+        <Field label="주문/RFQ 번호" value={form.orderNo} onChange={v => F('orderNo', v)} />
+        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
+        <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
+        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
+          options={Object.entries(REQ_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
+        <Field label="접수일" type="date" value={form.inquiryDate} onChange={v => F('inquiryDate', v)} />
+        <Field label="검토자" value={form.reviewedBy} onChange={v => F('reviewedBy', v)} />
+        <Field label="승인자" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
+        <Field label="연결 영업 ID" value={form.linkedSalesId} onChange={v => F('linkedSalesId', v)} placeholder="SAL-xxxx" />
+        <Field label="연결 QP ID" value={form.linkedQualityPlanId} onChange={v => F('linkedQualityPlanId', v)} placeholder="QP-xxxx" />
+        <Field label="연결 DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
+      </div>
+      <div className="mb-3">
+        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
+      </div>
+      <div className="p-3 rounded-xl mb-4 text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+        💡 저장 후 <strong>상세 검토</strong> 탭에서 요구사항 내용과 검토 체크리스트를 작성하세요.
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
+          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          <Save size={13} /> 저장
+        </button>
+        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+      </div>
+    </div>
+  )
+}
+
+// ── 공통 컴포넌트 ─────────────────────────────────────────────
+function SectionCard({ title, open, onToggle, children }) {
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+      <button onClick={onToggle} className="w-full flex items-center justify-between p-4"
+        style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <span className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>{title}</span>
+        {open ? <ChevronUp size={14} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={14} style={{ color: 'var(--ink-faint)' }} />}
+      </button>
+      {open && <div className="px-4 pb-4">{children}</div>}
+    </div>
+  )
+}
+
+function QuickBtn({ label, color, onClick }) {
+  return (
+    <button onClick={onClick} className="px-2 py-1 rounded-lg text-[11px] font-bold"
+      style={{ background: `${color}15`, border: `1px solid ${color}40`, color, cursor: 'pointer' }}>
+      {label}
+    </button>
+  )
+}
+
+function LinkChip({ label, color }) {
+  return (
+    <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+      style={{ background: color + '15', color, border: `1px solid ${color}40` }}>
+      <Link2 size={9} /> {label}
+    </span>
+  )
+}
+
+function Field({ label, value, onChange, type = 'text', placeholder }) {
+  return (
+    <div>
+      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+    </div>
+  )
+}
+function FieldSelect({ label, value, onChange, options }) {
+  return (
+    <div>
+      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
+      <select value={value || ''} onChange={e => onChange(e.target.value)}
+        className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  )
+}
+function FieldArea({ label, value, onChange, rows = 3 }) {
+  return (
+    <div>
+      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
+      <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
+        className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
+        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+    </div>
+  )
+}
