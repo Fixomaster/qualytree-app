@@ -117,6 +117,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/quality',            label: '품질 허브',         badge: 'QUA' },
     { to: '/quality-dashboard',  label: '품질 KPI 대시보드', badge: 'QUA' },
+    { to: '/measurement-plan',   label: '측정·분석·개선 계획', badge: 'QUA' },
     FLOW,
     { to: '/inspection',         label: '검사 관리',         badge: 'QUA' },
     { to: '/risk',               label: '위험관리 (FMEA)',   badge: 'RA' },
@@ -176,6 +177,7 @@ export const DEPT_NAV = {
     { to: '/quality-dashboard',   label: '품질 KPI 대시보드', badge: 'QUA' },
     { to: '/doc-control',          label: '문서 관리 대장',    badge: 'DOC' },
     { to: '/quality-objectives',  label: '품질 목표 관리',    badge: 'MR' },
+    { to: '/measurement-plan',    label: '측정·분석·개선 계획', badge: 'MR' },
     { to: '/quality-plan',        label: '품질 계획 (QP)',    badge: 'MR' },
     { to: '/org-responsibility',  label: '조직·책임 관리',    badge: 'MR' },
     { to: '/quality-policy',      label: '경영 의지·품질 방침', badge: 'MR' },
@@ -255,6 +257,7 @@ export const DEPT_NAV = {
     { to: '/device-file',            label: '의료기기 파일 (DMR)',  badge: 'DEV' },
     { to: '/production-control',     label: '생산 제어 계획',       badge: 'MFG' },
     { to: '/quality-policy',         label: '경영 의지·품질 방침', badge: 'MR' },
+    { to: '/measurement-plan',       label: '측정·분석·개선 계획', badge: 'QUA' },
     { to: '/export',                 label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
