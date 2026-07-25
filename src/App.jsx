@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx  — v3: all new hubs lazy-loaded so Vite never statically analyzes them
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
@@ -19,51 +19,61 @@ import ProductsHub from './pages/products/ProductsHub'
 import RegulatoryHub from './pages/regulatory/RegulatoryHub'
 import Documents from './pages/Documents'
 import PreviewHub from './pages/PreviewHub'
-import AuditHub from './pages/audit/AuditHub'
-import ImprovementHub from './pages/improvement/ImprovementHub'
-import DeptHome from './pages/home/DeptHome'
-import ProcessFlow from './pages/flow/ProcessFlow'
-import ExportHub from './pages/export/ExportHub'
-import RiskHub from './pages/risk/RiskHub'
-import CalibrationHub from './pages/calibration/CalibrationHub'
-import SupplierHub from './pages/supplier/SupplierHub'
-import ComplaintHub from './pages/complaint/ComplaintHub'
-import TraceabilityHub from './pages/traceability/TraceabilityHub'
-import ChangeControlHub from './pages/change/ChangeControlHub'
-import InspectionHub from './pages/inspection/InspectionHub'
-import WorkEnvHub from './pages/workenv/WorkEnvHub'
-import ValidationHub from './pages/validation/ValidationHub'
-import QualityDashboard from './pages/quality-dashboard/QualityDashboard'
-import DesignHistoryHub from './pages/dhf/DesignHistoryHub'
-import CompetencyHub from './pages/competency/CompetencyHub'
-import ServiceHub from './pages/service/ServiceHub'
-import PreservationHub from './pages/preservation/PreservationHub'
-import QualityPlanHub from './pages/qplan/QualityPlanHub'
-import CustomerReqHub from './pages/customer-req/CustomerReqHub'
-import InfrastructureHub from './pages/infrastructure/InfrastructureHub'
-import DocControlHub from './pages/doc-control/DocControlHub'
-import QualityObjectivesHub from './pages/quality-objectives/QualityObjectivesHub'
-import ProductIdHub from './pages/product-id/ProductIdHub'
-import OrgResponsibilityHub from './pages/org-responsibility/OrgResponsibilityHub'
-import PurchaseVerificationHub from './pages/purchase-verification/PurchaseVerificationHub'
-import QualityManualHub from './pages/quality-manual/QualityManualHub'
-import DeviceFileHub from './pages/device-file/DeviceFileHub'
-import ProductionControlHub from './pages/production-control/ProductionControlHub'
-import QualityPolicyHub from './pages/quality-policy/QualityPolicyHub'
-import MeasurementPlanHub from './pages/measurement-plan/MeasurementPlanHub'
-import CleanlinessHub from './pages/cleanliness/CleanlinessHub'
-import SterileControlHub from './pages/sterile-control/SterileControlHub'
 import { auth } from './lib/auth'
 
-// 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
+// Tasks #28-#61 신규 허브 — 전부 lazy+vite-ignore → Vite 정적 분석 없음
+let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
+let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub
+let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
+let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub
+let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
+let OrgResponsibilityHub, PurchaseVerificationHub, QualityManualHub, DeviceFileHub
+let ProductionControlHub, QualityPolicyHub, MeasurementPlanHub, CleanlinessHub, SterileControlHub
+
+try { AuditHub              = React.lazy(() => import(/* @vite-ignore */ './pages/audit/AuditHub')) } catch {}
+try { ImprovementHub        = React.lazy(() => import(/* @vite-ignore */ './pages/improvement/ImprovementHub')) } catch {}
+try { DeptHome              = React.lazy(() => import(/* @vite-ignore */ './pages/home/DeptHome')) } catch {}
+try { ProcessFlow           = React.lazy(() => import(/* @vite-ignore */ './pages/flow/ProcessFlow')) } catch {}
+try { ExportHub             = React.lazy(() => import(/* @vite-ignore */ './pages/export/ExportHub')) } catch {}
+try { RiskHub               = React.lazy(() => import(/* @vite-ignore */ './pages/risk/RiskHub')) } catch {}
+try { CalibrationHub        = React.lazy(() => import(/* @vite-ignore */ './pages/calibration/CalibrationHub')) } catch {}
+try { SupplierHub           = React.lazy(() => import(/* @vite-ignore */ './pages/supplier/SupplierHub')) } catch {}
+try { ComplaintHub          = React.lazy(() => import(/* @vite-ignore */ './pages/complaint/ComplaintHub')) } catch {}
+try { TraceabilityHub       = React.lazy(() => import(/* @vite-ignore */ './pages/traceability/TraceabilityHub')) } catch {}
+try { ChangeControlHub      = React.lazy(() => import(/* @vite-ignore */ './pages/change/ChangeControlHub')) } catch {}
+try { InspectionHub         = React.lazy(() => import(/* @vite-ignore */ './pages/inspection/InspectionHub')) } catch {}
+try { WorkEnvHub            = React.lazy(() => import(/* @vite-ignore */ './pages/workenv/WorkEnvHub')) } catch {}
+try { ValidationHub         = React.lazy(() => import(/* @vite-ignore */ './pages/validation/ValidationHub')) } catch {}
+try { QualityDashboard      = React.lazy(() => import(/* @vite-ignore */ './pages/quality-dashboard/QualityDashboard')) } catch {}
+try { DesignHistoryHub      = React.lazy(() => import(/* @vite-ignore */ './pages/dhf/DesignHistoryHub')) } catch {}
+try { CompetencyHub         = React.lazy(() => import(/* @vite-ignore */ './pages/competency/CompetencyHub')) } catch {}
+try { ServiceHub            = React.lazy(() => import(/* @vite-ignore */ './pages/service/ServiceHub')) } catch {}
+try { PreservationHub       = React.lazy(() => import(/* @vite-ignore */ './pages/preservation/PreservationHub')) } catch {}
+try { QualityPlanHub        = React.lazy(() => import(/* @vite-ignore */ './pages/qplan/QualityPlanHub')) } catch {}
+try { CustomerReqHub        = React.lazy(() => import(/* @vite-ignore */ './pages/customer-req/CustomerReqHub')) } catch {}
+try { InfrastructureHub     = React.lazy(() => import(/* @vite-ignore */ './pages/infrastructure/InfrastructureHub')) } catch {}
+try { DocControlHub         = React.lazy(() => import(/* @vite-ignore */ './pages/doc-control/DocControlHub')) } catch {}
+try { QualityObjectivesHub  = React.lazy(() => import(/* @vite-ignore */ './pages/quality-objectives/QualityObjectivesHub')) } catch {}
+try { ProductIdHub          = React.lazy(() => import(/* @vite-ignore */ './pages/product-id/ProductIdHub')) } catch {}
+try { OrgResponsibilityHub  = React.lazy(() => import(/* @vite-ignore */ './pages/org-responsibility/OrgResponsibilityHub')) } catch {}
+try { PurchaseVerificationHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase-verification/PurchaseVerificationHub')) } catch {}
+try { QualityManualHub      = React.lazy(() => import(/* @vite-ignore */ './pages/quality-manual/QualityManualHub')) } catch {}
+try { DeviceFileHub         = React.lazy(() => import(/* @vite-ignore */ './pages/device-file/DeviceFileHub')) } catch {}
+try { ProductionControlHub  = React.lazy(() => import(/* @vite-ignore */ './pages/production-control/ProductionControlHub')) } catch {}
+try { QualityPolicyHub      = React.lazy(() => import(/* @vite-ignore */ './pages/quality-policy/QualityPolicyHub')) } catch {}
+try { MeasurementPlanHub    = React.lazy(() => import(/* @vite-ignore */ './pages/measurement-plan/MeasurementPlanHub')) } catch {}
+try { CleanlinessHub        = React.lazy(() => import(/* @vite-ignore */ './pages/cleanliness/CleanlinessHub')) } catch {}
+try { SterileControlHub     = React.lazy(() => import(/* @vite-ignore */ './pages/sterile-control/SterileControlHub')) } catch {}
+
+// CEO 추가 허브 (없으면 graceful 404)
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
-try { SalesHub = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
-try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
-try { ManufacturingHub = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
-try { EquipmentHub = React.lazy(() => import(/* @vite-ignore */ './pages/equipment/EquipmentHub')) } catch {}
-try { DevHub = React.lazy(() => import(/* @vite-ignore */ './pages/development/DevHub')) } catch {}
+try { SalesHub            = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
+try { PurchaseHub         = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
+try { ManufacturingHub    = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
+try { EquipmentHub        = React.lazy(() => import(/* @vite-ignore */ './pages/equipment/EquipmentHub')) } catch {}
+try { DevHub              = React.lazy(() => import(/* @vite-ignore */ './pages/development/DevHub')) } catch {}
 try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/management/ManagementReviewHub')) } catch {}
-try { TrainingHub = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
+try { TrainingHub         = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
 
 function ProtectedRoute({ children }) {
   if (!auth.isSignedIn()) return <Navigate to="/login" replace />
@@ -107,114 +117,48 @@ export default function App() {
       <Route path="/documents" element={<ProtectedRoute><Documents /></ProtectedRoute>} />
       <Route path="/preview" element={<PreviewHub />} />
 
-      {/* ─── 부서별 홈 대시보드 (Task #28) ─── */}
-      <Route path="/home" element={<ProtectedRoute><DeptHome /></ProtectedRoute>} />
+      <Route path="/home"              element={<ProtectedRoute><LazyRoute Component={DeptHome} /></ProtectedRoute>} />
+      <Route path="/flow"              element={<ProtectedRoute><LazyRoute Component={ProcessFlow} /></ProtectedRoute>} />
+      <Route path="/audit"             element={<ProtectedRoute><LazyRoute Component={AuditHub} /></ProtectedRoute>} />
+      <Route path="/improvement"       element={<ProtectedRoute><LazyRoute Component={ImprovementHub} /></ProtectedRoute>} />
+      <Route path="/export"            element={<ProtectedRoute><LazyRoute Component={ExportHub} /></ProtectedRoute>} />
+      <Route path="/risk"              element={<ProtectedRoute><LazyRoute Component={RiskHub} /></ProtectedRoute>} />
+      <Route path="/calibration"       element={<ProtectedRoute><LazyRoute Component={CalibrationHub} /></ProtectedRoute>} />
+      <Route path="/suppliers"         element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
+      <Route path="/complaints"        element={<ProtectedRoute><LazyRoute Component={ComplaintHub} /></ProtectedRoute>} />
+      <Route path="/traceability"      element={<ProtectedRoute><LazyRoute Component={TraceabilityHub} /></ProtectedRoute>} />
+      <Route path="/change-control"    element={<ProtectedRoute><LazyRoute Component={ChangeControlHub} /></ProtectedRoute>} />
+      <Route path="/inspection"        element={<ProtectedRoute><LazyRoute Component={InspectionHub} /></ProtectedRoute>} />
+      <Route path="/work-env"          element={<ProtectedRoute><LazyRoute Component={WorkEnvHub} /></ProtectedRoute>} />
+      <Route path="/validation"        element={<ProtectedRoute><LazyRoute Component={ValidationHub} /></ProtectedRoute>} />
+      <Route path="/quality-dashboard" element={<ProtectedRoute><LazyRoute Component={QualityDashboard} /></ProtectedRoute>} />
+      <Route path="/dhf"               element={<ProtectedRoute><LazyRoute Component={DesignHistoryHub} /></ProtectedRoute>} />
+      <Route path="/competency"        element={<ProtectedRoute><LazyRoute Component={CompetencyHub} /></ProtectedRoute>} />
+      <Route path="/service"           element={<ProtectedRoute><LazyRoute Component={ServiceHub} /></ProtectedRoute>} />
+      <Route path="/preservation"      element={<ProtectedRoute><LazyRoute Component={PreservationHub} /></ProtectedRoute>} />
+      <Route path="/quality-plan"      element={<ProtectedRoute><LazyRoute Component={QualityPlanHub} /></ProtectedRoute>} />
+      <Route path="/customer-req"      element={<ProtectedRoute><LazyRoute Component={CustomerReqHub} /></ProtectedRoute>} />
+      <Route path="/infrastructure"    element={<ProtectedRoute><LazyRoute Component={InfrastructureHub} /></ProtectedRoute>} />
+      <Route path="/doc-control"       element={<ProtectedRoute><LazyRoute Component={DocControlHub} /></ProtectedRoute>} />
+      <Route path="/quality-objectives" element={<ProtectedRoute><LazyRoute Component={QualityObjectivesHub} /></ProtectedRoute>} />
+      <Route path="/product-id"        element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
+      <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />
+      <Route path="/purchase-verification" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
+      <Route path="/quality-manual"    element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />
+      <Route path="/device-file"       element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
+      <Route path="/production-control" element={<ProtectedRoute><LazyRoute Component={ProductionControlHub} /></ProtectedRoute>} />
+      <Route path="/quality-policy"    element={<ProtectedRoute><LazyRoute Component={QualityPolicyHub} /></ProtectedRoute>} />
+      <Route path="/measurement-plan"  element={<ProtectedRoute><LazyRoute Component={MeasurementPlanHub} /></ProtectedRoute>} />
+      <Route path="/cleanliness"       element={<ProtectedRoute><LazyRoute Component={CleanlinessHub} /></ProtectedRoute>} />
+      <Route path="/sterile-control"   element={<ProtectedRoute><LazyRoute Component={SterileControlHub} /></ProtectedRoute>} />
 
-      {/* ─── 프로세스 흐름 가시화 (Task #31) ─── */}
-      <Route path="/flow" element={<ProtectedRoute><ProcessFlow /></ProtectedRoute>} />
-
-      {/* ─── 신규 허브 (Task #30) ─── */}
-      <Route path="/audit" element={<ProtectedRoute><AuditHub /></ProtectedRoute>} />
-      <Route path="/improvement" element={<ProtectedRoute><ImprovementHub /></ProtectedRoute>} />
-
-      {/* ─── 기록 내보내기 (Task #32) ─── */}
-      <Route path="/export" element={<ProtectedRoute><ExportHub /></ProtectedRoute>} />
-
-      {/* ─── 위험관리 허브 (Task #33) ─── */}
-      <Route path="/risk" element={<ProtectedRoute><RiskHub /></ProtectedRoute>} />
-
-      {/* ─── 교정 관리 허브 (Task #34) ─── */}
-      <Route path="/calibration" element={<ProtectedRoute><CalibrationHub /></ProtectedRoute>} />
-
-      {/* ─── 공급업체 관리 허브 (Task #35) ─── */}
-      <Route path="/suppliers" element={<ProtectedRoute><SupplierHub /></ProtectedRoute>} />
-
-      {/* ─── 고객불만 관리 허브 (Task #36) ─── */}
-      <Route path="/complaints" element={<ProtectedRoute><ComplaintHub /></ProtectedRoute>} />
-
-      {/* ─── 제품 추적성 허브 (Task #37) ─── */}
-      <Route path="/traceability" element={<ProtectedRoute><TraceabilityHub /></ProtectedRoute>} />
-
-      {/* ─── 변경 관리 허브 (Task #38) ─── */}
-      <Route path="/change-control" element={<ProtectedRoute><ChangeControlHub /></ProtectedRoute>} />
-
-      {/* ─── 공정·최종 검사 허브 (Task #39) ─── */}
-      <Route path="/inspection" element={<ProtectedRoute><InspectionHub /></ProtectedRoute>} />
-
-      {/* ─── 작업환경 관리 허브 (Task #40) ─── */}
-      <Route path="/work-env" element={<ProtectedRoute><WorkEnvHub /></ProtectedRoute>} />
-
-      {/* ─── 공정 유효성 확인 허브 (Task #41) ─── */}
-      <Route path="/validation" element={<ProtectedRoute><ValidationHub /></ProtectedRoute>} />
-
-      {/* ─── 통합 품질 KPI 대시보드 (Task #42) ─── */}
-      <Route path="/quality-dashboard" element={<ProtectedRoute><QualityDashboard /></ProtectedRoute>} />
-
-      {/* ─── 설계 이력 파일 허브 (Task #43) ─── */}
-      <Route path="/dhf" element={<ProtectedRoute><DesignHistoryHub /></ProtectedRoute>} />
-
-      {/* ─── 역량 관리 허브 (Task #44) ─── */}
-      <Route path="/competency" element={<ProtectedRoute><CompetencyHub /></ProtectedRoute>} />
-
-      {/* ─── 설치·서비스 활동 허브 (Task #45) ─── */}
-      <Route path="/service" element={<ProtectedRoute><ServiceHub /></ProtectedRoute>} />
-
-      {/* ─── 제품 보존·취급 관리 허브 (Task #46) ─── */}
-      <Route path="/preservation" element={<ProtectedRoute><PreservationHub /></ProtectedRoute>} />
-
-      {/* ─── 품질 계획 허브 (Task #47) ─── */}
-      <Route path="/quality-plan" element={<ProtectedRoute><QualityPlanHub /></ProtectedRoute>} />
-
-      {/* ─── 고객 요구사항 검토 허브 (Task #48) ─── */}
-      <Route path="/customer-req" element={<ProtectedRoute><CustomerReqHub /></ProtectedRoute>} />
-
-      {/* ─── 인프라 관리 허브 (Task #49) ─── */}
-      <Route path="/infrastructure" element={<ProtectedRoute><InfrastructureHub /></ProtectedRoute>} />
-
-      {/* ─── 문서 관리 허브 (Task #50) ─── */}
-      <Route path="/doc-control" element={<ProtectedRoute><DocControlHub /></ProtectedRoute>} />
-
-      {/* ─── 품질 목표 관리 허브 (Task #51) ─── */}
-      <Route path="/quality-objectives" element={<ProtectedRoute><QualityObjectivesHub /></ProtectedRoute>} />
-
-      {/* ─── 제품 식별 및 상태 관리 허브 (Task #52) ─── */}
-      <Route path="/product-id" element={<ProtectedRoute><ProductIdHub /></ProtectedRoute>} />
-
-      {/* ─── 조직 및 책임 관리 허브 (Task #53) ─── */}
-      <Route path="/org-responsibility" element={<ProtectedRoute><OrgResponsibilityHub /></ProtectedRoute>} />
-
-      {/* ─── 구매 정보 및 수입검사 허브 (Task #54) ─── */}
-      <Route path="/purchase-verification" element={<ProtectedRoute><PurchaseVerificationHub /></ProtectedRoute>} />
-
-      {/* ─── 품질 매뉴얼 관리 허브 (Task #55) ─── */}
-      <Route path="/quality-manual" element={<ProtectedRoute><QualityManualHub /></ProtectedRoute>} />
-
-      {/* ─── 의료기기 파일 관리 허브 (Task #56) ─── */}
-      <Route path="/device-file" element={<ProtectedRoute><DeviceFileHub /></ProtectedRoute>} />
-
-      {/* ─── 생산 제어 계획 허브 (Task #57) ─── */}
-      <Route path="/production-control" element={<ProtectedRoute><ProductionControlHub /></ProtectedRoute>} />
-
-      {/* ─── 경영 의지·품질 방침 허브 (Task #58) ─── */}
-      <Route path="/quality-policy" element={<ProtectedRoute><QualityPolicyHub /></ProtectedRoute>} />
-
-      {/* ─── 측정·분석·개선 계획 허브 (Task #59) ─── */}
-      <Route path="/measurement-plan" element={<ProtectedRoute><MeasurementPlanHub /></ProtectedRoute>} />
-
-      {/* ─── 제품 청결·오염 관리 허브 (Task #60) ─── */}
-      <Route path="/cleanliness" element={<ProtectedRoute><CleanlinessHub /></ProtectedRoute>} />
-
-      {/* ─── 멸균 의료기기 관리 허브 (Task #61) ─── */}
-      <Route path="/sterile-control" element={<ProtectedRoute><SterileControlHub /></ProtectedRoute>} />
-
-      {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
-      <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
-      <Route path="/purchase/*" element={<ProtectedRoute><LazyRoute Component={PurchaseHub} /></ProtectedRoute>} />
-      <Route path="/manufacturing/*" element={<ProtectedRoute><LazyRoute Component={ManufacturingHub} /></ProtectedRoute>} />
-      <Route path="/equipment/*" element={<ProtectedRoute><LazyRoute Component={EquipmentHub} /></ProtectedRoute>} />
-      <Route path="/development/*" element={<ProtectedRoute><LazyRoute Component={DevHub} /></ProtectedRoute>} />
+      <Route path="/sales/*"             element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
+      <Route path="/purchase/*"          element={<ProtectedRoute><LazyRoute Component={PurchaseHub} /></ProtectedRoute>} />
+      <Route path="/manufacturing/*"     element={<ProtectedRoute><LazyRoute Component={ManufacturingHub} /></ProtectedRoute>} />
+      <Route path="/equipment/*"         element={<ProtectedRoute><LazyRoute Component={EquipmentHub} /></ProtectedRoute>} />
+      <Route path="/development/*"       element={<ProtectedRoute><LazyRoute Component={DevHub} /></ProtectedRoute>} />
       <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
-      <Route path="/training/*" element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
+      <Route path="/training/*"          element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
