@@ -5,8 +5,10 @@ import {
   Plus, Save, Edit2, Trash2, Layers, CheckCircle2,
   AlertTriangle, ClipboardList, ChevronUp, ChevronDown,
   Package, BarChart2, Cpu, ArrowRight, GripVertical,
+  Factory,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

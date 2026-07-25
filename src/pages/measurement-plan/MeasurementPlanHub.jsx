@@ -4,8 +4,10 @@ import React, { useState, useMemo } from 'react'
 import {
   Edit2, Save, X, Plus, Trash2, CheckCircle2, AlertTriangle,
   BarChart2, Target, Cpu, TrendingUp, ClipboardList, ChevronUp, ChevronDown,
+  BarChart3,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

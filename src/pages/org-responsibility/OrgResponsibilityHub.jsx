@@ -6,8 +6,10 @@ import {
   Building2, MessageSquare, ShieldCheck, Star,
   ChevronDown, ChevronRight, Link2, BarChart2,
   Check, X, Minus,
+  Network,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

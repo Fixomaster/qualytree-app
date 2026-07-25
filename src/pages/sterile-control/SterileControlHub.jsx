@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import {
   Beaker, CheckCircle, AlertTriangle, PlusCircle,
   ChevronDown, ChevronUp, Trash2, Save, XCircle,

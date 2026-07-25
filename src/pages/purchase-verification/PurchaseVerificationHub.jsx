@@ -5,8 +5,10 @@ import {
   Plus, Save, Edit2, Trash2, FileText, CheckCircle2,
   XCircle, Clock, AlertTriangle, ShieldCheck, Package,
   BarChart2, Link2, ArrowRight, Truck,
+  PackageCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
