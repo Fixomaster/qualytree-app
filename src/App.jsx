@@ -50,6 +50,7 @@ import QualityManualHub from './pages/quality-manual/QualityManualHub'
 import DeviceFileHub from './pages/device-file/DeviceFileHub'
 import ProductionControlHub from './pages/production-control/ProductionControlHub'
 import QualityPolicyHub from './pages/quality-policy/QualityPolicyHub'
+import MeasurementPlanHub from './pages/measurement-plan/MeasurementPlanHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -194,6 +195,9 @@ export default function App() {
 
       {/* ─── 경영 의지·품질 방침 허브 (Task #58) ─── */}
       <Route path="/quality-policy" element={<ProtectedRoute><QualityPolicyHub /></ProtectedRoute>} />
+
+      {/* ─── 측정·분석·개선 계획 허브 (Task #59) ─── */}
+      <Route path="/measurement-plan" element={<ProtectedRoute><MeasurementPlanHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
