@@ -34,6 +34,7 @@ import InspectionHub from './pages/inspection/InspectionHub'
 import WorkEnvHub from './pages/workenv/WorkEnvHub'
 import ValidationHub from './pages/validation/ValidationHub'
 import QualityDashboard from './pages/quality-dashboard/QualityDashboard'
+import DesignHistoryHub from './pages/dhf/DesignHistoryHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -130,6 +131,9 @@ export default function App() {
 
       {/* ─── 통합 품질 KPI 대시보드 (Task #42) ─── */}
       <Route path="/quality-dashboard" element={<ProtectedRoute><QualityDashboard /></ProtectedRoute>} />
+
+      {/* ─── 설계 이력 파일 허브 (Task #43) ─── */}
+      <Route path="/dhf" element={<ProtectedRoute><DesignHistoryHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
