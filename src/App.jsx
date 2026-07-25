@@ -40,6 +40,7 @@ import ServiceHub from './pages/service/ServiceHub'
 import PreservationHub from './pages/preservation/PreservationHub'
 import QualityPlanHub from './pages/qplan/QualityPlanHub'
 import CustomerReqHub from './pages/customer-req/CustomerReqHub'
+import InfrastructureHub from './pages/infrastructure/InfrastructureHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -154,6 +155,9 @@ export default function App() {
 
       {/* ─── 고객 요구사항 검토 허브 (Task #48) ─── */}
       <Route path="/customer-req" element={<ProtectedRoute><CustomerReqHub /></ProtectedRoute>} />
+
+      {/* ─── 인프라 관리 허브 (Task #49) ─── */}
+      <Route path="/infrastructure" element={<ProtectedRoute><InfrastructureHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
