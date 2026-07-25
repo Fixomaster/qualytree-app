@@ -6,6 +6,7 @@ import {
   Wind, Shield, FlaskConical, ClipboardList, BarChart2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 const LS_SPECS  = 'qualytree.cleanliness_specs'

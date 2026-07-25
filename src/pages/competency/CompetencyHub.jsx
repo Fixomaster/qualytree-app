@@ -5,8 +5,10 @@ import {
   Plus, X, Save, Edit2, Trash2, Users, Star, CheckCircle2,
   AlertTriangle, XCircle, BarChart2, BookOpen, Award,
   User, Briefcase, ChevronRight, Download,
+  GraduationCap,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

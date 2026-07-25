@@ -5,8 +5,10 @@ import {
   Plus, X, Save, Edit2, Trash2, Package, Thermometer,
   AlertTriangle, CheckCircle2, Clock, XCircle, Archive,
   Droplets, Sun, Wind, BarChart2, Link2, ClipboardList,
+  Package2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -181,6 +183,15 @@ export default function PreservationHub() {
   return (
     <AppLayout user={user} title="제품 보존·취급 관리" subtitle="ISO 13485 §7.5.11 보존 · §7.5.2 청결 · 유효기간 추적">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+
+        <HubBanner
+          title="제품 보존·취급 관리"
+          subtitle="ISO 13485 §7.5.11 · 보관 조건 · 취급 절차 · 유효기간 관리"
+          icon={Package2}
+          color="#8B5CF6"
+          quickActions={[{label:'보존 기록 추가',icon:Plus,onClick:openNew,primary:true}]}
+          workflow={['보관 조건 설정','환경 모니터링','취급 절차','유효기간 관리','기록 유지']}
+        />
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

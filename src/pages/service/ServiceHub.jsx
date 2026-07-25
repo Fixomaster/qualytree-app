@@ -6,8 +6,10 @@ import {
   CheckCircle2, Clock, AlertTriangle, XCircle,
   Package, Link2, ClipboardList, BarChart2, User,
   ChevronDown, ChevronUp, FileText, Tool,
+  Headphones,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

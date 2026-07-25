@@ -8,6 +8,7 @@ import {
   ClipboardList, Users, Star, ArrowRight, BarChart2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────

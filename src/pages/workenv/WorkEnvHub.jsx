@@ -8,6 +8,7 @@ import {
   Settings, Clock,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -165,6 +166,15 @@ export default function WorkEnvHub() {
           </div>
         )}
 
+        <HubBanner
+          title="작업환경 관리"
+          subtitle="ISO 13485 §6.4 · 온도·습도·청정도 모니터링 · 환경 기록 유지"
+          icon={Thermometer}
+          color="#0891B2"
+          quickActions={[{label:'환경 기록 추가',icon:Plus,onClick:openNew,primary:true}]}
+          workflow={['환경 조건 설정','모니터링 실시','이탈 감지','시정조치','기록 보관']}
+        />
+
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -245,16 +255,6 @@ export default function WorkEnvHub() {
         {/* ── 현황 분석 탭 ── */}
         {tab === 'analysis' && <EnvAnalysis logs={logs} zones={zones} />}
 
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>🌡 ISO 13485 §6.4 작업환경 요건</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            §6.4 — 조직은 제품 요구사항 적합성에 영향을 미치는 작업환경을 결정하고 관리하여야 한다 &nbsp;|&nbsp;
-            오염 제어: 멸균기기·청정 구역 등 특수환경 조건 문서화 &nbsp;|&nbsp;
-            이탈 발생 시 §8.3 부적합 제품 관리 절차 즉시 적용 &nbsp;|&nbsp;
-            KS Q ISO 14644 클린룸 기준 참고
-          </div>
-        </div>
       </div>
 
       {showLogForm && (
