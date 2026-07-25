@@ -8,6 +8,7 @@ import {
   Monitor, Zap, Truck, BarChart2, Link2, X,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
