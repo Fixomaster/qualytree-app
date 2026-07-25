@@ -85,6 +85,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/sales',          label: '영업 허브',    badge: 'SAL' },
     { to: '/complaints',     label: '고객불만',     badge: 'SAL' },
+    { to: '/service',        label: '설치·서비스',  badge: 'SAL' },
     { to: '/traceability',   label: '제품 추적성',  badge: 'SAL' },
     { to: '/quality',        label: 'NCR / CAPA',  badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',    badge: 'DOC' },
@@ -212,6 +213,7 @@ export const DEPT_NAV = {
     { to: '/quality-dashboard',  label: '품질 KPI 대시보드',    badge: 'QUA' },
     { to: '/dhf',                label: '설계 이력 파일 (DHF)', badge: 'DEV' },
     { to: '/competency',         label: '역량 관리',            badge: 'MR' },
+    { to: '/service',            label: '설치·서비스',          badge: 'SAL' },
     { to: '/export',             label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
