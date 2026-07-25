@@ -119,6 +119,7 @@ export const DEPT_NAV = {
     { to: '/risk',               label: '위험관리 (FMEA)',   badge: 'RA' },
     { to: '/complaints',         label: '고객불만',          badge: 'SAL' },
     { to: '/customer-req',        label: '고객 요구사항',     badge: 'SAL' },
+    { to: '/doc-control',         label: '문서 관리 대장',    badge: 'DOC' },
     { to: '/quality-plan',        label: '품질 계획 (QP)',    badge: 'QUA' },
     { to: '/change-control',     label: '변경 관리',         badge: 'QUA' },
     { to: '/traceability',       label: '제품 추적성',       badge: 'QUA' },
@@ -152,8 +153,9 @@ export const DEPT_NAV = {
   ],
   DOC: [
     HOME,
-    { to: '/documents',    label: '문서 허브',    badge: 'DOC' },
-    { to: '/quality',      label: '품질 기록',    badge: 'QUA' },
+    { to: '/documents',    label: '문서 허브',     badge: 'DOC' },
+    { to: '/doc-control',  label: '문서 관리 대장', badge: 'DOC' },
+    { to: '/quality',      label: '품질 기록',     badge: 'QUA' },
     { to: '/export',       label: '기록 내보내기', badge: 'DOC' },
   ],
   MR: [
@@ -162,6 +164,7 @@ export const DEPT_NAV = {
     FLOW,
     { to: '/management-review',   label: '경영검토',          badge: 'MR' },
     { to: '/quality-dashboard',   label: '품질 KPI 대시보드', badge: 'QUA' },
+    { to: '/doc-control',         label: '문서 관리 대장',    badge: 'DOC' },
     { to: '/quality-plan',        label: '품질 계획 (QP)',    badge: 'MR' },
     { to: '/infrastructure',      label: '인프라 관리',       badge: 'MR' },
     { to: '/competency',          label: '역량 관리',         badge: 'MR' },
@@ -228,6 +231,7 @@ export const DEPT_NAV = {
     { to: '/quality-plan',       label: '품질 계획 (QP)',       badge: 'QUA' },
     { to: '/customer-req',       label: '고객 요구사항',        badge: 'SAL' },
     { to: '/infrastructure',     label: '인프라 관리',          badge: 'EQP' },
+    { to: '/doc-control',        label: '문서 관리 대장',       badge: 'DOC' },
     { to: '/export',             label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
