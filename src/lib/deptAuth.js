@@ -101,6 +101,7 @@ export const DEPT_NAV = {
     { to: '/preservation',    label: '제품 보존·취급',  badge: 'MFG' },
     { to: '/product-id',         label: '제품 식별·상태',  badge: 'MFG' },
     { to: '/production-control', label: '생산 제어 계획',  badge: 'MFG' },
+    { to: '/cleanliness',        label: '제품 청결·오염 관리', badge: 'MFG' },
     { to: '/traceability',   label: '제품 추적성',     badge: 'MFG' },
     { to: '/quality',        label: 'NCR / CAPA',     badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',       badge: 'DOC' },
@@ -258,6 +259,7 @@ export const DEPT_NAV = {
     { to: '/production-control',     label: '생산 제어 계획',       badge: 'MFG' },
     { to: '/quality-policy',         label: '경영 의지·품질 방침', badge: 'MR' },
     { to: '/measurement-plan',       label: '측정·분석·개선 계획', badge: 'QUA' },
+    { to: '/cleanliness',            label: '제품 청결·오염 관리',  badge: 'MFG' },
     { to: '/export',                 label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
