@@ -1,3 +1,4 @@
+// last-deploy-trigger: 2026-07-25T11:38:29.499Z
 // src/components/HubBanner.jsx
 // Shared hub banner — gradient header matching DeptHome style
 // Props: title, subtitle, icon (lucide component), color, quickActions[], workflow[]
