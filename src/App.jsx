@@ -46,6 +46,7 @@ import QualityObjectivesHub from './pages/quality-objectives/QualityObjectivesHu
 import ProductIdHub from './pages/product-id/ProductIdHub'
 import OrgResponsibilityHub from './pages/org-responsibility/OrgResponsibilityHub'
 import PurchaseVerificationHub from './pages/purchase-verification/PurchaseVerificationHub'
+import QualityManualHub from './pages/quality-manual/QualityManualHub'
 import { auth } from './lib/auth'
 
 // 동적 import로 CEO 추가 허브 로드 (없으면 404 redirect)
@@ -178,6 +179,9 @@ export default function App() {
 
       {/* ─── 구매 정보 및 수입검사 허브 (Task #54) ─── */}
       <Route path="/purchase-verification" element={<ProtectedRoute><PurchaseVerificationHub /></ProtectedRoute>} />
+
+      {/* ─── 품질 매뉴얼 관리 허브 (Task #55) ─── */}
+      <Route path="/quality-manual" element={<ProtectedRoute><QualityManualHub /></ProtectedRoute>} />
 
       {/* ─── CEO 추가 허브 (dynamic lazy load) ─── */}
       <Route path="/sales/*" element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
