@@ -145,8 +145,9 @@ export const DEPT_NAV = {
   ],
   DEV: [
     HOME,
-    { to: '/development',    label: '개발 허브',       badge: 'DEV' },
+    { to: '/development',    label: '개발 허브',            badge: 'DEV' },
     { to: '/dhf',            label: '설계 이력 파일 (DHF)', badge: 'DEV' },
+    { to: '/device-file',    label: '의료기기 파일 (DMR)',  badge: 'DEV' },
     { to: '/customer-req',   label: '고객 요구사항',        badge: 'SAL' },
     { to: '/quality-plan',   label: '품질 계획 (QP)',       badge: 'DEV' },
     { to: '/risk',           label: '위험관리 (FMEA)', badge: 'RA' },
@@ -188,8 +189,9 @@ export const DEPT_NAV = {
   ],
   RA: [
     HOME,
-    { to: '/regulatory',   label: '인허가 허브',  badge: 'RA' },
-    { to: '/quality',      label: 'NCR / CAPA',  badge: 'QUA' },
+    { to: '/regulatory',   label: '인허가 허브',          badge: 'RA' },
+    { to: '/device-file',  label: '의료기기 파일 (DMR)',  badge: 'RA' },
+    { to: '/quality',      label: 'NCR / CAPA',          badge: 'QUA' },
     { to: '/documents',    label: '품질 문서',    badge: 'DOC' },
     { to: '/tree',         label: 'Quality Tree', badge: 'TREE' },
   ],
@@ -246,6 +248,7 @@ export const DEPT_NAV = {
     { to: '/org-responsibility',     label: '조직·책임 관리',       badge: 'MR' },
     { to: '/purchase-verification',  label: '구매 정보·수입검사',   badge: 'PUR' },
     { to: '/quality-manual',         label: '품질 매뉴얼',          badge: 'DOC' },
+    { to: '/device-file',            label: '의료기기 파일 (DMR)',  badge: 'DEV' },
     { to: '/export',                 label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
