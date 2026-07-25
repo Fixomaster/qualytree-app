@@ -171,7 +171,7 @@ export default function WorkEnvHub() {
           subtitle="ISO 13485 §6.4 · 온도·습도·청정도 모니터링 · 환경 기록 유지"
           icon={Thermometer}
           color="#0891B2"
-          quickActions={[{label:'환경 기록 추가',icon:Plus,onClick:openNew,primary:true}]}
+          quickActions={[{label:'환경 기록 추가',icon:Plus,onClick:openNewLog,primary:true}]}
           workflow={['환경 조건 설정','모니터링 실시','이탈 감지','시정조치','기록 보관']}
         />
 
