@@ -133,6 +133,7 @@ export const DEPT_NAV = {
   DEV: [
     HOME,
     { to: '/development',    label: '개발 허브',       badge: 'DEV' },
+    { to: '/dhf',            label: '설계 이력 파일 (DHF)', badge: 'DEV' },
     { to: '/risk',           label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/validation',     label: '공정 밸리데이션', badge: 'DEV' },
     { to: '/change-control', label: '변경 관리',       badge: 'DEV' },
@@ -207,7 +208,8 @@ export const DEPT_NAV = {
     { to: '/inspection',        label: '검사 관리',      badge: 'QUA' },
     { to: '/work-env',          label: '작업환경 관리',  badge: 'MFG' },
     { to: '/validation',         label: '공정 밸리데이션',  badge: 'DEV' },
-    { to: '/quality-dashboard',  label: '품질 KPI 대시보드', badge: 'QUA' },
-    { to: '/export',             label: '기록 내보내기',   badge: 'DOC' },
+    { to: '/quality-dashboard',  label: '품질 KPI 대시보드',    badge: 'QUA' },
+    { to: '/dhf',                label: '설계 이력 파일 (DHF)', badge: 'DEV' },
+    { to: '/export',             label: '기록 내보내기',        badge: 'DOC' },
   ],
 }
