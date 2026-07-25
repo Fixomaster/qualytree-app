@@ -7,9 +7,9 @@ import {
   X, Wrench, BarChart2, List, Calendar,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
-// ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.calibrations'
 
 function lsRead() {
@@ -22,7 +22,6 @@ function genId() {
   return `CAL-${y}-${String(Date.now()).slice(-5)}`
 }
 
-// ── 날짜 유틸 ────────────────────────────────────────────────
 function addMonths(dateStr, months) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
@@ -45,7 +44,6 @@ function urgencyInfo(nextDate) {
   return { color: '#059669', bg: '#D1FAE5', label: `D-${days}`, level: 0 }
 }
 
-// ── 상수 ─────────────────────────────────────────────────────
 const INTERVALS = [
   { value: 3,  label: '3개월' },
   { value: 6,  label: '6개월' },
@@ -77,7 +75,6 @@ const emptyForm = () => ({
   createdBy: '', createdAt: '',
 })
 
-// ── 메인 컴포넌트 ─────────────────────────────────────────────
 export default function CalibrationHub() {
   const user = auth.current()
   const [items, setItems] = useState(() => lsRead())
@@ -123,7 +120,6 @@ export default function CalibrationHub() {
 
   const fld = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
-    // 최종 교정일 변경 시 다음 교정일 자동 계산
     if (k === 'lastCalDate' || k === 'interval') {
       next.nextCalDate = addMonths(
         k === 'lastCalDate' ? v : f.lastCalDate,
@@ -133,7 +129,6 @@ export default function CalibrationHub() {
     return next
   })
 
-  // 필터링 + 정렬
   const filtered = useMemo(() => {
     let list = [...items]
     if (catFilter !== 'all') list = list.filter(i => i.category === catFilter)
@@ -143,7 +138,6 @@ export default function CalibrationHub() {
       const q = search.toLowerCase()
       list = list.filter(i => (i.id + i.name + i.model + i.assetId + i.serial).toLowerCase().includes(q))
     }
-    // 긴급도 순 정렬
     return list.sort((a, b) => {
       const da = daysUntil(a.nextCalDate) ?? 9999
       const db = daysUntil(b.nextCalDate) ?? 9999
@@ -152,22 +146,34 @@ export default function CalibrationHub() {
   }, [items, search, catFilter, urgFilter])
 
   const stats = useMemo(() => ({
-    total:      items.length,
-    overdue:    items.filter(i => daysUntil(i.nextCalDate) < 0).length,
-    soon:       items.filter(i => { const d = daysUntil(i.nextCalDate); return d !== null && d >= 0 && d <= 30 }).length,
-    ok:         items.filter(i => { const d = daysUntil(i.nextCalDate); return d !== null && d > 30 }).length,
-    retired:    items.filter(i => i.status === 'retired').length,
+    total:   items.length,
+    overdue: items.filter(i => daysUntil(i.nextCalDate) < 0).length,
+    soon:    items.filter(i => { const d = daysUntil(i.nextCalDate); return d !== null && d >= 0 && d <= 30 }).length,
+    ok:      items.filter(i => { const d = daysUntil(i.nextCalDate); return d !== null && d > 30 }).length,
+    retired: items.filter(i => i.status === 'retired').length,
   }), [items])
 
   const TABS = [
-    { key: 'list',     label: '장비 목록',      icon: List },
-    { key: 'schedule', label: '교정 일정',       icon: Calendar },
-    { key: 'stats',    label: '현황 분석',       icon: BarChart2 },
+    { key: 'list',     label: '장비 목록', icon: List },
+    { key: 'schedule', label: '교정 일정', icon: Calendar },
+    { key: 'stats',    label: '현황 분석', icon: BarChart2 },
   ]
 
   return (
     <AppLayout user={user} title="교정 관리" subtitle="ISO 13485 §7.6 · 측정장치 교정 주기 관리 · 교정 기록">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+
+        {/* 배너 */}
+        <HubBanner
+          title="교정 관리"
+          subtitle="ISO 13485 §7.6 · 측정장치 교정 주기 관리 · 교정 기록 유지"
+          icon={Wrench}
+          color="#0891B2"
+          quickActions={[
+            { label: '장비 등록', icon: Plus, onClick: openNew, primary: true },
+          ]}
+          workflow={['장비 식별', '교정 주기 설정', '교정 실시', '성적서 발급', '기록 보관', '다음 교정 예약']}
+        />
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
@@ -239,7 +245,7 @@ export default function CalibrationHub() {
               <button
                 onClick={openNew}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
-                style={{ background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer' }}
+                style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}
               >
                 <Plus size={14} /> 장비 등록
               </button>
@@ -272,21 +278,8 @@ export default function CalibrationHub() {
           </>
         )}
 
-        {/* ── 교정 일정 탭 ── */}
         {tab === 'schedule' && <ScheduleView items={items} />}
-
-        {/* ── 현황 분석 탭 ── */}
         {tab === 'stats' && <StatsView items={items} />}
-
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>
-            📐 ISO 13485 §7.6 요건
-          </div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            측정·모니터링 장치는 ① 교정 주기와 방법 수립 ② 추적 가능한 국가 표준에 따른 교정 ③ 교정 상태 식별 ④ 교정 기록 유지 ⑤ 교정 결과 부적합 시 이전 측정 결과 유효성 평가
-          </div>
-        </div>
       </div>
 
       {showForm && <CalForm form={form} fld={fld} editId={editId} onSubmit={submit} onClose={() => setShowForm(false)} />}
@@ -302,7 +295,6 @@ function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
       <div className="flex items-center gap-3 px-4 py-3 cursor-pointer" onClick={onToggle} style={{ borderBottom: expanded ? '1px solid var(--line)' : 'none' }}>
-        {/* 긴급도 배지 */}
         <div className="w-16 flex-shrink-0 text-center py-1.5 rounded-xl" style={{ background: urg.bg }}>
           <div className="text-[11px] font-bold" style={{ color: urg.color }}>{urg.label}</div>
           <div className="text-[9px] mt-0.5" style={{ color: urg.color, opacity: 0.75 }}>교정일</div>
@@ -397,10 +389,9 @@ function ScheduleView({ items }) {
   const active = items.filter(i => i.status !== 'retired' && i.nextCalDate)
   const sorted = [...active].sort((a, b) => a.nextCalDate.localeCompare(b.nextCalDate))
 
-  // 월별로 그룹화
   const byMonth = {}
   sorted.forEach(item => {
-    const month = item.nextCalDate.slice(0, 7) // YYYY-MM
+    const month = item.nextCalDate.slice(0, 7)
     if (!byMonth[month]) byMonth[month] = []
     byMonth[month].push(item)
   })
@@ -470,7 +461,6 @@ function StatsView({ items }) {
 
   return (
     <div className="grid gap-5 md:grid-cols-2">
-      {/* 교정 준수율 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>교정 준수율</div>
         <div className="flex items-center justify-center">
@@ -498,7 +488,6 @@ function StatsView({ items }) {
         </div>
       </div>
 
-      {/* 유형별 분포 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>유형별 장비 수</div>
         <div className="space-y-2">
@@ -506,10 +495,7 @@ function StatsView({ items }) {
             <div key={c} className="flex items-center gap-2">
               <div className="text-[11px] w-20 flex-shrink-0" style={{ color: 'var(--ink-soft)' }}>{c}</div>
               <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: 'var(--bg-soft)' }}>
-                <div
-                  className="h-full rounded-full"
-                  style={{ width: `${(byCat[c] / maxCat) * 100}%`, background: '#6366F1', transition: 'width 0.3s' }}
-                />
+                <div className="h-full rounded-full" style={{ width: `${(byCat[c] / maxCat) * 100}%`, background: '#0891B2' }} />
               </div>
               <div className="text-[11px] font-bold w-5 text-right" style={{ color: 'var(--ink)' }}>{byCat[c]}</div>
             </div>
@@ -520,7 +506,6 @@ function StatsView({ items }) {
         </div>
       </div>
 
-      {/* 위치별 분포 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>위치별 장비 현황</div>
         {Object.keys(byLoc).length === 0 ? (
@@ -530,14 +515,13 @@ function StatsView({ items }) {
             {Object.entries(byLoc).sort((a, b) => b[1] - a[1]).map(([loc, cnt]) => (
               <div key={loc} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                 <span className="text-[12px]" style={{ color: 'var(--ink)' }}>{loc}</span>
-                <span className="text-[12px] font-bold px-2 py-0.5 rounded" style={{ background: '#6366F115', color: '#6366F1' }}>{cnt}대</span>
+                <span className="text-[12px] font-bold px-2 py-0.5 rounded" style={{ background: '#0891B215', color: '#0891B2' }}>{cnt}대</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 이번 달 교정 예정 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>이번 달 교정 예정</div>
         {(() => {
@@ -656,7 +640,7 @@ function CalForm({ form, fld, editId, onSubmit, onClose }) {
 
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
-          <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer' }}>
+          <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}>
             {editId ? '수정 저장' : '장비 등록'}
           </button>
         </div>
@@ -679,10 +663,10 @@ const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10p
 function EmptyState({ onAdd }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
-      <Wrench size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#6366F1' }} />
+      <Wrench size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#0891B2' }} />
       <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>등록된 측정장치 없음</div>
       <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>버니어 캘리퍼스, 마이크로미터, 온도계 등 교정이 필요한 장비를 등록하세요</div>
-      <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer' }}>
+      <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}>
         <Plus size={15} /> 첫 번째 장비 등록
       </button>
     </div>

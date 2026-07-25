@@ -8,12 +8,12 @@ import {
   ChevronDown, Download, Filter,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 const STORAGE_KEY = 'qualytree.audits'
-const CAR_KEY = 'qualytree.audit_cars'  // Corrective Action Requests from audit
+const CAR_KEY = 'qualytree.audit_cars'
 
-// 감사 상태
 const AUDIT_STATUS = {
   PLANNED:     'planned',
   IN_PROGRESS: 'in_progress',
@@ -35,7 +35,6 @@ const AUDIT_STATUS_COLOR = {
   closed:      '#10B981',
 }
 
-// CAR 상태
 const CAR_STATUS = {
   OPEN:     'open',
   PROGRESS: 'in_progress',
@@ -45,7 +44,6 @@ const CAR_STATUS = {
 const CAR_STATUS_LABEL = { open: '미처리', in_progress: '조치 중', verified: '검증 완료', closed: '종결' }
 const CAR_STATUS_COLOR = { open: '#EF4444', in_progress: '#F59E0B', verified: '#3B82F6', closed: '#10B981' }
 
-// ISO 13485 감사 기준 체크리스트 (주요 항목)
 const AUDIT_CHECKLIST = [
   { iso: '4.1', item: '품질경영시스템 일반 요건' },
   { iso: '4.2', item: '문서화 요건 (매뉴얼·절차·기록)' },
@@ -83,7 +81,7 @@ function genId(prefix) {
 
 export default function AuditHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('audits') // audits | cars | checklist
+  const [tab, setTab] = useState('audits')
   const [audits, setAudits] = useState(() => loadAudits())
   const [cars, setCARs] = useState(() => loadCARs())
   const [showForm, setShowForm] = useState(false)
@@ -91,14 +89,12 @@ export default function AuditHub() {
   const [selectedAudit, setSelectedAudit] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [, forceRefresh] = useState(0)
-  const refresh = () => forceRefresh(t => t + 1)
 
   const reload = () => {
     setAudits(loadAudits())
     setCARs(loadCARs())
   }
 
-  // 통계
   const stats = useMemo(() => ({
     total: audits.length,
     planned: audits.filter(a => a.status === AUDIT_STATUS.PLANNED).length,
@@ -117,6 +113,19 @@ export default function AuditHub() {
   return (
     <AppLayout user={user} title="내부감사" subtitle="ISO 13485 §8.2.2 · 내부감사 계획·실시·시정조치">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+
+        {/* 배너 */}
+        <HubBanner
+          title="내부감사"
+          subtitle="ISO 13485 §8.2.2 · 내부감사 계획 · 실시 · 시정조치"
+          icon={ClipboardList}
+          color="#6366F1"
+          quickActions={[
+            { label: '감사 등록', icon: Plus, onClick: () => { setTab('audits'); setShowForm(true) }, primary: true },
+            { label: 'CAR 발행', icon: AlertTriangle, onClick: () => { setTab('cars'); setShowCARForm(true) } },
+          ]}
+          workflow={['감사 계획수립', '감사팀 구성', '감사 실시', 'CAR 발행', '시정조치', '종결']}
+        />
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -175,7 +184,6 @@ export default function AuditHub() {
           ))}
         </div>
 
-        {/* 탭 콘텐츠 */}
         {tab === 'audits' && (
           <AuditsTab
             audits={filteredAudits}
@@ -234,9 +242,7 @@ export default function AuditHub() {
           />
         )}
 
-        {tab === 'checklist' && (
-          <ChecklistTab />
-        )}
+        {tab === 'checklist' && <ChecklistTab />}
       </div>
     </AppLayout>
   )
@@ -262,7 +268,6 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
 
   return (
     <>
-      {/* 액션바 */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex gap-2 flex-wrap">
           {['all', ...Object.values(AUDIT_STATUS)].map((s) => (
@@ -290,7 +295,6 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
         </button>
       </div>
 
-      {/* 폼 */}
       {showForm && (
         <AuditForm
           form={form}
@@ -301,7 +305,6 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
         />
       )}
 
-      {/* 목록 */}
       {audits.length === 0 ? (
         <EmptyState
           icon={Search}
@@ -361,21 +364,14 @@ function AuditCard({ audit, onEdit, onStatusChange }) {
       {open && (
         <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--line)' }}>
           <div className="pt-4 flex flex-wrap gap-2">
-            {/* 상태 전환 버튼 */}
             {audit.status === AUDIT_STATUS.PLANNED && (
-              <ActionBtn color="#F59E0B" onClick={() => onStatusChange(AUDIT_STATUS.IN_PROGRESS)}>
-                감사 시작
-              </ActionBtn>
+              <ActionBtn color="#F59E0B" onClick={() => onStatusChange(AUDIT_STATUS.IN_PROGRESS)}>감사 시작</ActionBtn>
             )}
             {audit.status === AUDIT_STATUS.IN_PROGRESS && (
-              <ActionBtn color="#3B82F6" onClick={() => onStatusChange(AUDIT_STATUS.COMPLETED)}>
-                감사 완료
-              </ActionBtn>
+              <ActionBtn color="#3B82F6" onClick={() => onStatusChange(AUDIT_STATUS.COMPLETED)}>감사 완료</ActionBtn>
             )}
             {audit.status === AUDIT_STATUS.COMPLETED && (
-              <ActionBtn color="#10B981" onClick={() => onStatusChange(AUDIT_STATUS.CLOSED)}>
-                감사 종결
-              </ActionBtn>
+              <ActionBtn color="#10B981" onClick={() => onStatusChange(AUDIT_STATUS.CLOSED)}>감사 종결</ActionBtn>
             )}
             <ActionBtn color="#6B7280" onClick={onEdit}>수정</ActionBtn>
           </div>

@@ -7,6 +7,7 @@ import {
   TrendingDown, Grid, List, Edit3, X,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -161,6 +162,18 @@ export default function RiskHub() {
     <AppLayout user={user} title="위험관리" subtitle="ISO 14971 위험분석 · FMEA · 위험 등록부">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
+        {/* 배너 */}
+        <HubBanner
+          title="위험관리"
+          subtitle="ISO 14971:2019 · FMEA · 위험 분석 · 허용기준 평가"
+          icon={ShieldAlert}
+          color="#EF4444"
+          quickActions={[
+            { label: '위험 항목 추가', icon: Plus, onClick: openNew, primary: true },
+          ]}
+          workflow={['위험 식별', '위험 추정 (S×P)', '위험 평가', '위험 통제', '잔여위험 평가', '보고서 작성']}
+        />
+
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
@@ -253,16 +266,6 @@ export default function RiskHub() {
 
         {/* ── 저감 조치 현황 탭 ── */}
         {tab === 'control' && <ControlStatus risks={risks} onEdit={openEdit} />}
-
-        {/* ISO 안내 */}
-        <div className="mt-6 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12.5px] font-semibold mb-1.5" style={{ color: 'var(--ink-soft)' }}>
-            📋 ISO 14971:2019 위험관리 프로세스
-          </div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)', lineHeight: 1.7 }}>
-            위험 식별 → 위험 추정(심각도×발생가능성) → 위험 평가(허용기준 비교) → 위험 통제(저감조치) → 잔여위험 평가 → 전체잔여위험 평가 → 위험관리 보고서
-          </div>
-        </div>
       </div>
 
       {/* 위험 추가/수정 모달 */}
@@ -424,7 +427,6 @@ function ScoreBox({ label, val, color, bg }) {
 
 // ── 위험 매트릭스 ─────────────────────────────────────────────
 function RiskMatrix({ risks }) {
-  // 각 셀에 해당하는 위험 수 계산
   const cellRisks = {}
   risks.forEach(r => {
     const key = `${r.severity}-${r.probability}`
@@ -449,7 +451,6 @@ function RiskMatrix({ risks }) {
 
       <div className="overflow-x-auto">
         <div style={{ minWidth: 480 }}>
-          {/* Y축 라벨 */}
           <div className="flex items-center mb-1" style={{ paddingLeft: 90 }}>
             {[1,2,3,4,5].map(p => (
               <div key={p} className="flex-1 text-center text-[11px] font-semibold" style={{ color: 'var(--ink-faint)' }}>
@@ -458,10 +459,8 @@ function RiskMatrix({ risks }) {
             ))}
           </div>
 
-          {/* 격자 */}
           {[5,4,3,2,1].map(s => (
             <div key={s} className="flex items-center mb-1.5">
-              {/* X축 라벨 */}
               <div className="text-[11px] font-semibold text-right pr-2 flex-shrink-0" style={{ width: 88, color: 'var(--ink-faint)' }}>
                 심각도 {s}
               </div>
@@ -482,7 +481,6 @@ function RiskMatrix({ risks }) {
                       height: 72,
                       background: bg,
                       border: `2px solid ${items.length > 0 ? color : 'transparent'}`,
-                      position: 'relative',
                     }}
                     title={`심각도 ${s} × 발생가능성 ${p} = RPN ${rpn}\n위험 ${items.length}건`}
                   >
@@ -509,7 +507,6 @@ function RiskMatrix({ risks }) {
         </div>
       </div>
 
-      {/* 고위험 항목 목록 */}
       {risks.filter(r => r.severity * r.probability >= 15).length > 0 && (
         <div className="mt-6">
           <div className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#EF4444' }}>
@@ -566,7 +563,6 @@ function ControlStatus({ risks, onEdit }) {
 
   return (
     <div>
-      {/* 요약 지표 */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[28px] font-bold" style={{ color: '#10B981' }}>{reductionRate}%</div>
@@ -582,7 +578,6 @@ function ControlStatus({ risks, onEdit }) {
         </div>
       </div>
 
-      {/* 조치 유형별 */}
       {byType.map(ct => ct.items.length > 0 && (
         <div key={ct.value} className="mb-5">
           <div className="text-[13px] font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--ink)' }}>
@@ -610,7 +605,6 @@ function ControlStatus({ risks, onEdit }) {
                       {r.controlMeasure || '(저감 조치 미입력)'}
                     </div>
                   </div>
-                  {/* RPN 변화 */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="text-center">
                       <div className="text-[14px] font-bold" style={{ color: rpnColor(before).text }}>{before}</div>
@@ -677,7 +671,6 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
         </div>
 
         <div className="space-y-4">
-          {/* 기본 정보 */}
           <Row2>
             <Field label="제목 *">
               <input value={form.title} onChange={e => fld('title', e.target.value)} placeholder="위험 항목 제목..." className="w-full" style={inputStyle} />
@@ -690,7 +683,6 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
             </Field>
           </Row2>
 
-          {/* 위험 분석 */}
           <Field label="위험요인 (Hazard) — 위해를 유발할 수 있는 잠재적 원인">
             <input value={form.hazard} onChange={e => fld('hazard', e.target.value)} placeholder="예: 고전압 노출, 소프트웨어 오류..." className="w-full" style={inputStyle} />
           </Field>
@@ -701,7 +693,6 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
             <input value={form.harm} onChange={e => fld('harm', e.target.value)} placeholder="예: 전기 쇼크, 데이터 오류로 인한 오진..." className="w-full" style={inputStyle} />
           </Field>
 
-          {/* 초기 위험 평가 */}
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
             <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>초기 위험 평가</div>
             <Row2>
@@ -724,20 +715,18 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
             </div>
           </div>
 
-          {/* 위험 통제 */}
           <Row2>
             <Field label="통제 방법">
               <select value={form.controlType} onChange={e => fld('controlType', e.target.value)} className="w-full" style={inputStyle}>
                 {CONTROL_TYPES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </Field>
-            <div /> {/* spacer */}
+            <div />
           </Row2>
           <Field label="위험 통제 조치 내용">
             <textarea value={form.controlMeasure} onChange={e => fld('controlMeasure', e.target.value)} rows={2} placeholder="구체적인 저감 조치 내용..." className="w-full" style={{ ...inputStyle, resize: 'vertical' }} />
           </Field>
 
-          {/* 잔여 위험 평가 */}
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
             <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>잔여 위험 평가 (저감 조치 후)</div>
             <Row2>

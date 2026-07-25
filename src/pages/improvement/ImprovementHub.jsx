@@ -7,6 +7,7 @@ import {
   ChevronDown, Users, Calendar, ArrowUpRight,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 const STORAGE_KEY = 'qualytree.improvements'
@@ -51,7 +52,6 @@ const IMP_TYPE = {
 const IMP_PRIORITY = { high: '높음', medium: '보통', low: '낮음' }
 const IMP_PRIORITY_COLOR = { high: '#EF4444', medium: '#F59E0B', low: '#6B7280' }
 
-// 부서 KPI 목록
 const DEPT_KPIS = [
   { id: 'kpi1', dept: 'QUA', metric: '부적합 발생률', target: '월 ≤ 3건', unit: '건/월' },
   { id: 'kpi2', dept: 'MFG', metric: '불량률 (PPM)', target: '≤ 500 PPM', unit: 'PPM' },
@@ -71,14 +71,12 @@ function genId() { return `IMP-${new Date().getFullYear()}-${String(Date.now()).
 
 export default function ImprovementHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('list') // list | kpi | trend
+  const [tab, setTab] = useState('list')
   const [items, setItems] = useState(() => load())
   const [showForm, setShowForm] = useState(false)
   const [editItem, setEditItem] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType] = useState('all')
-
-  const reload = () => setItems(load())
 
   const stats = useMemo(() => ({
     total: items.length,
@@ -122,6 +120,19 @@ export default function ImprovementHub() {
   return (
     <AppLayout user={user} title="개선활동" subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+
+        {/* 배너 */}
+        <HubBanner
+          title="개선활동"
+          subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적 · 트렌드 분석"
+          icon={TrendingUp}
+          color="#10B981"
+          quickActions={[
+            { label: '과제 등록', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
+            { label: 'KPI 목표', icon: BarChart2, onClick: () => setTab('kpi') },
+          ]}
+          workflow={['아이디어 제안', '과제 승인', '실행 계획', '개선 실시', '효과 검증', '완료 공유']}
+        />
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -177,7 +188,6 @@ export default function ImprovementHub() {
         {/* 과제 목록 탭 */}
         {tab === 'list' && (
           <>
-            {/* 필터 + 등록 */}
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div className="flex flex-wrap gap-2">
                 {['all', ...Object.keys(IMP_STATUS)].map((s) => (
@@ -186,7 +196,7 @@ export default function ImprovementHub() {
                     onClick={() => setFilterStatus(s)}
                     className="px-3 py-1.5 rounded-lg text-[12px] font-medium transition"
                     style={{
-                      background: filterStatus === s ? '#6366F1' : 'var(--bg-soft)',
+                      background: filterStatus === s ? '#10B981' : 'var(--bg-soft)',
                       color: filterStatus === s ? '#fff' : 'var(--ink-soft)',
                       border: 'none', cursor: 'pointer',
                     }}
@@ -198,13 +208,12 @@ export default function ImprovementHub() {
               <button
                 onClick={() => { setEditItem(null); setShowForm(true) }}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
-                style={{ background: '#6366F1', color: '#fff', border: 'none', cursor: 'pointer' }}
+                style={{ background: '#10B981', color: '#fff', border: 'none', cursor: 'pointer' }}
               >
                 <Plus size={15} /> 과제 등록
               </button>
             </div>
 
-            {/* 유형 필터 */}
             <div className="flex flex-wrap gap-2 mb-5">
               <button
                 onClick={() => setFilterType('all')}
@@ -225,7 +234,6 @@ export default function ImprovementHub() {
               ))}
             </div>
 
-            {/* 폼 */}
             {showForm && (
               <ImprovementForm
                 initial={editItem}
@@ -234,7 +242,6 @@ export default function ImprovementHub() {
               />
             )}
 
-            {/* 목록 */}
             {filtered.length === 0 ? (
               <EmptyState
                 icon={Lightbulb}
@@ -256,10 +263,7 @@ export default function ImprovementHub() {
           </>
         )}
 
-        {/* KPI 탭 */}
         {tab === 'kpi' && <KpiTab kpis={DEPT_KPIS} />}
-
-        {/* 트렌드 탭 */}
         {tab === 'trend' && <TrendTab items={items} />}
       </div>
     </AppLayout>
@@ -311,7 +315,6 @@ function ImprovementCard({ item, onEdit, onStatusChange }) {
             <div className="pt-4 text-[13px] leading-relaxed" style={{ color: 'var(--ink-soft)' }}>{item.description}</div>
           )}
           <div className="pt-3 flex flex-wrap gap-2">
-            {/* 상태 전환 */}
             {item.status === 'idea' && <ActionBtn color="#3B82F6" onClick={() => onStatusChange('approved')}>승인</ActionBtn>}
             {item.status === 'approved' && <ActionBtn color="#F59E0B" onClick={() => onStatusChange('in_progress')}>시작</ActionBtn>}
             {item.status === 'in_progress' && <ActionBtn color="#8B5CF6" onClick={() => onStatusChange('verify')}>효과 검증</ActionBtn>}
@@ -386,7 +389,7 @@ function ImprovementForm({ initial, onSave, onCancel }) {
           onClick={() => { if (form.title) onSave(form) }}
           disabled={!form.title}
           className="px-5 py-2 rounded-xl text-[13px] font-semibold"
-          style={{ background: form.title ? '#6366F1' : 'var(--bg-soft)', color: form.title ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.title ? 'pointer' : 'not-allowed' }}
+          style={{ background: form.title ? '#10B981' : 'var(--bg-soft)', color: form.title ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.title ? 'pointer' : 'not-allowed' }}
         >
           {initial ? '저장' : '등록'}
         </button>
@@ -443,7 +446,7 @@ function KpiTab({ kpis }) {
         })}
       </div>
       <div className="mt-4 p-3 rounded-xl text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-        💡 KPI 실적 입력 후 경영검토 보고서에 자동 반영됩니다. (Supabase 연동 후 자동 집계 예정)
+        💡 KPI 실적 입력 후 경영검토 보고서에 자동 반영됩니다.
       </div>
     </div>
   )
@@ -453,9 +456,7 @@ function KpiTab({ kpis }) {
 function TrendTab({ items }) {
   const byType = useMemo(() => {
     const counts = {}
-    items.forEach(i => {
-      counts[i.type] = (counts[i.type] || 0) + 1
-    })
+    items.forEach(i => { counts[i.type] = (counts[i.type] || 0) + 1 })
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
   }, [items])
 
@@ -477,7 +478,6 @@ function TrendTab({ items }) {
 
   return (
     <div className="space-y-6">
-      {/* 완료율 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>전체 완료율</div>
@@ -492,7 +492,6 @@ function TrendTab({ items }) {
         </div>
       </div>
 
-      {/* 유형별 분포 */}
       {byType.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>유형별 분포</div>
@@ -506,7 +505,7 @@ function TrendTab({ items }) {
                     <span style={{ color: 'var(--ink-faint)' }}>{count}건 ({pct}%)</span>
                   </div>
                   <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
-                    <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: '#6366F1' }} />
+                    <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: '#10B981' }} />
                   </div>
                 </div>
               )
@@ -515,7 +514,6 @@ function TrendTab({ items }) {
         </div>
       )}
 
-      {/* 월별 등록 추이 */}
       {byMonth.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>월별 등록 추이</div>
@@ -526,8 +524,8 @@ function TrendTab({ items }) {
                 <div key={month} className="flex items-center gap-3">
                   <span className="text-[12px] w-20 flex-shrink-0" style={{ color: 'var(--ink-faint)' }}>{month}</span>
                   <div className="flex-1 h-6 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-                    <div className="h-6 rounded-lg flex items-center pl-2" style={{ width: `${(count / max) * 100}%`, background: '#F59E0B20' }}>
-                      <span className="text-[11px] font-medium" style={{ color: '#F59E0B' }}>{count}건</span>
+                    <div className="h-6 rounded-lg flex items-center pl-2" style={{ width: `${(count / max) * 100}%`, background: '#10B98120' }}>
+                      <span className="text-[11px] font-medium" style={{ color: '#10B981' }}>{count}건</span>
                     </div>
                   </div>
                 </div>
