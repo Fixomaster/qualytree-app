@@ -53,14 +53,14 @@ export default function Login() {
         const res = await auth.signInWithPassword(data, password)
         setLoading(false)
         if (!res || !res.ok) { setError('비밀번호가 올바르지 않거나 비활성 계정입니다.'); return }
-        nav('/dashboard'); return
+        nav('/home'); return
       }
       if (!email || !password) { setError('이메일과 비밀번호를 모두 입력해주세요.'); setLoading(false); return }
       if (!email.includes('@')) { setError('올바른 이메일 형식이 아닙니다.'); setLoading(false); return }
       const res = await auth.signInWithPassword(email, password)
       setLoading(false)
       if (!res || !res.ok) { setError((res && res.error) || '로그인에 실패했습니다. 이메일·비밀번호를 확인해주세요.'); return }
-      nav('/dashboard')
+      nav('/home')
     } catch (e2) {
       setLoading(false)
       setError('로그인 처리 중 오류: ' + String((e2 && e2.message) || e2))
@@ -84,7 +84,7 @@ export default function Login() {
     setDemoLoading(true)
     try {
       auth.signIn('demo@qualytree.app', 'Demo User', 3)
-      nav('/dashboard')
+      nav('/home')
     } catch (e4) {
       setDemoLoading(false)
       setError('데모 로그인 실패: ' + String((e4 && e4.message) || e4))

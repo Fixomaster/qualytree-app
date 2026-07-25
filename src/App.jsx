@@ -89,11 +89,11 @@ function ProtectedRoute({ children }) {
   return children
 }
 function PublicRoute({ children }) {
-  if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
+  if (auth.isSignedIn()) return <Navigate to="/home" replace />
   return children
 }
 function LazyRoute({ Component, fallback }) {
-  if (!Component) return fallback || <Navigate to="/dashboard" replace />
+  if (!Component) return fallback || <Navigate to="/home" replace />
   return (
     <React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>로딩 중...</div>}>
       <Component />
@@ -104,7 +104,7 @@ function LazyRoute({ Component, fallback }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/home" replace />} />
       <Route path="/login"          element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
       <Route path="/signup"         element={<PublicRoute><LazyRoute Component={Signup} /></PublicRoute>} />
       <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
@@ -167,7 +167,7 @@ export default function App() {
       <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
       <Route path="/training/*"          element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
   )
 }
