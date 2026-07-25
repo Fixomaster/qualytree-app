@@ -93,6 +93,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/manufacturing',  label: '생산 허브',     badge: 'MFG' },
     { to: '/operations',     label: '작업지시',      badge: 'OPS' },
+    { to: '/inspection',     label: '공정·검사',     badge: 'MFG' },
     { to: '/traceability',   label: '제품 추적성',   badge: 'MFG' },
     { to: '/quality',        label: 'NCR / CAPA',   badge: 'QUA' },
     { to: '/documents',      label: '품질 문서',     badge: 'DOC' },
@@ -108,6 +109,7 @@ export const DEPT_NAV = {
     HOME,
     { to: '/quality',          label: '품질 허브',       badge: 'QUA' },
     FLOW,
+    { to: '/inspection',       label: '검사 관리',       badge: 'QUA' },
     { to: '/risk',             label: '위험관리 (FMEA)', badge: 'RA' },
     { to: '/complaints',       label: '고객불만',        badge: 'SAL' },
     { to: '/change-control',   label: '변경 관리',       badge: 'QUA' },
@@ -197,6 +199,7 @@ export const DEPT_NAV = {
     { to: '/complaints',        label: '고객불만',       badge: 'SAL' },
     { to: '/traceability',      label: '제품 추적성',    badge: 'MFG' },
     { to: '/change-control',    label: '변경 관리',      badge: 'QUA' },
+    { to: '/inspection',        label: '검사 관리',      badge: 'QUA' },
     { to: '/export',            label: '기록 내보내기',  badge: 'DOC' },
   ],
 }
