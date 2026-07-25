@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Cog, ClipboardList, AlertTriangle, ArrowLeft, Plus, X, Activity, FileText, Wrench, Workflow   Factory,
+import {
+  Cog,
+  ClipboardList,
+  AlertTriangle,
+  ArrowLeft,
+  Plus,
+  X,
+  Activity,
+  FileText,
+  Wrench,
+  Workflow,
+  Factory,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
