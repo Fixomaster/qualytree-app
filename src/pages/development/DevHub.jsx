@@ -211,7 +211,7 @@ export default function DevHub() {
           icon={Code2}
           color="#6366F1"
           quickActions={[
-            {label:'DHF 열기', icon:FileText, onClick:()=>navigate('/dhf'), primary:true},
+            {label:'DHF 열기', icon:FileText, onClick:()=>navigate('/design-history'), primary:true},
             {label:'위험관리', icon:AlertTriangle, onClick:()=>navigate('/risk')},
           ]}
           workflow={['개발 기획','요구사항 정의','설계','프로토타입','검증','양산 이전']}
