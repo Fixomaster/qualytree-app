@@ -328,13 +328,33 @@ function CustomersView({ customers, setCustomers }) {
 }
 
 /* ─── 수주 관리 ─── */
-function OrdersView({ orders, setOrders, customers, openId }) {
+function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [fulfillMsg, setFulfillMsg] = useState(null)
   useEffect(() => {
     if (openId) { const item = orders.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
+  // 상태는 수동 입력이 아니라 작업(생산 WO)·납품 상태에 따라 자동으로 갱신된다.
+  // 완료·취소는 되돌리지 않는 종결 상태로 취급한다.
+  useEffect(() => {
+    const wos = readManufacturingWos()
+    let changed = false
+    const next = orders.map(o => {
+      if (['납품완료','취소'].includes(o.status)) return o
+      if ((deliveries||[]).some(d => d.so === o.id)) {
+        changed = true
+        return { ...o, status:'납품완료' }
+      }
+      if (o.wo) {
+        const w = wos.find(x => x.id === o.wo)
+        const mapped = w && WO_STATUS_TO_ORDER_STATUS[w.status]
+        if (mapped && mapped !== o.status) { changed = true; return { ...o, status: mapped } }
+      }
+      return o
+    })
+    if (changed) setOrders(next)
+  }, [orders, deliveries])
   const statusOpts = ['수주접수','생산요청','생산중','검사중','납품대기','납품완료','취소']
   const init = { id:'', customer:'', items:'', qty:'', dueDate:'', amount:'', wo:'', status:'수주접수',
     lineItems:[{ name:'', qty:'', price:'' }] }
@@ -424,12 +444,14 @@ function OrdersView({ orders, setOrders, customers, openId }) {
                   <TD right>{Number(o.amount).toLocaleString()}</TD>
                   <TD mono muted>{o.wo || '—'}</TD>
                   <TD>
-                    <StatusSelect value={o.status} options={statusOpts}
-                      onChange={v=>setOrders(p=>p.map(x=>x.id===o.id?{...x,status:v}:x))}/>
+                    <Badge text={o.status} tone={statusTone(o.status)}/>
                   </TD>
                   <TD>
                     <div className="flex gap-1">
                       <ActBtn label="수정" onClick={()=>{setEdit(o);setModal('form')}}/>
+                      {!['납품완료','취소'].includes(o.status) && (
+                        <ActBtn label="취소" color="red" onClick={()=>{ if(window.confirm('이 수주를 취소하시겠습니까?')) setOrders(p=>p.map(x=>x.id===o.id?{...x,status:'취소'}:x)) }}/>
+                      )}
                       <ActBtn label="삭제" color="red" onClick={()=>del(o.id)}/>
                     </div>
                   </TD>
@@ -497,10 +519,19 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
             {customers.map(c=><option key={c.id}>{c.name}</option>)}
           </select>
         </FL>
-        <FL label="상태">
-          <select style={sel} value={f.status} onChange={set('status')}>
-            {statusOpts.map(o=><option key={o}>{o}</option>)}
-          </select>
+        <FL label="상태 (작업 상태에 따라 자동 변경)">
+          <div className="flex items-center gap-2 h-full">
+            <Badge text={f.status} tone={statusTone(f.status)}/>
+            {!['취소','납품완료'].includes(f.status) ? (
+              <button type="button" onClick={()=>set('status')({target:{value:'취소'}})}
+                className="text-[11px] px-2 py-1 rounded font-medium"
+                style={{ background:'var(--rust-soft)', color:'var(--rust)' }}>수주 취소</button>
+            ) : f.status==='취소' && (
+              <button type="button" onClick={()=>set('status')({target:{value:'수주접수'}})}
+                className="text-[11px] px-2 py-1 rounded font-medium"
+                style={{ background:'var(--bg-soft)', color:'var(--ink-mute)' }}>취소 철회</button>
+            )}
+          </div>
         </FL>
         <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
         <FL label="WO 번호 (생산 작업지시 연동)">
@@ -1397,7 +1428,7 @@ export default function SalesHub() {
     home: <SalesHome customers={customers} orders={orders} complaints={complaints}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
-    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId}/>,
+    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries}/>,
     quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers}/>,
     complaints: <ComplaintsView complaints={complaints} setComplaints={setComplaints} openId={editId}/>,
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
