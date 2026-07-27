@@ -12,12 +12,14 @@ import {
   Wrench,
   Workflow,
   Factory,
+  Paperclip,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { syncOrderStatusFromWo } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
+import { fileStore } from '../../lib/fileStore'
 
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
@@ -38,6 +40,37 @@ function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10
 function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
 
 function Modal({title,onClose,children}){return <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.45)'}} onClick={e=>e.target===e.currentTarget&&onClose()}><div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto" style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}><div className="flex items-center justify-between mb-5"><h3 className="text-[17px] font-semibold" style={{color:'var(--ink)'}}>{title}</h3><button onClick={onClose} style={{color:'var(--ink-faint)'}}><X size={18}/></button></div>{children}</div></div>}
+
+function SingleAttach({fileId,fileName,onAttach,onRemove,label}){
+  const [busy,setBusy]=useState(false)
+  const attach=async(file)=>{
+    if(!file)return
+    setBusy(true)
+    try{ const id=await fileStore.saveFile(file); onAttach(id,file.name) }
+    catch(e){ alert(e.message||'파일 첨부에 실패했습니다.') }
+    finally{ setBusy(false) }
+  }
+  return(
+    <FL label={label||'첨부 파일'}>
+      {fileId?(
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12px]" style={{background:'var(--bg-soft)',border:'1px solid var(--line)'}}>
+          <span className="truncate" style={{color:'var(--moss)'}}>{fileName||'첨부됨'}</span>
+          <button type="button" onClick={onRemove} style={{color:'var(--ink-faint)'}}><X size={12}/></button>
+        </div>
+      ):(
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer" style={{background:'var(--leaf-soft)',color:'var(--moss)'}}>
+          <Paperclip size={12}/> {busy?'업로드 중...':'파일 첨부'}
+          <input type="file" className="hidden" disabled={busy} onChange={e=>{const f=e.target.files?.[0];e.target.value='';attach(f)}}/>
+        </label>
+      )}
+    </FL>
+  )
+}
+
+function AttachLink({fileId,fileName}){
+  if(!fileId) return null
+  return <a href={fileStore.getObjectURL(fileId)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1" style={{color:'var(--moss)'}}><Paperclip size={11}/> {fileName||'첨부파일'}</a>
+}
 
 /* ─── 초기 데이터 ─── */
 const INIT_WO=[
@@ -103,6 +136,7 @@ function WoView({wo,setWo,openId}){
                 <span>현공정: <b style={{color:'var(--ink)'}}>{w.step}</b></span>
                 <span>담당: {w.assignee}</span>
                 <span>납기: {w.dueDate}</span>
+                <AttachLink fileId={w.fileId} fileName={w.fileName}/>
               </div>
               <div>
                 <div className="flex justify-between text-[11px] mb-1" style={{color:'var(--ink-mute)'}}>
@@ -136,7 +170,7 @@ function WoView({wo,setWo,openId}){
   )
 }
 function WoForm({initial,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',progress:'0',status:'대기',...initial})
+  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',progress:'0',status:'대기',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
@@ -151,6 +185,7 @@ function WoForm({initial,onSave,onCancel,statusOpts}){
         <FL label="진행률(%)"><input style={inp} type="number" min="0" max="100" value={f.progress} onChange={set('progress')}/></FL>
         <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
+      <SingleAttach label="첨부 파일 (도면·작업지시서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.product&&onSave(f)}>{initial.product?'수정 저장':'WO 발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -172,7 +207,7 @@ function ProcRecView({proc,setProc,wo}){
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['기록ID','WO','일자','공정단계','설비','작업자','공정 파라미터','결과','비고','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['기록ID','WO','일자','공정단계','설비','작업자','공정 파라미터','결과','비고','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{proc.length===0?<EmptyRow/>:proc.map(p=>(
       <tr key={p.id}>
                 <TD mono color="var(--moss)">{p.id}</TD>
@@ -184,6 +219,7 @@ function ProcRecView({proc,setProc,wo}){
                 <TD muted>{p.param}</TD>
                 <TD><Badge text={p.result} tone={statusTone(p.result)}/></TD>
                 <TD muted>{p.note||'—'}</TD>
+                <TD>{p.fileId?<AttachLink fileId={p.fileId} fileName={p.fileName}/>:<span style={{color:'var(--ink-faint)'}}>—</span>}</TD>
                 <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(p);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(p.id)}/></div></TD>
               </tr>
             ))}</tbody>
@@ -195,7 +231,7 @@ function ProcRecView({proc,setProc,wo}){
   )
 }
 function ProcForm({initial,wo,onSave,onCancel,resultOpts}){
-  const[f,sf]=useState({wo:'',step:'',machine:'',operator:'',param:'',result:'합격',note:'',...initial})
+  const[f,sf]=useState({wo:'',step:'',machine:'',operator:'',param:'',result:'합격',note:'',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
@@ -208,6 +244,7 @@ function ProcForm({initial,wo,onSave,onCancel,resultOpts}){
       </div>
       <FL label="공정 파라미터"><textarea style={{...inp,minHeight:'60px',resize:'vertical'}} value={f.param} onChange={set('param')} placeholder="설정값, 조건, LOT번호 등"/></FL>
       <FL label="비고"><input style={inp} value={f.note} onChange={set('note')}/></FL>
+      <SingleAttach label="첨부 파일 (배치기록·LOT 서류 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.step&&f.operator&&onSave(f)}>{initial.step?'수정 저장':'기록 추가'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -229,7 +266,7 @@ function InspectView({inspect,setInspect,wo}){
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격','측정값','결과','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격','측정값','결과','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{inspect.length===0?<EmptyRow/>:inspect.map(i=>(
       <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
@@ -240,6 +277,7 @@ function InspectView({inspect,setInspect,wo}){
                 <TD muted>{i.spec}</TD>
                 <TD mono muted>{i.measured}</TD>
                 <TD><StatusSelect value={i.status} options={statusOpts} onChange={v=>setInspect(p=>p.map(x=>x.id===i.id?{...x,status:v,result:v}:x))}/></TD>
+                <TD>{i.fileId?<AttachLink fileId={i.fileId} fileName={i.fileName}/>:<span style={{color:'var(--ink-faint)'}}>—</span>}</TD>
                 <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
               </tr>
             ))}</tbody>
@@ -251,7 +289,7 @@ function InspectView({inspect,setInspect,wo}){
   )
 }
 function InspectForm({initial,wo,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({wo:'',step:'',inspector:'',spec:'',measured:'',status:'합격',...initial})
+  const[f,sf]=useState({wo:'',step:'',inspector:'',spec:'',measured:'',status:'합격',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
@@ -263,6 +301,7 @@ function InspectForm({initial,wo,onSave,onCancel,statusOpts}){
       </div>
       <FL label="검사 규격"><input style={inp} value={f.spec} onChange={set('spec')} placeholder="예) φ3.5mm ±0.02"/></FL>
       <FL label="측정값"><input style={inp} value={f.measured} onChange={set('measured')} placeholder="실제 측정값 입력"/></FL>
+      <SingleAttach label="첨부 파일 (검사성적서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.step&&f.inspector&&onSave(f)}>{initial.step?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -308,6 +347,7 @@ function NcrView({ncr,setNcr,wo,openId}){
                 <span>공정: {n.step}</span>
                 <span>처리: <b>{n.disposition}</b></span>
                 {n.capaNo&&n.capaNo!=='—'&&<span>CAPA: <span className="font-mono" style={{color:'var(--moss)'}}>{n.capaNo}</span></span>}
+                <AttachLink fileId={n.fileId} fileName={n.fileName}/>
               </div>
             </div>
           ))}
@@ -318,7 +358,7 @@ function NcrView({ncr,setNcr,wo,openId}){
   )
 }
 function NcrForm({initial,wo,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({wo:'',step:'',desc:'',severity:'경미',disposition:'재처리',capaNo:'',status:'접수',...initial})
+  const[f,sf]=useState({wo:'',step:'',desc:'',severity:'경미',disposition:'재처리',capaNo:'',status:'접수',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
@@ -331,6 +371,7 @@ function NcrForm({initial,wo,onSave,onCancel,statusOpts}){
         <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
       <FL label="부적합 내용 *"><textarea style={{...inp,minHeight:'72px',resize:'vertical'}} value={f.desc} onChange={set('desc')} placeholder="부적합 상세 내용을 기입하세요"/></FL>
+      <SingleAttach label="첨부 파일 (부적합 사진·보고서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.desc&&onSave(f)}>{initial.desc?'수정 저장':'발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -461,8 +502,8 @@ export default function ManufacturingHub(){
   return(
     <AppLayout user={user} title="생산" subtitle="작업지시 · 공정기록 · 검사 · 부적합 관리">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
-        {view!=='home'&&<button onClick={()=>onNavigate('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
-        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>onNavigate(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+        {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
+        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
         {viewMap[view]||viewMap.home}
       </div>
     </AppLayout>
