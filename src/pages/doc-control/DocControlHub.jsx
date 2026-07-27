@@ -1,6 +1,7 @@
 // src/pages/doc-control/DocControlHub.jsx
 // ISO 13485 §4.2.3 문서 관리 + §4.2.4 기록 관리
 import React, { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, FileText, History,
   Users, BarChart2, AlertTriangle, CheckCircle2,
@@ -10,6 +11,10 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { companyDocs, DOC_CATEGORY } from '../../lib/companyState'
+import { onboarding } from '../../lib/onboardingState'
+import { fileStore } from '../../lib/fileStore'
+import { Paperclip, X, Building2 } from 'lucide-react'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY_DOCS = 'qualytree.doc_register'
@@ -68,10 +73,133 @@ const EMPTY_REC = {
   notes: '',
 }
 
+// ── 회사·인증서류 패널 (KGMP §6 — 회사 기본정보 + 인허가 제출용 회사 서류) ──────
+const COMPANY_DOC_LIST = [
+  DOC_CATEGORY.FACILITY_REG,
+  DOC_CATEGORY.BIZ_REG,
+  DOC_CATEGORY.MFG_LICENSE,
+  DOC_CATEGORY.IMPORT_LICENSE,
+  DOC_CATEGORY.AGENT_CONTRACT,
+  DOC_CATEGORY.GMP_CERT,
+  DOC_CATEGORY.ISO13485_CERT,
+]
+
+function CompanyDocsPanel({ canEdit }) {
+  const [company, setCompany] = useState(() => onboarding.load().company || {})
+  const [docs, setDocs] = useState(() => companyDocs.load().documents || [])
+  const [busyCat, setBusyCat] = useState(null)
+
+  function saveCompanyField(field, value) {
+    const next = { ...company, [field]: value }
+    setCompany(next)
+    const s = onboarding.load()
+    onboarding.save({ ...s, company: next })
+  }
+
+  async function attach(category, file) {
+    if (!file) return
+    setBusyCat(category)
+    try {
+      const fileId = await fileStore.saveFile(file)
+      const existing = docs.find((d) => d.category === category)
+      let next
+      if (existing) {
+        companyDocs.updateDocument(existing.id, { fileId, fileName: file.name })
+      } else {
+        companyDocs.addDocument({ category, title: category, fileId, fileName: file.name })
+      }
+      next = companyDocs.load().documents
+      setDocs(next)
+    } catch (e) {
+      alert(e.message || '파일 첨부에 실패했습니다.')
+    } finally {
+      setBusyCat(null)
+    }
+  }
+
+  function removeFile(category) {
+    const existing = docs.find((d) => d.category === category)
+    if (!existing) return
+    companyDocs.updateDocument(existing.id, { fileId: null, fileName: '' })
+    setDocs(companyDocs.load().documents)
+  }
+
+  return (
+    <div className="max-w-3xl">
+      <div className="rounded-2xl p-4 mb-4" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
+        <div className="flex items-center gap-2 mb-3">
+          <Building2 size={16} style={{ color: 'var(--moss)' }} />
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>회사 기본 정보</div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+            회사명
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={company.name || ''}
+              onChange={(e) => saveCompanyField('name', e.target.value)}
+              className="w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]"
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+            />
+          </label>
+          <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+            사업자등록번호
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={company.bizNumber || ''}
+              onChange={(e) => saveCompanyField('bizNumber', e.target.value)}
+              className="w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]"
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+        {COMPANY_DOC_LIST.map((category, i) => {
+          const doc = docs.find((d) => d.category === category)
+          return (
+            <div
+              key={category}
+              className="flex items-center gap-3 px-4 py-3"
+              style={{ borderTop: i === 0 ? 'none' : '1px solid var(--line)', background: 'var(--bg-card)' }}
+            >
+              <span className="text-[12.5px] font-medium flex-1 min-w-0" style={{ color: 'var(--ink)' }}>{category}</span>
+              {doc?.fileId ? (
+                <>
+                  <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || '첨부됨'}</span>
+                  {canEdit && (
+                    <button type="button" onClick={() => removeFile(category)} className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center" style={{ color: 'var(--ink-faint)' }} title="첨부 제거">
+                      <X size={13} />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>미등록</span>
+              )}
+              {canEdit && (
+                <label className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                  <Paperclip size={12} />
+                  {busyCat === category ? '업로드 중...' : doc?.fileId ? '재첨부' : '첨부'}
+                  <input type="file" className="hidden" disabled={busyCat === category}
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(category, f) }} />
+                </label>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── 메인 ─────────────────────────────────────────────────────
 export default function DocControlHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
 
   const [docs, setDocs] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_DOCS) || '[]') } catch { return [] }
@@ -80,14 +208,14 @@ export default function DocControlHub() {
     try { return JSON.parse(localStorage.getItem(LS_KEY_RECS) || '[]') } catch { return [] }
   })
 
-  const [tab, setTab] = useState('docs')    // docs | records | analysis
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'docs')    // company | docs | records | analysis
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_DOC)
   const [editId, setEditId] = useState(null)
   const [filterType, setFilterType] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterDept, setFilterDept] = useState('all')
-  const [searchQ, setSearchQ] = useState('')
+  const [searchQ, setSearchQ] = useState(() => searchParams.get('openName') || '')
   const [showDetail, setShowDetail] = useState(null)
 
   // 기록 관리
@@ -179,6 +307,7 @@ export default function DocControlHub() {
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
+            { key: 'company',  label: '회사·인증서류' },
             { key: 'docs',     label: `문서 대장 (${docs.length})` },
             { key: 'records',  label: `기록 목록 (${recs.length})` },
             { key: 'analysis', label: '현황 분석' },
@@ -195,6 +324,9 @@ export default function DocControlHub() {
             </button>
           ))}
         </div>
+
+        {/* ── 회사·인증서류 ── */}
+        {tab === 'company' && <CompanyDocsPanel canEdit={canEdit} />}
 
         {/* ── 문서 대장 ── */}
         {tab === 'docs' && !detailDoc && (

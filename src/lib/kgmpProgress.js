@@ -6,7 +6,7 @@
 import { onboarding, productKeyOf } from './onboardingState'
 import { companyDocs, DOC_CATEGORY } from './companyState'
 import { productDocs, TECH_DOC_CATEGORY } from './productDocsState'
-import { logs as logisticsLogs, adverseEvents, LOG_TYPE } from './logisticsState'
+// logisticsState.js는 더 이상 사용하지 않음 — 입고·출고는 /purchase-info, 이상사례는 /complaints(MDR)로 이전
 import { complaints, reviews } from './managementReviewState'
 import { capa } from './capaState'
 import { sessions as trainingSessions } from './trainingState'
@@ -41,9 +41,71 @@ function loadDocState() {
   try { return JSON.parse(localStorage.getItem(DOC_KEY) || '{}') } catch { return {} }
 }
 
-/** 필수 절차서 중 아직 실제 절차 목록에 없는 항목을 자동 보완(멱등). */
+// 새 워크스페이스(사이드 메뉴로 연결된) 화면들이 실제로 데이터를 저장하는 곳 — 여기서 직접 읽어서
+// KGMP 체크리스트 상태에 반영한다(기존 /documents, /company 등 사이드 메뉴에 없는 구 화면은 참조하지 않는다).
+const DOC_REGISTER_KEY = 'qualytree.doc_register'       // 문서·규정 › 문서관리 (/document-control)
+const QUALITY_MANUAL_KEY = 'qualytree.quality_manual'   // 문서·규정 › 품질매뉴얼 (/quality-manual)
+const ORG_ROLES_KEY = 'qualytree.org_roles'             // 교육·인력 › 조직·책임 (/org-responsibility)
+const IQC_RECORDS_KEY = 'qualytree.iqc_records'         // 구매·자재 › 구매정보·수입검사 (/purchase-info)
+const DISTRIBUTIONS_KEY = 'qualytree.distributions'     // 생산·제조 › 제품추적성관리 (/traceability)
+
+function loadDocRegister() {
+  try { return JSON.parse(localStorage.getItem(DOC_REGISTER_KEY) || '[]') } catch { return [] }
+}
+function saveDocRegister(list) {
+  try { localStorage.setItem(DOC_REGISTER_KEY, JSON.stringify(list)) } catch { /* ignore */ }
+}
+function loadQualityManual() {
+  try { return JSON.parse(localStorage.getItem(QUALITY_MANUAL_KEY) || 'null') || {} } catch { return {} }
+}
+function loadOrgRoles() {
+  try { return JSON.parse(localStorage.getItem(ORG_ROLES_KEY) || '[]') } catch { return [] }
+}
+function loadIqcRecords() {
+  try { return JSON.parse(localStorage.getItem(IQC_RECORDS_KEY) || '[]') } catch { return [] }
+}
+function loadDistributions() {
+  try { return JSON.parse(localStorage.getItem(DISTRIBUTIONS_KEY) || '[]') } catch { return [] }
+}
+const RECEIVING_SHIPPING_KEY = 'qualytree.receiving_shipping'  // 구매·자재 › 구매정보·수입검사 (/purchase-info, 입고·출고 기록 탭)
+function loadReceivingShipping() {
+  try { return JSON.parse(localStorage.getItem(RECEIVING_SHIPPING_KEY) || '[]') } catch { return [] }
+}
+// 수주·고객 › 고객불만 관리(/complaints)는 경영검토(managementReviewState.js)의 complaints와는
+// 별개의 localStorage 저장소를 쓴다(불만 접수·MDR 판단 등 상세 항목 포함) — 직접 읽는다.
+const COMPLAINT_HUB_KEY = 'qualytree.complaints'
+function loadComplaintHubItems() {
+  try { return JSON.parse(localStorage.getItem(COMPLAINT_HUB_KEY) || '[]') } catch { return [] }
+}
+
+function genDocRegisterId() { return `DOC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
+
+/** 필수 절차서(SOP) 3종이 문서관리(/document-control) 대장에 아직 없으면 초안으로 자동 등록(멱등). */
 export function ensureKgmpProcedures() {
-  onboarding.ensureProcedures(KGMP_REQUIRED_NEW_PROCEDURES)
+  const docs = loadDocRegister()
+  const missing = KGMP_REQUIRED_NEW_PROCEDURES.filter(
+    (title) => !docs.some((d) => d.type === 'SOP' && (d.title || '').includes(title.replace(/\s*\(.*?\)\s*/g, '')))
+  )
+  if (missing.length === 0) return
+  const today = new Date().toISOString().slice(0, 10)
+  const added = missing.map((title, i) => ({
+    id: genDocRegisterId() + '-' + i,
+    docNo: 'SOP-AUTO-' + (Date.now() + i),
+    title,
+    type: 'SOP',
+    status: 'draft',
+    revision: 'Rev.0',
+    issueDate: '', approvedDate: '', reviewDate: '',
+    author: '', reviewer: '', approver: '',
+    ownerDept: '품질부(QUA)',
+    distributionList: [],
+    retentionPeriod: '3년',
+    relatedStandard: 'KGMP',
+    revisionHistory: [],
+    notes: 'KGMP 필수 절차서 — 자동 생성됨',
+    createdAt: today,
+  }))
+  saveDocRegister([...added, ...docs])
 }
 
 function buildCtx() {
@@ -68,13 +130,19 @@ function buildCtx() {
     roleDocs: cDocs.roleDocs || [],
     techDocsAll,
     licensesAll,
-    logs: logisticsLogs.getAll(),
-    adverseEvents: adverseEvents.getAll(),
     complaints: complaints.getAll(),
     capaAll: capa.loadAll(),
     trainingSessions: trainingSessions.getAll(),
     audits: audits.getAll(),
     reviews: reviews.getAll(),
+    // 새 워크스페이스(사이드 메뉴 연결) 화면 데이터
+    docRegister: loadDocRegister(),
+    qualityManual: loadQualityManual(),
+    orgRoles: loadOrgRoles(),
+    iqcRecords: loadIqcRecords(),
+    distributions: loadDistributions(),
+    receivingShipping: loadReceivingShipping(),
+    complaintHubItems: loadComplaintHubItems(),
   }
 }
 
@@ -108,7 +176,7 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
       label,
       status,
       detail: withFile.length > 0 ? `첨부 ${withFile.length}건` : matches.length > 0 ? '등록됨 · 파일 미첨부' : '미등록',
-      editHref: '/products?tab=documents&docSub=tech',
+      editHref: '/design-history?tab=techdocs',
     }
   }
   // EMC·전기안전 등 여러 시험 카테고리를 하나의 "시험성적서" 항목으로 묶어서 보여준다
@@ -121,23 +189,24 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
       label,
       status,
       detail: withFile.length > 0 ? `첨부 ${withFile.length}건` : matches.length > 0 ? '등록됨 · 파일 미첨부' : '미등록',
-      editHref: '/products?tab=documents&docSub=tech',
+      editHref: '/design-history?tab=techdocs',
     }
   }
 
+  // 문서·규정 › 문서관리(/document-control)의 대장(qualytree.doc_register)에서 SOP 유형 문서를 찾는다.
+  const DOC_STATUS_LABEL = { draft: '초안', review: '검토중', approved: '승인', distributed: '배포', obsolete: '폐기' }
   const procedureItem = (req) => {
-    const matched = ctx.procedures.find((p) => req.keywords.some((k) => (p.name || '').includes(k)))
+    const matched = ctx.docRegister.find((d) => d.type === 'SOP' && req.keywords.some((k) => (d.title || '').includes(k)))
     if (!matched) {
-      return { label: req.label + ' 절차서', status: 'missing', detail: '절차 목록에 없음', editHref: '/documents?tab=procedures' }
+      return { label: req.label + ' 절차서', status: 'missing', detail: '문서관리에 등록되지 않음', editHref: '/document-control' }
     }
-    const rec = ctx.docState['P-' + matched.id] || {}
-    const st = norm(rec)
-    const status = st === 'effective' ? 'done' : (st === 'draft' && !rec.content) ? 'missing' : 'partial'
+    const status = (matched.status === 'approved' || matched.status === 'distributed') ? 'done'
+      : matched.status === 'obsolete' ? 'missing' : 'partial'
     return {
-      label: matched.name,
+      label: matched.title,
       status,
-      detail: st === 'effective' ? '발효' : st === 'review' ? '검토중' : st === 'pending' ? '승인대기' : st === 'obsolete' ? '폐기' : rec.content ? '작성중' : '미작성',
-      editHref: '/documents?tab=procedures&openName=' + encodeURIComponent(matched.name),
+      detail: DOC_STATUS_LABEL[matched.status] || '초안',
+      editHref: '/document-control?openName=' + encodeURIComponent(matched.title),
     }
   }
 
@@ -160,20 +229,20 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
           label: '의료기기 제조업체 정보',
           status: companyInfoDone ? 'done' : 'missing',
           detail: companyInfoDone ? `${ctx.company.name} · 사업자번호 ${ctx.company.bizNumber}` : '회사명·사업자번호 미입력',
-          editHref: '/onboarding?returnTo=' + encodeURIComponent('/kgmp'),
+          editHref: '/document-control?tab=company',
         },
-        companyDocItem('제조소 등록 자료', DOC_CATEGORY.FACILITY_REG, '/company?tab=docs'),
-        companyDocItem('사업자등록증', DOC_CATEGORY.BIZ_REG, '/company?tab=docs'),
+        companyDocItem('제조소 등록 자료', DOC_CATEGORY.FACILITY_REG, '/document-control?tab=company'),
+        companyDocItem('사업자등록증', DOC_CATEGORY.BIZ_REG, '/document-control?tab=company'),
         ...(profile === 'importer'
           ? [
-              companyDocItem('수입업 허가증', DOC_CATEGORY.IMPORT_LICENSE, '/company?tab=docs'),
-              companyDocItem('대리인 계약서 (Authorization Letter)', DOC_CATEGORY.AGENT_CONTRACT, '/company?tab=docs'),
+              companyDocItem('수입업 허가증', DOC_CATEGORY.IMPORT_LICENSE, '/document-control?tab=company'),
+              companyDocItem('대리인 계약서 (Authorization Letter)', DOC_CATEGORY.AGENT_CONTRACT, '/document-control?tab=company'),
             ]
           : profile === 'iso13485'
           // ISO 13485는 국내 인허가(MFDS) 서류가 아니라 국제 인증기관 심사 대상이라
           // 제조업허가증·수입업허가증 같은 국내 서류는 이 프로필에서는 제외한다.
           ? []
-          : [companyDocItem('제조업허가증', DOC_CATEGORY.MFG_LICENSE, '/company?tab=docs')]),
+          : [companyDocItem('제조업허가증', DOC_CATEGORY.MFG_LICENSE, '/document-control?tab=company')]),
         techDocItem('제품 카탈로그', TECH_DOC_CATEGORY.CATALOG),
         techDocItem('사용설명서 (IFU)', TECH_DOC_CATEGORY.IFU),
         techDocItem('제품 라벨 (Label)', TECH_DOC_CATEGORY.LABEL),
@@ -203,28 +272,31 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
       title: '품질시스템 관련',
       subtitle: '제조소 인증·품질매뉴얼·조직·절차서 현황',
       items: [
-        companyDocItem('제조소 GMP 인증서', DOC_CATEGORY.GMP_CERT, '/company?tab=docs'),
-        companyDocItem('ISO 13485 인증서', DOC_CATEGORY.ISO13485_CERT, '/company?tab=docs'),
+        companyDocItem('제조소 GMP 인증서', DOC_CATEGORY.GMP_CERT, '/document-control?tab=company'),
+        companyDocItem('ISO 13485 인증서', DOC_CATEGORY.ISO13485_CERT, '/document-control?tab=company'),
         (() => {
-          const eff = ctx.manualChapters.filter((c) => norm(ctx.docState['M-' + c.id] || {}) === 'effective').length
+          const m = ctx.qualityManual || {}
+          const filled = ['scope', 'qualityPolicy'].filter((k) => !!(m[k] && String(m[k]).trim())).length
+            + ((m.procedureRefs?.length || 0) > 0 ? 1 : 0)
+          const approved = !!(m.approvedBy && m.effectiveDate)
           return {
             label: '품질매뉴얼',
-            status: eff > 0 ? 'done' : ctx.manualChapters.length > 0 ? 'partial' : 'missing',
-            detail: `${eff} / ${ctx.manualChapters.length}장 발효`,
-            editHref: '/documents?tab=manual',
+            status: approved ? 'done' : filled > 0 ? 'partial' : 'missing',
+            detail: approved ? `발효 (${m.effectiveDate})` : filled > 0 ? '작성 중 · 승인자·유효일 미설정' : '미작성',
+            editHref: '/quality-manual',
           }
         })(),
         {
           label: '조직도',
-          status: ctx.roleDocs.length > 0 ? 'done' : 'missing',
-          detail: ctx.roleDocs.length > 0 ? `부서 ${ctx.roleDocs.length}건 직무기술서 등록` : '조직도·직무기술서 미등록',
-          editHref: '/company?tab=org',
+          status: ctx.orgRoles.length > 0 ? 'done' : 'missing',
+          detail: ctx.orgRoles.length > 0 ? `역할·책임 ${ctx.orgRoles.length}건 등록` : '역할·책임 미등록',
+          editHref: '/org-responsibility',
         },
         {
           label: '주요 절차서 목록',
-          status: ctx.procedures.length > 0 ? 'done' : 'missing',
-          detail: `${ctx.procedures.length}건 등록`,
-          editHref: '/documents?tab=procedures',
+          status: ctx.docRegister.filter((d) => d.type === 'SOP').length > 0 ? 'done' : 'missing',
+          detail: `${ctx.docRegister.filter((d) => d.type === 'SOP').length}건 등록`,
+          editHref: '/document-control',
         },
       ],
     },
@@ -239,12 +311,12 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
       title: '유지해야 하는 기록',
       subtitle: '수입검사부터 이상사례까지 — 유지관리 과정에서 지속적으로 쌓이는 기록',
       items: [
-        recordItem('수입검사 기록', ctx.logs.filter((l) => l.type === LOG_TYPE.IMPORT_INSPECTION).length, '/logistics?tab=logs'),
-        recordItem('입고 기록', ctx.logs.filter((l) => l.type === LOG_TYPE.RECEIVING).length, '/logistics?tab=logs'),
-        recordItem('출고 기록', ctx.logs.filter((l) => l.type === LOG_TYPE.SHIPPING).length, '/logistics?tab=logs'),
-        recordItem('유통 기록', ctx.logs.filter((l) => l.type === LOG_TYPE.DISTRIBUTION).length, '/logistics?tab=logs'),
+        recordItem('수입검사 기록', ctx.iqcRecords.length, '/purchase-info'),
+        recordItem('입고 기록', ctx.receivingShipping.filter((r) => r.type === 'in').length, '/purchase-info?tab=inout'),
+        recordItem('출고 기록', ctx.receivingShipping.filter((r) => r.type === 'out').length, '/purchase-info?tab=inout'),
+        recordItem('유통 기록', ctx.distributions.length, '/traceability'),
         recordItem('고객 불만 기록', ctx.complaints.length, '/management-review?tab=complaint'),
-        recordItem('이상사례 보고 기록', ctx.adverseEvents.length, '/logistics?tab=ae'),
+        recordItem('이상사례 보고 기록', ctx.complaintHubItems.filter((c) => c.mdrRequired).length, '/complaints?tab=mdr'),
         recordItem('CAPA 기록', ctx.capaAll.length, '/quality?tab=capa'),
         recordItem('교육훈련 기록', ctx.trainingSessions.length, '/training?tab=session'),
         recordItem('내부심사 기록', ctx.audits.length, '/audit'),

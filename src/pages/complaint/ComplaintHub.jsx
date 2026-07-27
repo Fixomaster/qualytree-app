@@ -1,6 +1,7 @@
 // src/pages/complaint/ComplaintHub.jsx
 // ISO 13485 §8.2.1 고객불만 관리 — 접수 · 조사 · 규제보고 · 종결
 import React, { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, AlertTriangle, CheckCircle2, MessageSquare,
@@ -67,8 +68,9 @@ const emptyForm = () => ({
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ComplaintHub() {
   const user = auth.current()
+  const [searchParams] = useSearchParams()
   const [items, setItems] = useState(() => lsR())
-  const [tab,   setTab]   = useState('list')
+  const [tab,   setTab]   = useState(() => searchParams.get('tab') || 'list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sevFilter, setSevFilter] = useState('all')

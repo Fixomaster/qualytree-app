@@ -1,6 +1,7 @@
 // src/pages/purchase-verification/PurchaseVerificationHub.jsx
 // ISO 13485 §7.4.2 구매 정보 / §7.4.3 구매된 제품의 검증
 import React, { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, FileText, CheckCircle2,
   XCircle, Clock, AlertTriangle, ShieldCheck, Package,
@@ -92,14 +93,139 @@ const DEFAULT_CHECK_ITEMS = {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
+// ── 입고·출고 기록 패널 (KGMP 유지 기록) ────────────────────────
+const LS_INOUT = 'qualytree.receiving_shipping'
+const EMPTY_INOUT = { type: 'in', date: '', itemName: '', qty: '', partner: '', note: '' }
+
+function ReceivingShippingPanel({ canEdit }) {
+  const [records, setRecords] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_INOUT) || '[]') } catch { return [] }
+  })
+  const [form, setForm] = useState(EMPTY_INOUT)
+  const [showForm, setShowForm] = useState(false)
+
+  function saveAll(list) { setRecords(list); localStorage.setItem(LS_INOUT, JSON.stringify(list)) }
+
+  function submit() {
+    if (!form.itemName.trim()) return alert('품목명을 입력하세요.')
+    if (!form.date) return alert('일자를 입력하세요.')
+    const rec = { id: 'IO-' + Date.now(), createdAt: new Date().toISOString().slice(0, 10), ...form }
+    saveAll([rec, ...records])
+    setForm(EMPTY_INOUT); setShowForm(false)
+  }
+
+  function remove(id) {
+    if (!confirm('기록을 삭제하시겠습니까?')) return
+    saveAll(records.filter((r) => r.id !== id))
+  }
+
+  const inCount = records.filter((r) => r.type === 'in').length
+  const outCount = records.filter((r) => r.type === 'out').length
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>입고 <b style={{ color: 'var(--ink)' }}>{inCount}건</b> · 출고 <b style={{ color: 'var(--ink)' }}>{outCount}건</b></div>
+        {canEdit && (
+          <button onClick={() => { setForm(EMPTY_INOUT); setShowForm(true) }}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
+            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <Plus size={14} /> 입고·출고 기록 추가
+          </button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="rounded-2xl p-4 mb-4" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+              구분
+              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+                <option value="in">입고</option>
+                <option value="out">출고</option>
+              </select>
+            </label>
+            <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+              일자 *
+              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </label>
+            <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+              품목명 *
+              <input type="text" value={form.itemName} onChange={(e) => setForm({ ...form, itemName: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </label>
+            <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+              수량
+              <input type="text" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </label>
+            <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+              거래처
+              <input type="text" value={form.partner} onChange={(e) => setForm({ ...form, partner: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </label>
+            <label className="text-[12px] col-span-2" style={{ color: 'var(--ink-mute)' }}>
+              비고
+              <input type="text" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })}
+                className="block w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            </label>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[12.5px]" style={{ border: '1px solid var(--line)', color: 'var(--ink-mute)', background: 'transparent' }}>취소</button>
+            <button onClick={submit} className="px-3 py-1.5 rounded-lg text-[12.5px] font-bold" style={{ background: 'var(--moss)', color: '#fff', border: 'none' }}>저장</button>
+          </div>
+        </div>
+      )}
+
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr style={{ background: 'var(--bg-soft)' }}>
+              {['구분', '일자', '품목명', '수량', '거래처', '비고', ''].map((h) => (
+                <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {records.length === 0 ? (
+              <tr><td colSpan={7} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 입고·출고 기록이 없습니다.</td></tr>
+            ) : records.map((r) => (
+              <tr key={r.id} style={{ borderTop: '1px solid var(--line)' }}>
+                <td className="px-3 py-2">
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold" style={{ background: r.type === 'in' ? '#D1FAE5' : '#DBEAFE', color: r.type === 'in' ? '#059669' : '#2563EB' }}>
+                    {r.type === 'in' ? '입고' : '출고'}
+                  </span>
+                </td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink)' }}>{r.date}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink)' }}>{r.itemName}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink-mute)' }}>{r.qty}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink-mute)' }}>{r.partner}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink-mute)' }}>{r.note}</td>
+                <td className="px-3 py-2 text-right">
+                  {canEdit && (
+                    <button onClick={() => remove(r.id)} style={{ color: 'var(--ink-faint)' }}><Trash2 size={13} /></button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 export default function PurchaseVerificationHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
 
   const [pos,  setPos]  = useState(() => { try { return JSON.parse(localStorage.getItem(LS_PO)  || '[]') } catch { return [] } })
   const [iqcs, setIqcs] = useState(() => { try { return JSON.parse(localStorage.getItem(LS_IQC) || '[]') } catch { return [] } })
 
-  const [tab, setTab] = useState('po')   // po | iqc | analysis
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'po')   // po | iqc | inout | analysis
   const [showPoForm,  setShowPoForm]  = useState(false)
   const [showIqcForm, setShowIqcForm] = useState(false)
   const [poForm,  setPoForm]  = useState(EMPTY_PO)
@@ -211,6 +337,7 @@ export default function PurchaseVerificationHub() {
           {[
             { key: 'po',       label: `발주서 (${pos.length})` },
             { key: 'iqc',      label: `수입검사 IQC (${iqcs.length})` },
+            { key: 'inout',    label: '입고·출고 기록' },
             { key: 'analysis', label: '현황 분석' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -414,6 +541,8 @@ export default function PurchaseVerificationHub() {
         )}
 
         {/* ── 현황 분석 탭 ── */}
+        {tab === 'inout' && <ReceivingShippingPanel canEdit={canEdit} />}
+
         {tab === 'analysis' && <AnalysisView analysis={analysis} pos={pos} iqcs={iqcs} />}
       </div>
     </AppLayout>

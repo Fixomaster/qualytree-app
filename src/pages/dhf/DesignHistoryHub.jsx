@@ -10,6 +10,11 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
+import { productDocs, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { fileStore } from '../../lib/fileStore'
+import { Paperclip } from 'lucide-react'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.dhf'
@@ -70,14 +75,112 @@ const EMPTY_DHF = {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
+// ── 기술문서(인허가 제출용) 패널 — 제품별 KGMP/수입 인허가 기술 자료 첨부 ──────
+function TechDocsPanel({ canEdit }) {
+  const ob = onboarding.load()
+  const products = (Array.isArray(ob.products) && ob.products.length)
+    ? ob.products
+    : (ob.product && ob.product.name ? [ob.product] : [{ name: '기본 제품' }])
+
+  const [productIdx, setProductIdx] = useState(0)
+  const product = products[Math.min(productIdx, products.length - 1)] || products[0]
+  const productKey = productKeyOf(product)
+
+  const [docs, setDocs] = useState(() => productDocs.getTechDocs(productKey))
+  const [busyCat, setBusyCat] = useState(null)
+
+  function refresh(key) { setDocs(productDocs.getTechDocs(key)) }
+
+  async function attach(category, file) {
+    if (!file) return
+    setBusyCat(category)
+    try {
+      const fileId = await fileStore.saveFile(file)
+      const existing = docs.find((d) => d.category === category)
+      if (existing) {
+        productDocs.updateTechDoc(existing.id, { fileId, fileName: file.name })
+      } else {
+        productDocs.addTechDoc(productKey, { category, title: category, fileId, fileName: file.name })
+      }
+      refresh(productKey)
+    } catch (e) {
+      alert(e.message || '파일 첨부에 실패했습니다.')
+    } finally {
+      setBusyCat(null)
+    }
+  }
+
+  function removeFile(category) {
+    const existing = docs.find((d) => d.category === category)
+    if (!existing) return
+    productDocs.updateTechDoc(existing.id, { fileId: null, fileName: '' })
+    refresh(productKey)
+  }
+
+  return (
+    <div className="max-w-3xl">
+      {products.length > 1 && (
+        <div className="mb-4">
+          <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+            제품 선택
+            <select
+              value={productIdx}
+              onChange={(e) => { const idx = Number(e.target.value); setProductIdx(idx); refresh(productKeyOf(products[idx])) }}
+              className="block mt-1 px-3 py-1.5 rounded-lg text-[13px]"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+            >
+              {products.map((p, i) => <option key={productKeyOf(p) + i} value={i}>{p.name || '제품 ' + (i + 1)}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
+      <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+        {Object.values(TECH_DOC_CATEGORY).map((category, i) => {
+          const doc = docs.find((d) => d.category === category)
+          return (
+            <div
+              key={category}
+              className="flex items-center gap-3 px-4 py-3"
+              style={{ borderTop: i === 0 ? 'none' : '1px solid var(--line)', background: 'var(--bg-card)' }}
+            >
+              <span className="text-[12.5px] font-medium flex-1 min-w-0" style={{ color: 'var(--ink)' }}>{category}</span>
+              {doc?.fileId ? (
+                <>
+                  <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || '첨부됨'}</span>
+                  {canEdit && (
+                    <button type="button" onClick={() => removeFile(category)} className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center" style={{ color: 'var(--ink-faint)' }} title="첨부 제거">
+                      <X size={13} />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>미등록</span>
+              )}
+              {canEdit && (
+                <label className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                  <Paperclip size={12} />
+                  {busyCat === category ? '업로드 중...' : doc?.fileId ? '재첨부' : '첨부'}
+                  <input type="file" className="hidden" disabled={busyCat === category}
+                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(category, f) }} />
+                </label>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function DesignHistoryHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
 
   const [items, setItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
   })
-  const [tab, setTab] = useState('list')         // list | detail | analysis
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'list')         // list | detail | techdocs | analysis
   const [selectedId, setSelectedId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_DHF)
@@ -208,6 +311,7 @@ export default function DesignHistoryHub() {
           {[
             { key: 'list', label: `DHF 목록 (${items.length})` },
             { key: 'detail', label: '상세 보기', disabled: !selectedId },
+            { key: 'techdocs', label: '기술문서(인허가)' },
             { key: 'analysis', label: '현황 분석' },
           ].map(t => (
             <button key={t.key}
@@ -224,6 +328,9 @@ export default function DesignHistoryHub() {
             </button>
           ))}
         </div>
+
+        {/* ── 기술문서(인허가) 탭 ── */}
+        {tab === 'techdocs' && <TechDocsPanel canEdit={canEdit} />}
 
         {/* ── DHF 목록 탭 ── */}
         {tab === 'list' && (

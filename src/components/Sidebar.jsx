@@ -91,6 +91,7 @@ const DOMAINS = [
   {
     label: '교육·인력', icon: GraduationCap,
     items: [
+      { to: '/training',            label: '교육훈련' },
       { to: '/competency',          label: '역량관리' },
       { to: '/org-responsibility',  label: '조직·책임' },
     ],
