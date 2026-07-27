@@ -10,10 +10,12 @@ import {
   Clock,
   Activity,
   Settings2,
+  Paperclip,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { fileStore } from '../../lib/fileStore'
 
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
@@ -32,6 +34,32 @@ function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10
 function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
 
 function Modal({title,onClose,children}){return <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.45)'}} onClick={e=>e.target===e.currentTarget&&onClose()}><div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto" style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}><div className="flex items-center justify-between mb-5"><h3 className="text-[17px] font-semibold" style={{color:'var(--ink)'}}>{title}</h3><button onClick={onClose} style={{color:'var(--ink-faint)'}}><X size={18}/></button></div>{children}</div></div>}
+
+function SingleAttach({fileId,fileName,onAttach,onRemove}){
+  const [busy,setBusy]=useState(false)
+  const attach=async(file)=>{
+    if(!file)return
+    setBusy(true)
+    try{ const id=await fileStore.saveFile(file); onAttach(id,file.name) }
+    catch(e){ alert(e.message||'파일 첨부에 실패했습니다.') }
+    finally{ setBusy(false) }
+  }
+  return(
+    <FL label="첨부 파일 (교정성적서·보고서 등)">
+      {fileId?(
+        <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12px]" style={{background:'var(--bg-soft)',border:'1px solid var(--line)'}}>
+          <span className="truncate" style={{color:'var(--moss)'}}>{fileName||'첨부됨'}</span>
+          <button type="button" onClick={onRemove} style={{color:'var(--ink-faint)'}}><X size={12}/></button>
+        </div>
+      ):(
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer" style={{background:'var(--leaf-soft)',color:'var(--moss)'}}>
+          <Paperclip size={12}/> {busy?'업로드 중...':'파일 첨부'}
+          <input type="file" className="hidden" disabled={busy} onChange={e=>{const f=e.target.files?.[0];e.target.value='';attach(f)}}/>
+        </label>
+      )}
+    </FL>
+  )
+}
 
 /* ─── 초기 데이터 ─── */
 const INIT_INSTR=[
@@ -168,6 +196,11 @@ function HistoryView({history,setHistory,instruments}){
                   <span>담당: {h.technician}</span>
                   <span>결과: <span style={{color:'var(--moss)',fontWeight:600}}>{h.result}</span></span>
                   {h.next&&<span>차기: {h.next}</span>}
+                  {h.fileId&&(
+                    <a href={fileStore.getObjectURL(h.fileId)} target="_blank" rel="noreferrer" className="flex items-center gap-1" style={{color:'var(--moss)'}}>
+                      <Paperclip size={11}/> {h.fileName||'첨부파일'}
+                    </a>
+                  )}
                 </div>
               </div>
               <div className="flex gap-1 shrink-0">
@@ -196,13 +229,36 @@ function HistForm({initial,instruments,onSave,onCancel,typeOpts,resultOpts}){
         <FL label="차기 예정일"><input style={inp} type="date" value={f.next} onChange={set('next')}/></FL>
       </div>
       <FL label="작업 내용 *"><textarea style={{...inp,minHeight:'72px',resize:'vertical'}} value={f.desc} onChange={set('desc')} placeholder="수행한 작업 내용을 입력하세요"/></FL>
+      <SingleAttach fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.eqp&&f.desc&&f.technician&&onSave(f)}>{initial.eqp?'수정 저장':'추가'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
 
 /* ─── 교정 일정 ─── */
-function ScheduleView({instruments,setInstruments}){
+function CalibCompleteForm({instr,onSave,onCancel}){
+  const today=new Date().toISOString().slice(0,10)
+  const suggestNext=()=>{
+    const m=parseInt(instr.interval)||12
+    const d=new Date(); d.setMonth(d.getMonth()+m)
+    return d.toISOString().slice(0,10)
+  }
+  const [f,sf]=useState({technician:instr.calibBody||'',next:instr.interval&&instr.interval!=='PM 관리'&&instr.interval!=='해당없음'?suggestNext():'',fileId:null,fileName:''})
+  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
+  return(
+    <div className="space-y-3">
+      <div className="text-[12.5px] p-2 rounded" style={{background:'var(--bg-soft)',color:'var(--ink-mute)'}}>{instr.name} ({instr.id}) — 교정 완료 처리 시 오늘({today}) 날짜로 최근교정일이 갱신되고, 이력 관리에도 자동으로 기록됩니다.</div>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="교정 수행 기관/담당자 *"><input style={inp} value={f.technician} onChange={set('technician')} placeholder="예) 한국교정연구원"/></FL>
+        <FL label="차기 교정일 *"><input style={inp} type="date" value={f.next} onChange={set('next')}/></FL>
+      </div>
+      <SingleAttach fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
+      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.technician&&f.next&&onSave(f)}>교정완료 처리</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+    </div>
+  )
+}
+function ScheduleView({instruments,setInstruments,history,setHistory}){
+  const [calibModal,setCalibModal]=useState(null)
   const calibItems=instruments.filter(i=>i.interval!=='PM 관리'&&i.interval!=='해당없음')
   const sorted=[...calibItems].sort((a,b)=>a.nextCalib.localeCompare(b.nextCalib))
   const today=new Date().toISOString().slice(0,10)
@@ -210,6 +266,14 @@ function ScheduleView({instruments,setInstruments}){
   const getTone=(d)=>{if(!d||d==='—')return'gray';const diff=Math.ceil((new Date(d)-new Date(today))/(1000*60*60*24));if(diff<0)return'red';if(diff<=30)return'amber';return'green'}
   const urgent=sorted.filter(i=>{const d=new Date(i.nextCalib)-new Date(today);return d/(1000*60*60*24)<0})
   const soon=sorted.filter(i=>{const d=new Date(i.nextCalib)-new Date(today);return d>=0&&d/(1000*60*60*24)<=30})
+  const completeCalib=(f)=>{
+    const instr=calibModal
+    setInstruments(p=>p.map(x=>x.id===instr.id?{...x,lastCalib:today,nextCalib:f.next,status:'사용가능',calibBody:f.technician}:x))
+    if(setHistory){
+      setHistory(p=>[...p,{id:nid('EH'),date:today,eqp:instr.id,name:instr.name,type:'교정',desc:`정기교정 완료 (교정일정 화면에서 처리)`,technician:f.technician,result:'합격',next:f.next,fileId:f.fileId,fileName:f.fileName}])
+    }
+    setCalibModal(null)
+  }
   return(
     <div>
       <SectionTitle breadcrumb="교정 일정">교정 일정 관리</SectionTitle>
@@ -236,10 +300,7 @@ function ScheduleView({instruments,setInstruments}){
                   <TD><Badge text={i.status} tone={i.status==='교정임박'?'amber':i.status==='사용가능'?'green':'red'}/></TD>
                   <TD>
                     <div className="flex gap-1 flex-wrap">
-                      <ActBtn label="교정완료" color="green" onClick={()=>{
-                        const next=prompt('차기 교정일을 입력하세요 (YYYY-MM-DD):')
-                        if(next)setInstruments(p=>p.map(x=>x.id===i.id?{...x,lastCalib:new Date().toISOString().slice(0,10),nextCalib:next,status:'사용가능'}:x))
-                      }}/>
+                      <ActBtn label="교정완료" color="green" onClick={()=>setCalibModal(i)}/>
                       <ActBtn label="교정중" onClick={()=>setInstruments(p=>p.map(x=>x.id===i.id?{...x,status:'교정중'}:x))}/>
                     </div>
                   </TD>
@@ -249,6 +310,7 @@ function ScheduleView({instruments,setInstruments}){
           </table>
         </div>
       </Card>
+      {calibModal&&<Modal title={`교정완료 처리 — ${calibModal.name}`} onClose={()=>setCalibModal(null)}><CalibCompleteForm instr={calibModal} onSave={completeCalib} onCancel={()=>setCalibModal(null)}/></Modal>}
     </div>
   )
 }
@@ -319,12 +381,12 @@ export default function EquipmentHub({ embedded = false } = {}){
     home:<EqpHome instruments={instruments} history={history} onNavigate={setView}/>,
     instruments:<InstrumentsView instruments={instruments} setInstruments={setInstruments} openId={editId}/>,
     history:<HistoryView history={history} setHistory={setHistory} instruments={instruments}/>,
-    schedule:<ScheduleView instruments={instruments} setInstruments={setInstruments}/>,
+    schedule:<ScheduleView instruments={instruments} setInstruments={setInstruments} history={history} setHistory={setHistory}/>,
   }
   const content = (
     <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
-      {view!=='home'&&<button onClick={()=>onNavigate('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
-      {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>onNavigate(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+      {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 설비·교정 홈</button>}
+      {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
       {viewMap[view]||viewMap.home}
     </div>
   )
