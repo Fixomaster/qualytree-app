@@ -26,6 +26,8 @@ import { auth } from '../../lib/auth'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
 import { fulfillOrderLineItems } from '../../lib/orderFulfillment'
 import { fileStore } from '../../lib/fileStore'
+import { productModels } from '../../lib/productLifecycleState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -46,6 +48,39 @@ function useLS(key, init) {
 }
 const nid = (p) =>
   `${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+
+/* 수주 품목 검색용: 등록된 허가 모델(제품·공정 화면에서 등록) 전체 목록을 불러온다. */
+function loadOrderableModels() {
+  try {
+    const ob = onboarding.load()
+    const products = (Array.isArray(ob.products) && ob.products.length)
+      ? ob.products
+      : (ob.product && ob.product.name ? [ob.product] : [])
+    const seen = new Set()
+    return productModels.getAll()
+      .map(m => {
+        const p = products.find(pp => productKeyOf(pp) === m.productKey)
+        return { ...m, productName: (p && p.name) || '' }
+      })
+      .filter(m => (m.code || m.spec) && (m.spec || m.code))
+      .filter(m => {
+        const v = m.spec || m.code
+        if (seen.has(v)) return false
+        seen.add(v)
+        return true
+      })
+  } catch { return [] }
+}
+/* 완제품재고(qms_pur_fin)에서 품목명으로 현재 재고를 조회한다. 못 찾으면 null. */
+function findFinStock(name) {
+  try {
+    const n = (name || '').trim().toLowerCase()
+    if (!n) return null
+    const fin = JSON.parse(localStorage.getItem('qms_pur_fin') || '[]')
+    const item = Array.isArray(fin) ? fin.find(f => (f.name || '').trim().toLowerCase() === n) : null
+    return item ? (parseFloat(item.stock) || 0) : null
+  } catch { return null }
+}
 
 /* ─── UI 부품 ─── */
 const inp = {
@@ -471,6 +506,7 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
 }
 function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
   const [wos] = useState(() => readManufacturingWos())
+  const [orderableModels] = useState(() => loadOrderableModels())
   const legacyLine = () => {
     if (!initial.items) return [{ name:'', qty:'', price:'' }]
     const qty = parseFloat(initial.qty) || ''
@@ -513,11 +549,12 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <FL label="고객사 *">
-          <select style={sel} value={f.customer} onChange={set('customer')}>
-            <option value="">선택</option>
-            {customers.map(c=><option key={c.id}>{c.name}</option>)}
-          </select>
+        <FL label="고객사 * (검색)">
+          <input style={inp} list="order-customer-list" value={f.customer} onChange={set('customer')}
+            placeholder="고객사명 입력 또는 검색..."/>
+          <datalist id="order-customer-list">
+            {customers.map(c=><option key={c.id} value={c.name}/>)}
+          </datalist>
         </FL>
         <FL label="상태 (작업 상태에 따라 자동 변경)">
           <div className="flex items-center gap-2 h-full">
@@ -570,9 +607,20 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
                 <tr key={i} style={{ borderTop:'1px solid var(--line)' }}>
                   <td className="p-1">
                     <input value={li.name} onChange={e=>setLine(i,'name',e.target.value)}
-                      placeholder="예) SCS M3.5×22mm"
+                      list="order-model-list"
+                      placeholder="허가 모델 검색..."
                       className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
                       style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                    {(() => {
+                      const stock = findFinStock(li.name)
+                      if (stock === null) return null
+                      const enough = stock >= (parseFloat(li.qty)||0)
+                      return (
+                        <div className="mt-0.5 text-[10px]" style={{ color: enough ? 'var(--moss)' : 'var(--rust)' }}>
+                          {enough ? `재고 ${stock}개 · 재고 출고` : `재고 ${stock}개 부족 · WO 자동발행`}
+                        </div>
+                      )
+                    })()}
                   </td>
                   <td className="p-1">
                     <input value={li.qty} onChange={e=>setLine(i,'qty',e.target.value)}
@@ -608,6 +656,13 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
             </tfoot>
           </table>
         </div>
+        <datalist id="order-model-list">
+          {orderableModels.map(m=>(
+            <option key={m.id} value={m.spec || m.code}>
+              {m.productName ? `${m.productName} · ${m.code}` : m.code}
+            </option>
+          ))}
+        </datalist>
       </div>
 
       <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
