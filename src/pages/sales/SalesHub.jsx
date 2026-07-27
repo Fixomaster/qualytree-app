@@ -18,12 +18,14 @@ import {
   CheckCircle,
   Package,
   Search,
+  Paperclip,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
 import { fulfillOrderLineItems } from '../../lib/orderFulfillment'
+import { fileStore } from '../../lib/fileStore'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -103,6 +105,43 @@ function FL({ label, children }) {
       <div className="text-[11.5px] font-medium mb-1" style={{ color:'var(--ink-mute)' }}>{label}</div>
       {children}
     </div>
+  )
+}
+
+function AttachmentsField({ files, onChange }) {
+  const list = files || []
+  const [busy, setBusy] = useState(false)
+  const add = async (file) => {
+    if (!file) return
+    setBusy(true)
+    try {
+      const fileId = await fileStore.saveFile(file)
+      onChange([...list, { id: `att-${Date.now()}`, fileId, fileName: file.name }])
+    } catch (e) {
+      alert(e.message || '파일 첨부에 실패했습니다.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  const remove = (id) => onChange(list.filter(f => f.id !== id))
+  return (
+    <FL label="첨부 파일">
+      <div className="space-y-1.5">
+        {list.map(f => (
+          <div key={f.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-[12px]"
+            style={{ background:'var(--bg-soft)', border:'1px solid var(--line)' }}>
+            <span className="truncate" style={{ color:'var(--moss)' }}>{f.fileName}</span>
+            <button type="button" onClick={()=>remove(f.id)} style={{ color:'var(--ink-faint)' }}><X size={12}/></button>
+          </div>
+        ))}
+        <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer"
+          style={{ background:'var(--leaf-soft)', color:'var(--moss)' }}>
+          <Paperclip size={12}/> {busy?'업로드 중...':'파일 첨부'}
+          <input type="file" className="hidden" disabled={busy}
+            onChange={(e)=>{ const file=e.target.files?.[0]; e.target.value=''; add(file) }}/>
+        </label>
+      </div>
+    </FL>
   )
 }
 
@@ -203,6 +242,7 @@ function CustomerForm({ initial={}, customers, onSave, onCancel }) {
           </select>
         </FL>
       </div>
+      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>ok&&onSave(f)} secondary={!ok}>{initial.name?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -539,6 +579,7 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
         </div>
       </div>
 
+      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>ok&&doSave()} secondary={!ok}>{initial.customer?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -742,6 +783,7 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
         </div>
       </div>
 
+      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>ok&&doSave()} secondary={!ok}>{initial.customer?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -859,6 +901,7 @@ function ComplaintForm({ initial, onSave, onCancel, statusOpts }) {
         <FL label="조치 기한"><input style={inp} type="date" value={f.deadline} onChange={set('deadline')}/></FL>
         <FL label="CAPA 번호"><input style={inp} value={f.capa} onChange={set('capa')} placeholder="CA-XXXX-XXX"/></FL>
       </div>
+      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>f.customer&&f.content&&onSave(f)}>{initial.customer?'수정 저장':'접수 등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -970,6 +1013,7 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
           </select>
         </FL>
       </div>
+      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>f.customer&&onSave(f)}>{initial.customer?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -1366,7 +1410,7 @@ export default function SalesHub() {
     <AppLayout user={user} title="영업" subtitle="고객사 관리 · 수주 · 납품 · 고객불만">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
         {view!=='home' && (
-          <button onClick={()=>onNavigate('home')}
+          <button onClick={()=>setView('home')}
             className="flex items-center gap-1.5 mb-5 text-[13px]"
             style={{ color:'var(--moss)' }}>
             <ArrowLeft size={14}/> 영업 홈
@@ -1375,7 +1419,7 @@ export default function SalesHub() {
         {view!=='home' && (
           <div className="flex gap-1 flex-wrap mb-5">
             {Object.entries(tabLabels).map(([id,label])=>(
-              <button key={id} onClick={()=>onNavigate(id)}
+              <button key={id} onClick={()=>setView(id)}
                 className="text-[12px] px-3 py-1.5 rounded-lg border transition"
                 style={{
                   background:view===id?'var(--moss)':'var(--bg-card)',
