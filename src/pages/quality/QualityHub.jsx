@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import HubBanner from '../../components/HubBanner'
 import { ncr, NCR_STATUS, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrState'
 import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
 import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'

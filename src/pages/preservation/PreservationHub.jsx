@@ -17,12 +17,12 @@ const LS_LOTS   = 'qualytree.preservation_lots'    // LOT별 유효기간 재고
 const LS_CHECKS = 'qualytree.preservation_checks'  // 출하 전 점검 기록
 
 const STORAGE_CONDITIONS = [
-  { key: 'room',   label: '실온 (1~30℃)',     icon: '🏠' },
+  { key: 'room',   label: '실온 (1~30℃)',     icon: '??' },
   { key: 'cool',   label: '냉장 (2~8℃)',      icon: '❄️' },
-  { key: 'frozen', label: '냉동 (-18℃ 이하)', icon: '🧊' },
+  { key: 'frozen', label: '냉동 (-18℃ 이하)', icon: '??' },
   { key: 'dry',    label: '건조 보관',          icon: '☁️' },
-  { key: 'dark',   label: '차광 보관',          icon: '🌑' },
-  { key: 'other',  label: '기타 조건',          icon: '📋' },
+  { key: 'dark',   label: '차광 보관',          icon: '??' },
+  { key: 'other',  label: '기타 조건',          icon: '??' },
 ]
 
 const STERILITY = ['비멸균', '멸균 (EO)', '멸균 (감마선)', '멸균 (전자선)', '멸균 (증기)', '멸균 (기타)']
@@ -180,17 +180,20 @@ export default function PreservationHub() {
 
   const totalAlerts = analysis.expired.length + analysis.expiring30.length + analysis.checkFails.length + analysis.quarantine.length
 
+
+  const openNew = () => { setTab('lots'); setLotForm(EMPTY_LOT); setEditLotId(null); setShowLotForm(true) }
+
   return (
     <AppLayout user={user} title="제품 보존·취급 관리" subtitle="ISO 13485 §7.5.11 보존 · §7.5.2 청결 · 유효기간 추적">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         <HubBanner
           title="제품 보존·취급 관리"
-          subtitle="ISO 13485 §7.5.11 · 보관 조건 · 취급 절차 · 유효기간 관리"
+          subtitle="ISO 13485 §7.5.11 · 보관 조건 · LOT 유효기간 추적 · 출하 전 점검"
           icon={Package2}
           color="#8B5CF6"
-          quickActions={[{label:'보존 기록 추가',icon:Plus,onClick:openNew,primary:true}]}
-          workflow={['보관 조건 설정','환경 모니터링','취급 절차','유효기간 관리','기록 유지']}
+          quickActions={[{label:'LOT 등록',icon:Plus,onClick:openNew,primary:true}]}
+          workflow={['보존 사양 설정','LOT 재고 등록','환경·조건 확인','유효기간 추적','출하 전 점검']}
         />
 
         {/* KPI */}
@@ -440,14 +443,14 @@ export default function PreservationHub() {
                         )}
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-[12px]">
-                        <InfoRow icon="📦" label="보관 조건" value={`${cond?.icon || ''} ${cond?.label || spec.storageCondition}`} />
-                        {(spec.tempMin || spec.tempMax) && <InfoRow icon="🌡" label="온도" value={`${spec.tempMin || '-'}~${spec.tempMax || '-'}℃`} />}
-                        {(spec.humMin || spec.humMax) && <InfoRow icon="💧" label="습도" value={`${spec.humMin || '-'}~${spec.humMax || '-'}%RH`} />}
+                        <InfoRow icon="??" label="보관 조건" value={`${cond?.icon || ''} ${cond?.label || spec.storageCondition}`} />
+                        {(spec.tempMin || spec.tempMax) && <InfoRow icon="??" label="온도" value={`${spec.tempMin || '-'}~${spec.tempMax || '-'}℃`} />}
+                        {(spec.humMin || spec.humMax) && <InfoRow icon="??" label="습도" value={`${spec.humMin || '-'}~${spec.humMax || '-'}%RH`} />}
                         <InfoRow icon="⏱" label="유효기간" value={`${spec.shelfLifeMonths}개월`} />
-                        <InfoRow icon="🧪" label="멸균" value={spec.sterility} />
-                        {spec.lightSensitive && <InfoRow icon="🌑" label="차광" value="필요" />}
+                        <InfoRow icon="??" label="멸균" value={spec.sterility} />
+                        {spec.lightSensitive && <InfoRow icon="??" label="차광" value="필요" />}
                         {spec.shockSensitive && <InfoRow icon="⚠" label="충격" value="취약 — 주의" />}
-                        {spec.stackLimit && <InfoRow icon="📐" label="적재 한계" value={spec.stackLimit} />}
+                        {spec.stackLimit && <InfoRow icon="??" label="적재 한계" value={spec.stackLimit} />}
                       </div>
                       {spec.cleanlinessReq && (
                         <div className="mt-2 px-2 py-1 rounded-lg text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
@@ -599,7 +602,7 @@ function LotForm({ form, setForm, specs, onSave, onCancel, isEdit }) {
       </div>
       {selectedSpec && (
         <div className="mb-3 px-3 py-2 rounded-xl text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-          📋 보존 조건: {STORAGE_CONDITIONS.find(c => c.key === selectedSpec.storageCondition)?.label} · 유효기간 {selectedSpec.shelfLifeMonths}개월
+          ?? 보존 조건: {STORAGE_CONDITIONS.find(c => c.key === selectedSpec.storageCondition)?.label} · 유효기간 {selectedSpec.shelfLifeMonths}개월
           {selectedSpec.tempMin && ` · 온도 ${selectedSpec.tempMin}~${selectedSpec.tempMax}℃`}
         </div>
       )}

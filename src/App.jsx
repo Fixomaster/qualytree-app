@@ -89,11 +89,11 @@ function ProtectedRoute({ children }) {
   return children
 }
 function PublicRoute({ children }) {
-  if (auth.isSignedIn()) return <Navigate to="/home" replace />
+  if (auth.isSignedIn()) return <Navigate to="/dashboard" replace />
   return children
 }
 function LazyRoute({ Component, fallback }) {
-  if (!Component) return fallback || <Navigate to="/home" replace />
+  if (!Component) return fallback || <Navigate to="/dashboard" replace />
   return (
     <React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>로딩 중...</div>}>
       <Component />
@@ -104,7 +104,7 @@ function LazyRoute({ Component, fallback }) {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/home" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="/login"          element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
       <Route path="/signup"         element={<PublicRoute><LazyRoute Component={Signup} /></PublicRoute>} />
       <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
@@ -131,33 +131,33 @@ export default function App() {
       <Route path="/export"            element={<ProtectedRoute><LazyRoute Component={ExportHub} /></ProtectedRoute>} />
       <Route path="/risk"              element={<ProtectedRoute><LazyRoute Component={RiskHub} /></ProtectedRoute>} />
       <Route path="/calibration"       element={<ProtectedRoute><LazyRoute Component={CalibrationHub} /></ProtectedRoute>} />
-      <Route path="/suppliers"         element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
+      <Route path="/supplier"         element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
       <Route path="/complaints"        element={<ProtectedRoute><LazyRoute Component={ComplaintHub} /></ProtectedRoute>} />
       <Route path="/traceability"      element={<ProtectedRoute><LazyRoute Component={TraceabilityHub} /></ProtectedRoute>} />
       <Route path="/change-control"    element={<ProtectedRoute><LazyRoute Component={ChangeControlHub} /></ProtectedRoute>} />
       <Route path="/inspection"        element={<ProtectedRoute><LazyRoute Component={InspectionHub} /></ProtectedRoute>} />
-      <Route path="/work-env"          element={<ProtectedRoute><LazyRoute Component={WorkEnvHub} /></ProtectedRoute>} />
-      <Route path="/validation"        element={<ProtectedRoute><LazyRoute Component={ValidationHub} /></ProtectedRoute>} />
-      <Route path="/quality-dashboard" element={<ProtectedRoute><LazyRoute Component={QualityDashboard} /></ProtectedRoute>} />
-      <Route path="/dhf"               element={<ProtectedRoute><LazyRoute Component={DesignHistoryHub} /></ProtectedRoute>} />
+      <Route path="/workenv"          element={<ProtectedRoute><LazyRoute Component={WorkEnvHub} /></ProtectedRoute>} />
+      <Route path="/process-validation"        element={<ProtectedRoute><LazyRoute Component={ValidationHub} /></ProtectedRoute>} />
+      <Route path="/kpi-dashboard" element={<ProtectedRoute><LazyRoute Component={QualityDashboard} /></ProtectedRoute>} />
+      <Route path="/design-history"               element={<ProtectedRoute><LazyRoute Component={DesignHistoryHub} /></ProtectedRoute>} />
       <Route path="/competency"        element={<ProtectedRoute><LazyRoute Component={CompetencyHub} /></ProtectedRoute>} />
       <Route path="/service"           element={<ProtectedRoute><LazyRoute Component={ServiceHub} /></ProtectedRoute>} />
       <Route path="/preservation"      element={<ProtectedRoute><LazyRoute Component={PreservationHub} /></ProtectedRoute>} />
       <Route path="/quality-plan"      element={<ProtectedRoute><LazyRoute Component={QualityPlanHub} /></ProtectedRoute>} />
       <Route path="/customer-req"      element={<ProtectedRoute><LazyRoute Component={CustomerReqHub} /></ProtectedRoute>} />
       <Route path="/infrastructure"    element={<ProtectedRoute><LazyRoute Component={InfrastructureHub} /></ProtectedRoute>} />
-      <Route path="/doc-control"       element={<ProtectedRoute><LazyRoute Component={DocControlHub} /></ProtectedRoute>} />
+      <Route path="/document-control"       element={<ProtectedRoute><LazyRoute Component={DocControlHub} /></ProtectedRoute>} />
       <Route path="/quality-objectives" element={<ProtectedRoute><LazyRoute Component={QualityObjectivesHub} /></ProtectedRoute>} />
       <Route path="/product-id"        element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
       <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />
-      <Route path="/purchase-verification" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
+      <Route path="/purchase-info" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
       <Route path="/quality-manual"    element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />
-      <Route path="/device-file"       element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
+      <Route path="/medical-device-file"       element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
       <Route path="/production-control" element={<ProtectedRoute><LazyRoute Component={ProductionControlHub} /></ProtectedRoute>} />
-      <Route path="/quality-policy"    element={<ProtectedRoute><LazyRoute Component={QualityPolicyHub} /></ProtectedRoute>} />
-      <Route path="/measurement-plan"  element={<ProtectedRoute><LazyRoute Component={MeasurementPlanHub} /></ProtectedRoute>} />
+      <Route path="/management-commitment"    element={<ProtectedRoute><LazyRoute Component={QualityPolicyHub} /></ProtectedRoute>} />
+      <Route path="/measurement"  element={<ProtectedRoute><LazyRoute Component={MeasurementPlanHub} /></ProtectedRoute>} />
       <Route path="/cleanliness"       element={<ProtectedRoute><LazyRoute Component={CleanlinessHub} /></ProtectedRoute>} />
-      <Route path="/sterile-control"   element={<ProtectedRoute><LazyRoute Component={SterileControlHub} /></ProtectedRoute>} />
+      <Route path="/sterile"   element={<ProtectedRoute><LazyRoute Component={SterileControlHub} /></ProtectedRoute>} />
 
       <Route path="/sales/*"             element={<ProtectedRoute><LazyRoute Component={SalesHub} /></ProtectedRoute>} />
       <Route path="/purchase/*"          element={<ProtectedRoute><LazyRoute Component={PurchaseHub} /></ProtectedRoute>} />
@@ -167,7 +167,7 @@ export default function App() {
       <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
       <Route path="/training/*"          element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
 
-      <Route path="*" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   )
 }

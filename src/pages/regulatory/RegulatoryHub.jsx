@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import HubBanner from '../../components/HubBanner'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { onboarding } from '../../lib/onboardingState'
 import {
@@ -127,28 +128,13 @@ export default function RegulatoryHub() {
           </div>
         )}
 
-        {/* 헤더 */}
-        <div className="mb-5">
-          <span
-            className="font-mono text-[10px] tracking-[0.18em] uppercase"
-            style={{ color: 'var(--moss)' }}
-          >
-            RA · REGULATORY AFFAIRS
-          </span>
-          <div
-            className="font-display text-[26px] mt-1"
-            style={{ color: 'var(--ink)', fontWeight: 500 }}
-          >
-            인허가 통합
-          </div>
-          <div
-            className="text-[12.5px] mt-0.5"
-            style={{ color: 'var(--ink-mute)' }}
-          >
-            §12 신청·통지 / §16 UDI 라이프사이클 / §17 시판후 감시 — 마감
-            시한 자동 추적
-          </div>
-        </div>
+        <HubBanner
+          title="인허가 통합 관리"
+          subtitle="21 CFR 803/807/814 · MDR(EU) 2017/745 · 의료기기법 · 마감시한 자동 추적"
+          icon={FileCheck2}
+          color="#059669"
+          workflow={['신청·통지 준비', 'UDI 등록', '제출·심사', '승인·인허', '시판후 감시']}
+        />
 
         {!hasOnboarding && (
           <div

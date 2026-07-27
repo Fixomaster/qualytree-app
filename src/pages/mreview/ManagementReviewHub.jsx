@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import HubBanner from '../../components/HubBanner'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
 import {
@@ -51,13 +52,13 @@ export default function ManagementReviewHub() {
           </div>
         )}
 
-        <div className="mb-5">
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>MR · MANAGEMENT REVIEW</span>
-          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>경영검토</div>
-          <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            ISO 13485 §5.6 / FDA QMSR §820.20(c) — KPI·품질목표·고객불만·CAPA현황을 자동 집계해 경영검토를 진행·승인합니다.
-          </div>
-        </div>
+        <HubBanner
+          title="경영검토"
+          subtitle="ISO 13485 §5.6 / FDA QMSR §820.20(c) — KPI·품질목표·고객불만·CAPA현황 자동집계"
+          icon={ClipboardList}
+          color="#6366F1"
+          workflow={['KPI 집계', '품질목표 검토', '고객불만 검토', '실행항목 수립', '승인·기록']}
+        />
 
         <div className="grid grid-cols-3 gap-3 mb-5">
           <StatCard label="경영검토" value={allReviews.length} hint="누적 실시 건수" icon={ClipboardList} />
