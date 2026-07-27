@@ -187,10 +187,10 @@ const INIT_CUSTOMERS = [
   { id:'C-004', name:'부산척추클리닉', type:'직접', contact:'최지현 원장', phone:'051-456-7890', items:'SCS M3.5×22mm', grade:'C', lastOrder:'24-03-15', status:'휴면' },
 ]
 const INIT_ORDERS = [
-  { id:'SO-2406-012', customer:'삼성의료기기㈜', items:'SCS M3.5×22mm', qty:'200EA', dueDate:'24-06-25', amount:'4200000', wo:'WO-2406-018', status:'생산중' },
-  { id:'SO-2406-011', customer:'한국외과의원', items:'BPL 3㎖', qty:'100EA', dueDate:'24-06-28', amount:'1050000', wo:'—', status:'수주접수' },
-  { id:'SO-2406-010', customer:'서울대학병원구매팀', items:'SCS M4.0×24mm', qty:'300EA', dueDate:'24-07-05', amount:'6300000', wo:'WO-2406-017', status:'생산중' },
-  { id:'SO-2406-008', customer:'부산척추클리닉', items:'BPL 4㎖', qty:'50EA', dueDate:'24-06-20', amount:'820000', wo:'완료', status:'납품완료' },
+  { id:'SO-2406-012', customer:'삼성의료기기㈜', items:'SCS M3.5×22mm', qty:'200EA', receivedDate:'24-06-25', amount:'4200000', wo:'WO-2406-018', status:'생산중' },
+  { id:'SO-2406-011', customer:'한국외과의원', items:'BPL 3㎖', qty:'100EA', receivedDate:'24-06-28', amount:'1050000', wo:'—', status:'수주접수' },
+  { id:'SO-2406-010', customer:'서울대학병원구매팀', items:'SCS M4.0×24mm', qty:'300EA', receivedDate:'24-07-05', amount:'6300000', wo:'WO-2406-017', status:'생산중' },
+  { id:'SO-2406-008', customer:'부산척추클리닉', items:'BPL 4㎖', qty:'50EA', receivedDate:'24-06-20', amount:'820000', wo:'완료', status:'납품완료' },
 ]
 const INIT_QUOTES = [
   { id:'QT-2406-007', customer:'인천정형외과', items:'SCS M3.5 시리즈 샘플', date:'24-06-20', validUntil:'24-07-20', amount:'견적예정', status:'검토중' },
@@ -356,7 +356,7 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
     if (changed) setOrders(next)
   }, [orders, deliveries])
   const statusOpts = ['수주접수','생산요청','생산중','검사중','납품대기','납품완료','취소']
-  const init = { id:'', customer:'', items:'', qty:'', dueDate:'', amount:'', wo:'', status:'수주접수',
+  const init = { id:'', customer:'', items:'', qty:'', receivedDate:new Date().toISOString().slice(0,10), amount:'', wo:'', status:'수주접수',
     lineItems:[{ name:'', qty:'', price:'' }] }
 
   const save = (f) => {
@@ -431,7 +431,7 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              {['SO번호','고객사','품목','수량','납기일','금액(원)','WO','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
+              {['SO번호','고객사','품목','수량','접수일','금액(원)','WO','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
               {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(o=>(
@@ -440,7 +440,7 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
                   <TD>{o.customer}</TD>
                   <TD muted>{o.items}</TD>
                   <TD right>{o.qty}</TD>
-                  <TD mono muted>{o.dueDate}</TD>
+                  <TD mono muted>{o.receivedDate}</TD>
                   <TD right>{Number(o.amount).toLocaleString()}</TD>
                   <TD mono muted>{o.wo || '—'}</TD>
                   <TD>
@@ -533,7 +533,7 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
             )}
           </div>
         </FL>
-        <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
+        <FL label="접수일"><input style={inp} type="date" value={f.receivedDate} onChange={set('receivedDate')}/></FL>
         <FL label="WO 번호 (생산 작업지시 연동)">
           <select style={sel} value={woManual ? '__manual__' : (f.wo || '')} onChange={e=>pickWo(e.target.value)}>
             <option value="">미지정</option>
@@ -1133,7 +1133,7 @@ function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
   const selectSO = e => {
     const o = orders.find(x=>x.id===e.target.value)
-    if(o) sf(p=>({...p, so:o.id, item:o.items, qty:o.qty?.replace('EA',''), dueDate:o.dueDate}))
+    if(o) sf(p=>({...p, so:o.id, item:o.items, qty:o.qty?.replace('EA','')}))
     else set('so')(e)
   }
   return (

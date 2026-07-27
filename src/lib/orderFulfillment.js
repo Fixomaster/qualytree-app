@@ -57,7 +57,7 @@ export function fulfillOrderLineItems(order) {
         qty: String(qtyNeeded),
         step: '대기',
         startDate: new Date().toISOString().slice(0,10),
-        dueDate: order.dueDate || '',
+        dueDate: '', // 수주의 접수일과 생산 납기일은 별개 — 생산 화면에서 직접 지정
         assignee: '미배정',
         progress: '0',
         status: '대기',
