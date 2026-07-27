@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Stamp, Factory } from 'lucide-react';
+import { Stamp, Factory } from 'lucide-react';
 import { auth } from '../lib/auth';
+import AppLayout from '../components/AppLayout';
 import gmp, { loadContext, computeAllCards, computeOverallScore, userCanAccessCard, STATUS, FULFILLMENT } from '../lib/gmpProgress';
 import { getKgmpStatus } from '../lib/kgmpProgress';
 import { gmpCertificates as foreignGmpCerts } from '../lib/foreignManufacturerState';
@@ -391,6 +392,7 @@ export default function Dashboard() {
   // 라우트는 /section/:cardId — App.jsx에 등록됨
 
   return (
+    <AppLayout user={auth.current()} title="GMP·RA 대시보드" subtitle="전사 인증·인허가 준수 현황 통합 뷰">
     <div className="min-h-screen bg-slate-50 px-6 py-6">
       {(() => {
         let n = 0
@@ -430,15 +432,6 @@ export default function Dashboard() {
                   {overall}%
                 </span>
               </div>
-              <button onClick={() => navigate('/onboarding')} style={{ marginRight: 8, fontSize: 13, color: '#7c3aed', background: 'none', border: '1px solid #ddd6fe', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}>온보딩 설정</button><button onClick={() => navigate('/manager/accounts')} style={{ marginRight: 8, fontSize: 13, color: '#0f766e', background: 'none', border: '1px solid #99f6e4', borderRadius: 8, padding: '6px 10px', cursor: 'pointer' }}>계정 관리</button>
-              <button
-                onClick={() => { auth.signOut(); navigate('/login'); }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 text-sm font-medium transition shrink-0"
-                title="로그아웃"
-              >
-                <LogOut size={15} />
-                로그아웃
-              </button>
             </div>
         </div>
 
@@ -505,5 +498,6 @@ export default function Dashboard() {
         Qualytree · 진행률 = 필수 × 0.6 + 선택 × 0.3 + 검증 × 0.1 (특허 2 청구항 1(c)) · 조건부 항목은 회사·제품·인증 속성에 따라 자동 필수↔N/A 결정
       </div>
     </div>
+    </AppLayout>
   );
 }
