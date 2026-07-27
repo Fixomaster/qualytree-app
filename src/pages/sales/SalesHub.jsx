@@ -363,7 +363,7 @@ function CustomersView({ customers, setCustomers }) {
 }
 
 /* ─── 수주 관리 ─── */
-function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
+function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdReqs, onNavigate }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [fulfillMsg, setFulfillMsg] = useState(null)
@@ -402,12 +402,22 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
         const result = fulfillOrderLineItems(newOrder)
         if (result.createdWos.length > 0) {
           newOrder = { ...newOrder, wo: result.firstWoId, status: WO_STATUS_TO_ORDER_STATUS['대기'] }
+          // 재고 부족으로 생산 작업지시(WO)가 자동 발행되면, 생산요청(PR) 화면에도 연계된 요청을 자동 등록한다.
+          if (setProdReqs) {
+            setProdReqs(p => [
+              ...p,
+              ...result.createdWos.map(w => ({
+                id: nid('PR'), so: newOrder.id, item: w.product, qty: w.qty,
+                dueDate: '', priority: '보통', status: 'WO발행완료', wo: w.id,
+              })),
+            ])
+          }
         } else if (result.shipped.length > 0) {
           newOrder = { ...newOrder, status: '납품대기' }
         }
         const parts = []
         if (result.shipped.length) parts.push(`완제품재고에서 ${result.shipped.map(s=>`${s.name} ${s.qty}개`).join(', ')} 자동 출고`)
-        if (result.createdWos.length) parts.push(`재고 부족으로 ${result.createdWos.map(w=>w.id).join(', ')} 작업지시 자동 발행`)
+        if (result.createdWos.length) parts.push(`재고 부족으로 ${result.createdWos.map(w=>w.id).join(', ')} 작업지시 자동 발행 및 생산요청 등록`)
         if (parts.length) setFulfillMsg(parts.join(' · '))
       }
       setOrders(p=>[...p, newOrder])
@@ -418,12 +428,22 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries }) {
 
   const active = orders.filter(o=>!['납품완료','취소'].includes(o.status))
   const [srch, setSrch] = useState('')
+  const deliveredCount = orders.filter(o=>o.status==='납품완료').length
+  const activeOrders = orders.filter(o=>o.status!=='납품완료')
   const shown = srch
-    ? orders.filter(o=>[o.id,o.customer,o.items,o.wo,o.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
-    : orders
+    ? activeOrders.filter(o=>[o.id,o.customer,o.items,o.wo,o.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : activeOrders
   return (
     <div>
       <SectionTitle breadcrumb="수주 관리">수주 관리</SectionTitle>
+      {deliveredCount > 0 && (
+        <div className="mb-4 p-3 rounded-lg flex items-center justify-between gap-2" style={{ background:'var(--bg-soft)', border:'1px solid var(--line)' }}>
+          <div className="text-[12px]" style={{ color:'var(--ink-mute)' }}>납품완료된 {deliveredCount}건은 이 목록에서 빠지고 납품 이력에서 전체 기록을 확인할 수 있습니다.</div>
+          {onNavigate && (
+            <button onClick={()=>onNavigate('delivery')} className="text-[11.5px] font-medium shrink-0" style={{ color:'var(--moss)' }}>납품 이력 보기 →</button>
+          )}
+        </div>
+      )}
       {fulfillMsg && (
         <div className="mb-4 p-3 rounded-lg flex items-start justify-between gap-2" style={{ background:'var(--sky-soft)', border:'1px solid var(--sky)' }}>
           <div className="flex items-start gap-2">
@@ -675,10 +695,11 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
 }
 
 /* ─── 견적 관리 ─── */
-function QuotesView({ quotes, setQuotes, customers }) {
+function QuotesView({ quotes, setQuotes, customers, orders, setOrders, onNavigate }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
+  const [convertMsg, setConvertMsg] = useState(null)
   const statusOpts = ['검토중','발송완료','협의중','수주확정','견적취소']
   const defaultValidUntil = () => {
     const d = new Date()
@@ -694,13 +715,51 @@ function QuotesView({ quotes, setQuotes, customers }) {
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setQuotes(p=>p.filter(x=>x.id!==id)) }
+
+  // 견적 상태가 '수주확정'이 되면 자동으로 연계된 수주(SO)를 만들어 수주 관리에서 이어서 입력할 수 있게 한다.
+  const setStatus = (q, v) => {
+    if (v === '수주확정' && !q.linkedOrderId && setOrders) {
+      const li = (q.lineItems && q.lineItems.length) ? q.lineItems : [{ name:q.items||'', qty:'', price:'' }]
+      const totalQty = li.reduce((s,x)=>s+(parseFloat(x.qty)||0),0)
+      const newOrder = {
+        id: nid('SO'), customer:q.customer, items:q.items,
+        qty: totalQty ? `${totalQty}EA` : '', receivedDate:new Date().toISOString().slice(0,10),
+        amount:q.amount, wo:'', status:'수주접수', lineItems:li, quoteRef:q.id,
+      }
+      setOrders(p=>[...p, newOrder])
+      setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:v,linkedOrderId:newOrder.id}:x))
+      setConvertMsg(`${newOrder.id} 수주가 자동 생성되었습니다 — 수주 관리에서 이어서 입력하세요.`)
+    } else {
+      setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:v}:x))
+    }
+  }
+
+  const deliveredCount = quotes.filter(q=>q.linkedOrderId && (orders||[]).find(o=>o.id===q.linkedOrderId)?.status==='납품완료').length
+  const activeQuotes = quotes.filter(q=>!(q.linkedOrderId && (orders||[]).find(o=>o.id===q.linkedOrderId)?.status==='납품완료'))
   const shown = srch
-    ? quotes.filter(q=>[q.id,q.customer,q.items,q.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
-    : quotes
+    ? activeQuotes.filter(q=>[q.id,q.customer,q.items,q.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : activeQuotes
 
   return (
     <div>
       <SectionTitle breadcrumb="견적 관리">견적 관리</SectionTitle>
+      {convertMsg && (
+        <div className="mb-4 p-3 rounded-lg flex items-start justify-between gap-2" style={{ background:'var(--sky-soft)', border:'1px solid var(--sky)' }}>
+          <div className="flex items-start gap-2">
+            <CheckCircle size={14} style={{ color:'var(--sky)', marginTop:2, flexShrink:0 }}/>
+            <div className="text-[12.5px]" style={{ color:'var(--sky)' }}>{convertMsg}</div>
+          </div>
+          <button onClick={()=>setConvertMsg(null)} style={{ color:'var(--sky)' }}><X size={14}/></button>
+        </div>
+      )}
+      {deliveredCount > 0 && (
+        <div className="mb-4 p-3 rounded-lg flex items-center justify-between gap-2" style={{ background:'var(--bg-soft)', border:'1px solid var(--line)' }}>
+          <div className="text-[12px]" style={{ color:'var(--ink-mute)' }}>납품까지 완료된 {deliveredCount}건은 이 목록에서 빠지고 납품 이력에서 전체 기록을 확인할 수 있습니다.</div>
+          {onNavigate && (
+            <button onClick={()=>onNavigate('delivery')} className="text-[11.5px] font-medium shrink-0" style={{ color:'var(--moss)' }}>납품 이력 보기 →</button>
+          )}
+        </div>
+      )}
       <div className="rounded-xl p-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color:'var(--ink-faint)' }}>견적 목록 (ISO 13485 §7.2.2) — {quotes.length}건</span>
@@ -732,8 +791,11 @@ function QuotesView({ quotes, setQuotes, customers }) {
                   <TD mono muted>{q.validUntil}</TD>
                   <TD right>{isNaN(Number(q.amount))?q.amount:Number(q.amount).toLocaleString()}</TD>
                   <TD>
-                    <StatusSelect value={q.status} options={statusOpts}
-                      onChange={v=>setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:v}:x))}/>
+                    <div className="flex flex-col gap-1">
+                      <StatusSelect value={q.status} options={statusOpts}
+                        onChange={v=>setStatus(q,v)}/>
+                      {q.linkedOrderId && <span className="font-mono text-[10px]" style={{color:'var(--moss)'}}>→ {q.linkedOrderId}</span>}
+                    </div>
                   </TD>
                   <TD>
                     <div className="flex gap-1">
@@ -1109,12 +1171,36 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
 }
 
 /* ─── 생산 요청 ─── */
-function ProdRequestView({ prodReqs, setProdReqs, orders }) {
+// 생산 WO 상태 → 생산요청(PR) 상태 매핑 (Order의 WO_STATUS_TO_ORDER_STATUS와 동일한 원본 WO 상태를 사용)
+const WO_STATUS_TO_PR_STATUS = {
+  '대기':   'WO발행완료',
+  '진행중': '생산중',
+  '검사중': '생산중',
+  '완료':   '완료',
+  '취소':   '취소',
+}
+function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
   const statusOpts = ['WO대기','WO발행완료','생산중','완료','취소']
   const init = { id:'', so:'', item:'', qty:'', dueDate:'', priority:'보통', status:'WO대기' }
+
+  // 상태는 연계된 생산 WO 상태에 따라 자동으로 갱신된다 (완료·취소는 종결 상태로 되돌리지 않음).
+  useEffect(() => {
+    const wos = readManufacturingWos()
+    let changed = false
+    const next = prodReqs.map(r => {
+      if (['완료','취소'].includes(r.status)) return r
+      if (r.wo) {
+        const w = wos.find(x => x.id === r.wo)
+        const mapped = w && WO_STATUS_TO_PR_STATUS[w.status]
+        if (mapped && mapped !== r.status) { changed = true; return { ...r, status: mapped } }
+      }
+      return r
+    })
+    if (changed) setProdReqs(next)
+  }, [prodReqs])
 
   const save = (f) => {
     if (edit) { setProdReqs(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
@@ -1122,13 +1208,23 @@ function ProdRequestView({ prodReqs, setProdReqs, orders }) {
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setProdReqs(p=>p.filter(x=>x.id!==id)) }
+  const deliveredCount = prodReqs.filter(r=>r.so && (orders||[]).find(o=>o.id===r.so)?.status==='납품완료').length
+  const activePR = prodReqs.filter(r=>!(r.so && (orders||[]).find(o=>o.id===r.so)?.status==='납품완료'))
   const shown = srch
-    ? prodReqs.filter(r=>[r.id,r.so,r.item,r.priority,r.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
-    : prodReqs
+    ? activePR.filter(r=>[r.id,r.so,r.item,r.priority,r.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    : activePR
 
   return (
     <div>
       <SectionTitle breadcrumb="생산 요청">생산 요청</SectionTitle>
+      {deliveredCount > 0 && (
+        <div className="mb-4 p-3 rounded-lg flex items-center justify-between gap-2" style={{ background:'var(--bg-soft)', border:'1px solid var(--line)' }}>
+          <div className="text-[12px]" style={{ color:'var(--ink-mute)' }}>납품까지 완료된 {deliveredCount}건은 이 목록에서 빠지고 납품 이력에서 전체 기록을 확인할 수 있습니다.</div>
+          {onNavigate && (
+            <button onClick={()=>onNavigate('delivery')} className="text-[11.5px] font-medium shrink-0" style={{ color:'var(--moss)' }}>납품 이력 보기 →</button>
+          )}
+        </div>
+      )}
       <div className="rounded-xl p-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color:'var(--ink-faint)' }}>수주 기반 생산 요청 목록</span>
@@ -1483,12 +1579,12 @@ export default function SalesHub() {
     home: <SalesHome customers={customers} orders={orders} complaints={complaints}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
-    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries}/>,
-    quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers}/>,
+    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView}/>,
+    quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers} orders={orders} setOrders={setOrders} onNavigate={setView}/>,
     complaints: <ComplaintsView complaints={complaints} setComplaints={setComplaints} openId={editId}/>,
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
     performance: <PerformanceView orders={orders} deliveries={deliveries} complaints={complaints}/>,
-    'prod-req': <ProdRequestView prodReqs={prodReqs} setProdReqs={setProdReqs} orders={orders}/>,
+    'prod-req': <ProdRequestView prodReqs={prodReqs} setProdReqs={setProdReqs} orders={orders} onNavigate={setView}/>,
     'market': <MarketResView />,
   }
 
