@@ -1,8 +1,9 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Stamp, Factory } from 'lucide-react';
+import { Stamp, Factory, ChevronDown, ChevronRight } from 'lucide-react';
 import { auth } from '../lib/auth';
 import AppLayout from '../components/AppLayout';
+import KgmpSectionList from '../components/KgmpSectionList';
 import gmp, { loadContext, computeAllCards, computeOverallScore, userCanAccessCard, STATUS, FULFILLMENT } from '../lib/gmpProgress';
 import { getKgmpStatus } from '../lib/kgmpProgress';
 import { gmpCertificates as foreignGmpCerts } from '../lib/foreignManufacturerState';
@@ -196,8 +197,9 @@ function PanelHandover({ ctx }) {
   );
 }
 
-function PanelKgmp({ navigate, kgmp }) {
-  const { pct, doneCount, totalCount } = kgmp;
+function PanelKgmp({ kgmp }) {
+  const [open, setOpen] = useState(false);
+  const { pct, doneCount, totalCount, sections } = kgmp;
   const tone = pct >= 90 ? 'emerald' : pct >= 50 ? 'amber' : 'rose';
   const toneClasses = {
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' },
@@ -206,7 +208,7 @@ function PanelKgmp({ navigate, kgmp }) {
   }[tone];
   return (
     <div className={`max-w-7xl mx-auto mb-5 rounded-xl border ${toneClasses.border} ${toneClasses.bg} p-4`}>
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-4 flex-wrap text-left">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-white border ${toneClasses.border}`}>
             <Stamp size={18} className={toneClasses.text} />
@@ -224,30 +226,33 @@ function PanelKgmp({ navigate, kgmp }) {
           <div className="w-24 h-1.5 rounded-full bg-white overflow-hidden hidden sm:block">
             <div className={`h-full rounded-full ${toneClasses.bar}`} style={{ width: pct + '%' }} />
           </div>
-          <button onClick={() => navigate('/kgmp')} className={`shrink-0 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar} hover:opacity-90 transition`}>
-            KGMP 바로가기 →
-          </button>
+          <span className={`shrink-0 flex items-center gap-1 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar}`}>
+            {open ? '필요 문서 접기' : '필요 문서 확인'} {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+          </span>
         </div>
-      </div>
+      </button>
+      {open && (
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+          <KgmpSectionList sections={sections} keyPrefix="dash-kgmp-" />
+        </div>
+      )}
     </div>
   );
 }
 
-function PanelImportGmp({ navigate, kgmp, dueCertCount }) {
-  const { pct, doneCount, totalCount } = kgmp;
+function PanelImportGmp({ kgmp, dueCertCount }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const { pct, doneCount, totalCount, sections } = kgmp;
   const tone = dueCertCount > 0 ? 'rose' : pct >= 90 ? 'emerald' : pct >= 50 ? 'amber' : 'rose';
   const toneClasses = {
     emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' },
     amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' },
     rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', bar: 'bg-rose-500' },
   }[tone];
-  const goImportGmp = () => {
-    try { localStorage.setItem('qualytree.kgmpProfile', 'importer') } catch { /* ignore */ }
-    navigate('/kgmp');
-  };
   return (
     <div className={`max-w-7xl mx-auto mb-5 rounded-xl border ${toneClasses.border} ${toneClasses.bg} p-4`}>
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-4 flex-wrap text-left">
         <div className="flex items-center gap-3 min-w-0">
           <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-white border ${toneClasses.border}`}>
             <Factory size={18} className={toneClasses.text} />
@@ -270,11 +275,23 @@ function PanelImportGmp({ navigate, kgmp, dueCertCount }) {
           <div className="w-24 h-1.5 rounded-full bg-white overflow-hidden hidden sm:block">
             <div className={`h-full rounded-full ${toneClasses.bar}`} style={{ width: pct + '%' }} />
           </div>
-          <button onClick={goImportGmp} className={`shrink-0 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar} hover:opacity-90 transition`}>
-            수입사 GMP 바로가기 →
+          <span className={`shrink-0 flex items-center gap-1 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar}`}>
+            {open ? '필요 문서 접기' : '필요 문서 확인'} {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+          </span>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+          <KgmpSectionList sections={sections} keyPrefix="dash-importgmp-" />
+          <button
+            type="button"
+            onClick={() => navigate('/foreign-manufacturers')}
+            className="btn-ghost text-[12px] mt-3"
+          >
+            외국제조소별 상세 등록·관리 →
           </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -447,8 +464,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <PanelKgmp navigate={navigate} kgmp={kgmp} />
-      <PanelImportGmp navigate={navigate} kgmp={kgmpImporter} dueCertCount={dueForeignCertCount} />
+      <PanelKgmp kgmp={kgmp} />
+      <PanelImportGmp kgmp={kgmpImporter} dueCertCount={dueForeignCertCount} />
 
       {/* 행1 — GMP 8개 카드 */}
       <div className="max-w-7xl mx-auto mb-3">
