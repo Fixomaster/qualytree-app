@@ -75,6 +75,7 @@ try { SterileControlHub     = React.lazy(() => import(/* @vite-ignore */ './page
 
 // ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
+let KgmpHub, ForeignManufacturerHub
 try { SalesHub            = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub         = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
 try { ManufacturingHub    = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
@@ -82,6 +83,8 @@ try { EquipmentHub        = React.lazy(() => import(/* @vite-ignore */ './pages/
 try { DevHub              = React.lazy(() => import(/* @vite-ignore */ './pages/development/DevHub')) } catch {}
 try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/management/ManagementReviewHub')) } catch {}
 try { TrainingHub         = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
+try { KgmpHub               = React.lazy(() => import(/* @vite-ignore */ './pages/kgmp/KgmpHub')) } catch {}
+try { ForeignManufacturerHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ForeignManufacturerHub')) } catch {}
 
 // ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -166,6 +169,8 @@ export default function App() {
       <Route path="/development/*"       element={<ProtectedRoute><LazyRoute Component={DevHub} /></ProtectedRoute>} />
       <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
       <Route path="/training/*"          element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
+      <Route path="/kgmp"                    element={<ProtectedRoute><LazyRoute Component={KgmpHub} /></ProtectedRoute>} />
+      <Route path="/foreign-manufacturers"   element={<ProtectedRoute><LazyRoute Component={ForeignManufacturerHub} /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
