@@ -12,12 +12,12 @@ export default function TopBar({ user, title, subtitle }) {
   const [showRoleSwap, setShowRoleSwap] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
-  // 홈(모니터링)에서는 뒤로가기가 의미 없으므로 숨긴다. 그 외 화면에서는 항상 표시 —
+  // 홈(부서별 대시보드)에서는 뒤로가기가 의미 없으므로 숨긴다. 그 외 화면에서는 항상 표시 —
   // 브라우저 히스토리가 있으면 뒤로 이동, 새로고침 등으로 히스토리가 없으면 홈으로 이동.
-  const isHome = location.pathname === '/monitoring'
+  const isHome = location.pathname === '/home'
   const goBack = () => {
     if (window.history.length > 2) nav(-1)
-    else nav('/monitoring')
+    else nav('/home')
   }
 
   const onSignOut = () => {

@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { deptAuth, DEPT_LIST } from '../../lib/deptAuth'
+import { loadContext, computeAllCards, computeOverallScore } from '../../lib/gmpProgress'
 
 // ── localStorage 읽기 헬퍼 ──────────────────────────────────
 function lsRead(key, fallback = []) {
@@ -19,12 +20,14 @@ function lsRead(key, fallback = []) {
     const raw = localStorage.getItem(key)
     if (!raw) return fallback
     const parsed = JSON.parse(raw)
-    // operations는 { workOrders: [...] } 구조
+    // operations는 { workOrders: [...] } 구조, training은 { sessions: [...] } 구조
     if (key === 'qualytree.operations' && parsed?.workOrders) return parsed.workOrders
+    if (key === 'qualytree.training' && parsed?.sessions) return parsed.sessions
     if (Array.isArray(parsed)) return parsed
     return fallback
   } catch { return fallback }
 }
+
 
 // ── 부서별 할 일 집계 ──────────────────────────────────────
 function getMyTasks(dept) {
@@ -120,6 +123,54 @@ function getMyTasks(dept) {
     }
   })
 
+  // SAL: 납기임박 수주 (D-7 이내)
+  const salOrdersT = lsRead('qms_sal_orders')
+  salOrdersT.filter(o => !['납품완료', '취소'].includes(o.status)).forEach(o => {
+    const due = o.dueDate ? new Date(o.dueDate) : null
+    const days = due && !isNaN(due.getTime()) ? Math.ceil((due - now) / 86400000) : null
+    if (days !== null && days <= 7 && ['SAL', 'ALL'].includes(dept)) {
+      tasks.push({
+        id: o.id, type: 'order', urgent: days < 0,
+        label: `수주 · ${o.id} ${o.customer || ''}`,
+        sub: days < 0 ? `⚠️ 납기 ${Math.abs(days)}일 초과` : `📅 D-${days} (${o.dueDate})`,
+        link: '/sales', color: days < 0 ? '#EF4444' : '#F59E0B',
+        createdAt: o.dueDate,
+      })
+    }
+  })
+
+  // PUR: 재고 부족
+  const purInvT = lsRead('qms_pur_inventory')
+  purInvT.forEach(i => {
+    const s = parseFloat(i.stock ?? i.qty ?? 0)
+    const m = parseFloat(i.min ?? i.safetyQty ?? 0)
+    if (m > 0 && s < m && ['PUR', 'ALL'].includes(dept)) {
+      tasks.push({
+        id: i.id, type: 'stock', urgent: s <= 0,
+        label: `재고부족 · ${i.name || i.id}`,
+        sub: `현재 ${i.stock}${i.unit || ''} (최소 ${i.min}${i.unit || ''})`,
+        link: '/purchase', color: '#F59E0B',
+        createdAt: null,
+      })
+    }
+  })
+
+  // EQP: 교정 초과
+  const eqpInstrT = lsRead('qms_eqp_instruments')
+  eqpInstrT.forEach(e => {
+    const d = e.nextCalib ? new Date(e.nextCalib) : null
+    const days = d && !isNaN(d.getTime()) ? Math.ceil((d - now) / 86400000) : null
+    if (days !== null && days < 0 && ['EQP', 'ALL'].includes(dept)) {
+      tasks.push({
+        id: e.id, type: 'cal', urgent: true,
+        label: `교정초과 · ${e.name || e.id}`,
+        sub: `교정일 ${e.nextCalib} 경과 (${Math.abs(days)}일)`,
+        link: '/equipment', color: '#EF4444',
+        createdAt: e.nextCalib,
+      })
+    }
+  })
+
   // 우선순위 정렬: urgent 먼저, 최신 순
   return tasks
     .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))
@@ -134,6 +185,36 @@ function getDeptKPIs(dept) {
   const cars = lsRead('qualytree.audit_cars')
   const imps = lsRead('qualytree.improvements')
 
+  // 영업·구매·설비·교육 — 각 Hub가 실제로 쓰는 localStorage 키 (기존 MonitoringHub.jsx와 동일한 규칙)
+  const salOrders = lsRead('qms_sal_orders')
+  const salComplaints = lsRead('qms_sal_complaints')
+  const purOrders = lsRead('qms_pur_orders')
+  const purIqc = lsRead('qms_pur_iqc')
+  const eqpInstr = lsRead('qms_eqp_instruments')
+  const trnSessions = lsRead('qualytree.training')
+
+  const daysUntilLocal = (d) => {
+    if (!d) return null
+    const t = new Date(d)
+    if (isNaN(t.getTime())) return null
+    return Math.ceil((t - new Date()) / 86400000)
+  }
+
+  const activeOrders = salOrders.filter(o => !['납품완료', '취소'].includes(o.status))
+  const openComplaints = salComplaints.filter(c => !['종결', 'CAPA완료'].includes(c.status))
+  const pendingPurOrders = purOrders.filter(o => o.status === '발주대기')
+  const pendingIqc = purIqc.filter(i => i.status === '검사중')
+  const calDue = eqpInstr.filter(e => {
+    const d = daysUntilLocal(e.nextCalib)
+    return d !== null && d <= 30
+  })
+  const calOverdue = eqpInstr.filter(e => {
+    const d = daysUntilLocal(e.nextCalib)
+    return d !== null && d < 0
+  })
+  const trnUpcoming = trnSessions.filter(s => s.status === '예정')
+  const trnDone = trnSessions.filter(s => s.status === '완료')
+
   const openNcrs = ncrs.filter(n => !['closed'].includes(n.status)).length
   const openCapas = capas.filter(c => !['closed', 'verified'].includes(c.status)).length
   const activeWos = wos.filter(w => ['pending', 'in_progress'].includes(w.status)).length
@@ -147,16 +228,16 @@ function getDeptKPIs(dept) {
 
   const BY_DEPT = {
     SAL: [...BASE,
-      { label: '진행 중 주문', value: '—', icon: TrendingUp, color: '#3B82F6', link: '/sales', hint: true },
-      { label: '고객 문의', value: '—', icon: Users, color: '#8B5CF6', link: '/sales', hint: true },
+      { label: '진행 중 주문', value: activeOrders.length, icon: TrendingUp, color: activeOrders.length > 0 ? '#3B82F6' : '#6B7280', link: '/sales' },
+      { label: '미결 고객불만', value: openComplaints.length, icon: Users, color: openComplaints.length > 0 ? '#EF4444' : '#10B981', link: '/sales' },
     ],
     MFG: [...BASE,
       { label: '활성 작업지시', value: activeWos, icon: Workflow, color: activeWos > 0 ? '#3B82F6' : '#6B7280', link: '/operations' },
       { label: '진행 중 생산', value: wos.filter(w => w.status === 'in_progress').length, icon: Clock, color: '#F59E0B', link: '/manufacturing' },
     ],
     PUR: [...BASE,
-      { label: '발주 대기', value: '—', icon: Clock, color: '#8B5CF6', link: '/purchase', hint: true },
-      { label: '수입검사 대기', value: '—', icon: ShieldCheck, color: '#F59E0B', link: '/purchase', hint: true },
+      { label: '발주 대기', value: pendingPurOrders.length, icon: Clock, color: pendingPurOrders.length > 0 ? '#8B5CF6' : '#6B7280', link: '/purchase' },
+      { label: '수입검사 대기', value: pendingIqc.length, icon: ShieldCheck, color: pendingIqc.length > 0 ? '#F59E0B' : '#6B7280', link: '/purchase' },
     ],
     QUA: [
       { label: '미결 NCR', value: openNcrs, icon: AlertTriangle, color: openNcrs > 0 ? '#EF4444' : '#10B981', link: '/quality' },
@@ -165,8 +246,8 @@ function getDeptKPIs(dept) {
       { label: '개선 활동', value: activeImps, icon: TrendingUp, color: '#8B5CF6', link: '/improvement' },
     ],
     EQP: [...BASE,
-      { label: '교정 대기', value: '—', icon: Target, color: '#F59E0B', link: '/equipment', hint: true },
-      { label: '설비 이상', value: '—', icon: AlertTriangle, color: '#EF4444', link: '/equipment', hint: true },
+      { label: '교정 임박', value: calDue.length, icon: Target, color: calDue.length > 0 ? '#F59E0B' : '#6B7280', link: '/equipment' },
+      { label: '교정 초과', value: calOverdue.length, icon: AlertTriangle, color: calOverdue.length > 0 ? '#EF4444' : '#10B981', link: '/equipment' },
     ],
     DEV: [...BASE,
       { label: '설계 검토', value: '—', icon: FileText, color: '#8B5CF6', link: '/development', hint: true },
@@ -184,8 +265,8 @@ function getDeptKPIs(dept) {
       { label: '개선 과제', value: activeImps, icon: BarChart2, color: '#8B5CF6', link: '/improvement' },
     ],
     TRN: [...BASE,
-      { label: '교육 예정', value: '—', icon: Calendar, color: '#3B82F6', link: '/training', hint: true },
-      { label: '이수 완료', value: '—', icon: CheckCircle2, color: '#10B981', link: '/training', hint: true },
+      { label: '교육 예정', value: trnUpcoming.length, icon: Calendar, color: '#3B82F6', link: '/training' },
+      { label: '이수 완료', value: trnDone.length, icon: CheckCircle2, color: '#10B981', link: '/training' },
     ],
     RA: [...BASE,
       { label: '허가 검토', value: '—', icon: FileText, color: '#8B5CF6', link: '/regulatory', hint: true },
@@ -326,6 +407,13 @@ export default function DeptHome() {
   const quickActions = QUICK_ACTIONS[dept] || QUICK_ACTIONS['ALL']
   const workflow = WORKFLOW_GUIDES[dept] || WORKFLOW_GUIDES['ALL']
 
+  // 기존 홈(Dashboard.jsx)의 핵심 콘텐츠 — 전사 GMP/RA 준수 현황 요약.
+  // 상세 12개 카드 그리드는 /dashboard 에서 그대로 볼 수 있고, 여기서는 요약만 보여준다.
+  const gmpCtx = useMemo(() => { try { return loadContext() } catch { return null } }, [])
+  const gmpCards = useMemo(() => { try { return gmpCtx ? computeAllCards(gmpCtx) : [] } catch { return [] } }, [gmpCtx])
+  const gmpScore = useMemo(() => { try { return gmpCards.length ? computeOverallScore(gmpCards) : null } catch { return null } }, [gmpCards])
+  const activeCerts = gmpCtx ? Object.entries(gmpCtx.certifications || {}).filter(([, v]) => v).map(([k]) => k) : []
+
   const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
   const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
@@ -373,6 +461,41 @@ export default function DeptHome() {
             </div>
           </div>
         </div>
+
+        {/* GMP·RA 준수 현황 (기존 홈 Dashboard.jsx 핵심 콘텐츠 요약) */}
+        {gmpCtx && gmpCards.length > 0 && (
+          <button
+            onClick={() => nav('/dashboard')}
+            className="w-full text-left rounded-2xl p-5 transition hover:shadow-md"
+            style={{
+              background: gmpScore >= 90 ? 'var(--leaf-soft)' : gmpScore >= 70 ? 'var(--amber-soft)' : 'var(--rust-soft)',
+              border: `1px solid ${gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)'}30`,
+            }}
+          >
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck size={16} style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }} />
+                  <span className="font-semibold text-[14px]" style={{ color: 'var(--ink)' }}>GMP·RA 전사 준수 현황</span>
+                </div>
+                <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                  {activeCerts.length > 0 ? `활성 인증 ${activeCerts.length}건 · QMS/설계/공급자/제조/QC/NCR·CAPA/내부심사/교육/인허가/UDI/PMS/임상평가 12개 영역` : '인증을 선택하면 영역별 준비 현황이 표시됩니다'}
+                </div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <div className="text-right">
+                  <div className="text-[26px] font-bold tabular-nums" style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }}>
+                    {gmpScore}%
+                  </div>
+                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>전사 종합</div>
+                </div>
+                <span className="text-[13px] font-medium px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--ink)' }}>
+                  GMP 대시보드 <ChevronRight size={13} className="inline" />
+                </span>
+              </div>
+            </div>
+          </button>
+        )}
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

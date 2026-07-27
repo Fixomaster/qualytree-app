@@ -119,7 +119,7 @@ const uid = () => Math.random().toString(36).slice(2, 9)
 export default function Onboarding() {
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
-  const returnTo = searchParams.get('returnTo') || '/dashboard'
+  const returnTo = searchParams.get('returnTo') || '/home'
   const [state, setState] = useState(loadState)
   const [step, setStep] = useState(0); const [stepError, setStepError] = useState('')
 
@@ -263,7 +263,7 @@ export default function Onboarding() {
             onClick={goNext}
             className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition"
           >
-            {step === STEPS.length - 1 ? '온보딩 완료 · 대시보드로' : '이 단계 완료 · 다음'}
+            {step === STEPS.length - 1 ? '온보딩 완료 · 홈으로' : '이 단계 완료 · 다음'}
             <ChevronRight size={16} />
           </button>
         </div>
