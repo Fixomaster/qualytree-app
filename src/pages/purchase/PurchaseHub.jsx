@@ -205,8 +205,26 @@ function AvlForm({initial,onSave,onCancel,statusOpts}) {
   )
 }
 
+/* ─── 발주-입고 상태 자동 연동 ─────────────────────────────────
+   발주관리(PO)와 입고예정 화면은 같은 발주 건을 서로 다른 상태 어휘로
+   추적한다. 한쪽 상태를 바꾸면 연결된(po 기준) 반대쪽 레코드의 상태도
+   자동으로 동일한 진행 단계로 맞춰준다. */
+const ORDER_TO_INCOMING_STATUS = { '발주완료':'발주대기', '입고예정':'입고예정', '진행중':'제조중', '입고완료':'입고완료', '취소':'반품' }
+const INCOMING_TO_ORDER_STATUS = { '발주대기':'발주완료', '제조중':'진행중', '입고예정':'입고예정', '입고완료':'입고완료', '반품':'취소' }
+
+function syncIncomingFromOrder(setIncoming, poId, orderStatus) {
+  const mapped = ORDER_TO_INCOMING_STATUS[orderStatus]
+  if (!mapped || !poId) return
+  setIncoming(prev => prev.map(x => (x.po === poId && x.status !== mapped) ? { ...x, status: mapped } : x))
+}
+function syncOrderFromIncoming(setOrders, poId, incomingStatus) {
+  const mapped = INCOMING_TO_ORDER_STATUS[incomingStatus]
+  if (!mapped || !poId) return
+  setOrders(prev => prev.map(x => (x.id === poId && x.status !== mapped) ? { ...x, status: mapped } : x))
+}
+
 /* ─── 발주 관리 ─── */
-function OrdersView({orders,setOrders,avl,openId}) {
+function OrdersView({orders,setOrders,avl,openId,setIncoming}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [srch,setSrch]=useState('')
   useEffect(() => {
@@ -214,7 +232,18 @@ function OrdersView({orders,setOrders,avl,openId}) {
   }, [openId])
   const statusOpts=['발주완료','입고예정','진행중','입고완료','취소']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setOrders(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setOrders(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setOrders(p=>[...p,{id:nid('PO'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
+  const save=f=>{
+    if(edit){
+      setOrders(p=>p.map(x=>x.id===edit.id?{...x,...f}:x))
+      if (f.status !== edit.status) syncIncomingFromOrder(setIncoming, edit.id, f.status)
+      setEdit(null)
+    }else{
+      const newId = nid('PO')
+      setOrders(p=>[...p,{id:newId,date:new Date().toISOString().slice(0,10),...f}])
+      syncIncomingFromOrder(setIncoming, newId, f.status)
+    }
+    setModal(null)
+  }
   const shown=srch
     ? orders.filter(o=>[o.id,o.vendor,o.items,o.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
     : orders
@@ -242,7 +271,7 @@ function OrdersView({orders,setOrders,avl,openId}) {
                 <TD mono muted>{o.date}</TD>
                 <TD mono muted>{o.dueDate}</TD>
                 <TD right>{Number(o.amount).toLocaleString()}</TD>
-                <TD><StatusSelect value={o.status} options={statusOpts} onChange={v=>setOrders(p=>p.map(x=>x.id===o.id?{...x,status:v}:x))}/></TD>
+                <TD><StatusSelect value={o.status} options={statusOpts} onChange={v=>{setOrders(p=>p.map(x=>x.id===o.id?{...x,status:v}:x));syncIncomingFromOrder(setIncoming,o.id,v)}}/></TD>
                 <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(o);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(o.id)}/></div></TD>
               </tr>
             ))}</tbody>
@@ -273,12 +302,22 @@ function PoForm({initial,avl,onSave,onCancel,statusOpts}) {
 }
 
 /* ─── 입고 예정 ─── */
-function IncomingView({incoming,setIncoming,orders}) {
+function IncomingView({incoming,setIncoming,orders,setOrders}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [srch,setSrch]=useState('')
   const statusOpts=['발주대기','제조중','입고예정','입고완료','반품']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setIncoming(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setIncoming(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setIncoming(p=>[...p,{id:nid('IN'),lot:'—',...f}])};setModal(null)}
+  const save=f=>{
+    if(edit){
+      setIncoming(p=>p.map(x=>x.id===edit.id?{...x,...f}:x))
+      if (f.status !== edit.status) syncOrderFromIncoming(setOrders, f.po, f.status)
+      setEdit(null)
+    }else{
+      setIncoming(p=>[...p,{id:nid('IN'),lot:'—',...f}])
+      syncOrderFromIncoming(setOrders, f.po, f.status)
+    }
+    setModal(null)
+  }
   const overdue=incoming.filter(i=>isOverdue(i.eta,i.status))
   const shown=srch
     ? incoming.filter(i=>[i.id,i.po,i.vendor,i.items,i.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
@@ -313,7 +352,7 @@ function IncomingView({incoming,setIncoming,orders}) {
                 <TD right>{i.qty}</TD>
                 <TD mono color={isOverdue(i.eta,i.status)?'var(--rust)':undefined} muted={!isOverdue(i.eta,i.status)}>{i.eta}{isOverdue(i.eta,i.status)?' (지연)':''}</TD>
                 <TD mono muted>{i.lot}</TD>
-                <TD><StatusSelect value={i.status} options={statusOpts} onChange={v=>setIncoming(p=>p.map(x=>x.id===i.id?{...x,status:v}:x))}/></TD>
+                <TD><StatusSelect value={i.status} options={statusOpts} onChange={v=>{setIncoming(p=>p.map(x=>x.id===i.id?{...x,status:v}:x));syncOrderFromIncoming(setOrders,i.po,v)}}/></TD>
                 <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
               </tr>
             ))}</tbody>
@@ -722,8 +761,8 @@ export default function PurchaseHub() {
   const viewMap={
     home:<PurchaseHome avl={avl} orders={orders} incoming={incoming} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView}/>,
     avl:<AvlView avl={avl} setAvl={setAvl}/>,
-    orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} openId={editId}/>,
-    incoming:<IncomingView incoming={incoming} setIncoming={setIncoming} orders={orders}/>,
+    orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} openId={editId} setIncoming={setIncoming}/>,
+    incoming:<IncomingView incoming={incoming} setIncoming={setIncoming} orders={orders} setOrders={setOrders}/>,
     inventory:<InventoryView inventory={inventory} setInventory={setInventory} openId={editId}/>,
     eval:<EvalView evals={evals} setEvals={setEvals} avl={avl}/>,
     iqc:<IqcView iqc={iqc} setIqc={setIqc} orders={orders} openId={editId}/>,
