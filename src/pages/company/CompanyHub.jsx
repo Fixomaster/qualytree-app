@@ -299,6 +299,7 @@ function CompanyDocsTab({ onAction, refresh }) {
   const byCategory = {}
   list.forEach((d) => { (byCategory[d.category] = byCategory[d.category] || []).push(d) })
   const registeredCount = CATEGORY_ORDER.filter((cat) => (byCategory[cat] || []).length > 0).length
+  const customDocs = list.filter((d) => !CATEGORY_ORDER.includes(d.category))
 
   return (
     <div className="space-y-3">
@@ -321,6 +322,79 @@ function CompanyDocsTab({ onAction, refresh }) {
           onRemoveFile={removeFile}
         />
       ))}
+      <CustomDocsSection
+        docs={customDocs}
+        canEdit={canEdit}
+        onSave={save}
+        onDelete={del}
+        onAttach={attach}
+        onRemoveFile={removeFile}
+      />
+    </div>
+  )
+}
+
+/* ── 추가 문서 — 고정 9개 항목 외 회사가 필요에 따라 자유롭게 등록하는 문서 ── */
+const EMPTY_CUSTOM_DOC = { category: '', title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' }
+
+function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState(EMPTY_CUSTOM_DOC)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const submit = () => {
+    if (!form.category.trim()) { window.alert('문서 구분을 입력하세요.'); return }
+    const ok = onSave(form)
+    if (ok) { setForm(EMPTY_CUSTOM_DOC); setAdding(false) }
+  }
+
+  return (
+    <div className="card-base p-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+        <div className="min-w-0">
+          <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>추가 문서</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>위 9개 항목 외에 회사에 필요한 문서를 자유롭게 등록합니다. (예: 품질경영시스템 인증서, 환경인증서, 특허증 등)</div>
+        </div>
+        {docs.length > 0 && <Badge text={`${docs.length}건`} tone="emerald" />}
+      </div>
+
+      {docs.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {docs.map((d) => (
+            <div key={d.id} className="p-3 rounded-lg border flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--line)' }}>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Badge text={d.category} tone="slate" />
+                  <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title}</span>
+                </div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || '발급기관 미입력'} · 발급 {d.issueDate || '—'}{d.expiryDate ? ` · 만료 ${d.expiryDate}` : ''}</div>
+                <div className="mt-1.5"><SingleFileAttach fileId={d.fileId} fileName={d.fileName} onAttach={(f) => onAttach(d.id, f)} onRemove={() => onRemoveFile(d.id)} canEdit={canEdit} label="" /></div>
+              </div>
+              {canEdit && <button onClick={() => onDelete(d.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {canEdit && !adding && (
+        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> 문서 추가</button>
+      )}
+      {adding && (
+        <div className="rounded-lg p-3 mt-2 space-y-3" style={{ background: 'var(--bg-soft)' }}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="문서 구분 *" value={form.category} onChange={(v) => setF('category', v)} placeholder="예: 품질경영시스템 인증서" />
+            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: QMS 인증서 (2026)" />
+            <Field label="발급기관" value={form.issuer} onChange={(v) => setF('issuer', v)} />
+            <Field label="발급일" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
+            <Field label="유효기한" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="해당 시" />
+          </div>
+          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} />
+          <div className="flex gap-2">
+            <button onClick={submit} className="btn-primary text-[12.5px]">저장</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_CUSTOM_DOC) }} className="btn-ghost text-[12.5px]">취소</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
