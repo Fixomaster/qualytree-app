@@ -635,60 +635,18 @@ export default function DeptHome() {
           </div>
         </div>
 
-        {/* GMP·RA 전사 준수 현황 — 화면 하단에 영역별 진행률을 한눈에 확인 */}
+        {/* GMP·RA 전사 준수 현황 — 화면 하단에 작은 링크만 노출 (영역별 상세는 숨김) */}
         {gmpCtx && gmpCards.length > 0 && (
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+          <div className="flex justify-center pt-1 pb-2">
             <button
               onClick={() => nav('/dashboard')}
-              className="w-full text-left px-5 py-4 flex items-center justify-between flex-wrap gap-4 transition hover:opacity-90"
-              style={{
-                background: gmpScore >= 90 ? 'var(--leaf-soft)' : gmpScore >= 70 ? 'var(--amber-soft)' : 'var(--rust-soft)',
-                borderBottom: '1px solid var(--line)',
-              }}
+              className="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-full transition hover:opacity-80"
+              style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1px solid var(--line)' }}
             >
-              <div className="min-w-0 flex items-center gap-2.5">
-                <ShieldCheck size={20} style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }} />
-                <div>
-                  <div className="font-semibold text-[15px]" style={{ color: 'var(--ink)' }}>GMP·RA 전사 준수 현황</div>
-                  <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>
-                    {activeCerts.length > 0 ? `활성 인증 ${activeCerts.length}건 · 영역을 클릭하면 바로 확인·입력할 수 있습니다` : '인증을 선택하면 영역별 준비 현황이 표시됩니다'}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right">
-                  <div className="text-[28px] font-bold tabular-nums" style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }}>
-                    {gmpScore}%
-                  </div>
-                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>전사 종합</div>
-                </div>
-                <span className="text-[13px] font-medium px-3 py-2 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--ink)' }}>
-                  GMP 대시보드 전체 보기 <ChevronRight size={13} className="inline" />
-                </span>
-              </div>
+              <ShieldCheck size={12} />
+              GMP 대시보드 전체 보기
+              <ChevronRight size={11} />
             </button>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 p-4">
-              {gmpCards.filter(c => !c.na).map(c => {
-                const pct = c.percent ?? 0
-                const tone = pct >= 90 ? 'var(--moss)' : pct >= 50 ? 'var(--amber)' : 'var(--rust)'
-                return (
-                  <button
-                    key={c.cardId}
-                    onClick={(e) => { e.stopPropagation(); nav(`/section/${c.cardId}`) }}
-                    className="text-left p-3 rounded-xl transition hover:shadow-sm"
-                    style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}
-                  >
-                    <div className="text-[11.5px] font-medium truncate mb-2" style={{ color: 'var(--ink)' }} title={c.cardTitle}>{c.cardTitle}</div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 rounded-full h-1.5" style={{ background: 'var(--bg-card)' }}>
-                        <div className="rounded-full h-1.5" style={{ width: `${pct}%`, background: tone }} />
-                      </div>
-                      <span className="text-[11px] font-mono tabular-nums shrink-0" style={{ color: tone, fontWeight: 600 }}>{pct}%</span>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
           </div>
         )}
       </div>
