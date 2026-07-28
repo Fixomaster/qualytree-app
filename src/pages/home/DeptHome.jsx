@@ -635,17 +635,22 @@ export default function DeptHome() {
           </div>
         </div>
 
-        {/* GMP·RA 전사 준수 현황 — 화면 하단에 작은 링크만 노출 (영역별 상세는 숨김) */}
+        {/* GMP·RA 전사 준수 현황 — 상단 KPI 카드와 같은 '현황' 스타일, 왼쪽 정렬 (영역별 상세는 숨김) */}
         {gmpCtx && gmpCards.length > 0 && (
-          <div className="flex justify-center pt-1 pb-2">
+          <div className="flex justify-start pt-1 pb-2">
             <button
               onClick={() => nav('/dashboard')}
-              className="inline-flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-full transition hover:opacity-80"
-              style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1px solid var(--line)' }}
+              className="p-4 rounded-2xl text-left transition hover:scale-[1.02]"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', cursor: 'pointer', minWidth: 180 }}
             >
-              <ShieldCheck size={12} />
-              GMP 대시보드 전체 보기
-              <ChevronRight size={11} />
+              <div className="flex items-center justify-between gap-6 mb-2">
+                <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>GMP 대시보드</span>
+                <ShieldCheck size={15} style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }} />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[26px] font-bold tabular-nums" style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }}>{gmpScore}%</span>
+                <span className="text-[11px] flex items-center gap-0.5" style={{ color: 'var(--ink-faint)' }}>전체 보기 <ChevronRight size={11} /></span>
+              </div>
             </button>
           </div>
         )}
