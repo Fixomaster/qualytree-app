@@ -13,6 +13,15 @@ import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── localStorage ──────────────────────────────────────────────
+function salesCustomerNames() {
+  try {
+    const raw = localStorage.getItem('qms_sal_customers')
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
+}
+
 const LS_KEY = 'qualytree.complaints'
 function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
 function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
@@ -553,7 +562,10 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
         <div className="space-y-3">
           {/* 기본 정보 */}
           <R2>
-            <F l="고객명 *"><input value={form.customerName} onChange={e => fld('customerName', e.target.value)} placeholder="고객/기관명" style={IS} className="w-full" /></F>
+            <F l="고객명 *">
+              <input value={form.customerName} onChange={e => fld('customerName', e.target.value)} placeholder="고객/기관명" style={IS} className="w-full" list="complaint-customer-list" />
+              <datalist id="complaint-customer-list">{salesCustomerNames().map(n => <option key={n} value={n} />)}</datalist>
+            </F>
             <F l="연락처"><input value={form.customerContact} onChange={e => fld('customerContact', e.target.value)} placeholder="전화·이메일" style={IS} className="w-full" /></F>
           </R2>
           <R2>

@@ -424,11 +424,23 @@ function EvalList({ evals, suppliers, onRemove }) {
 }
 
 // ── 폼 모달: 공급업체 ──────────────────────────────────────────
+function avlSupplierNames() {
+  try {
+    const raw = localStorage.getItem('qms_pur_avl')
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.map(a => a.name).filter(Boolean) : []
+  } catch { return [] }
+}
+
 function SupForm({ form, fld, editId, onSubmit, onClose }) {
   return (
     <Modal title={editId ? '공급업체 수정' : '공급업체 등록'} onClose={onClose} onSubmit={onSubmit} submitColor="#059669" submitLabel={editId ? '수정 저장' : '공급업체 등록'}>
       <R2>
-        <F label="업체명 *"><input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: (주)한국부품" style={IS} className="w-full" /></F>
+        <F label="업체명 *">
+          <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: (주)한국부품" style={IS} className="w-full" list="sup-avl-name-list" />
+          <datalist id="sup-avl-name-list">{avlSupplierNames().map(n => <option key={n} value={n} />)}</datalist>
+        </F>
         <F label="업체 코드"><input value={form.code} onChange={e => fld('code', e.target.value)} placeholder="예: SUP-001" style={IS} className="w-full" /></F>
       </R2>
       <R2>

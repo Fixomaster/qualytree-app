@@ -15,6 +15,15 @@ import { auth } from '../../lib/auth'
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.customer_reqs'
 
+function salesCustomerNames() {
+  try {
+    const raw = localStorage.getItem('qms_sal_customers')
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
+}
+
 const REQ_STATUSES = {
   captured:  { label: '접수',    color: '#6366F1', bg: '#EEF2FF' },
   reviewing: { label: '검토 중', color: '#D97706', bg: '#FEF3C7' },
@@ -648,7 +657,7 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
         {isEdit ? '고객 요구사항 수정' : '고객 요구사항 신규 등록'}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="고객사명 *" value={form.customerName} onChange={v => F('customerName', v)} />
+        <Field label="고객사명 *" value={form.customerName} onChange={v => F('customerName', v)} list="customerreq-customer-list" listOptions={salesCustomerNames()} />
         <Field label="고객 코드" value={form.customerCode} onChange={v => F('customerCode', v)} />
         <Field label="담당자명" value={form.contactPerson} onChange={v => F('contactPerson', v)} />
         <Field label="연락처" value={form.contactPhone} onChange={v => F('contactPhone', v)} />
@@ -715,13 +724,14 @@ function LinkChip({ label, color }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder }) {
+function Field({ label, value, onChange, type = 'text', placeholder, list, listOptions }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} list={list}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+      {list && listOptions && <datalist id={list}>{listOptions.map(n => <option key={n} value={n} />)}</datalist>}
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { suppliers } from '../../lib/supplierState'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -188,7 +189,10 @@ function AvlForm({initial,onSave,onCancel,statusOpts}) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <FL label="업체명 *"><input style={inp} value={f.name} onChange={set('name')} placeholder="예) 대한금속㈜"/></FL>
+        <FL label="업체명 *">
+          <input style={inp} value={f.name} onChange={set('name')} placeholder="예) 대한금속㈜" list="avl-supplier-name-list"/>
+          <datalist id="avl-supplier-name-list">{suppliers.getSuppliers().map(s => <option key={s.id} value={s.name} />)}</datalist>
+        </FL>
         <FL label="인증서"><input style={inp} value={f.cert} onChange={set('cert')} placeholder="ISO 13485"/></FL>
         <FL label="공급품목 *"><input style={inp} value={f.items} onChange={set('items')} placeholder="주요 공급 품목"/></FL>
         <FL label="등급"><select style={sel} value={f.grade} onChange={set('grade')}>{['A','B','C'].map(o=><option key={o}>{o}</option>)}</select></FL>
