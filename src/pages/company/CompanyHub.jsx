@@ -59,7 +59,7 @@ export default function CompanyHub() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           <StatCard label="기업정보" value={profileDone ? '입력완료' : '미입력'} hint="회사명·사업자번호·대표자" icon={IdCard} tone={profileDone ? undefined : 'amber'} />
-          <StatCard label="회사 문서" value={s.documents.length} hint="사업자등록증 등 등록 건수" icon={Building2} />
+          <StatCard label="회사 문서" value={`${Object.values(DOC_CATEGORY).filter((cat) => s.documents.some((d) => d.category === cat)).length} / ${Object.values(DOC_CATEGORY).length}`} hint="필수 항목 등록 현황" icon={Building2} tone={Object.values(DOC_CATEGORY).every((cat) => s.documents.some((d) => d.category === cat)) ? undefined : 'amber'} />
           <StatCard label="부서" value={departments.length} hint="직무기술서 대상" icon={Users} />
           <StatCard label="품질책임자" value={qm?.status === QM_STATUS.APPROVED ? '승인완료' : qm ? '지정대기' : '미지정'} hint="제조관리자 지정 상태" icon={BadgeCheck} tone={qm?.status === QM_STATUS.APPROVED ? undefined : 'amber'} />
         </div>
@@ -247,27 +247,34 @@ function ProfileTab({ company, onAction, refresh }) {
 }
 
 /* ================================================================
-   회사문서함 — 사업자등록증 · 제조업허가증 · 제조소 평면도 · 사진
+   회사문서함 — 필수 문서 항목을 고정 목록으로 표시하고 등록 여부를 확인
    ================================================================ */
-const CATEGORY_OPTIONS = Object.values(DOC_CATEGORY)
-const EMPTY_DOC = { category: DOC_CATEGORY.BIZ_REG, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' }
+const CATEGORY_ORDER = Object.values(DOC_CATEGORY)
+const CATEGORY_HINT = {
+  [DOC_CATEGORY.BIZ_REG]: '관할 세무서 발급 사업자등록증 사본',
+  [DOC_CATEGORY.MFG_LICENSE]: '제조업허가증 (해당 시)',
+  [DOC_CATEGORY.FACILITY_PLAN]: '제조소 평면도 (작업구역·보관구역 표시)',
+  [DOC_CATEGORY.FACILITY_PHOTO]: '제조소 외관·내부 사진',
+  [DOC_CATEGORY.FACILITY_REG]: '제조소 등록 확인 자료',
+  [DOC_CATEGORY.IMPORT_LICENSE]: '수입업 허가증 (수입업자인 경우)',
+  [DOC_CATEGORY.AGENT_CONTRACT]: '해외 제조사 대리인 지정 계약서 (Authorization Letter)',
+  [DOC_CATEGORY.GMP_CERT]: '제조소 GMP 적합인정서/인증서',
+  [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 인증서',
+}
+const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
 
 function CompanyDocsTab({ onAction, refresh }) {
   const canEdit = permissions.can('company.docs.edit')
   const [list, setList] = useState(() => companyDocs.getDocuments())
-  const [adding, setAdding] = useState(false)
-  const [form, setForm] = useState(EMPTY_DOC)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
-  const save = () => {
-    if (!requirePermission('company.docs.edit')) return
-    if (!form.title.trim()) { window.alert('문서명을 입력하세요.'); return }
+  const save = (form) => {
+    if (!requirePermission('company.docs.edit')) return false
+    if (!form.title.trim()) { window.alert('문서명을 입력하세요.'); return false }
     companyDocs.addDocument(form)
     setList(companyDocs.getDocuments())
-    setForm(EMPTY_DOC)
-    setAdding(false)
     onAction('문서가 등록되었습니다.')
     refresh()
+    return true
   }
   const del = (id) => {
     if (!requirePermission('company.docs.edit')) return
@@ -291,49 +298,87 @@ function CompanyDocsTab({ onAction, refresh }) {
 
   const byCategory = {}
   list.forEach((d) => { (byCategory[d.category] = byCategory[d.category] || []).push(d) })
+  const registeredCount = CATEGORY_ORDER.filter((cat) => (byCategory[cat] || []).length > 0).length
 
   return (
     <div className="space-y-3">
-      <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-        사업자등록증·제조업허가증·제조소 평면도·사진을 등록·보관합니다. (ISO 13485 §4.1, §6.3)
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
+          아래 항목별로 문서를 등록·보관합니다. (ISO 13485 §4.1, §6.3)
+        </div>
+        <Badge text={`${registeredCount} / ${CATEGORY_ORDER.length} 항목 등록됨`} tone={registeredCount === CATEGORY_ORDER.length ? 'emerald' : 'amber'} />
       </div>
+      {CATEGORY_ORDER.map((cat) => (
+        <DocCategoryCard
+          key={cat}
+          category={cat}
+          hint={CATEGORY_HINT[cat]}
+          docs={byCategory[cat] || []}
+          canEdit={canEdit}
+          onSave={save}
+          onDelete={del}
+          onAttach={attach}
+          onRemoveFile={removeFile}
+        />
+      ))}
+    </div>
+  )
+}
+
+function DocCategoryCard({ category, hint, docs, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
+  const [adding, setAdding] = useState(false)
+  const [form, setForm] = useState(() => EMPTY_DOC_FOR(category))
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const registered = docs.length > 0
+
+  const submit = () => {
+    const ok = onSave(form)
+    if (ok) { setForm(EMPTY_DOC_FOR(category)); setAdding(false) }
+  }
+
+  return (
+    <div className="card-base p-4" style={{ borderColor: registered ? 'var(--line)' : 'var(--amber)' }}>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
+        <div className="min-w-0">
+          <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{category}</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{hint}</div>
+        </div>
+        <Badge text={registered ? `등록됨 · ${docs.length}건` : '미등록'} tone={registered ? 'emerald' : 'amber'} />
+      </div>
+
+      {docs.length > 0 && (
+        <div className="space-y-2 mt-2">
+          {docs.map((d) => (
+            <div key={d.id} className="p-3 rounded-lg border flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--line)' }}>
+              <div className="min-w-0">
+                <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title}</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || '발급기관 미입력'} · 발급 {d.issueDate || '—'}{d.expiryDate ? ` · 만료 ${d.expiryDate}` : ''}</div>
+                <div className="mt-1.5"><SingleFileAttach fileId={d.fileId} fileName={d.fileName} onAttach={(f) => onAttach(d.id, f)} onRemove={() => onRemoveFile(d.id)} canEdit={canEdit} label="" /></div>
+              </div>
+              {canEdit && <button onClick={() => onDelete(d.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
+            </div>
+          ))}
+        </div>
+      )}
+
       {canEdit && !adding && (
-        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px]"><Plus size={12} /> 문서 추가</button>
+        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> {registered ? '문서 추가' : '문서 등록'}</button>
       )}
       {adding && (
-        <div className="card-base p-4 space-y-3">
+        <div className="rounded-lg p-3 mt-2 space-y-3" style={{ background: 'var(--bg-soft)' }}>
           <div className="grid sm:grid-cols-2 gap-3">
-            <SelectField label="구분" value={form.category} onChange={(v) => setF('category', v)} options={CATEGORY_OPTIONS} />
-            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: 사업자등록증 (본점)" />
+            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder={`예: ${category}`} />
             <Field label="발급기관" value={form.issuer} onChange={(v) => setF('issuer', v)} />
             <Field label="발급일" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
             <Field label="유효기한" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="해당 시" />
           </div>
           <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} />
           <div className="flex gap-2">
-            <button onClick={save} className="btn-primary text-[12.5px]">저장</button>
-            <button onClick={() => { setAdding(false); setForm(EMPTY_DOC) }} className="btn-ghost text-[12.5px]">취소</button>
+            <button onClick={submit} className="btn-primary text-[12.5px]">저장</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_DOC_FOR(category)) }} className="btn-ghost text-[12.5px]">취소</button>
           </div>
         </div>
       )}
-      {list.length === 0 && !adding && <EmptyState icon={Building2} text="등록된 회사 문서가 없습니다." />}
-      {Object.entries(byCategory).map(([cat, docs]) => (
-        <div key={cat} className="card-base p-4">
-          <div className="text-[13px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>{cat} ({docs.length})</div>
-          <div className="space-y-2">
-            {docs.map((d) => (
-              <div key={d.id} className="p-3 rounded-lg border flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--line)' }}>
-                <div className="min-w-0">
-                  <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title}</div>
-                  <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || '발급기관 미입력'} · 발급 {d.issueDate || '—'}{d.expiryDate ? ` · 만료 ${d.expiryDate}` : ''}</div>
-                  <div className="mt-1.5"><SingleFileAttach fileId={d.fileId} fileName={d.fileName} onAttach={(f) => attach(d.id, f)} onRemove={() => removeFile(d.id)} canEdit={canEdit} label="" /></div>
-                </div>
-                {canEdit && <button onClick={() => del(d.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   )
 }
