@@ -8,8 +8,12 @@ const DEFAULT = {
   company: {
     name: '',
     bizNumber: '',
+    ceo: '', // 대표자(대표이사) — Documents.jsx 등 문서 생성 시 자동 반영
     address: '',
-    site: '',
+    site: '', // 제조소 주소 (본사와 다른 경우)
+    phone: '',
+    email: '',
+    qmRep: '', // 품질책임자 성명 — 회사·조직 > 품질책임자 지정 탭과 연동되어 자동 반영
     employeeCount: '',
     existingCerts: [], // ['iso-13485', 'kgmp', ...]
   },
@@ -99,6 +103,17 @@ export const onboarding = {
   save(state) {
     localStorage.setItem(KEY, JSON.stringify(state))
     return state
+  },
+
+  /**
+   * 회사 기본정보(company) 필드 일부만 갱신 — "기본정보" 화면에서 사용.
+   * 여기서 저장된 값은 Documents.jsx·kgmpDocumentBundle.js·kgmpProgress.js 등
+   * 이미 ob.company를 참조하는 모든 문서 생성 로직에 자동으로 반영된다.
+   */
+  updateCompany(patch) {
+    const s = this.load()
+    const next = { ...s, company: { ...s.company, ...patch } }
+    return this.save(next)
   },
 
   reset() {

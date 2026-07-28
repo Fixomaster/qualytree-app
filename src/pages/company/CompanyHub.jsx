@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Building2,
+  IdCard,
   Users,
   BadgeCheck,
   Plus,
@@ -24,18 +25,21 @@ import { saveOrgChartImage, loadOrgChartImage } from '../../lib/orgChartImage'
 export default function CompanyHub() {
   const user = auth.current()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'docs') // docs | org | qm
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'profile') // profile | docs | org | qm
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)
   const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
 
   const s = companyDocs.load()
-  const departments = onboarding.load()?.departments || []
+  const ob = onboarding.load()
+  const departments = ob?.departments || []
+  const company = ob?.company || {}
   const qm = s.qualityManager
+  const profileDone = !!(company.name && company.bizNumber && company.ceo)
 
   return (
-    <AppLayout user={user} title="회사·조직" subtitle="회사문서함 / 조직도(직무기술서·권한책임서) / 품질책임자 지정">
+    <AppLayout user={user} title="기본정보" subtitle="기업정보 / 회사문서함 / 조직도(직무기술서·권한책임서) / 품질책임자 지정">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
@@ -45,25 +49,29 @@ export default function CompanyHub() {
         )}
 
         <div className="mb-5">
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>ORG · COMPANY & ORGANIZATION</span>
-          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>회사·조직</div>
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>ORG · BASIC INFO</span>
+          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>기본정보</div>
           <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            ISO 13485 §4.1 / §5.5.1 / §6.3 · KGMP 제6조 — 회사 인허가 문서, 부서별 직무기술서·권한책임서, 품질책임자 지정을 관리합니다.
+            의료기기 제조업체 정보, 사업자등록증·대리인계약서·제조소등록자료·수입업허가증·제조소GMP인증서·ISO 13485 인증서, 조직도, 품질책임자 지정을 한 곳에서 관리합니다.
+            여기 입력한 정보는 품질문서·인허가 대시보드 등 관련 화면에 자동으로 반영됩니다.
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+          <StatCard label="기업정보" value={profileDone ? '입력완료' : '미입력'} hint="회사명·사업자번호·대표자" icon={IdCard} tone={profileDone ? undefined : 'amber'} />
           <StatCard label="회사 문서" value={s.documents.length} hint="사업자등록증 등 등록 건수" icon={Building2} />
           <StatCard label="부서" value={departments.length} hint="직무기술서 대상" icon={Users} />
           <StatCard label="품질책임자" value={qm?.status === QM_STATUS.APPROVED ? '승인완료' : qm ? '지정대기' : '미지정'} hint="제조관리자 지정 상태" icon={BadgeCheck} tone={qm?.status === QM_STATUS.APPROVED ? undefined : 'amber'} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon={IdCard} label="기업정보" en="COMPANY PROFILE" count={null} />
           <TabButton active={tab === 'docs'} onClick={() => setTab('docs')} icon={Building2} label="회사문서함" en="COMPANY DOCS" count={s.documents.length} />
           <TabButton active={tab === 'org'} onClick={() => setTab('org')} icon={Users} label="조직도 · 직무기술서" en="ORG & JOB DESC" count={departments.length} />
           <TabButton active={tab === 'qm'} onClick={() => setTab('qm')} icon={BadgeCheck} label="품질책임자 지정" en="QM APPOINTMENT" count={null} />
         </div>
 
+        {tab === 'profile' && <ProfileTab key={'profile' + tick} company={company} onAction={showToast} refresh={refresh} />}
         {tab === 'docs' && <CompanyDocsTab key={tick} onAction={showToast} refresh={refresh} />}
         {tab === 'org' && <OrgTab key={'org' + tick} departments={departments} onAction={showToast} refresh={refresh} />}
         {tab === 'qm' && <QmTab key={'qm' + tick} qm={qm} onAction={showToast} refresh={refresh} />}
@@ -183,6 +191,56 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
         </>
       ) : (
         <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>첨부 파일 없음</span>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   기업정보 — 의료기기 제조업체 기본정보 (onboarding.company 와 연동)
+   ================================================================ */
+function ProfileTab({ company, onAction, refresh }) {
+  const canEdit = permissions.can('onb.company.edit')
+  const [form, setForm] = useState({
+    name: '', bizNumber: '', ceo: '', address: '', site: '', phone: '', email: '', employeeCount: '',
+    ...company,
+  })
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const dirty = Object.keys(form).some((k) => (form[k] || '') !== (company[k] || ''))
+
+  const save = () => {
+    if (!requirePermission('onb.company.edit')) return
+    if (!form.name.trim()) { window.alert('회사명을 입력하세요.'); return }
+    onboarding.updateCompany(form)
+    onAction('기업정보가 저장되었습니다. 관련 품질문서·인허가 화면에 자동으로 반영됩니다.')
+    refresh()
+  }
+
+  return (
+    <div className="card-base p-4 space-y-4">
+      <div>
+        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>의료기기 제조업체 정보</div>
+        <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
+          여기 입력한 회사명·사업자등록번호·대표자·주소는 품질매뉴얼·통합 문서·KGMP 대시보드 등에서 그대로 사용됩니다.
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <Field label="회사명 (상호) *" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 큐엘트리 주식회사" />
+        <Field label="사업자등록번호" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
+        <Field label="대표자 (대표이사)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
+        <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
+        <Field label="본사 주소" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />
+        <Field label="제조소 주소 (본사와 다른 경우)" value={form.site} onChange={(v) => setF('site', v)} className="sm:col-span-2" />
+        <Field label="전화번호" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
+        <Field label="대표 이메일" type="email" value={form.email} onChange={(v) => setF('email', v)} />
+      </div>
+      {canEdit && (
+        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+          <button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px] disabled:opacity-50">기업정보 저장</button>
+        </div>
+      )}
+      {!canEdit && (
+        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>기업정보 변경은 매니저·RA 권한이 필요합니다.</div>
       )}
     </div>
   )
@@ -382,6 +440,7 @@ function QmTab({ qm, onAction, refresh }) {
   const save = () => {
     if (!requirePermission('company.qm.edit')) return
     companyDocs.setQualityManager(form)
+    if (form.name) onboarding.updateCompany({ qmRep: form.name }) // 문서 생성 시 참조하는 품질책임자명과 동기화
     onAction('품질책임자 지정 정보가 저장되었습니다.')
     refresh()
   }
@@ -404,6 +463,7 @@ function QmTab({ qm, onAction, refresh }) {
     const approver = auth.current()
     try {
       companyDocs.approveQualityManager(approver?.name || '승인자')
+      if (qm?.name) onboarding.updateCompany({ qmRep: qm.name })
       onAction('품질책임자 지정이 승인되었습니다.')
       refresh()
     } catch (e) {

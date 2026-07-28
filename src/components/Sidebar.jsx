@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   Home,
+  IdCard,
   TrendingUp,
   ShoppingCart,
   Factory,
@@ -163,6 +164,19 @@ export default function Sidebar() {
         >
           Workspace
         </div>
+
+        <NavLink
+          to="/company"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+          style={({ isActive }) => ({
+            color: isActive ? 'var(--moss)' : 'var(--ink)',
+            background: isActive ? 'var(--leaf-soft)' : 'transparent',
+            fontWeight: isActive ? 600 : 500,
+          })}
+        >
+          <IdCard size={16} strokeWidth={1.7} />
+          <span>기본정보</span>
+        </NavLink>
 
         {visibleDomains.map((domain) => {
           const i = DOMAINS.indexOf(domain)
