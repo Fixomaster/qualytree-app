@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Stamp, Factory, ChevronDown, ChevronRight } from 'lucide-react';
+import { Stamp, Factory, ChevronDown, ChevronRight, BadgeCheck } from 'lucide-react';
 import { auth } from '../lib/auth';
+import { onboarding } from '../lib/onboardingState';
 import AppLayout from '../components/AppLayout';
 import KgmpSectionList from '../components/KgmpSectionList';
 import { getKgmpStatus } from '../lib/kgmpProgress';
@@ -113,6 +114,57 @@ function PanelImportGmp({ kgmp, dueCertCount }) {
   );
 }
 
+function PanelIso13485({ kgmp }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(true);
+  const { pct, doneCount, totalCount, sections } = kgmp;
+  const tone = pct >= 90 ? 'emerald' : pct >= 50 ? 'amber' : 'rose';
+  const toneClasses = {
+    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', bar: 'bg-emerald-500' },
+    amber: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', bar: 'bg-amber-500' },
+    rose: { bg: 'bg-rose-50', border: 'border-rose-200', text: 'text-rose-700', bar: 'bg-rose-500' },
+  }[tone];
+  return (
+    <div className={`max-w-7xl mx-auto mb-5 rounded-xl border ${toneClasses.border} ${toneClasses.bg} p-4`}>
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between gap-4 flex-wrap text-left">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-white border ${toneClasses.border}`}>
+            <BadgeCheck size={18} className={toneClasses.text} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-slate-900">ISO 13485 통합 현황</div>
+            <div className="text-xs text-slate-600 mt-0.5">국제 품질경영시스템(QMS) 인증기관 심사 및 유지관리 체크리스트입니다.</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <div className={`text-2xl font-bold tabular-nums ${toneClasses.text}`}>{pct}%</div>
+            <div className="text-[11px] text-slate-500">{doneCount}/{totalCount} 항목</div>
+          </div>
+          <div className="w-24 h-1.5 rounded-full bg-white overflow-hidden hidden sm:block">
+            <div className={`h-full rounded-full ${toneClasses.bar}`} style={{ width: pct + '%' }} />
+          </div>
+          <span className={`shrink-0 flex items-center gap-1 text-sm font-medium px-4 py-2 rounded-lg text-white ${toneClasses.bar}`}>
+            {open ? '접기' : '필요 문서 확인'} {open ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+          </span>
+        </div>
+      </button>
+      {open && (
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+          <KgmpSectionList sections={sections} keyPrefix="dash-iso13485-" />
+          <button
+            type="button"
+            onClick={() => navigate('/iso13485')}
+            className="btn-ghost text-[12px] mt-3"
+          >
+            ISO 13485 전용 화면 및 승인문서 PDF →
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [tick, setTick] = useState(0);
 
@@ -130,13 +182,16 @@ export default function Dashboard() {
   const kgmpProfile = (() => { try { return localStorage.getItem('qualytree.kgmpProfile') || 'manufacturer' } catch { return 'manufacturer' } })();
   const kgmp = useMemo(() => getKgmpStatus({ profile: kgmpProfile }), [tick, kgmpProfile]);
   const kgmpImporter = useMemo(() => getKgmpStatus({ profile: 'importer', autoHeal: false }), [tick]);
+  const kgmpIso13485 = useMemo(() => getKgmpStatus({ profile: 'iso13485', autoHeal: false }), [tick]);
   const dueForeignCertCount = useMemo(() => foreignGmpCerts.dueOrExpired().length, [tick]);
+  const hasIso13485Cert = !!(onboarding.load().certs || {}).iso13485;
 
   return (
-    <AppLayout user={auth.current()} title="GMP 대시보드" subtitle="KGMP 통합 현황 · 수입사 GMP 현황 — 필요 문서를 확인하고 입력·수정·저장합니다">
+    <AppLayout user={auth.current()} title="GMP 대시보드" subtitle="KGMP 통합 현황 · 수입사 GMP 현황 · ISO 13485 현황 — 필요 문서를 확인하고 입력·수정·저장합니다">
       <div className="min-h-screen bg-slate-50 px-6 py-6">
         <PanelKgmp kgmp={kgmp} />
         <PanelImportGmp kgmp={kgmpImporter} dueCertCount={dueForeignCertCount} />
+        {hasIso13485Cert && <PanelIso13485 kgmp={kgmpIso13485} />}
       </div>
     </AppLayout>
   );
