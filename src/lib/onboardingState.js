@@ -8,6 +8,7 @@ const DEFAULT = {
   company: {
     name: '',
     bizNumber: '',
+    licenseNo: '', // 제조업 허가번호
     ceo: '', // 대표자(대표이사) — Documents.jsx 등 문서 생성 시 자동 반영
     address: '',
     site: '', // 제조소 주소 (본사와 다른 경우)
@@ -94,7 +95,12 @@ export const onboarding = {
     try {
       const raw = localStorage.getItem(KEY)
       if (!raw) return { ...DEFAULT }
-      return { ...DEFAULT, ...JSON.parse(raw) }
+      const parsed = JSON.parse(raw)
+      // 마이그레이션: 온보딩 마법사가 예전에 저장한 bizNo를 표준 필드명 bizNumber로 이전
+      if (parsed.company && parsed.company.bizNo && !parsed.company.bizNumber) {
+        parsed.company = { ...parsed.company, bizNumber: parsed.company.bizNo }
+      }
+      return { ...DEFAULT, ...parsed, company: { ...DEFAULT.company, ...(parsed.company || {}) } }
     } catch {
       return { ...DEFAULT }
     }

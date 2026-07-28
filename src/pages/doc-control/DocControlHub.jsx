@@ -1,7 +1,7 @@
 // src/pages/doc-control/DocControlHub.jsx
 // ISO 13485 §4.2.3 문서 관리 + §4.2.4 기록 관리
 import React, { useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, FileText, History,
   Users, BarChart2, AlertTriangle, CheckCircle2,
@@ -74,91 +74,60 @@ const EMPTY_REC = {
 }
 
 // ── 회사·인증서류 패널 (KGMP §6 — 회사 기본정보 + 인허가 제출용 회사 서류) ──────
-const COMPANY_DOC_LIST = [
-  DOC_CATEGORY.FACILITY_REG,
-  DOC_CATEGORY.BIZ_REG,
-  DOC_CATEGORY.MFG_LICENSE,
-  DOC_CATEGORY.IMPORT_LICENSE,
-  DOC_CATEGORY.AGENT_CONTRACT,
-  DOC_CATEGORY.GMP_CERT,
-  DOC_CATEGORY.ISO13485_CERT,
-]
+// 실제 입력·수정은 사이드메뉴 "기본정보"(/company) 한 곳에서만 이뤄지도록 하고,
+// 여기서는 같은 데이터(onboarding.company / companyDocs)를 읽기 전용으로 보여주기만 한다.
+// (중복 입력 화면을 없애 데이터 불일치를 원천적으로 방지)
+function InfoField({ label, value }) {
+  return (
+    <div>
+      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
+      <div className="text-[13px] mt-0.5" style={{ color: value ? 'var(--ink)' : 'var(--ink-faint)' }}>{value || '미입력'}</div>
+    </div>
+  )
+}
 
-function CompanyDocsPanel({ canEdit }) {
-  const [company, setCompany] = useState(() => onboarding.load().company || {})
-  const [docs, setDocs] = useState(() => companyDocs.load().documents || [])
-  const [busyCat, setBusyCat] = useState(null)
-
-  function saveCompanyField(field, value) {
-    const next = { ...company, [field]: value }
-    setCompany(next)
-    const s = onboarding.load()
-    onboarding.save({ ...s, company: next })
-  }
-
-  async function attach(category, file) {
-    if (!file) return
-    setBusyCat(category)
-    try {
-      const fileId = await fileStore.saveFile(file)
-      const existing = docs.find((d) => d.category === category)
-      let next
-      if (existing) {
-        companyDocs.updateDocument(existing.id, { fileId, fileName: file.name })
-      } else {
-        companyDocs.addDocument({ category, title: category, fileId, fileName: file.name })
-      }
-      next = companyDocs.load().documents
-      setDocs(next)
-    } catch (e) {
-      alert(e.message || '파일 첨부에 실패했습니다.')
-    } finally {
-      setBusyCat(null)
-    }
-  }
-
-  function removeFile(category) {
-    const existing = docs.find((d) => d.category === category)
-    if (!existing) return
-    companyDocs.updateDocument(existing.id, { fileId: null, fileName: '' })
-    setDocs(companyDocs.load().documents)
-  }
+function CompanyDocsPanel() {
+  const navigate = useNavigate()
+  const company = onboarding.load().company || {}
+  const docs = companyDocs.load().documents || []
+  const allCategories = Object.values(DOC_CATEGORY)
+  const registeredCount = allCategories.filter((cat) => docs.some((d) => d.category === cat)).length
+  const profileDone = !!(company.name && company.bizNumber && company.ceo)
 
   return (
     <div className="max-w-3xl">
       <div className="rounded-2xl p-4 mb-4" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
-        <div className="flex items-center gap-2 mb-3">
-          <Building2 size={16} style={{ color: 'var(--moss)' }} />
-          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>회사 기본 정보</div>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <div className="flex items-center gap-2">
+            <Building2 size={16} style={{ color: 'var(--moss)' }} />
+            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>회사 기본 정보</div>
+          </div>
+          <button type="button" onClick={() => navigate('/company')} className="text-[11.5px] font-medium shrink-0" style={{ color: 'var(--moss)' }}>
+            기본정보에서 수정 →
+          </button>
+        </div>
+        <div className="text-[11px] mb-3" style={{ color: 'var(--ink-faint)' }}>
+          회사 기본정보와 인증·허가 서류는 사이드메뉴 "기본정보"에서 한 곳에 입력·관리합니다. 여기서는 최신 등록 현황만 확인합니다.
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-            회사명
-            <input
-              type="text"
-              disabled={!canEdit}
-              value={company.name || ''}
-              onChange={(e) => saveCompanyField('name', e.target.value)}
-              className="w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]"
-              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
-            />
-          </label>
-          <label className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-            사업자등록번호
-            <input
-              type="text"
-              disabled={!canEdit}
-              value={company.bizNumber || ''}
-              onChange={(e) => saveCompanyField('bizNumber', e.target.value)}
-              className="w-full mt-1 px-3 py-1.5 rounded-lg text-[13px]"
-              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
-            />
-          </label>
+          <InfoField label="회사명" value={company.name} />
+          <InfoField label="사업자등록번호" value={company.bizNumber} />
+          <InfoField label="대표자" value={company.ceo} />
+          <InfoField label="품질책임자" value={company.qmRep} />
         </div>
+        {!profileDone && (
+          <div className="mt-3 text-[11.5px] px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
+            회사 기본정보가 아직 입력되지 않았습니다. "기본정보"에서 입력해 주세요.
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
-        {COMPANY_DOC_LIST.map((category, i) => {
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
+          <span className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>인증·허가 서류 등록 현황</span>
+          <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{registeredCount} / {allCategories.length}</span>
+        </div>
+        {allCategories.map((category, i) => {
           const doc = docs.find((d) => d.category === category)
           return (
             <div
@@ -168,29 +137,19 @@ function CompanyDocsPanel({ canEdit }) {
             >
               <span className="text-[12.5px] font-medium flex-1 min-w-0" style={{ color: 'var(--ink)' }}>{category}</span>
               {doc?.fileId ? (
-                <>
-                  <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || '첨부됨'}</span>
-                  {canEdit && (
-                    <button type="button" onClick={() => removeFile(category)} className="shrink-0 w-6 h-6 rounded-md flex items-center justify-center" style={{ color: 'var(--ink-faint)' }} title="첨부 제거">
-                      <X size={13} />
-                    </button>
-                  )}
-                </>
+                <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || '첨부됨'}</span>
+              ) : doc ? (
+                <span className="text-[11.5px]" style={{ color: 'var(--amber)' }}>등록됨 · 첨부 없음</span>
               ) : (
                 <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>미등록</span>
-              )}
-              {canEdit && (
-                <label className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-medium cursor-pointer" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-                  <Paperclip size={12} />
-                  {busyCat === category ? '업로드 중...' : doc?.fileId ? '재첨부' : '첨부'}
-                  <input type="file" className="hidden" disabled={busyCat === category}
-                    onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; attach(category, f) }} />
-                </label>
               )}
             </div>
           )
         })}
       </div>
+      <button type="button" onClick={() => navigate('/company?tab=docs')} className="mt-3 text-[12px] font-medium" style={{ color: 'var(--moss)' }}>
+        기본정보 회사문서함에서 등록·수정하기 →
+      </button>
     </div>
   )
 }
@@ -326,7 +285,7 @@ export default function DocControlHub() {
         </div>
 
         {/* ── 회사·인증서류 ── */}
-        {tab === 'company' && <CompanyDocsPanel canEdit={canEdit} />}
+        {tab === 'company' && <CompanyDocsPanel />}
 
         {/* ── 문서 대장 ── */}
         {tab === 'docs' && !detailDoc && (

@@ -202,7 +202,7 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
 function ProfileTab({ company, onAction, refresh }) {
   const canEdit = permissions.can('onb.company.edit')
   const [form, setForm] = useState({
-    name: '', bizNumber: '', ceo: '', address: '', site: '', phone: '', email: '', employeeCount: '',
+    name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '', employeeCount: '',
     ...company,
   })
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -227,6 +227,7 @@ function ProfileTab({ company, onAction, refresh }) {
       <div className="grid sm:grid-cols-2 gap-3">
         <Field label="회사명 (상호) *" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 큐엘트리 주식회사" />
         <Field label="사업자등록번호" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
+        <Field label="제조업 허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="제0000호" />
         <Field label="대표자 (대표이사)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
         <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
         <Field label="본사 주소" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />

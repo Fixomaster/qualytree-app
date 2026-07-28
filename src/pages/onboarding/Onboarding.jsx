@@ -83,7 +83,7 @@ const STEPS = [
 function defaultState() {
   return {
     plan: (() => { const sg = readSignup(); return { id: sg.plan || '', cycle: sg.cycle || 'monthly' } })(),
-    company: { name: '', ceo: '', bizNo: '', licenseNo: '', qmRep: '' },
+    company: { name: '', ceo: '', bizNumber: '', licenseNo: '', qmRep: '' },
     certs: (() => {
       const sg = readSignup()
       const base = { kgmp: false, iso13485: false, ce: false, fda: false, mdsap: false }
@@ -108,6 +108,10 @@ function loadState() {
     if (!raw) return defaultState()
     const def = defaultState()
     const saved = JSON.parse(raw)
+    // 마이그레이션: 예전 필드명(bizNo)으로 저장된 값을 표준 필드명(bizNumber)으로 이전
+    if (saved.company && saved.company.bizNo && !saved.company.bizNumber) {
+      saved.company = { ...saved.company, bizNumber: saved.company.bizNo }
+    }
     return { ...def, ...saved, done: { ...def.done, ...(saved.done || {}) }, plan: { ...def.plan, ...(saved.plan || {}) } }
   } catch {
     return defaultState()
@@ -135,7 +139,7 @@ export default function Onboarding() {
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
   const stepValid = (s, key) => {
     if (key === 'plan') return !!(s.plan && s.plan.id)
-    if (key === 'info') return !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNo?.trim()) && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim()) && (s.products || []).length > 0
+    if (key === 'info') return !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNumber?.trim()) && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim()) && (s.products || []).length > 0
     if (key === 'org') return (s.departments || []).length > 0
     if (key === 'manual') return !!(s.manual?.mode)
     if (key === 'procedures') return (s.procedures || []).some((p) => p.applicable)
@@ -413,7 +417,7 @@ function StepInfo({ state, patch, setState }) {
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="회사명" value={c.name} onChange={(v) => setC('name', v)} placeholder="(주)퀄리트리" required />
           <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" required />
-          <Field label="사업자등록번호" value={c.bizNo} onChange={(v) => setC('bizNo', v)} placeholder="000-00-00000" required />
+          <Field label="사업자등록번호" value={c.bizNumber} onChange={(v) => setC('bizNumber', v)} placeholder="000-00-00000" required />
           <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder="제0000호" required />
           <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder="이름" required />
         </div>
