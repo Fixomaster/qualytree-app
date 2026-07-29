@@ -1518,7 +1518,7 @@ function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavi
     { id:'delivery', icon:Truck, label:'납품 이력', desc:'납품 완료 · UDI·Lot 추적 · 증빙 관리', count:`${deliveries.length}건` },
     { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'prod-req', icon:ShoppingCart, label:'생산 요청', desc:'수주 기반 생산 요청 발행 · WO 연동', count:`${prodReqs.length}건` },
-    { id:'market', icon:Search, label:'시장조사·고객요구', desc:'고객·시장 요구사항 수집 · 설계 입력 연동', count:`${mktItems.length}건` },
+    { id:'market', icon:Search, label:'고객요구', desc:'고객·시장 요구사항 수집 · 설계 입력 연동', count:`${mktItems.length}건` },
   ]
   const summary = [
     { label:'진행중 수주', value:`${active}건`, sub:'WO 연동 포함' },
@@ -1582,7 +1582,7 @@ export default function SalesHub() {
 
   const tabLabels = {
     customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
-    complaints:'고객 불만', delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'시장조사·고객요구',
+    complaints:'고객 불만', delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'고객요구',
   }
 
   const viewMap = {
