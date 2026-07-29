@@ -658,11 +658,9 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <Field label="고객사명 *" value={form.customerName} onChange={v => F('customerName', v)} list="customerreq-customer-list" listOptions={salesCustomerNames()} />
-        <Field label="고객 코드" value={form.customerCode} onChange={v => F('customerCode', v)} />
         <Field label="담당자명" value={form.contactPerson} onChange={v => F('contactPerson', v)} />
         <Field label="연락처" value={form.contactPhone} onChange={v => F('contactPhone', v)} />
         <Field label="이메일" value={form.contactEmail} onChange={v => F('contactEmail', v)} />
-        <Field label="주문/RFQ 번호" value={form.orderNo} onChange={v => F('orderNo', v)} />
         <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
         <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
         <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
