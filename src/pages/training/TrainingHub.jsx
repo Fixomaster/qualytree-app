@@ -134,6 +134,7 @@ function Badge({ text, tone = 'slate' }) {
     emerald: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
     amber: { bg: 'var(--amber-soft)', fg: 'var(--amber)' },
     rose: { bg: '#fdecec', fg: '#c0392b' },
+    sky: { bg: '#dbeafe', fg: '#1d4ed8' },
     slate: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
   }
   const c = map[tone] || map.slate
@@ -186,10 +187,21 @@ function PlanTab({ plans: allPlans, onAction, refresh }) {
 }
 
 const QUARTER_OPTIONS = ['Q1', 'Q2', 'Q3', 'Q4']
+const TRAINING_KIND_OPTIONS = ['내부교육', '외부교육']
+
+function sortPlanItems(items) {
+  return items.slice().sort((a, b) => {
+    const qa = QUARTER_OPTIONS.indexOf(a.quarter)
+    const qb = QUARTER_OPTIONS.indexOf(b.quarter)
+    if (qa !== qb) return qa - qb
+    return (a.plannedDate || '').localeCompare(b.plannedDate || '')
+  })
+}
 
 function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
-  const EMPTY = { topic: '', targetRole: '', quarter: 'Q1', plannedDate: '' }
+  const EMPTY = { topic: '', targetRole: '', quarter: 'Q1', plannedDate: '', trainingKind: '내부교육' }
   const [form, setForm] = useState(EMPTY)
+  const [kindFilter, setKindFilter] = useState('all')
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const editable = canEdit && plan.status === PLAN_STATUS.DRAFT
 
@@ -214,6 +226,10 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
     refresh()
   }
 
+  const sortedItems = sortPlanItems(plan.items).filter((it) => kindFilter === 'all' || (it.trainingKind || '내부교육') === kindFilter)
+  const internalCount = plan.items.filter((it) => (it.trainingKind || '내부교육') === '내부교육').length
+  const externalCount = plan.items.filter((it) => it.trainingKind === '외부교육').length
+
   return (
     <div className="card-base p-4">
       <div className="flex items-center justify-between mb-3">
@@ -221,16 +237,36 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
         <Badge text={plan.status} tone={plan.status === PLAN_STATUS.APPROVED ? 'emerald' : 'slate'} />
       </div>
 
+      {plan.items.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2.5">
+          <button onClick={() => setKindFilter('all')} className="text-[11px] px-2.5 py-1 rounded-full transition"
+            style={{ background: kindFilter === 'all' ? 'var(--ink)' : 'var(--bg-soft)', color: kindFilter === 'all' ? '#fff' : 'var(--ink-mute)' }}>
+            전체 {plan.items.length}
+          </button>
+          <button onClick={() => setKindFilter('내부교육')} className="text-[11px] px-2.5 py-1 rounded-full transition"
+            style={{ background: kindFilter === '내부교육' ? 'var(--moss)' : 'var(--bg-soft)', color: kindFilter === '내부교육' ? '#fff' : 'var(--ink-mute)' }}>
+            내부교육 {internalCount}
+          </button>
+          <button onClick={() => setKindFilter('외부교육')} className="text-[11px] px-2.5 py-1 rounded-full transition"
+            style={{ background: kindFilter === '외부교육' ? '#2563EB' : 'var(--bg-soft)', color: kindFilter === '외부교육' ? '#fff' : 'var(--ink-mute)' }}>
+            외부교육 {externalCount}
+          </button>
+        </div>
+      )}
+
       <div className="space-y-1.5 mb-3">
-        {plan.items.map((it) => (
+        {sortedItems.map((it) => (
           <div key={it.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
             <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-              <b>{it.quarter}</b> · {it.topic} <span style={{ color: 'var(--ink-faint)' }}>· 대상 {it.targetRole || '전체'}{it.plannedDate ? ` · ${it.plannedDate}` : ''}</span>
+              <b>{it.quarter}</b> · {it.topic}{' '}
+              <Badge text={it.trainingKind || '내부교육'} tone={(it.trainingKind || '내부교육') === '외부교육' ? 'sky' : 'emerald'} />
+              <span style={{ color: 'var(--ink-faint)' }}> · 대상 {it.targetRole || '전체'}{it.plannedDate ? ` · ${it.plannedDate}` : ''}</span>
             </div>
             {editable && <button onClick={() => removeItem(it.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={13} /></button>}
           </div>
         ))}
         {plan.items.length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>등록된 교육 항목이 없습니다.</div>}
+        {plan.items.length > 0 && sortedItems.length === 0 && <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>해당 구분의 교육 항목이 없습니다.</div>}
       </div>
 
       {editable && (
@@ -240,7 +276,10 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
             <SelectField label="분기" value={form.quarter} onChange={(v) => setF('quarter', v)} options={QUARTER_OPTIONS} />
             <Field label="예정일" type="date" value={form.plannedDate} onChange={(v) => setF('plannedDate', v)} />
           </div>
-          <Field label="대상" value={form.targetRole} onChange={(v) => setF('targetRole', v)} placeholder="예: 전체 / 품질팀 / 신입" className="mt-2" />
+          <div className="grid sm:grid-cols-2 gap-2 mt-2">
+            <Field label="대상" value={form.targetRole} onChange={(v) => setF('targetRole', v)} placeholder="예: 전체 / 품질팀 / 신입" />
+            <SelectField label="구분" value={form.trainingKind} onChange={(v) => setF('trainingKind', v)} options={TRAINING_KIND_OPTIONS} />
+          </div>
           <div className="flex justify-end mt-2"><button onClick={addItem} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><Plus size={13} /> 항목 추가</button></div>
         </div>
       )}
@@ -435,12 +474,44 @@ function SessionDetail({ session, materials: allMaterials, canEdit, onAction, on
   const [status, setStatus] = useState(session.status)
   const [attForm, setAttForm] = useState({ name: '', dept: '', score: '', passed: true })
   const setAF = (k, v) => setAttForm((f) => ({ ...f, [k]: v }))
+  const fileRef = useRef(null)
+  const [uploading, setUploading] = useState(false)
 
   const saveStatus = (v) => {
     if (!requirePermission('training.session.edit')) return
     sessions.update(session.id, { status: v })
     setStatus(v)
     onAction('교육 상태가 저장되었습니다.')
+    refresh()
+  }
+
+  const uploadAttachment = async (e) => {
+    const f = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!f) return
+    if (!requirePermission('training.session.edit')) return
+    setUploading(true)
+    try {
+      const fileId = await fileStore.saveFile(f)
+      sessions.addAttachment(session.id, { fileId, fileName: f.name })
+      onAction('교육 자료가 첨부되었습니다.')
+      refresh()
+    } catch (err) {
+      window.alert((err && err.message) || String(err))
+    } finally {
+      setUploading(false)
+    }
+  }
+  const openAttachment = async (fileId) => {
+    const url = await fileStore.getObjectURL(fileId)
+    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 30000)
+  }
+  const removeAttachment = (attachmentId) => {
+    if (!requirePermission('training.session.edit')) return
+    sessions.removeAttachment(session.id, attachmentId)
+    onAction('첨부파일이 삭제되었습니다.')
     refresh()
   }
 
@@ -469,6 +540,34 @@ function SessionDetail({ session, materials: allMaterials, canEdit, onAction, on
         {canEdit && (
           <div className="mt-2">
             <SelectField label="상태" value={status} onChange={saveStatus} options={['예정', '완료']} className="max-w-[160px]" />
+          </div>
+        )}
+      </div>
+
+      <div className="card-base p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>교육 자료 첨부 ({(session.attachments || []).length}건)</div>
+          {canEdit && (
+            <>
+              <input ref={fileRef} type="file" className="hidden" onChange={uploadAttachment} />
+              <button onClick={() => fileRef.current && fileRef.current.click()} disabled={uploading} className="btn-ghost text-[12px]">
+                <Paperclip size={12} /> {uploading ? '업로드 중…' : '파일 첨부'}
+              </button>
+            </>
+          )}
+        </div>
+        {(session.attachments || []).length === 0 ? (
+          <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)' }}>완료 시 수료증·서명부·발표자료 등을 첨부하세요.</div>
+        ) : (
+          <div className="space-y-1.5">
+            {(session.attachments || []).map((a) => (
+              <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                <button onClick={() => openAttachment(a.fileId)} className="inline-flex items-center gap-1.5 text-[12.5px] min-w-0" style={{ color: 'var(--ink)' }}>
+                  <Download size={12} style={{ color: 'var(--moss)' }} /> <span className="truncate">{a.fileName}</span>
+                </button>
+                {canEdit && <button onClick={() => removeAttachment(a.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={13} /></button>}
+              </div>
+            ))}
           </div>
         )}
       </div>

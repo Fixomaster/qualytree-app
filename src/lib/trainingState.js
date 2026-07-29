@@ -62,7 +62,7 @@ export const plans = {
   addItem(planId, item) {
     const s = load()
     s.annualPlans = s.annualPlans.map((p) =>
-      p.id === planId ? { ...p, items: [...p.items, { id: uid(), topic: '', targetRole: '', quarter: 'Q1', plannedDate: '', ...item }] } : p
+      p.id === planId ? { ...p, items: [...p.items, { id: uid(), topic: '', targetRole: '', quarter: 'Q1', plannedDate: '', trainingKind: '내부교육', ...item }] } : p
     )
     save(s)
     return s
@@ -123,6 +123,7 @@ export const sessions = {
       evaluationMethod: '',
       status: '예정',
       attendees: [],
+      attachments: [],
       ...item,
     }
     s.sessions = [...s.sessions, rec]
@@ -152,6 +153,23 @@ export const sessions = {
   removeAttendee(sessionId, attendeeId) {
     const s = load()
     s.sessions = s.sessions.map((x) => (x.id === sessionId ? { ...x, attendees: x.attendees.filter((a) => a.id !== attendeeId) } : x))
+    save(s)
+    return s
+  },
+  /** 교육 자료(수료증·서명부·발표자료 등) 첨부 — 완료 처리 시 증빙으로 업로드 */
+  addAttachment(sessionId, attachment) {
+    const s = load()
+    s.sessions = s.sessions.map((x) =>
+      x.id === sessionId
+        ? { ...x, attachments: [...(x.attachments || []), { id: uid(), fileId: null, fileName: '', uploadedAt: new Date().toISOString(), ...attachment }] }
+        : x
+    )
+    save(s)
+    return s
+  },
+  removeAttachment(sessionId, attachmentId) {
+    const s = load()
+    s.sessions = s.sessions.map((x) => (x.id === sessionId ? { ...x, attachments: (x.attachments || []).filter((a) => a.id !== attachmentId) } : x))
     save(s)
     return s
   },
