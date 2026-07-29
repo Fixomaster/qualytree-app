@@ -1,11 +1,12 @@
 // src/pages/quality-objectives/QualityObjectivesHub.jsx
 // ISO 13485 §5.4.1 품질 목표 / §5.4.2 QMS 기획
 import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, Target, TrendingUp,
   TrendingDown, Minus, AlertTriangle, CheckCircle2,
   BarChart2, Calendar, Link2, ChevronDown, ChevronUp,
-  RefreshCw,
+  RefreshCw, Award, ExternalLink,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -13,6 +14,7 @@ import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.quality_objectives'
+const LS_KEY_POLICY = 'qualytree.quality_policy'
 
 const OBJ_STATUSES = {
   on_track:  { label: '달성 중',   color: '#059669', bg: '#D1FAE5' },
@@ -79,8 +81,7 @@ const EMPTY_FORM = {
   kpiName: '', unit: '%', direction: 'higher',
   baselineValue: '', targetValue: '', actualValue: '',
   status: 'not_started', autoCalc: true,
-  linkedQPId: '', linkedKpiId: '', linkedImprId: '',
-  owner: '', reviewer: '',
+  linkedKpiId: '',
   description: '', actions: '',
   notes: '',
   actuals: [],   // monthly/quarterly actuals [{date, value, note}]
@@ -399,8 +400,6 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
             { label: '방향', value: obj.direction === 'lower' ? '↓ 낮을수록 좋음' : '↑ 높을수록 좋음' },
             { label: '시작일', value: obj.startDate || '-' },
             { label: '종료일', value: obj.endDate || '-' },
-            { label: '담당자', value: obj.owner || '-' },
-            { label: '검토자', value: obj.reviewer || '-' },
           ].map(({ label, value }) => (
             <div key={label} className="p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
               <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
@@ -423,11 +422,9 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
         )}
 
         {/* 링크 */}
-        {(obj.linkedQPId || obj.linkedKpiId || obj.linkedImprId) && (
+        {obj.linkedKpiId && (
           <div className="flex gap-2 flex-wrap mb-2">
-            {obj.linkedQPId && <LinkChip label={`QP: ${obj.linkedQPId}`} color="#7C3AED" />}
-            {obj.linkedKpiId && <LinkChip label={`KPI: ${obj.linkedKpiId}`} color="#2563EB" />}
-            {obj.linkedImprId && <LinkChip label={`개선: ${obj.linkedImprId}`} color="#059669" />}
+            <LinkChip label={`KPI: ${obj.linkedKpiId}`} color="#2563EB" />
           </div>
         )}
 
@@ -609,9 +606,31 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
 // ── 폼 ───────────────────────────────────────────────────────
 function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const navigate = useNavigate()
+  const policy = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_POLICY) || '{}') } catch { return {} }
+  }, [])
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '품질 목표 수정' : '품질 목표 등록'}</div>
+
+      {/* 품질 방침 참고 */}
+      <div className="mb-4 p-4 rounded-2xl" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: '#1E40AF' }}>
+            <Award size={13} /> 품질 방침 (§5.3) — 참고하여 작성하세요
+          </div>
+          <button onClick={() => navigate('/management-commitment')}
+            className="flex items-center gap-1 text-[11.5px] font-semibold"
+            style={{ background: 'none', border: 'none', color: '#1E40AF', cursor: 'pointer' }}>
+            방침 페이지로 이동 <ExternalLink size={11} />
+          </button>
+        </div>
+        {policy.statement
+          ? <p className="text-[12.5px] whitespace-pre-line" style={{ color: '#1E40AF' }}>{policy.statement}</p>
+          : <p className="text-[12px]" style={{ color: '#1E40AF' }}>아직 품질 방침이 작성되지 않았습니다. 경영 의지·품질 방침 메뉴에서 먼저 작성하세요.</p>}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
         <Field label="목표명 *" value={form.title} onChange={v => F('title', v)} />
         <FieldSelect label="카테고리" value={form.category} onChange={v => F('category', v)}
@@ -643,10 +662,6 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
         )}
         <Field label="시작일" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
         <Field label="종료일" type="date" value={form.endDate} onChange={v => F('endDate', v)} />
-        <Field label="담당자" value={form.owner} onChange={v => F('owner', v)} />
-        <Field label="검토자" value={form.reviewer} onChange={v => F('reviewer', v)} />
-        <Field label="연결 QP ID" value={form.linkedQPId} onChange={v => F('linkedQPId', v)} placeholder="QP-xxxx" />
-        <Field label="연결 개선활동 ID" value={form.linkedImprId} onChange={v => F('linkedImprId', v)} placeholder="IMP-xxxx" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <FieldArea label="목표 설명" value={form.description} onChange={v => F('description', v)} rows={2} />
