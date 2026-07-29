@@ -1152,11 +1152,12 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
   }
   return (
     <div className="space-y-3">
-      <FL label="수주번호 (SO)">
-        <select style={sel} value={f.so} onChange={selectSO}>
-          <option value="">직접 입력</option>
-          {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer}</option>)}
-        </select>
+      <FL label="수주번호 (SO) * (검색)">
+        <input style={inp} list="delivery-so-list" value={f.so} onChange={selectSO}
+          placeholder="SO번호 또는 고객사명 입력·검색..."/>
+        <datalist id="delivery-so-list">
+          {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer} · {o.items}</option>)}
+        </datalist>
       </FL>
       <div className="grid grid-cols-2 gap-3">
         <FL label="고객사"><input style={inp} value={f.customer} onChange={set('customer')} placeholder="고객사명"/></FL>
