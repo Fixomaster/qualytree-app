@@ -1,15 +1,18 @@
 // src/pages/traceability/TraceabilityHub.jsx
 // ISO 13485 §7.5.9 제품 추적성 관리 — LOT 배포 이력 · 리콜 시뮬레이션 · 고객 추적
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Trash2, AlertTriangle, ChevronDown,
   ChevronUp, X, Package, Users, RotateCcw, Edit3,
   MapPin, Hash, Calendar, TrendingUp, List,
-  GitBranch,
+  GitBranch, ChevronRight, ArrowUpDown, Boxes, Factory, Truck, Download, Printer,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { buildChainRows, searchChainRows, pivotChainRows, sortChainRows, SORTS } from '../../lib/traceability'
+import { printRecallNotice } from '../../lib/pdfPrint'
+import { downloadRecallCustomerListPdf } from '../../lib/recallPdf'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.distributions'
@@ -78,13 +81,31 @@ export default function TraceabilityHub() {
   const fld = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const rfld = (k, v) => setRecallForm(f => ({ ...f, [k]: v }))
 
-  // 리콜 시뮬레이션 — 해당 LOT 배포 내역 조회
+  // 리콜 시뮬레이션 — 해당 LOT의 영향을 받는 고객을 조회한다.
+  // (1) 수동으로 기록된 배포 이력(records)과 (2) 원자재→WO→완제품→납품 전체 계보(traceability)를
+  // 모두 조회해 병합한다 — 완제품 LOT뿐 아니라 원자재 LOT으로 리콜을 시작해도(원료 오염 등) 실제로
+  // 그 LOT이 사용된 작업지시를 거쳐 도달한 고객까지 추적된다.
   const recallHits = useMemo(() => {
     if (!recallLot.trim()) return []
     const q = recallLot.trim().toLowerCase()
-    return records.filter(r =>
-      r.lotNo?.toLowerCase().includes(q) && r.distType !== 'return'
-    )
+    const distHits = records
+      .filter(r => r.lotNo?.toLowerCase().includes(q) && r.distType !== 'return')
+      .map(r => ({ ...r }))
+    const chainHits = buildChainRows()
+      .filter(r => r.customer && ((r.finLot && r.finLot.toLowerCase().includes(q)) || (r.materialLot && r.materialLot.toLowerCase().includes(q))))
+      .map(r => ({
+        id: r.deliveryId || r.distId || `${r.woId}-${r.customer}`,
+        lotNo: r.finLot || r.materialLot,
+        customerName: r.customer, customerContact: r.customerContact || '', customerAddress: r.customerAddress || '',
+        qty: r.qty, distType: 'sale',
+      }))
+    const map = new Map()
+    ;[...distHits, ...chainHits].forEach(h => {
+      const key = `${h.customerName}::${h.lotNo}`
+      const existing = map.get(key)
+      if (!existing || (!existing.customerContact && h.customerContact)) map.set(key, h)
+    })
+    return [...map.values()]
   }, [recallLot, records])
 
   const recallQty = recallHits.reduce((sum, r) => sum + (parseInt(r.qty) || 0), 0)
@@ -187,7 +208,7 @@ export default function TraceabilityHub() {
         )}
 
         {/* ── LOT 추적 탭 ── */}
-        {tab === 'lot' && <LotTraceView records={records} products={products} lots={lots} />}
+        {tab === 'lot' && <ChainTraceView />}
 
         {/* ── 리콜 시뮬레이션 탭 ── */}
         {tab === 'recall' && (
@@ -286,112 +307,139 @@ function IR({ k, v }) {
   )
 }
 
-// ── LOT 추적 탭 ───────────────────────────────────────────────
-function LotTraceView({ records, products, lots }) {
-  const [selLot, setSelLot] = useState('')
-  const [selProd, setSelProd] = useState('')
+// ── LOT 추적 탭 (원자재 → WO → 완제품 LOT → 납품/배포 → 고객, 양방향 연동) ─────
+const CHAIN_FIELD_LABEL = {
+  materialLot: '원자재 LOT', woId: '작업지시(WO)', finLot: '완제품 LOT',
+  so: '수주(SO)', customer: '고객', deliveryId: '납품', distId: '배포기록',
+}
+function Chip({ value, display, color, onClick, mono = true }) {
+  if (!value) return <span className="text-[11px] px-2" style={{ color: 'var(--ink-faint)' }}>-</span>
+  return (
+    <button onClick={onClick} className={`text-[11px] px-2 py-1 rounded font-medium hover:opacity-80 ${mono ? 'font-mono' : ''}`}
+      style={{ background: `${color}18`, color, border: 'none', cursor: 'pointer' }}>
+      {display || value}
+    </button>
+  )
+}
+function ChainRowCard({ row: r, onPivot }) {
+  return (
+    <div className="p-3 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex flex-col items-start">
+          <span className="text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>{r.materialName || '원자재'}</span>
+          <Chip value={r.materialLot} color="#7C3AED" onClick={() => onPivot('materialLot', r.materialLot, `원자재 LOT: ${r.materialLot}`)} />
+        </div>
+        <ChevronRight size={13} style={{ color: 'var(--ink-faint)' }} />
+        <div className="flex flex-col items-start">
+          <span className="text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>작업지시</span>
+          <Chip value={r.woId} color="#2563EB" onClick={() => onPivot('woId', r.woId, `작업지시: ${r.woId}`)} />
+        </div>
+        <ChevronRight size={13} style={{ color: 'var(--ink-faint)' }} />
+        <div className="flex flex-col items-start">
+          <span className="text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>{r.finProduct || '완제품'}</span>
+          <Chip value={r.finLot} color="#059669" onClick={() => onPivot('finLot', r.finLot, `완제품 LOT: ${r.finLot}`)} />
+        </div>
+        <ChevronRight size={13} style={{ color: 'var(--ink-faint)' }} />
+        <div className="flex flex-col items-start">
+          <span className="text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>수주</span>
+          <Chip value={r.so} color="#D97706" onClick={() => onPivot('so', r.so, `수주: ${r.so}`)} />
+        </div>
+        <ChevronRight size={13} style={{ color: 'var(--ink-faint)' }} />
+        <div className="flex flex-col items-start">
+          <span className="text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>{r.deliveryId ? '납품' : r.distId ? '배포' : '고객'}</span>
+          <Chip value={r.customer} display={r.customer} color="#DC2626" mono={false} onClick={() => onPivot('customer', r.customer, `고객: ${r.customer}`)} />
+        </div>
+      </div>
+      <div className="flex items-center gap-3 mt-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+        {r.deliveryId && <span>납품번호: <span className="font-mono" style={{ color: 'var(--ink-mute)' }}>{r.deliveryId}</span></span>}
+        {r.distId && <span>배포기록: <span className="font-mono" style={{ color: 'var(--ink-mute)' }}>{r.distId}</span></span>}
+        {r.qty && <span>수량: {r.qty}</span>}
+        {r.date && <span>{r.date}</span>}
+        {r.materialVendor && <span>공급업체: {r.materialVendor}</span>}
+        {r.customerContact && <span>연락처: {r.customerContact}</span>}
+        {r.customerAddress && <span>{r.customerAddress}</span>}
+      </div>
+    </div>
+  )
+}
+function SummaryChip({ label, count, color }) {
+  return (
+    <div className="p-3 rounded-xl text-center" style={{ background: `${color}12`, border: `1px solid ${color}30` }}>
+      <div className="text-[20px] font-bold" style={{ color }}>{count}</div>
+      <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{label}</div>
+    </div>
+  )
+}
+function ChainTraceView() {
+  const [rows] = useState(() => buildChainRows())
+  const [query, setQuery] = useState('')
+  const [pivot, setPivot] = useState(null)
+  const [sortKey, setSortKey] = useState('date')
+  const [sortDir, setSortDir] = useState('desc')
 
-  const lotRecords = useMemo(() => {
-    let list = records
-    if (selLot)  list = list.filter(r => r.lotNo === selLot)
-    if (selProd) list = list.filter(r => r.productName === selProd)
-    return list.sort((a, b) => (b.distDate || '').localeCompare(a.distDate || ''))
-  }, [records, selLot, selProd])
+  const filtered = useMemo(() => {
+    let list = pivot ? pivotChainRows(rows, pivot.field, pivot.value) : rows
+    list = searchChainRows(list, query)
+    return sortChainRows(list, sortKey, sortDir)
+  }, [rows, pivot, query, sortKey, sortDir])
 
-  const lotCustomers = [...new Set(lotRecords.map(r => r.customerName).filter(Boolean))]
-  const lotQty = lotRecords.filter(r => r.distType !== 'return').reduce((s, r) => s + (parseInt(r.qty) || 0), 0)
+  const onPivot = (field, value, label) => { if (!value) return; setPivot({ field, value, label }); setQuery('') }
+
+  const summary = useMemo(() => {
+    const u = (k) => new Set(filtered.map((r) => r[k]).filter(Boolean)).size
+    return { materials: u('materialLot'), wos: u('woId'), finLots: u('finLot'), customers: u('customer') }
+  }, [filtered])
 
   return (
     <div>
-      <div className="flex gap-3 mb-5 flex-wrap">
-        <div>
-          <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--ink-faint)' }}>LOT 번호 선택</label>
-          <select value={selLot} onChange={e => setSelLot(e.target.value)} style={{ ...IPS, minWidth: 200 }}>
-            <option value="">전체 LOT</option>
-            {lots.map(l => <option key={l} value={l}>{l}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[11px] font-bold mb-1" style={{ color: 'var(--ink-faint)' }}>제품 선택</label>
-          <select value={selProd} onChange={e => setSelProd(e.target.value)} style={{ ...IPS, minWidth: 200 }}>
-            <option value="">전체 제품</option>
-            {products.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+      <div className="p-4 rounded-2xl mb-5" style={{ background: '#EDE9FE', border: '1px solid #DDD6FE' }}>
+        <div className="text-[13px] font-bold mb-1" style={{ color: '#5B21B6' }}>원자재 → 고객 전체 계보 추적</div>
+        <div className="text-[12px]" style={{ color: '#5B21B6', lineHeight: 1.6 }}>
+          원자재 LOT을 선택하면 어떤 작업지시로 어떤 완제품이 만들어져 누구에게 갔는지, 반대로 고객을 선택하면 그 고객이 사용 중인 제품이 어떤 원자재 LOT으로 만들어졌는지 추적됩니다.
+          체인의 어떤 항목(LOT·WO·수주·고객 등)을 클릭해도 연결된 기록으로 바로 연동됩니다.
         </div>
       </div>
 
-      {/* 요약 카드 */}
-      {(selLot || selProd) && (
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="p-4 rounded-2xl text-center" style={{ background: '#DBEAFE', border: '1px solid #BFDBFE' }}>
-            <div className="text-[26px] font-bold" style={{ color: '#2563EB' }}>{lotRecords.length}</div>
-            <div className="text-[11px]" style={{ color: '#1D4ED8' }}>배포 기록</div>
-          </div>
-          <div className="p-4 rounded-2xl text-center" style={{ background: '#D1FAE5', border: '1px solid #A7F3D0' }}>
-            <div className="text-[26px] font-bold" style={{ color: '#059669' }}>{lotCustomers.length}</div>
-            <div className="text-[11px]" style={{ color: '#047857' }}>고객 수</div>
-          </div>
-          <div className="p-4 rounded-2xl text-center" style={{ background: '#EDE9FE', border: '1px solid #C4B5FD' }}>
-            <div className="text-[26px] font-bold" style={{ color: '#7C3AED' }}>{lotQty}</div>
-            <div className="text-[11px]" style={{ color: '#6D28D9' }}>총 수량</div>
-          </div>
+      <div className="flex gap-3 mb-4 flex-wrap items-center">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-[220px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+          <Search size={14} style={{ color: 'var(--ink-faint)' }} />
+          <input value={query} onChange={(e) => { setQuery(e.target.value); if (pivot) setPivot(null) }}
+            placeholder="원자재명·LOT·WO번호·SO번호·완제품LOT·납품번호·고객명 등 무엇이든 검색..."
+            className="flex-1 text-[13px] outline-none" style={{ background: 'none', border: 'none', color: 'var(--ink)' }} />
+        </div>
+        <select value={sortKey} onChange={(e) => setSortKey(e.target.value)} style={IPS}>
+          {Object.entries(SORTS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <button onClick={() => setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink-mute)', cursor: 'pointer' }}>
+          <ArrowUpDown size={13} />{sortDir === 'asc' ? '오름차순' : '내림차순'}
+        </button>
+      </div>
+
+      {pivot && (
+        <div className="flex items-center justify-between gap-2 mb-4 p-3 rounded-xl flex-wrap" style={{ background: '#DBEAFE', border: '1px solid #BFDBFE' }}>
+          <span className="text-[12.5px] font-semibold" style={{ color: '#1D4ED8' }}>
+            <GitBranch size={13} className="inline mr-1.5" style={{ verticalAlign: -2 }} />{pivot.label} 기준 연결된 추적 결과 {filtered.length}건
+          </span>
+          <button onClick={() => setPivot(null)} className="text-[11.5px] px-3 py-1 rounded-lg" style={{ background: 'white', color: '#1D4ED8', border: '1px solid #93C5FD', cursor: 'pointer' }}>전체 보기</button>
         </div>
       )}
 
-      {/* 고객 목록 */}
-      {lotCustomers.length > 0 && (
-        <div className="mb-5">
-          <div className="text-[13px] font-bold mb-2" style={{ color: 'var(--ink)' }}>배포 고객 목록</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {lotCustomers.map(cust => {
-              const custRecs = lotRecords.filter(r => r.customerName === cust)
-              const qty = custRecs.filter(r => r.distType !== 'return').reduce((s, r) => s + (parseInt(r.qty) || 0), 0)
-              return (
-                <div key={cust} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#DBEAFE' }}>
-                    <Users size={14} style={{ color: '#2563EB' }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>{cust}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-                      {custRecs.map(r => r.lotNo).join(', ')} · {qty}개
-                    </div>
-                  </div>
-                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{custRecs[0]?.customerAddress || '-'}</div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <SummaryChip label="원자재 LOT" count={summary.materials} color="#7C3AED" />
+        <SummaryChip label="작업지시(WO)" count={summary.wos} color="#2563EB" />
+        <SummaryChip label="완제품 LOT" count={summary.finLots} color="#059669" />
+        <SummaryChip label="고객" count={summary.customers} color="#DC2626" />
+      </div>
 
-      {/* 상세 기록 */}
-      <div className="text-[13px] font-bold mb-2" style={{ color: 'var(--ink)' }}>상세 배포 기록</div>
-      {lotRecords.length === 0 ? (
-        <div className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>배포 기록을 추가하면 여기에 표시됩니다</div>
+      {filtered.length === 0 ? (
+        <div className="text-center py-16" style={{ color: 'var(--ink-faint)' }}>
+          <GitBranch size={40} strokeWidth={1.2} className="mx-auto mb-3 opacity-30" />
+          <div>검색 결과가 없습니다. 원자재 입고, 작업지시 LOT, 납품 기록을 등록하면 여기에 표시됩니다.</div>
+        </div>
       ) : (
-        <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="grid gap-3 px-4 py-2.5 text-[11px] font-semibold" style={{ gridTemplateColumns: '100px 1fr 120px 80px 90px 80px', color: 'var(--ink-faint)', borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
-            <span>배포 ID</span><span>제품명</span><span>고객명</span><span>LOT</span><span>배포일</span><span>수량</span>
-          </div>
-          {lotRecords.map((r, i) => {
-            const dt = DIST_TYPES.find(t => t.value === r.distType) || DIST_TYPES[0]
-            return (
-              <div key={r.id} className="grid gap-3 px-4 py-3 items-center" style={{ gridTemplateColumns: '100px 1fr 120px 80px 90px 80px', borderBottom: i < lotRecords.length - 1 ? '1px solid var(--line)' : 'none' }}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-soft)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-                <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{r.id}</span>
-                <div>
-                  <div className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>{r.productName}</div>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${dt.color}15`, color: dt.color }}>{dt.label}</span>
-                </div>
-                <span className="text-[12px] truncate" style={{ color: 'var(--ink)' }}>{r.customerName}</span>
-                <span className="font-mono text-[11px]" style={{ color: '#7C3AED' }}>{r.lotNo}</span>
-                <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{r.distDate}</span>
-                <span className="text-[12px] font-bold" style={{ color: 'var(--ink)' }}>{r.qty || '-'}</span>
-              </div>
-            )
-          })}
+        <div className="space-y-2">
+          {filtered.map((r, i) => <ChainRowCard key={i} row={r} onPivot={onPivot} />)}
         </div>
       )}
     </div>
@@ -401,6 +449,7 @@ function LotTraceView({ records, products, lots }) {
 // ── 리콜 시뮬레이션 탭 ───────────────────────────────────────
 function RecallView({ records, lots, recallLot, setRecallLot, recallHits, recallQty, recallForm, rfld, recallActive, setRecallActive }) {
   const rcInfo = RECALL_CLASSES.find(r => r.value === recallForm.recallClass) || RECALL_CLASSES[1]
+  const [pdfBusy, setPdfBusy] = useState(false)
 
   return (
     <div>
@@ -510,20 +559,33 @@ function RecallView({ records, lots, recallLot, setRecallLot, recallHits, recall
                 })}
               </div>
 
-              {/* 출력 버튼 */}
-              <button
-                className="mt-4 w-full py-3 rounded-xl text-[13px] font-bold"
-                style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}
-                onClick={() => {
-                  const lines = [...new Set(recallHits.map(r => r.customerName))].map(cust => {
-                    const cr = recallHits.filter(r => r.customerName === cust)
-                    return `${cust} | 연락처: ${cr[0]?.customerContact || '-'} | 수량: ${cr.reduce((s,r)=>s+(parseInt(r.qty)||0),0)}`
-                  }).join('\n')
-                  alert(`=== 리콜 통보 대상 목록 ===\nLOT: ${recallLot}\n등급: Class ${recallForm.recallClass}\n\n${lines}\n\n총 ${[...new Set(recallHits.map(r=>r.customerName))].length}개 고객, ${recallQty}개 회수 대상`)
-                }}
-              >
-                📋 리콜 통보 목록 출력 (프린트)
-              </button>
+              {/* 출력 / PDF 다운로드 버튼 */}
+              <div className="flex gap-2 mt-4">
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold"
+                  style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}
+                  onClick={() => printRecallNotice({ lot: recallLot, recallClass: recallForm.recallClass, reason: recallForm.reason, hits: recallHits })}
+                >
+                  <Printer size={15} /> 리콜 통보 목록 인쇄
+                </button>
+                <button
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-bold"
+                  disabled={pdfBusy}
+                  style={{ background: 'white', color: '#DC2626', border: '2px solid #DC2626', cursor: pdfBusy ? 'default' : 'pointer', opacity: pdfBusy ? 0.6 : 1 }}
+                  onClick={async () => {
+                    setPdfBusy(true)
+                    try {
+                      await downloadRecallCustomerListPdf({ lot: recallLot, recallClass: recallForm.recallClass, reason: recallForm.reason, hits: recallHits })
+                    } catch (e) {
+                      alert(e.message || 'PDF 생성에 실패했습니다.')
+                    } finally {
+                      setPdfBusy(false)
+                    }
+                  }}
+                >
+                  <Download size={15} /> {pdfBusy ? 'PDF 생성 중...' : '통보 고객목록 PDF 다운로드'}
+                </button>
+              </div>
             </div>
           )}
 

@@ -32,6 +32,7 @@ import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgres
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+function loadMaterialLotOptions(){try{const inv=JSON.parse(localStorage.getItem('qms_pur_inventory')||'[]');const set=new Set();inv.forEach(m=>{if(m.lot)set.add(m.lot);(m.receipts||[]).forEach(r=>{if(r.lot)set.add(r.lot)})});return[...set]}catch{return[]}}
 const inp={width:'100%',padding:'7px 10px',borderRadius:'7px',border:'1px solid var(--line)',background:'var(--bg)',color:'var(--ink)',fontSize:'13px',outline:'none'}
 const sel={...inp,appearance:'none'}
 const Badge=({text,tone='gray'})=>{const c={red:{bg:'var(--rust-soft)',fg:'var(--rust)'},green:{bg:'var(--leaf-soft)',fg:'var(--moss)'},amber:{bg:'#fff7ed',fg:'#b45309'},blue:{bg:'#eff6ff',fg:'#1d4ed8'},gray:{bg:'var(--bg-soft)',fg:'var(--ink-mute)'}}[tone]??{bg:'var(--bg-soft)',fg:'var(--ink-mute)'};return <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{background:c.bg,color:c.fg,fontWeight:500}}>{text}</span>}
@@ -165,6 +166,7 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
                 <span>현공정: <b style={{color:'var(--ink)'}}>{w.step}</b></span>
                 <span>담당: {w.assignee}</span>
                 <span>납기: {w.dueDate}</span>
+                {w.lot&&<span className="font-mono" style={{color:'#7C3AED'}}>완제품 LOT: {w.lot}</span>}
                 <span onClick={e=>e.stopPropagation()}><AttachLink fileId={w.fileId} fileName={w.fileName}/></span>
                 <span className="flex items-center gap-1" style={{color:'var(--moss)'}}>공정기록 보기 <ChevronRight size={12}/></span>
               </div>
@@ -185,8 +187,9 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
   )
 }
 function WoForm({initial,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',status:'대기',fileId:null,fileName:'',...initial})
+  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',status:'대기',lot:'',materialLots:'',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
+  const matLotOpts=useMemo(()=>loadMaterialLotOptions(),[])
   return(
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -200,6 +203,14 @@ function WoForm({initial,onSave,onCancel,statusOpts}){
         <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
       <div className="text-[11px] px-2.5 py-2 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>진행률은 개발에서 정의한 공정 순서·공정기록 입력 현황에 따라 자동으로 계산됩니다.</div>
+      <div className="pt-1" style={{borderTop:'1px solid var(--line)'}}>
+        <div className="text-[11.5px] font-medium mt-2 mb-2" style={{color:'var(--ink-mute)'}}>LOT 추적 정보 (제품추적성관리 연동)</div>
+        <div className="grid grid-cols-2 gap-3">
+          <FL label="완제품 LOT 번호"><input style={inp} value={f.lot} onChange={set('lot')} placeholder="예) LOT-2606-001" list="wo-fin-lot-list"/></FL>
+          <FL label="사용 원자재 LOT (콤마 구분)"><input style={inp} value={f.materialLots} onChange={set('materialLots')} placeholder="예) LOT-2406-012, LOT-2405-008" list="wo-mat-lot-list"/></FL>
+        </div>
+        <datalist id="wo-mat-lot-list">{matLotOpts.map(l=><option key={l} value={l}/>)}</datalist>
+      </div>
       <SingleAttach label="첨부 파일 (도면·작업지시서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.product&&onSave(f)}>{initial.product?'수정 저장':'WO 발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>

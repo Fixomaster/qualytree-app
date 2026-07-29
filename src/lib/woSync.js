@@ -55,15 +55,19 @@ export function addFinStockOnWoComplete(w) {
   if (qty <= 0 || !name) return null
   const fin = readLS('qms_pur_fin')
   const idx = fin.findIndex(f => (f.name || '').trim().toLowerCase() === name.toLowerCase())
+  // 제품추적성관리(LOT 추적)에서 원자재→WO→완제품 계보를 되짚을 수 있도록,
+  // 이 WO가 만들어낸 완제품 LOT 이력을 fin 항목의 lots[]에 함께 남긴다.
+  const lotEntry = { lot: w.lot || '', qty: String(qty), woId: w.id, so: w.so || '', materialLots: w.materialLots || '', date: new Date().toISOString().slice(0, 10) }
   let next
   if (idx >= 0) {
     const item = fin[idx]
     const newStock = (parseFloat(item.stock) || 0) + qty
     const min = parseFloat(item.min) || 0
-    next = fin.map((f, i) => i === idx ? { ...f, stock: String(newStock), status: newStock < min ? '부족' : '정상' } : f)
+    const lots = [...(item.lots || []), lotEntry]
+    next = fin.map((f, i) => i === idx ? { ...f, stock: String(newStock), status: newStock < min ? '부족' : '정상', lot: w.lot || f.lot, lots } : f)
   } else {
     const id = `FP-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
-    next = [...fin, { id, name, unit: 'EA', stock: String(qty), min: '0', lot: w.lot || '', expiry: '', udi: '', status: '정상' }]
+    next = [...fin, { id, name, unit: 'EA', stock: String(qty), min: '0', lot: w.lot || '', expiry: '', udi: '', status: '정상', lots: [lotEntry] }]
   }
   writeLS('qms_pur_fin', next)
   return { name, qty }

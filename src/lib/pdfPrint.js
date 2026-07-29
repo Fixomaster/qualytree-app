@@ -460,6 +460,42 @@ export function printInspectionCert(insp, wo) {
   openPrint(pageWrapper(insp.id || 'IPC-XXXX', '공정검사성적서', 'ISO 13485 §8.2.6', body))
 }
 
+// ── 리콜 통보 대상 고객 목록 (리콜 시뮬레이션) ───────────────────
+export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
+  const classMap = { I: 'Class I — 즉시 리콜', II: 'Class II — 신속 리콜', III: 'Class III — 일반 리콜' }
+  const totalQty = hits.reduce((s, h) => s + (parseInt(h.qty) || 0), 0)
+  const rowsHtml = hits.length === 0
+    ? '<tr><td colspan="5" style="color:#999;text-align:center;">통보 대상 고객 없음</td></tr>'
+    : hits.map((h, i) => `
+      <tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td>${h.customerName || '-'}</td>
+        <td>${h.customerContact || '-'}</td>
+        <td>${h.customerAddress || '-'}</td>
+        <td style="text-align:right">${h.qty || '-'}</td>
+      </tr>`).join('')
+
+  const body = `
+    <div class="qt-subtitle">리콜 통보 대상 고객 목록 (Recall Notification List)</div>
+    <div class="section-title">1. 리콜 개요</div>
+    <table>
+      <tr><th>대상 LOT</th><td>${lot || '-'}</td><th>리콜 등급</th><td>${classMap[recallClass] || recallClass || '-'}</td></tr>
+      <tr><th>통보 대상 고객 수</th><td>${hits.length}건</td><th>총 회수 수량</th><td>${totalQty}</td></tr>
+      <tr><th>리콜 사유</th><td colspan="3">${reason || '(미입력)'}</td></tr>
+    </table>
+
+    <div class="section-title">2. 통보 대상 고객 목록</div>
+    <table>
+      <tr><th style="width:40px">번호</th><th>고객명</th><th>연락처</th><th>주소</th><th style="width:80px">수량</th></tr>
+      ${rowsHtml}
+    </table>
+
+    <div class="section-title">3. 조치 사항</div>
+    <div class="text-area-box" style="min-height:60px;">상기 고객에게 리콜 통보를 발송하고, 회수 완료 여부를 추적 관리한다. 필요 시 규제당국(식약처 등)에 보고한다.</div>
+  `
+  openPrint(pageWrapper(`RCL-${lot || 'XXXX'}`, '리콜 통보 대상 고객 목록', 'ISO 13485 §8.3 / §7.5.9', body))
+}
+
 // ── 감사 체크리스트 ───────────────────────────────────────────
 export function printAuditChecklist(checks = {}) {
   const ITEMS = [
