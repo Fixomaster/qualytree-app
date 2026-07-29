@@ -10,6 +10,7 @@ import {
   Beaker, CheckCircle, AlertTriangle, PlusCircle,
   ChevronDown, ChevronUp, Trash2, Save, XCircle,
   BarChart2, FileText, ClipboardList, ShieldCheck, ExternalLink,
+  Edit2, Printer,
 } from 'lucide-react'
 import {
   STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES, deriveSterileSpecs,
