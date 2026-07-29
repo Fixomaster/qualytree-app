@@ -49,6 +49,41 @@ const MONITOR_FREQS = ['매 배치', '매일', '매주', '매월', '분기별', 
 function today() { return new Date().toISOString().slice(0, 10) }
 function genId()  { return 'CL-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5) }
 
+// 등록된 청결도 사양(SSoT)을 기반으로 관리 계획 본문을 자동 생성
+function buildAutoPlanContent(specs) {
+  if (!specs || specs.length === 0) {
+    return {
+      scope: '청결 상태로 공급되는 제품 · 사용 전 세척이 필요한 제품 · 오염에 민감한 제품 제조 시 적용됩니다. (청결도 사양을 등록하면 대상 제품 목록이 자동 반영됩니다.)',
+      contaminationRiskAssessment: '',
+      environmentReqs: '',
+      monitoringPlan: '',
+      cleaningValidationSummary: '',
+    }
+  }
+  const productNames = specs.map(function(s) { return s.productName }).filter(Boolean)
+  const classCount = {}
+  specs.forEach(function(s) { classCount[s.cleanClass] = (classCount[s.cleanClass] || 0) + 1 })
+  const classSummary = Object.entries(classCount).map(function([k, v]) { return k + '(' + v + '개 제품)' }).join(', ')
+  const methodSet = Array.from(new Set(specs.map(function(s) { return s.cleaningMethod }).filter(Boolean)))
+  const freqSet = Array.from(new Set(specs.map(function(s) { return s.frequency }).filter(Boolean)))
+  const contamTypeCount = {}
+  specs.forEach(function(s) { (s.contaminationTypes || []).forEach(function(t) { contamTypeCount[t] = (contamTypeCount[t] || 0) + 1 }) })
+  const contamEntries = Object.entries(contamTypeCount)
+  const contamSummary = contamEntries.length
+    ? contamEntries.map(function([k, v]) { return k + '(' + v + '건)' }).join(', ')
+    : '등록된 오염 유형 없음'
+
+  const scope = '본 절차는 등록된 ' + specs.length + '개 제품(' + productNames.join(', ') + ')의 §7.5.2 청결 요구사항 및 오염 관리에 적용됩니다.'
+  const contaminationRiskAssessment = '등록된 청결도 사양 기준 주요 오염 위험 유형: ' + contamSummary + '. 제품별 세부 관리 방안은 청결도 사양에서 개별 관리됩니다.'
+  const environmentReqs = '클린룸 등급: ' + (classSummary || '미지정') + '. 세척 방법: ' + (methodSet.join(', ') || '미지정') + '. 모니터링 빈도: ' + (freqSet.join(', ') || '미지정') + '. (§6.4 작업환경 요구사항과 연계 관리 — 환경관리 절차서 참조)'
+  const monitoringPlan = '등록된 제품별 청결도 사양의 모니터링 빈도(' + (freqSet.join(', ') || '미지정') + ')에 따라 미립자·미생물(및 필요 시 온도·습도·차압) 측정을 수행하며, 측정 결과는 모니터링 기록에 등록하고 성적서로 관리합니다.'
+  const cleaningValidationSummary = specs.map(function(s) {
+    return s.productName + ': ' + (s.validationRef ? s.validationRef + ' (밸리데이션 완료)' : '밸리데이션 미실시')
+  }).join('\n')
+
+  return { scope, contaminationRiskAssessment, environmentReqs, monitoringPlan, cleaningValidationSummary }
+}
+
 const EMPTY_SPEC = {
   productName: '', productCode: '',
   appliesWhen: 'supplied_clean',
@@ -113,6 +148,7 @@ export default function CleanlinessHub() {
   const [recForm, setRecForm] = useState(EMPTY_RECORD)
   const [editRecId, setEditRecId] = useState(null)
   const [certRow, setCertRow] = useState(null)
+  const [valRow, setValRow] = useState(null)
   const [editingPlan, setEditingPlan] = useState(false)
   const [planDraft, setPlanDraft] = useState(null)
 
@@ -160,7 +196,22 @@ export default function CleanlinessHub() {
     const passRate = records.length ? Math.round((passCount / records.length) * 100) : 0
     const byClass = {}
     CLEAN_CLASSES.forEach(c => { byClass[c] = specs.filter(s => s.cleanClass === c).length })
-    return { passCount, failCount, condCount, passRate, byClass }
+
+    const monthlyMap = {}
+    records.forEach(r => {
+      const m = (r.date || '').slice(0, 7) || '미상'
+      if (!monthlyMap[m]) monthlyMap[m] = { total: 0, pass: 0 }
+      monthlyMap[m].total += 1
+      if (r.result === 'pass') monthlyMap[m].pass += 1
+    })
+    const monthly = Object.keys(monthlyMap).sort().reverse().map(m => ({
+      month: m,
+      total: monthlyMap[m].total,
+      pass: monthlyMap[m].pass,
+      passRate: monthlyMap[m].total ? Math.round((monthlyMap[m].pass / monthlyMap[m].total) * 100) : 0,
+    }))
+
+    return { passCount, failCount, condCount, passRate, byClass, monthly }
   }, [specs, records])
 
   const RESULT_STYLES = {
@@ -363,26 +414,42 @@ export default function CleanlinessHub() {
         {/* ── 관리 계획 탭 ── */}
         {tab === 'plan' && (
           <div className="space-y-4">
-            <div className="flex justify-end">
-              {!editingPlan && canEdit && (
-                <button onClick={function() { setPlanDraft({ ...plan }); setEditingPlan(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Edit2 size={13} /> 편집
-                </button>
-              )}
-              {editingPlan && (
-                <div className="flex gap-2">
-                  <button onClick={function() { savePlan(planDraft); setEditingPlan(false); setPlanDraft(null) }}
+            <div className="flex justify-between items-center gap-2 flex-wrap">
+              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+                청결도 사양(SSoT) 등록 내용을 기반으로 아래 항목을 자동 설정할 수 있습니다.
+              </span>
+              <div className="flex gap-2">
+                {canEdit && (
+                  <button onClick={function() {
+                    const auto = buildAutoPlanContent(specs)
+                    setPlanDraft(function(d) { return { ...(d || plan), ...auto } })
+                    setEditingPlan(true)
+                  }}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
+                    style={{ background: '#EDE9FE', color: '#7C3AED', border: '1px solid #DDD6FE', cursor: 'pointer' }}>
+                    <Wind size={13} /> 사양 기반 자동 설정
+                  </button>
+                )}
+                {!editingPlan && canEdit && (
+                  <button onClick={function() { setPlanDraft({ ...plan }); setEditingPlan(true) }}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                     style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                    <Save size={13} /> 저장
+                    <Edit2 size={13} /> 편집
                   </button>
-                  <button onClick={function() { setEditingPlan(false); setPlanDraft(null) }}
-                    className="px-4 py-2 rounded-xl text-[13px]"
-                    style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
-                </div>
-              )}
+                )}
+                {editingPlan && (
+                  <div className="flex gap-2">
+                    <button onClick={function() { savePlan(planDraft); setEditingPlan(false); setPlanDraft(null) }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
+                      style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                      <Save size={13} /> 저장
+                    </button>
+                    <button onClick={function() { setEditingPlan(false); setPlanDraft(null) }}
+                      className="px-4 py-2 rounded-xl text-[13px]"
+                      style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {[
@@ -425,15 +492,48 @@ export default function CleanlinessHub() {
                 </div>
               )})}
             </div>
+
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[12.5px] font-bold mb-3" style={{ color: 'var(--ink)' }}>
+                제품별 밸리데이션 현황 ({specs.length}) {specs.length > 0 && <span className="font-normal" style={{ color: 'var(--ink-faint)' }}>· 행 클릭 시 밸리데이션 조건 확인</span>}
+              </div>
+              {specs.length === 0 ? (
+                <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>청결도 사양을 등록하면 제품별 밸리데이션 현황이 여기에 표시됩니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {specs.map(function(s) { return (
+                    <div key={s.id} onClick={function() { setValRow(s) }} className="flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer"
+                      style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', transition: 'background 0.1s' }}
+                      onMouseEnter={function(e) { e.currentTarget.style.background = '#EDE9FE' }}
+                      onMouseLeave={function(e) { e.currentTarget.style.background = 'var(--bg-soft)' }}>
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="font-bold text-[13px]" style={{ color: 'var(--ink)' }}>{s.productName}</span>
+                        {s.productCode && <span className="font-mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{s.productCode}</span>}
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#EDE9FE', color: '#7C3AED' }}>{s.cleanClass}</span>
+                      </div>
+                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                        style={{ background: s.validationRef ? '#D1FAE5' : '#FEE2E2', color: s.validationRef ? '#059669' : '#DC2626' }}>
+                        {s.validationRef ? '밸리데이션 완료' : '밸리데이션 미실시'}
+                      </span>
+                    </div>
+                  )})}
+                </div>
+              )}
+            </div>
+
+            {valRow && (
+              <CertModal title="밸리데이션 조건 확인" onClose={function() { setValRow(null) }}>
+                <ValidationDetail spec={valRow} onClose={function() { setValRow(null) }} />
+              </CertModal>
+            )}
           </div>
         )}
 
         {/* ── 분석 탭 ── */}
         {tab === 'analysis' && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { label: '등록 제품 사양', value: specs.length, color: '#2563EB', bg: '#DBEAFE' },
                 { label: '모니터링 기록', value: records.length, color: '#7C3AED', bg: '#EDE9FE' },
                 { label: '합격 건수', value: analysis.passCount, color: '#059669', bg: '#D1FAE5' },
                 { label: '불합격 건수', value: analysis.failCount, color: analysis.failCount > 0 ? '#DC2626' : '#059669', bg: analysis.failCount > 0 ? '#FEE2E2' : '#D1FAE5' },
@@ -443,6 +543,27 @@ export default function CleanlinessHub() {
                   <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{c.label}</div>
                 </div>
               )})}
+            </div>
+
+            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>월별 모니터링 현황</div>
+              {analysis.monthly.length === 0 ? (
+                <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>모니터링 기록을 등록하면 월별 현황이 표시됩니다.</p>
+              ) : (
+                <div className="space-y-2">
+                  {analysis.monthly.map(function(m) { return (
+                    <div key={m.month} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
+                      <span className="font-mono text-[12.5px] font-bold" style={{ color: 'var(--ink)' }}>{m.month}</span>
+                      <div className="flex-1 mx-3 h-2 rounded-full overflow-hidden" style={{ background: 'var(--line)' }}>
+                        <div style={{ width: m.passRate + '%', height: '100%', background: m.passRate >= 90 ? '#059669' : m.passRate >= 70 ? '#D97706' : '#DC2626' }} />
+                      </div>
+                      <span className="text-[12.5px] whitespace-nowrap" style={{ color: 'var(--ink-soft)' }}>
+                        {m.total}건 · 합격률 {m.passRate}%
+                      </span>
+                    </div>
+                  )})}
+                </div>
+              )}
             </div>
 
             {records.length > 0 && (
@@ -682,6 +803,44 @@ function CleanlinessCertificate({ rec, specs, onClose }) {
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
           <Printer size={13} /> 인쇄
         </button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px]"
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>닫기</button>
+      </div>
+    </div>
+  )
+}
+
+// ── 제품별 밸리데이션 조건 상세 ───────────────────────────────
+function ValidationDetail({ spec, onClose }) {
+  const aw = APPLIES_WHEN[spec.appliesWhen] || spec.appliesWhen
+  const Row = function({ label, value }) {
+    return (
+      <div className="grid grid-cols-3 gap-2 py-1.5" style={{ borderBottom: '1px solid var(--line)' }}>
+        <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</span>
+        <span className="col-span-2 text-[12.5px]" style={{ color: 'var(--ink)' }}>{value || '—'}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-center mb-3">
+        <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>{spec.productName}</div>
+        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>제품별 밸리데이션 조건 · ISO 13485 §7.5.2</div>
+      </div>
+      <Row label="제품 코드" value={spec.productCode} />
+      <Row label="적용 조건" value={aw} />
+      <Row label="청결도 등급" value={spec.cleanClass} />
+      <Row label="세척 방법" value={spec.cleaningMethod} />
+      <Row label="미립자 한도" value={spec.particleLimit} />
+      <Row label="미생물 한도" value={spec.microbialLimit} />
+      <Row label="화학 잔류 한도" value={spec.chemicalLimit} />
+      <Row label="검사 방법" value={spec.inspectionMethod} />
+      <Row label="합격 기준" value={spec.acceptanceCriteria} />
+      <Row label="세척 SOP 참조" value={spec.cleaningProcedureRef} />
+      <Row label="밸리데이션 참조" value={spec.validationRef} />
+      <Row label="모니터링 빈도" value={spec.frequency} />
+      <Row label="담당자" value={spec.responsible} />
+      <div className="flex gap-2 pt-4">
         <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px]"
           style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>닫기</button>
       </div>
