@@ -1,65 +1,32 @@
 // src/pages/sterile-control/SterileControlHub.jsx
 // ISO 13485 §7.5.7 — 멸균 의료기기 특별 요구사항
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { auth } from '../../lib/auth'
+import { onboarding } from '../../lib/onboardingState'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import {
   Beaker, CheckCircle, AlertTriangle, PlusCircle,
   ChevronDown, ChevronUp, Trash2, Save, XCircle,
-  BarChart2, FileText, ClipboardList, ShieldCheck,
+  BarChart2, FileText, ClipboardList, ShieldCheck, ExternalLink,
 } from 'lucide-react'
+import {
+  STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES, deriveSterileSpecs,
+} from '../../lib/sterileSpecConstants'
 
 // ─── 상수 ──────────────────────────────────────────────
-const SPECS_KEY   = 'qualytree.sterile_specs'
+// 멸균 방법 사양(STERILE_METHODS 등)은 제품·공정 화면에서 입력되어
+// 제품 레코드 자체가 SSoT가 되므로, 여기서는 별도 저장소 없이
+// sterileSpecConstants.js를 통해 파생(derive)한다.
 const BATCHES_KEY = 'qualytree.sterile_batches'
 const POLICY_KEY  = 'qualytree.sterile_policy'
-
-const STERILE_METHODS = [
-  'EO (에틸렌옥사이드)',
-  '감마선 (Gamma Radiation)',
-  'E-beam (전자빔)',
-  '고압증기멸균 (Autoclave)',
-  '건열 멸균 (Dry Heat)',
-  '과산화수소 플라즈마 (H₂O₂ Plasma)',
-  'X선 방사선',
-  '기타',
-]
-
-const SAL_LEVELS = [
-  '10⁻⁶ (의료기기 표준)',
-  '10⁻³',
-  '10⁻¹',
-  '기타',
-]
-
-const BIOBURDEN_METHODS = [
-  'ISO 11737-1 (총균수)',
-  'ISO 11737-1 + 동정',
-  '해당 없음',
-  '기타',
-]
-
-const SPEC_STATUSES = [
-  { value: 'validated',      label: '밸리데이션 완료',  color: '#10B981' },
-  { value: 'under_val',      label: '밸리데이션 진행중', color: '#F59E0B' },
-  { value: 'not_validated',  label: '밸리데이션 필요',   color: '#EF4444' },
-  { value: 'not_required',   label: '해당 없음',         color: '#6B7280' },
-]
 
 const BATCH_RESULTS = [
   { value: 'pass',        label: '합격',       color: '#10B981' },
   { value: 'fail',        label: '불합격',     color: '#EF4444' },
   { value: 'conditional', label: '조건부 합격', color: '#F59E0B' },
 ]
-
-const EMPTY_SPEC = {
-  productName: '', productCode: '', sterileMethod: STERILE_METHODS[0],
-  salTarget: SAL_LEVELS[0], cycleTemp: '', cycleTime: '', cyclePressure: '',
-  cycleDose: '', validationRef: '', packagingRef: '', bioburdenLimit: '',
-  bioburdenMethod: BIOBURDEN_METHODS[0], expiryMonths: '',
-  sterilityTestRequired: true, reprocessingAllowed: false, notes: '', status: 'not_validated',
-}
 
 const EMPTY_BATCH = {
   specId: '', batchNo: '', date: new Date().toISOString().slice(0, 10),
@@ -81,7 +48,6 @@ const DEFAULT_POLICY = {
 }
 
 // ─── 헬퍼 ──────────────────────────────────────────────
-function genSpecId()  { return `SC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function genBatchId() { return `SB-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 function lsGet(key, def) {
@@ -157,167 +123,39 @@ function TabBar({ tabs, active, onSelect }) {
 }
 
 // ══════════════════════════════════════════════════════
-//  TAB 1 — 멸균 방법 사양
+//  TAB 1 — 멸균 방법 사양 (읽기 전용 · 제품·공정 화면에서 입력)
 // ══════════════════════════════════════════════════════
-function SpecTab({ specs, setSpecs, canEdit }) {
+function SpecTab({ specs, canEdit, onNavigateToProduct, onNavigateToProducts }) {
   const [selected, setSelected] = useState(null)
-  const [editing,  setEditing]  = useState(null)
-  const [showForm, setShowForm] = useState(false)
-  const [draft,    setDraft]    = useState(EMPTY_SPEC)
-
-  const openNew = () => {
-    setDraft({ ...EMPTY_SPEC })
-    setEditing(null)
-    setSelected(null)
-    setShowForm(true)
-  }
-  const openEdit = s => {
-    setDraft({ ...s })
-    setEditing(s.id)
-    setShowForm(true)
-  }
-  const save = () => {
-    if (!draft.productName || !draft.sterileMethod) return
-    if (editing) {
-      const updated = specs.map(s => s.id === editing ? { ...draft, id: editing } : s)
-      setSpecs(updated)
-    } else {
-      setSpecs([...specs, { ...draft, id: genSpecId() }])
-    }
-    setShowForm(false)
-  }
-  const del = id => {
-    if (!window.confirm('삭제하시겠습니까?')) return
-    setSpecs(specs.filter(s => s.id !== id))
-    if (selected === id) setSelected(null)
-  }
-  const upd = k => e => setDraft(d => ({ ...d, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
 
   return (
     <div>
-      {/* 상단 액션 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>총 {specs.length}건의 제품 멸균 사양</span>
+      {/* 상단 안내 */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 14, gap: 12, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
+          총 {specs.length}건의 제품 멸균 사양 · 제품·공정 &gt; 제품 개발 화면에서 입력한 내용이 여기 자동 반영됩니다
+        </span>
         {canEdit && (
-          <button onClick={openNew} style={{
+          <button onClick={onNavigateToProducts} style={{
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
             background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
             padding: '7px 14px', cursor: 'pointer',
           }}>
-            <PlusCircle size={15} /> 사양 추가
+            <ExternalLink size={14} /> 제품 개발에서 사양 입력
           </button>
         )}
       </div>
-
-      {/* 입력 폼 */}
-      {showForm && (
-        <div style={{
-          background: 'var(--bg-soft)', border: '1px solid var(--line)',
-          borderRadius: 10, padding: 20, marginBottom: 20,
-        }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16, color: 'var(--ink)' }}>
-            {editing ? '사양 수정' : '새 멸균 방법 사양 등록'}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="제품명" required>
-              <input style={inp} value={draft.productName} onChange={upd('productName')} placeholder="예: 무균 주사기" />
-            </Field>
-            <Field label="제품 코드">
-              <input style={inp} value={draft.productCode} onChange={upd('productCode')} placeholder="예: SYR-001" />
-            </Field>
-            <Field label="멸균 방법" required>
-              <select style={sel} value={draft.sterileMethod} onChange={upd('sterileMethod')}>
-                {STERILE_METHODS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
-            <Field label="SAL 목표" required>
-              <select style={sel} value={draft.salTarget} onChange={upd('salTarget')}>
-                {SAL_LEVELS.map(l => <option key={l}>{l}</option>)}
-              </select>
-            </Field>
-          </div>
-
-          {/* 공정 파라미터 */}
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--ink-soft)' }}>멸균 사이클 파라미터 (설정값)</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
-              <Field label="온도 (℃)">
-                <input style={inp} value={draft.cycleTemp} onChange={upd('cycleTemp')} placeholder="예: 121" />
-              </Field>
-              <Field label="시간 (분)">
-                <input style={inp} value={draft.cycleTime} onChange={upd('cycleTime')} placeholder="예: 15" />
-              </Field>
-              <Field label="압력 (bar)">
-                <input style={inp} value={draft.cyclePressure} onChange={upd('cyclePressure')} placeholder="예: 2.1" />
-              </Field>
-              <Field label="선량 (kGy)">
-                <input style={inp} value={draft.cycleDose} onChange={upd('cycleDose')} placeholder="예: 25 (방사선)" />
-              </Field>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="밸리데이션 참조 번호" required>
-              <input style={inp} value={draft.validationRef} onChange={upd('validationRef')} placeholder="예: VLD-2024-001" />
-            </Field>
-            <Field label="포장 밸리데이션 참조" required>
-              <input style={inp} value={draft.packagingRef} onChange={upd('packagingRef')} placeholder="예: PKG-VAL-001" />
-            </Field>
-            <Field label="바이오버든 한도 (CFU/개)">
-              <input style={inp} value={draft.bioburdenLimit} onChange={upd('bioburdenLimit')} placeholder="예: ≤ 100" />
-            </Field>
-            <Field label="바이오버든 시험법">
-              <select style={sel} value={draft.bioburdenMethod} onChange={upd('bioburdenMethod')}>
-                {BIOBURDEN_METHODS.map(m => <option key={m}>{m}</option>)}
-              </select>
-            </Field>
-            <Field label="멸균 유효기간 (개월)">
-              <input style={inp} value={draft.expiryMonths} onChange={upd('expiryMonths')} placeholder="예: 24" />
-            </Field>
-            <Field label="밸리데이션 상태">
-              <select style={sel} value={draft.status} onChange={upd('status')}>
-                {SPEC_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </Field>
-          </div>
-
-          {/* 체크박스 */}
-          <div style={{ display: 'flex', gap: 24, marginBottom: 14 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={draft.sterilityTestRequired} onChange={upd('sterilityTestRequired')} />
-              멸균성 시험 필요 (ISO 11737-2)
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
-              <input type="checkbox" checked={draft.reprocessingAllowed} onChange={upd('reprocessingAllowed')} />
-              재처리 허용 (단회용이 아닌 경우)
-            </label>
-          </div>
-
-          <Field label="비고">
-            <textarea style={textarea} value={draft.notes} onChange={upd('notes')} placeholder="추가 요구사항 또는 특이사항" />
-          </Field>
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={save} style={{
-              display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
-              background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
-              padding: '7px 16px', cursor: 'pointer',
-            }}>
-              <Save size={14} /> 저장
-            </button>
-            <button onClick={() => setShowForm(false)} style={{
-              fontSize: 13, background: 'none', border: '1px solid var(--line)',
-              borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
-            }}>취소</button>
-          </div>
-        </div>
-      )}
 
       {/* 목록 테이블 */}
       {specs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-faint)', fontSize: 14 }}>
           등록된 멸균 방법 사양이 없습니다.
+          <div style={{ fontSize: 12.5, marginTop: 6 }}>
+            제품·공정 &gt; 제품 개발 화면에서 제품을 "멸균 의료기기"로 설정하고 사양을 입력하세요.
+          </div>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -340,17 +178,14 @@ function SpecTab({ specs, setSpecs, canEdit }) {
                   </div>
                 </div>
                 <StatusBadge value={s.status} options={SPEC_STATUSES} />
-                {canEdit && (
+                {canEdit && s.productId && (
                   <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => openEdit(s)} style={{
+                    <button onClick={() => onNavigateToProduct(s.productId)} style={{
+                      display: 'flex', alignItems: 'center', gap: 4,
                       fontSize: 12, padding: '4px 10px', borderRadius: 5,
                       border: '1px solid var(--line)', background: 'none', cursor: 'pointer', color: 'var(--ink-soft)',
-                    }}>수정</button>
-                    <button onClick={() => del(s.id)} style={{
-                      fontSize: 12, padding: '4px 8px', borderRadius: 5,
-                      border: '1px solid #FCA5A5', background: 'none', cursor: 'pointer', color: '#EF4444',
                     }}>
-                      <Trash2 size={13} />
+                      <ExternalLink size={12} /> 제품 개발에서 관리
                     </button>
                   </div>
                 )}
@@ -361,15 +196,15 @@ function SpecTab({ specs, setSpecs, canEdit }) {
               {selected === s.id && (
                 <div style={{ borderTop: '1px solid var(--line)', padding: '14px 16px', background: 'var(--bg-soft)' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
-                    <InfoRow label="바이오버든 한도"     value={s.bioburdenLimit || '—'} />
+                    <InfoRow label="바이오버든 한도"     value={s.bioburdenLimit || '\u2014'} />
                     <InfoRow label="바이오버든 시험법"   value={s.bioburdenMethod} />
-                    <InfoRow label="멸균 유효기간"       value={s.expiryMonths ? `${s.expiryMonths}개월` : '—'} />
-                    <InfoRow label="사이클 온도"         value={s.cycleTemp ? `${s.cycleTemp}℃` : '—'} />
-                    <InfoRow label="사이클 시간"         value={s.cycleTime ? `${s.cycleTime}분` : '—'} />
-                    <InfoRow label="사이클 압력"         value={s.cyclePressure ? `${s.cyclePressure} bar` : '—'} />
-                    <InfoRow label="선량"                value={s.cycleDose || '—'} />
-                    <InfoRow label="밸리데이션 참조"     value={s.validationRef || '—'} />
-                    <InfoRow label="포장 밸리데이션"     value={s.packagingRef || '—'} />
+                    <InfoRow label="멸균 유효기간"       value={s.expiryMonths ? `${s.expiryMonths}개월` : '\u2014'} />
+                    <InfoRow label="사이클 온도"         value={s.cycleTemp ? `${s.cycleTemp}℃` : '\u2014'} />
+                    <InfoRow label="사이클 시간"         value={s.cycleTime ? `${s.cycleTime}분` : '\u2014'} />
+                    <InfoRow label="사이클 압력"         value={s.cyclePressure ? `${s.cyclePressure} bar` : '\u2014'} />
+                    <InfoRow label="선량"                value={s.cycleDose || '\u2014'} />
+                    <InfoRow label="밸리데이션 참조"     value={s.validationRef || '\u2014'} />
+                    <InfoRow label="포장 밸리데이션"     value={s.packagingRef || '\u2014'} />
                     <InfoRow label="멸균성 시험 필요"    value={s.sterilityTestRequired ? '예' : '아니오'} />
                     <InfoRow label="재처리 허용"         value={s.reprocessingAllowed ? '예 (주의)' : '단회용 (재처리 금지)'} />
                     {s.notes && <div style={{ gridColumn: '1/-1' }}><InfoRow label="비고" value={s.notes} /></div>}
@@ -904,15 +739,19 @@ function AnalysisTab({ specs, batches, compl }) {
 export default function SterileControlHub() {
   const user    = auth.current()
   const canEdit = (user?.level || 0) >= 2
+  const nav = useNavigate()
 
-  const [specs,    setSpecsRaw]   = useState(() => lsGet(SPECS_KEY,   []))
+  // 멸균 방법 사양은 제품·공정 화면(제품 개발)에서 입력된 제품 레코드로부터 파생된다 (SSoT).
+  const specs = useMemo(() => deriveSterileSpecs(onboarding.load()?.products || []), [])
   const [batches,  setBatchesRaw] = useState(() => lsGet(BATCHES_KEY, []))
   const [policy,   setPolicyRaw]  = useState(() => lsGet(POLICY_KEY,  DEFAULT_POLICY))
   const [tab,      setTab]        = useState('specs')
 
-  const setSpecs   = v => { setSpecsRaw(v);   lsSet(SPECS_KEY,   v) }
   const setBatches = v => { setBatchesRaw(v); lsSet(BATCHES_KEY, v) }
   const setPolicy  = v => { setPolicyRaw(v);  lsSet(POLICY_KEY,  v) }
+
+  const goToProduct = (productId) => nav('/products?tab=product&productId=' + encodeURIComponent(productId) + '&detailTab=info')
+  const goToProducts = () => nav('/products?tab=product')
 
   const compl = useCompleteness(specs, batches, policy)
 
@@ -957,7 +796,7 @@ export default function SterileControlHub() {
       }}>
         <TabBar tabs={TABS} active={tab} onSelect={setTab} />
 
-        {tab === 'specs'    && <SpecTab     specs={specs}   setSpecs={setSpecs}    canEdit={canEdit} />}
+        {tab === 'specs'    && <SpecTab     specs={specs}   canEdit={canEdit} onNavigateToProduct={goToProduct} onNavigateToProducts={goToProducts} />}
         {tab === 'batches'  && <BatchTab    batches={batches} setBatches={setBatches} specs={specs} canEdit={canEdit} />}
         {tab === 'policy'   && <PolicyTab   policy={policy} setPolicy={setPolicy}  canEdit={canEdit} />}
         {tab === 'analysis' && <AnalysisTab specs={specs}   batches={batches}      compl={compl} />}

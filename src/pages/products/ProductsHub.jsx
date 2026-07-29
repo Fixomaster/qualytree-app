@@ -42,6 +42,7 @@ import {
   productModels,
 } from '../../lib/productLifecycleState'
 import { extractLicenseFromPdf } from '../../lib/licenseExtract'
+import { STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES } from '../../lib/sterileSpecConstants'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -110,7 +111,8 @@ export default function ProductsHub() {
   const products = (Array.isArray(ob.products) && ob.products.length)
     ? ob.products
     : (ob.product && ob.product.name ? [ob.product] : [])
-  const [selId, setSelId] = useState(null)
+  const deepLinkProductId = searchParams.get('productId')
+  const [selId, setSelId] = useState(deepLinkProductId || null)
   const product = products.find((p) => (p.id || 'main') === selId) || products[0] || null
   const processes = ob.processes || []
 
@@ -118,8 +120,8 @@ export default function ProductsHub() {
   const canEditProduct = permissions.can('onb.product.edit')
   const [addingProduct, setAddingProduct] = useState(false)
   // 제품 탭 전용: 카드 그리드(목록) ↔ 상세(기본정보/모델 목록/설계 계획) 전환
-  const [productView, setProductView] = useState('grid') // grid | detail
-  const [detailTab, setDetailTab] = useState('info') // info | models | design
+  const [productView, setProductView] = useState(deepLinkProductId ? 'detail' : 'grid') // grid | detail
+  const [detailTab, setDetailTab] = useState(searchParams.get('detailTab') || 'info') // info | models | design
   const openProduct = (p, tabName) => {
     setSelId(p.id || 'main')
     setDetailTab(tabName || 'info')
@@ -1087,6 +1089,41 @@ function ProductPanel({ product, company, onAction }) {
                   <Field label="의도된 사용" value={product.intendedUse} />
                 )}
               </div>
+
+              {product.sterileEnabled && (
+                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+                  <div className="text-[11.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
+                    멸균 방법 사양 (ISO 13485 §7.5.7)
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{
+                      background: (SPEC_STATUSES.find(s => s.value === (product.sterileStatus || 'not_validated')) || {}).color + '22',
+                      color: (SPEC_STATUSES.find(s => s.value === (product.sterileStatus || 'not_validated')) || {}).color,
+                    }}>
+                      {(SPEC_STATUSES.find(s => s.value === (product.sterileStatus || 'not_validated')) || {}).label}
+                    </span>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="멸균 방법" value={product.sterileMethod || '-'} />
+                    <Field label="SAL 목표" value={product.salTarget || '-'} />
+                    <Field label="사이클 온도 / 시간 / 압력" value={[
+                      product.cycleTemp && (product.cycleTemp + '℃'),
+                      product.cycleTime && (product.cycleTime + '분'),
+                      product.cyclePressure && (product.cyclePressure + ' bar'),
+                    ].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="선량 (방사선)" value={product.cycleDose || '-'} />
+                    <Field label="밸리데이션 참조" value={product.validationRef || '-'} />
+                    <Field label="포장 밸리데이션 참조" value={product.packagingRef || '-'} />
+                    <Field label="바이오버든 한도 / 시험법" value={[product.bioburdenLimit, product.bioburdenMethod].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="멸균 유효기간" value={product.expiryMonths ? product.expiryMonths + '개월' : '-'} />
+                    <Field label="멸균성 시험" value={product.sterilityTestRequired !== false ? '필요 (ISO 11737-2)' : '해당 없음'} />
+                    <Field label="재처리 허용" value={product.reprocessingAllowed ? '예 (주의)' : '단회용 (재처리 금지)'} />
+                  </div>
+                  {product.sterileNotes && (
+                    <div className="mt-3">
+                      <Field label="비고" value={product.sterileNotes} />
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div
@@ -1114,6 +1151,76 @@ function ProductPanel({ product, company, onAction }) {
                 value={draft.classification || ''}
                 onChange={(v) => setDraft({ ...draft, classification: v })}
               />
+
+              <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+                <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!draft.sterileEnabled}
+                    onChange={(e) => setDraft({ ...draft, sterileEnabled: e.target.checked })}
+                  />
+                  이 제품은 멸균 의료기기입니다 (ISO 13485 §7.5.7 사양 입력)
+                </label>
+
+                {draft.sterileEnabled && (
+                  <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>멸균 방법</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.sterileMethod || STERILE_METHODS[0]} onChange={(e) => setDraft({ ...draft, sterileMethod: e.target.value })}>
+                          {STERILE_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>SAL 목표</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.salTarget || SAL_LEVELS[0]} onChange={(e) => setDraft({ ...draft, salTarget: e.target.value })}>
+                          {SAL_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FieldEdit label="사이클 온도 (℃)" value={draft.cycleTemp} onChange={(v) => setDraft({ ...draft, cycleTemp: v })} placeholder="121" />
+                      <FieldEdit label="사이클 시간 (분)" value={draft.cycleTime} onChange={(v) => setDraft({ ...draft, cycleTime: v })} placeholder="15" />
+                      <FieldEdit label="사이클 압력 (bar)" value={draft.cyclePressure} onChange={(v) => setDraft({ ...draft, cyclePressure: v })} placeholder="2.1" />
+                      <FieldEdit label="선량 (kGy)" value={draft.cycleDose} onChange={(v) => setDraft({ ...draft, cycleDose: v })} placeholder="25 (방사선)" />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <FieldEdit label="밸리데이션 참조 번호" value={draft.validationRef} onChange={(v) => setDraft({ ...draft, validationRef: v })} placeholder="VLD-2024-001" />
+                      <FieldEdit label="포장 밸리데이션 참조" value={draft.packagingRef} onChange={(v) => setDraft({ ...draft, packagingRef: v })} placeholder="PKG-VAL-001" />
+                      <FieldEdit label="바이오버든 한도 (CFU/개)" value={draft.bioburdenLimit} onChange={(v) => setDraft({ ...draft, bioburdenLimit: v })} placeholder="≤ 100" />
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>바이오버든 시험법</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.bioburdenMethod || BIOBURDEN_METHODS[0]} onChange={(e) => setDraft({ ...draft, bioburdenMethod: e.target.value })}>
+                          {BIOBURDEN_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <FieldEdit label="멸균 유효기간 (개월)" value={draft.expiryMonths} onChange={(v) => setDraft({ ...draft, expiryMonths: v })} placeholder="24" />
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>밸리데이션 상태</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.sterileStatus || 'not_validated'} onChange={(e) => setDraft({ ...draft, sterileStatus: e.target.value })}>
+                          {SPEC_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-5">
+                      <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                        <input type="checkbox" checked={draft.sterilityTestRequired !== false} onChange={(e) => setDraft({ ...draft, sterilityTestRequired: e.target.checked })} />
+                        멸균성 시험 필요 (ISO 11737-2)
+                      </label>
+                      <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                        <input type="checkbox" checked={!!draft.reprocessingAllowed} onChange={(e) => setDraft({ ...draft, reprocessingAllowed: e.target.checked })} />
+                        재처리 허용 (단회용이 아닌 경우)
+                      </label>
+                    </div>
+
+                    <FieldEdit label="멸균 사양 비고" value={draft.sterileNotes} onChange={(v) => setDraft({ ...draft, sterileNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
+                  </div>
+                )}
+              </div>
+
               <FieldEdit
                 label="변경 사유 (CCR 필수 — ISO 13485 §4.2.4)"
                 value={reason}
