@@ -23,7 +23,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { syncOrderStatusFromWo, syncFinStockFromWoList } from '../../lib/woSync'
+import { syncOrderStatusFromWo, syncWoCompletionEffects } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
 import { fileStore } from '../../lib/fileStore'
 import { printInspectionCert } from '../../lib/pdfPrint'
@@ -120,7 +120,7 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
     const id = edit ? edit.id : nid('WO')
-    if(edit){setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncFinStockFromWoList([...p,{id,progress:'0',...f}]))}
+    if(edit){setWo(p=>syncWoCompletionEffects(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncWoCompletionEffects([...p,{id,progress:'0',...f}]))}
     syncOrderStatusFromWo(id, f.status)
     setModal(null)
   }
@@ -157,7 +157,7 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
                   {w.so&&<span className="font-mono text-[10px]" style={{color:'var(--ink-faint)'}}>{w.so}</span>}
                 </div>
                 <div className="flex items-center gap-2" onClick={e=>e.stopPropagation()}>
-                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===w.id?{...x,status:v}:x)));syncOrderStatusFromWo(w.id,v)}}/>
+                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>syncWoCompletionEffects(p.map(x=>x.id===w.id?{...x,status:v}:x)));syncOrderStatusFromWo(w.id,v)}}/>
                   <ActBtn label="수정" onClick={()=>{setEdit(w);setModal('form')}}/>
                   <ActBtn label="삭제" color="red" onClick={()=>del(w.id)}/>
                 </div>
@@ -666,7 +666,7 @@ export default function ManufacturingHub(){
       return { ...w, progress: pctStr, status: newStatus }
     })
     if (changed) {
-      setWo(syncFinStockFromWoList(next))
+      setWo(syncWoCompletionEffects(next))
       statusChanges.forEach(([id, st]) => syncOrderStatusFromWo(id, st))
     }
   }, [wo, proc])

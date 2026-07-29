@@ -84,3 +84,50 @@ export function syncFinStockFromWoList(list) {
     return w
   })
 }
+
+/* ─── 생산 완료 → 제품보존·취급(LOT 재고 현황) 자동 등록 ───────────
+   작업지시(WO)가 '완료' 상태가 되면, 제품보존·취급 모듈의 LOT 재고 현황
+   목록에 해당 완제품 LOT을 자동으로 등록한다. 완제품 LOT 번호가 WO에
+   입력되어 있지 않아도(레거시 WO 포함) 최소한의 LOT 재고 항목은 생성해
+   생산 완료 시 사용자가 수동으로 다시 입력할 필요가 없도록 한다.
+   이미 반영된 WO(presApplied)는 중복 반영하지 않는다. */
+const LS_PRESERVATION_LOTS = 'qualytree.preservation_lots'
+
+export function addPreservationLotOnWoComplete(w) {
+  if (!w || w.status !== '완료' || w.presApplied) return null
+  const qty = parseFloat(w.qty) || 0
+  const name = (w.product || '').trim()
+  if (qty <= 0 || !name) return null
+  const lots = readLS(LS_PRESERVATION_LOTS)
+  if (lots.some(l => l.linkedWoId === w.id)) return null
+  const id = `PLT-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
+  const today = new Date().toISOString().slice(0, 10)
+  const entry = {
+    id, productName: name, productCode: '', lotNo: w.lot || '',
+    qty: String(qty), manufacturedDate: today, expiryDate: '',
+    storageLocation: '', specId: '', linkedDistId: '',
+    status: 'in_stock', notes: `작업지시 ${w.id} 생산완료 시 자동 등록`,
+    linkedWoId: w.id, createdAt: new Date().toISOString(),
+  }
+  writeLS(LS_PRESERVATION_LOTS, [entry, ...lots])
+  return entry
+}
+
+/** WO 목록을 순회하며 새로 '완료'된 항목의 LOT 재고 현황 반영을 처리하고,
+ *  presApplied 플래그가 갱신된 새 목록을 반환한다. (중복 반영 방지) */
+export function syncPreservationLotsFromWoList(list) {
+  return list.map(w => {
+    if (w.status === '완료' && !w.presApplied) {
+      const res = addPreservationLotOnWoComplete(w)
+      if (res) return { ...w, presApplied: true }
+    }
+    return w
+  })
+}
+
+/** WO가 '완료'로 바뀔 때 필요한 모든 하위 모듈 자동 반영(완제품재고 +
+ *  LOT 재고 현황)을 한 번에 처리하는 통합 헬퍼. ManufacturingHub의 모든
+ *  WO 상태 변경 지점에서 이 함수 하나만 호출하면 된다. */
+export function syncWoCompletionEffects(list) {
+  return syncPreservationLotsFromWoList(syncFinStockFromWoList(list))
+}
