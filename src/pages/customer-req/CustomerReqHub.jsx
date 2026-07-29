@@ -11,6 +11,8 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { onboarding } from '../../lib/onboardingState'
+import { companyDocs } from '../../lib/companyState'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.customer_reqs'
@@ -121,6 +123,35 @@ export default function CustomerReqHub() {
     }
   }
 
+  // 검토 완료(종결)는 상태 버튼 한 번으로 끝나지 않고, 기본정보에 등록된
+  // 품질책임자 또는 대표이사 본인만 승인자 성명을 입력해 승인해야 완료 처리된다.
+  function completeReview(id) {
+    const rec = records.find(r => r.id === id)
+    if (!rec) return
+    if (rec.status !== 'accepted') return
+    if (!reviewPassed(rec)) {
+      alert('모든 검토 항목이 통과 또는 해당없음으로 완료되어야 승인할 수 있습니다.')
+      return
+    }
+    const qmName = ((companyDocs.getQualityManager() || {}).name || '').trim()
+    const ceoName = ((onboarding.load().company || {}).ceo || '').trim()
+    if (!qmName && !ceoName) {
+      alert('기본정보에 품질책임자 또는 대표이사가 등록되어 있지 않습니다. 먼저 기본정보에서 등록하세요.')
+      return
+    }
+    const who = [qmName && `품질책임자(${qmName})`, ceoName && `대표이사(${ceoName})`].filter(Boolean).join(' 또는 ')
+    const input = window.prompt(`검토 완료 승인 — ${who} 본인만 승인할 수 있습니다.\n승인자 성명을 입력하세요:`, '')
+    if (input === null) return
+    const approver = input.trim()
+    if (!approver) { alert('승인자 성명을 입력해야 합니다.'); return }
+    if (approver !== qmName && approver !== ceoName) {
+      alert('입력한 이름이 등록된 품질책임자 또는 대표이사와 일치하지 않아 승인할 수 없습니다.')
+      return
+    }
+    save(records.map(r => r.id === id ? { ...r, status: 'closed', approvedBy: approver, approvedDate: today() } : r))
+    if (selectedId === id) setSelectedId(id)
+  }
+
   function updateReviewItem(recId, idx, field, value) {
     const next = records.map(r => {
       if (r.id !== recId) return r
@@ -167,12 +198,6 @@ export default function CustomerReqHub() {
     if (filterStatus !== 'all' && r.status !== filterStatus) return false
     return true
   }), [records, filterStatus])
-
-  function reviewProgress(rec) {
-    const items = (rec.reviewItems || [])
-    const decided = items.filter(i => i.result !== null && i.result !== undefined)
-    return items.length ? Math.round((decided.length / items.length) * 100) : 0
-  }
 
   function reviewPassed(rec) {
     return (rec.reviewItems || []).every(i => i.result === 'pass' || i.result === 'na')
@@ -247,7 +272,6 @@ export default function CustomerReqHub() {
               <div className="space-y-3">
                 {filteredRecords.map(rec => {
                   const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
-                  const prog = reviewProgress(rec)
                   const passed = reviewPassed(rec)
                   return (
                     <div key={rec.id} className="p-4 rounded-2xl cursor-pointer transition"
@@ -271,18 +295,11 @@ export default function CustomerReqHub() {
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-1">
-                          {/* 검토 진행률 */}
-                          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>검토 {prog}%</div>
-                          <div className="h-1.5 rounded-full w-24" style={{ background: 'var(--bg-soft)' }}>
-                            <div className="h-1.5 rounded-full" style={{ width: `${prog}%`, background: prog === 100 ? '#059669' : '#D97706' }} />
+                        {(rec.communications || []).length > 0 && (
+                          <div className="text-[10.5px] flex items-center gap-1 shrink-0" style={{ color: '#2563EB' }}>
+                            <MessageSquare size={9} /> {rec.communications.length}건
                           </div>
-                          {(rec.communications || []).length > 0 && (
-                            <div className="text-[10.5px] flex items-center gap-1" style={{ color: '#2563EB' }}>
-                              <MessageSquare size={9} /> {rec.communications.length}건
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
 
                       {canEdit && (
@@ -290,7 +307,7 @@ export default function CustomerReqHub() {
                           {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
                           {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
                           {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
-                          {rec.status === 'accepted'  && <QuickBtn label="완료" color="#9CA3AF" onClick={() => quickStatus(rec.id, 'closed')} />}
+                          {rec.status === 'accepted'  && <QuickBtn label="완료(승인)" color="#9CA3AF" onClick={() => completeReview(rec.id)} />}
                           <button onClick={() => { setForm({ ...EMPTY_FORM, ...rec }); setEditId(rec.id); setShowForm(true) }}
                             className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                             <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
@@ -317,7 +334,7 @@ export default function CustomerReqHub() {
             commForm={commForm} setCommForm={setCommForm}
             showCommForm={showCommForm} setShowCommForm={setShowCommForm}
             addCommunication={addCommunication} deleteComm={deleteComm}
-            quickStatus={quickStatus} reviewProgress={reviewProgress} reviewPassed={reviewPassed}
+            quickStatus={quickStatus} completeReview={completeReview} reviewPassed={reviewPassed}
           />
         )}
 
@@ -333,9 +350,8 @@ export default function CustomerReqHub() {
 // ── 상세 뷰 ──────────────────────────────────────────────────
 function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
   commForm, setCommForm, showCommForm, setShowCommForm, addCommunication, deleteComm,
-  quickStatus, reviewProgress, reviewPassed }) {
+  quickStatus, completeReview, reviewPassed }) {
   const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
-  const prog = reviewProgress(rec)
   const passed = reviewPassed(rec)
   const [openSec, setOpenSec] = useState({ reqs: true, review: true, comms: true })
   const toggle = k => setOpenSec(s => ({ ...s, [k]: !s[k] }))
@@ -378,17 +394,6 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
           ))}
         </div>
 
-        {/* 검토 진행률 */}
-        <div className="mb-3">
-          <div className="flex justify-between text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>
-            <span className="font-semibold">계약 전 검토 진행률 (§7.2.2)</span>
-            <span className="font-bold" style={{ color: prog === 100 ? '#059669' : '#D97706' }}>{prog}%</span>
-          </div>
-          <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
-            <div className="h-2 rounded-full transition-all" style={{ width: `${prog}%`, background: prog === 100 ? '#059669' : '#D97706' }} />
-          </div>
-        </div>
-
         {/* 연결 링크 */}
         {(rec.linkedSalesId || rec.linkedQualityPlanId || rec.linkedDhfId) && (
           <div className="flex gap-2 flex-wrap mb-2">
@@ -410,7 +415,7 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
             {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
             {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
             {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
-            {rec.status === 'accepted'  && <QuickBtn label="완료" color="#9CA3AF" onClick={() => quickStatus(rec.id, 'closed')} />}
+            {rec.status === 'accepted'  && <QuickBtn label="완료(승인)" color="#9CA3AF" onClick={() => completeReview(rec.id)} />}
           </div>
         )}
       </div>
@@ -503,9 +508,9 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
           })}
         </div>
         {(rec.reviewedBy || rec.approvedBy) && (
-          <div className="mt-3 flex gap-4 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+          <div className="mt-3 flex gap-4 flex-wrap text-[12px]" style={{ color: 'var(--ink-faint)' }}>
             {rec.reviewedBy && <span>검토자: <strong style={{ color: 'var(--ink)' }}>{rec.reviewedBy}</strong></span>}
-            {rec.approvedBy && <span>승인자: <strong style={{ color: 'var(--ink)' }}>{rec.approvedBy}</strong></span>}
+            {rec.approvedBy && <span>승인자: <strong style={{ color: 'var(--ink)' }}>{rec.approvedBy}</strong>{rec.approvedDate ? ` (${rec.approvedDate})` : ''}</span>}
           </div>
         )}
       </SectionCard>
