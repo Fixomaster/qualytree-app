@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Cog,
@@ -13,6 +13,12 @@ import {
   Workflow,
   Factory,
   Paperclip,
+  ArrowUpDown,
+  Printer,
+  ChevronRight,
+  CheckCircle2,
+  Circle,
+  XCircle,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -20,6 +26,8 @@ import { auth } from '../../lib/auth'
 import { syncOrderStatusFromWo, syncFinStockFromWoList } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
 import { fileStore } from '../../lib/fileStore'
+import { printInspectionCert } from '../../lib/pdfPrint'
+import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgress, deriveStepsFromRecords } from '../../lib/productionControl'
 
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
@@ -95,8 +103,15 @@ const INIT_NCR=[
 ]
 
 /* ─── 작업지시 (WO) ─── */
-function WoView({wo,setWo,openId}){
+const WO_SORTS = {
+  dueDate: { label:'납기일순', fn:(a,b)=>String(a.dueDate||'').localeCompare(String(b.dueDate||'')) },
+  progress: { label:'진행률순', fn:(a,b)=>(Number(a.progress)||0)-(Number(b.progress)||0) },
+  status: { label:'상태순', fn:(a,b)=>String(a.status||'').localeCompare(String(b.status||'')) },
+  id: { label:'WO번호순', fn:(a,b)=>String(a.id||'').localeCompare(String(b.id||'')) },
+}
+function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
   const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
+  const[sortKey,setSortKey]=useState('dueDate');const[sortDir,setSortDir]=useState('asc')
   useEffect(() => {
     if (openId) { const item = wo.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -104,21 +119,35 @@ function WoView({wo,setWo,openId}){
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
     const id = edit ? edit.id : nid('WO')
-    if(edit){setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncFinStockFromWoList([...p,{id,...f}]))}
+    if(edit){setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncFinStockFromWoList([...p,{id,progress:'0',...f}]))}
     syncOrderStatusFromWo(id, f.status)
     setModal(null)
   }
+  const sorted = useMemo(()=>{
+    const arr = [...wo].sort(WO_SORTS[sortKey].fn)
+    return sortDir==='desc' ? arr.reverse() : arr
+  }, [wo, sortKey, sortDir])
   return(
     <div>
       <SectionTitle breadcrumb="작업지시 (WO)">작업지시 관리</SectionTitle>
       <Card>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>작업지시 목록 (ISO 13485 §7.5.1) — {wo.length}건</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> WO 발행</button>
+          <div className="flex items-center gap-2">
+            <select style={{...sel,width:'auto',padding:'5px 8px',fontSize:'12px'}} value={sortKey} onChange={e=>setSortKey(e.target.value)}>
+              {Object.entries(WO_SORTS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <button onClick={()=>setSortDir(d=>d==='asc'?'desc':'asc')} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px]" style={{background:'var(--bg-soft)',color:'var(--ink-mute)'}} title="정렬 방향 전환">
+              <ArrowUpDown size={12}/>{sortDir==='asc'?'오름차순':'내림차순'}
+            </button>
+            <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> WO 발행</button>
+          </div>
         </div>
         <div className="space-y-3">
-          {wo.length===0?<EmptyCard/>:wo.map(w=>(
-      <div key={w.id} className="p-3 rounded-xl" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
+          {sorted.length===0?<EmptyCard/>:sorted.map(w=>{
+            const {pct,auto} = computeWoProgress(w, proc, pcps)
+            return(
+      <div key={w.id} onClick={()=>onOpenProc&&onOpenProc(w.id)} className="p-3 rounded-xl cursor-pointer transition hover:shadow-md" style={{border:'1px solid var(--line)',background:'var(--bg)'}}>
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-[12px] font-bold" style={{color:'var(--moss)'}}>{w.id}</span>
@@ -126,43 +155,29 @@ function WoView({wo,setWo,openId}){
                   <Badge text={`${w.qty}EA`} tone="gray"/>
                   {w.so&&<span className="font-mono text-[10px]" style={{color:'var(--ink-faint)'}}>{w.so}</span>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2" onClick={e=>e.stopPropagation()}>
                   <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===w.id?{...x,status:v}:x)));syncOrderStatusFromWo(w.id,v)}}/>
                   <ActBtn label="수정" onClick={()=>{setEdit(w);setModal('form')}}/>
                   <ActBtn label="삭제" color="red" onClick={()=>del(w.id)}/>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-[12px] mb-2" style={{color:'var(--ink-mute)'}}>
+              <div className="flex items-center gap-4 text-[12px] mb-2 flex-wrap" style={{color:'var(--ink-mute)'}}>
                 <span>현공정: <b style={{color:'var(--ink)'}}>{w.step}</b></span>
                 <span>담당: {w.assignee}</span>
                 <span>납기: {w.dueDate}</span>
-                <AttachLink fileId={w.fileId} fileName={w.fileName}/>
+                <span onClick={e=>e.stopPropagation()}><AttachLink fileId={w.fileId} fileName={w.fileName}/></span>
+                <span className="flex items-center gap-1" style={{color:'var(--moss)'}}>공정기록 보기 <ChevronRight size={12}/></span>
               </div>
               <div>
                 <div className="flex justify-between text-[11px] mb-1" style={{color:'var(--ink-mute)'}}>
-                  <span>진행률</span><span style={{color:'var(--moss)',fontWeight:600}}>{w.progress}%</span>
+                  <span>진행률 {auto?'(공정기록 자동 연동)':'(공정 미정의)'}</span><span style={{color:'var(--moss)',fontWeight:600}}>{pct}%</span>
                 </div>
                 <div className="rounded-full h-2" style={{background:'var(--bg-soft)'}}>
-                  <div className="rounded-full h-2 transition-all" style={{width:`${w.progress}%`,background:w.progress==='100'?'var(--moss)':'#60a5fa'}}/>
+                  <div className="rounded-full h-2 transition-all" style={{width:`${pct}%`,background:pct===100?'var(--moss)':'#60a5fa'}}/>
                 </div>
               </div>
-              {w.status==='진행중'&&(
-                <div className="flex gap-1 mt-2">
-                  {[10,25,50,75,90,100].map(p=>(
-                    <button key={p} onClick={()=>{
-                      const newStatus = p===100?'완료':w.status
-                      setWo(prev=>syncFinStockFromWoList(prev.map(x=>x.id===w.id?{...x,progress:String(p),status:newStatus}:x)))
-                      if (newStatus !== w.status) syncOrderStatusFromWo(w.id, newStatus)
-                    }}
-                      className="text-[10px] px-2 py-0.5 rounded font-mono transition"
-                      style={{background:Number(w.progress)===p?'var(--moss)':'var(--bg-soft)',color:Number(w.progress)===p?'var(--bg)':'var(--ink-mute)'}}>
-                      {p}%
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
-          ))}
+          )})}
         </div>
       </Card>
       {modal==='form'&&<Modal title={edit?'WO 수정':'작업지시 발행'} onClose={()=>{setModal(null);setEdit(null)}}><WoForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
@@ -170,7 +185,7 @@ function WoView({wo,setWo,openId}){
   )
 }
 function WoForm({initial,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',progress:'0',status:'대기',fileId:null,fileName:'',...initial})
+  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',status:'대기',fileId:null,fileName:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
@@ -182,77 +197,205 @@ function WoForm({initial,onSave,onCancel,statusOpts}){
         <FL label="시작일"><input style={inp} type="date" value={f.startDate} onChange={set('startDate')}/></FL>
         <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
         <FL label="담당팀/자"><input style={inp} value={f.assignee} onChange={set('assignee')}/></FL>
-        <FL label="진행률(%)"><input style={inp} type="number" min="0" max="100" value={f.progress} onChange={set('progress')}/></FL>
         <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
+      <div className="text-[11px] px-2.5 py-2 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>진행률은 개발에서 정의한 공정 순서·공정기록 입력 현황에 따라 자동으로 계산됩니다.</div>
       <SingleAttach label="첨부 파일 (도면·작업지시서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.product&&onSave(f)}>{initial.product?'수정 저장':'WO 발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
 
-/* ─── 공정 기록 ─── */
-function ProcRecView({proc,setProc,wo}){
-  const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
-  const del=id=>{if(window.confirm('삭제하시겠습니까?'))setProc(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setProc(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setProc(p=>[...p,{id:nid('PR'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
-  const resultOpts=['합격','조건부합격','불합격','해당없음']
+/* ─── 공정 기록 (WO별 공정 흐름 카드) ─── */
+const STEP_ICON = { done: CheckCircle2, fail: XCircle, todo: Circle }
+const STEP_COLOR = { done: 'var(--moss)', fail: 'var(--rust)', todo: 'var(--ink-faint)' }
+function StepChip({label,status,onClick}){
+  const Icon = STEP_ICON[status] || Circle
+  const c = STEP_COLOR[status] || 'var(--ink-faint)'
   return(
-    <div>
-      <SectionTitle breadcrumb="공정 기록">공정 기록 (배치 레코드)</SectionTitle>
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>공정 기록 목록 (ISO 13485 §7.5.1) — {proc.length}건</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 기록 추가</button>
+    <button onClick={onClick} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11.5px] font-medium shrink-0 transition hover:opacity-80" style={{border:`1px solid ${status==='todo'?'var(--line)':c}`,background:status==='todo'?'var(--bg-soft)':(status==='fail'?'var(--rust-soft)':'var(--leaf-soft)'),color:c}}>
+      <Icon size={13}/> {label}
+    </button>
+  )
+}
+function WoProcCard({w,proc,pcps,setProc,focused}){
+  const[histOpen,setHistOpen]=useState(false)
+  const[stepModal,setStepModal]=useState(null) // {pcpStep, record}
+  const pcp = useMemo(()=>findPcpForProduct(w.product, pcps), [w.product, pcps])
+  const pcpSteps = useMemo(()=>orderedSteps(pcp), [pcp])
+  const derived = useMemo(()=>deriveStepsFromRecords(w.id, proc), [w.id, proc])
+  const steps = pcpSteps.length>0 ? pcpSteps : derived
+  const records = proc.filter(p=>p.wo===w.id)
+  const resultOpts=['합격','조건부합격','불합격','해당없음']
+  const openStep = (pcpStep) => {
+    const rec = latestOrNullFor(w.id, pcpStep?.stepName, proc)
+    setStepModal({pcpStep, record: rec})
+  }
+  const saveStep = (f) => {
+    if (f.editId) { setProc(p=>p.map(x=>x.id===f.editId?{...x,...f}:x)) }
+    else { setProc(p=>[...p,{id:nid('PR'),date:new Date().toISOString().slice(0,10),...f}]) }
+    setStepModal(null)
+  }
+  const delRec = id=>{if(window.confirm('삭제하시겠습니까?'))setProc(p=>p.filter(x=>x.id!==id))}
+  return(
+    <Card>
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-mono text-[12px] font-bold" style={{color:'var(--moss)'}}>{w.id}</span>
+          <Badge text={w.product} tone="blue"/>
+          <Badge text={`${w.qty}EA`} tone="gray"/>
+          <Badge text={w.status} tone={statusTone(w.status)}/>
         </div>
-        <div className="overflow-x-auto">
+        <span className="text-[11px]" style={{color:'var(--ink-faint)'}}>{pcp?`연동 PCP: ${pcp.pcpNo||pcp.productName}`:(derived.length>0?'공정 정의 없음 — 기록 기반 임시 흐름':'공정 정의 없음')}</span>
+      </div>
+      {steps.length===0?(
+        <div className="text-[12px] py-3 text-center" style={{color:'var(--ink-mute)'}}>등록된 공정 흐름이 없습니다. 아래 버튼으로 첫 공정 기록을 추가하세요.</div>
+      ):(
+        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+          {steps.map((s,i)=>(
+            <React.Fragment key={s.id||s.stepName+i}>
+              <StepChip label={s.stepName} status={stepStatus(w.id, s.stepName, proc)} onClick={()=>openStep(pcpSteps.length>0?s:{stepName:s.stepName,equipment:s.equipment,controlParams:s.controlParams,freeform:true})}/>
+              {i<steps.length-1&&<ChevronRight size={13} style={{color:'var(--ink-faint)'}}/>}
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+      <div className="flex items-center gap-2 mt-2">
+        <ActBtn label="+ 추가 공정 입력" onClick={()=>setStepModal({pcpStep:null, record:null})}/>
+        <ActBtn label={histOpen?'이력 숨기기':`이력 보기 (${records.length}건)`} onClick={()=>setHistOpen(v=>!v)}/>
+      </div>
+      {histOpen&&(
+        <div className="overflow-x-auto mt-3">
           <table className="w-full">
-            <thead><tr>{['기록ID','WO','일자','공정단계','설비','작업자','공정 파라미터','결과','비고','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{proc.length===0?<EmptyRow/>:proc.map(p=>(
+            <thead><tr>{['기록ID','일자','공정단계','설비','작업자','실측/파라미터','결과','비고','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <tbody>{records.length===0?<EmptyRow/>:records.map(p=>(
       <tr key={p.id}>
                 <TD mono color="var(--moss)">{p.id}</TD>
-                <TD mono muted>{p.wo}</TD>
                 <TD mono muted>{p.date}</TD>
                 <TD><span className="font-medium">{p.step}</span></TD>
                 <TD muted>{p.machine}</TD>
                 <TD>{p.operator}</TD>
-                <TD muted>{p.param}</TD>
+                <TD muted>{p.measured||p.param}</TD>
                 <TD><Badge text={p.result} tone={statusTone(p.result)}/></TD>
                 <TD muted>{p.note||'—'}</TD>
                 <TD>{p.fileId?<AttachLink fileId={p.fileId} fileName={p.fileName}/>:<span style={{color:'var(--ink-faint)'}}>—</span>}</TD>
-                <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(p);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(p.id)}/></div></TD>
+                <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>setStepModal({pcpStep:pcpSteps.find(s=>s.stepName===p.step)||null, record:p})}/><ActBtn label="삭제" color="red" onClick={()=>delRec(p.id)}/></div></TD>
               </tr>
             ))}</tbody>
           </table>
         </div>
-      </Card>
-      {modal==='form'&&<Modal title={edit?'기록 수정':'공정 기록 추가'} onClose={()=>{setModal(null);setEdit(null)}}><ProcForm initial={edit||{}} wo={wo} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} resultOpts={resultOpts}/></Modal>}
-    </div>
+      )}
+      {stepModal&&<Modal title={stepModal.record?'공정 기록 수정':(stepModal.pcpStep?`공정 입력 — ${stepModal.pcpStep.stepName}`:'공정 기록 추가')} onClose={()=>setStepModal(null)}>
+        <StepEntryForm woId={w.id} pcpStep={stepModal.pcpStep} record={stepModal.record} resultOpts={resultOpts} onSave={saveStep} onCancel={()=>setStepModal(null)}/>
+      </Modal>}
+    </Card>
   )
 }
-function ProcForm({initial,wo,onSave,onCancel,resultOpts}){
-  const[f,sf]=useState({wo:'',step:'',machine:'',operator:'',param:'',result:'합격',note:'',fileId:null,fileName:'',...initial})
+function latestOrNullFor(woId, stepName, procRecords){
+  if(!stepName) return null
+  const matches=(procRecords||[]).filter(r=>r.wo===woId&&r.step===stepName)
+  if(!matches.length) return null
+  return [...matches].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0))[0]
+}
+function StepEntryForm({woId,pcpStep,record,resultOpts,onSave,onCancel}){
+  const isPcp = !!(pcpStep && !pcpStep.freeform)
+  const[f,sf]=useState({
+    wo:woId,
+    step:pcpStep?pcpStep.stepName:'',
+    machine:pcpStep?pcpStep.equipment:'',
+    operator:'',
+    param:isPcp?(pcpStep.controlParams||''):'',
+    measured:'',
+    result:'합격',
+    note:'',
+    fileId:null,fileName:'',
+    ...record,
+    editId:record?record.id:undefined,
+  })
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
+  const canSave = f.step && f.operator
   return(
     <div className="space-y-3">
+      {isPcp?(
+        <div className="rounded-lg p-3 text-[12px] space-y-1" style={{background:'var(--bg-soft)',color:'var(--ink-mute)'}}>
+          <div><b style={{color:'var(--ink)'}}>공정단계:</b> {pcpStep.stepName} {pcpStep.processType&&`(${pcpStep.processType})`}</div>
+          <div><b style={{color:'var(--ink)'}}>설비:</b> {pcpStep.equipment||'—'}</div>
+          <div><b style={{color:'var(--ink)'}}>관리 파라미터 기준:</b> {pcpStep.controlParams||'—'}</div>
+          <div><b style={{color:'var(--ink)'}}>관리 방법:</b> {pcpStep.controlMethod||'—'}</div>
+          <div><b style={{color:'var(--ink)'}}>합격 기준:</b> {pcpStep.acceptanceCriteria||'—'}</div>
+          {pcpStep.responsible&&<div><b style={{color:'var(--ink)'}}>책임자:</b> {pcpStep.responsible}</div>}
+        </div>
+      ):(
+        <div className="grid grid-cols-2 gap-3">
+          <FL label="공정 단계 *"><input style={inp} value={f.step} onChange={set('step')} placeholder="예) CNC 선삭"/></FL>
+          <FL label="사용 설비"><input style={inp} value={f.machine} onChange={set('machine')} placeholder="CNC-01, 외주 등"/></FL>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <FL label="WO 번호"><select style={sel} value={f.wo} onChange={set('wo')}><option value="">직접 입력</option>{wo.map(w=><option key={w.id} value={w.id}>{w.id} — {w.product}</option>)}</select></FL>
-        <FL label="공정 단계 *"><input style={inp} value={f.step} onChange={set('step')} placeholder="예) CNC 선삭"/></FL>
-        <FL label="사용 설비"><input style={inp} value={f.machine} onChange={set('machine')} placeholder="CNC-01, 외주 등"/></FL>
         <FL label="작업자 *"><input style={inp} value={f.operator} onChange={set('operator')}/></FL>
         <FL label="결과"><select style={sel} value={f.result} onChange={set('result')}>{resultOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
-      <FL label="공정 파라미터"><textarea style={{...inp,minHeight:'60px',resize:'vertical'}} value={f.param} onChange={set('param')} placeholder="설정값, 조건, LOT번호 등"/></FL>
+      {isPcp?(
+        <FL label="실측값 / 실제 기록"><textarea style={{...inp,minHeight:'50px',resize:'vertical'}} value={f.measured} onChange={set('measured')} placeholder="실제 측정값·LOT번호 등을 입력하세요"/></FL>
+      ):(
+        <FL label="공정 파라미터"><textarea style={{...inp,minHeight:'50px',resize:'vertical'}} value={f.param} onChange={set('param')} placeholder="설정값, 조건, LOT번호 등"/></FL>
+      )}
       <FL label="비고"><input style={inp} value={f.note} onChange={set('note')}/></FL>
       <SingleAttach label="첨부 파일 (배치기록·LOT 서류 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.step&&f.operator&&onSave(f)}>{initial.step?'수정 저장':'기록 추가'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+      <div className="flex gap-2 pt-2"><SBtn onClick={()=>canSave&&onSave(f)}>{record?'수정 저장':'기록 저장'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+    </div>
+  )
+}
+function ProcRecView({proc,setProc,wo,pcps,focusWo}){
+  const ordered = useMemo(()=>{
+    if(!focusWo) return wo
+    const f = wo.find(w=>w.id===focusWo)
+    if(!f) return wo
+    return [f, ...wo.filter(w=>w.id!==focusWo)]
+  }, [wo, focusWo])
+  return(
+    <div>
+      <SectionTitle breadcrumb="공정 기록">공정 기록 (배치 레코드)</SectionTitle>
+      <div className="space-y-4">
+        {ordered.length===0?<Card><EmptyCard/></Card>:ordered.map(w=>(
+          <div key={w.id} style={focusWo===w.id?{outline:'2px solid var(--moss)',borderRadius:'12px'}:undefined}>
+            <WoProcCard w={w} proc={proc} pcps={pcps} setProc={setProc} focused={focusWo===w.id}/>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
 /* ─── 공정 검사 ─── */
+function InspectCertificate({insp,wo,onClose}){
+  const w = wo.find(x=>x.id===insp.wo)
+  const Row=({label,value})=><div className="grid grid-cols-3 gap-2 py-1.5" style={{borderBottom:'1px solid var(--line)'}}><span className="text-[11.5px]" style={{color:'var(--ink-faint)'}}>{label}</span><span className="col-span-2 text-[12.5px]" style={{color:'var(--ink)'}}>{value||'—'}</span></div>
+  return(
+    <div className="space-y-1">
+      <div className="text-center mb-3">
+        <div className="text-[15px] font-bold" style={{color:'var(--ink)'}}>공정검사성적서</div>
+        <div className="text-[11px]" style={{color:'var(--ink-faint)'}}>In-Process Inspection Certificate · ISO 13485 §8.2.6</div>
+      </div>
+      <Row label="검사 ID" value={insp.id}/>
+      <Row label="검사일" value={insp.date}/>
+      <Row label="작업지시(WO)" value={insp.wo}/>
+      <Row label="제품명" value={w?.product}/>
+      <Row label="검사 단계" value={insp.step}/>
+      <Row label="검사자" value={insp.inspector}/>
+      <Row label="검사 규격" value={insp.spec}/>
+      <Row label="실측값" value={insp.measured}/>
+      <Row label="결과" value={<Badge text={insp.status} tone={statusTone(insp.status)}/>}/>
+      <Row label="첨부" value={insp.fileId?<AttachLink fileId={insp.fileId} fileName={insp.fileName}/>:'—'}/>
+      <div className="flex gap-2 pt-4">
+        <SBtn onClick={()=>printInspectionCert(insp,w)}><span className="flex items-center gap-1.5"><Printer size={13}/> 인쇄</span></SBtn>
+        <SBtn onClick={onClose} secondary>닫기</SBtn>
+      </div>
+    </div>
+  )
+}
 function InspectView({inspect,setInspect,wo}){
-  const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
+  const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null);const[certRow,setCertRow]=useState(null)
   const statusOpts=['검사중','합격','조건부','불합격']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInspect(p=>p.filter(x=>x.id!==id))}
   const save=f=>{if(edit){setInspect(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setInspect(p=>[...p,{id:nid('IPC'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
@@ -261,14 +404,14 @@ function InspectView({inspect,setInspect,wo}){
       <SectionTitle breadcrumb="공정 검사 (IPC)">공정 검사</SectionTitle>
       <Card>
         <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>공정검사 결과 (ISO 13485 §8.2.6) — {inspect.length}건</span>
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>공정검사 결과 (ISO 13485 §8.2.6) — {inspect.length}건 · 행 클릭 시 성적서 보기</span>
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 검사 등록</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격','측정값','결과','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{inspect.length===0?<EmptyRow/>:inspect.map(i=>(
-      <tr key={i.id}>
+      <tr key={i.id} onClick={()=>setCertRow(i)} className="cursor-pointer" style={{transition:'background 0.1s'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-soft)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                 <TD mono color="var(--moss)">{i.id}</TD>
                 <TD mono muted>{i.wo}</TD>
                 <TD>{i.step}</TD>
@@ -276,15 +419,16 @@ function InspectView({inspect,setInspect,wo}){
                 <TD>{i.inspector}</TD>
                 <TD muted>{i.spec}</TD>
                 <TD mono muted>{i.measured}</TD>
-                <TD><StatusSelect value={i.status} options={statusOpts} onChange={v=>setInspect(p=>p.map(x=>x.id===i.id?{...x,status:v,result:v}:x))}/></TD>
+                <TD><span onClick={e=>e.stopPropagation()}><StatusSelect value={i.status} options={statusOpts} onChange={v=>setInspect(p=>p.map(x=>x.id===i.id?{...x,status:v,result:v}:x))}/></span></TD>
                 <TD>{i.fileId?<AttachLink fileId={i.fileId} fileName={i.fileName}/>:<span style={{color:'var(--ink-faint)'}}>—</span>}</TD>
-                <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
+                <TD><div className="flex gap-1" onClick={e=>e.stopPropagation()}><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
               </tr>
             ))}</tbody>
           </table>
         </div>
       </Card>
       {modal==='form'&&<Modal title={edit?'검사 수정':'공정 검사 등록'} onClose={()=>{setModal(null);setEdit(null)}}><InspectForm initial={edit||{}} wo={wo} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
+      {certRow&&<Modal title="공정검사성적서" onClose={()=>setCertRow(null)}><InspectCertificate insp={certRow} wo={wo} onClose={()=>setCertRow(null)}/></Modal>}
     </div>
   )
 }
@@ -489,11 +633,38 @@ export default function ManufacturingHub(){
   const[proc,setProc]=useLS('qms_mfg_proc',INIT_PROC)
   const[inspect,setInspect]=useLS('qms_mfg_inspect',INIT_INSPECT)
   const[ncr,setNcr]=useLS('qms_mfg_ncr',INIT_NCR)
+  const[focusWo,setFocusWo]=useState(null)
+  const pcps = useMemo(()=>loadPcps(), [view])
+  const onOpenProc = (woId) => { setFocusWo(woId); setView('proc') }
+
+  /* 작업지시 진행률을 개발에서 정의한 공정 순서·공정기록 입력 현황에 따라 자동 계산하고,
+     100%에 도달하면 상태를 자동으로 '완료'로 전환한다 (완제품재고/수주상태 자동 연동 포함). */
+  useEffect(() => {
+    const curPcps = loadPcps()
+    let changed = false
+    const statusChanges = []
+    const next = wo.map(w => {
+      if (w.status === '취소' || w.status === '완료') return w
+      const { pct, auto } = computeWoProgress(w, proc, curPcps)
+      if (!auto) return w
+      const pctStr = String(pct)
+      const newStatus = pct === 100 ? '완료' : w.status
+      if (w.progress === pctStr && newStatus === w.status) return w
+      changed = true
+      if (newStatus !== w.status) statusChanges.push([w.id, newStatus])
+      return { ...w, progress: pctStr, status: newStatus }
+    })
+    if (changed) {
+      setWo(syncFinStockFromWoList(next))
+      statusChanges.forEach(([id, st]) => syncOrderStatusFromWo(id, st))
+    }
+  }, [wo, proc])
+
   const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적',ops:'현장 운영'}
   const viewMap={
     home:<MfgHome wo={wo} ncr={ncr} inspect={inspect} proc={proc} onNavigate={setView}/>,
-    wo:<WoView wo={wo} setWo={setWo} openId={editId}/>,
-    proc:<ProcRecView proc={proc} setProc={setProc} wo={wo}/>,
+    wo:<WoView wo={wo} setWo={setWo} openId={editId} proc={proc} pcps={pcps} onOpenProc={onOpenProc}/>,
+    proc:<ProcRecView proc={proc} setProc={setProc} wo={wo} pcps={pcps} focusWo={focusWo}/>,
     inspect:<InspectView inspect={inspect} setInspect={setInspect} wo={wo}/>,
     ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo} openId={editId}/>,
     perf:<PerfView wo={wo}/>,
@@ -502,8 +673,8 @@ export default function ManufacturingHub(){
   return(
     <AppLayout user={user} title="생산" subtitle="작업지시 · 공정기록 · 검사 · 부적합 관리">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
-        {view!=='home'&&<button onClick={()=>setView('home')} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
-        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>setView(id)} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
+        {view!=='home'&&<button onClick={()=>{setView('home');setFocusWo(null)}} className="flex items-center gap-1.5 mb-5 text-[13px]" style={{color:'var(--moss)'}}><ArrowLeft size={14}/> 생산 홈</button>}
+        {view!=='home'&&<div className="flex gap-1 flex-wrap mb-5">{Object.entries(tabLabels).map(([id,label])=><button key={id} onClick={()=>{setView(id);if(id!=='proc')setFocusWo(null)}} className="text-[12px] px-3 py-1.5 rounded-lg border transition" style={{background:view===id?'var(--moss)':'var(--bg-card)',color:view===id?'var(--bg)':'var(--ink-mute)',borderColor:view===id?'var(--moss)':'var(--line)'}}>{label}</button>)}</div>}
         {viewMap[view]||viewMap.home}
       </div>
     </AppLayout>

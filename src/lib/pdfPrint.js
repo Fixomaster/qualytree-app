@@ -428,6 +428,38 @@ export function printWorkOrder(wo) {
   openPrint(pageWrapper(wo.woId || 'WO-XXXX', '작업지시서 / 전자배치기록', 'ISO 13485 §7.5', body))
 }
 
+// ── 공정검사성적서 (IPC Inspection Certificate) ─────────────────
+export function printInspectionCert(insp, wo) {
+  const resultBadge = (r) => {
+    const map = { '합격': ['badge-green', '합격'], '조건부': ['badge-orange', '조건부합격'], '조건부합격': ['badge-orange', '조건부합격'], '불합격': ['badge-red', '불합격'], '검사중': ['badge-gray', '검사중'] }
+    const [cls, label] = map[r] || ['badge-gray', r || '-']
+    return `<span class="badge ${cls}">${label}</span>`
+  }
+  const body = `
+    <div class="qt-subtitle">공정검사성적서 (In-Process Inspection Certificate)</div>
+    <div class="section-title">1. 검사 기본 정보</div>
+    <table>
+      <tr><th>검사 ID</th><td>${insp.id || '-'}</td><th>검사일</th><td>${insp.date?.slice(0,10) || insp.date || '-'}</td></tr>
+      <tr><th>작업지시(WO)</th><td>${insp.wo || '-'}</td><th>제품명</th><td>${wo?.product || '-'}</td></tr>
+      <tr><th>검사 단계</th><td colspan="3">${insp.step || '-'}</td></tr>
+      <tr><th>검사자</th><td>${insp.inspector || '-'}</td><th>결과</th><td>${resultBadge(insp.status || insp.result)}</td></tr>
+    </table>
+
+    <div class="section-title">2. 검사 규격 및 측정 결과</div>
+    <table>
+      <tr><th>검사 규격(기준)</th><td colspan="3">${insp.spec || '(없음)'}</td></tr>
+      <tr><th>실측값</th><td colspan="3">${insp.measured || '(없음)'}</td></tr>
+    </table>
+
+    <div class="section-title">3. 첨부 자료</div>
+    <div class="text-area-box" style="min-height:40px;">${insp.fileName ? `첨부: ${insp.fileName}` : '(첨부 없음)'}</div>
+
+    <div class="section-title">4. 비고</div>
+    <div class="text-area-box" style="min-height:60px;">${insp.note || '(없음)'}</div>
+  `
+  openPrint(pageWrapper(insp.id || 'IPC-XXXX', '공정검사성적서', 'ISO 13485 §8.2.6', body))
+}
+
 // ── 감사 체크리스트 ───────────────────────────────────────────
 export function printAuditChecklist(checks = {}) {
   const ITEMS = [
