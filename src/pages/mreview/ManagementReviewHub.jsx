@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Target,
-  MessageSquareWarning,
   ClipboardList,
   Plus,
   Trash2,
@@ -22,16 +21,14 @@ import { fileStore } from '../../lib/fileStore'
 import {
   reviews,
   qualityObjectives,
-  complaints,
   OBJECTIVE_STATUS,
-  COMPLAINT_STATUS,
   REVIEW_STATUS,
 } from '../../lib/managementReviewState'
 
 export default function ManagementReviewHub() {
   const user = auth.current()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'review') // review | objective | complaint
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'review') // review | objective
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)
@@ -39,11 +36,9 @@ export default function ManagementReviewHub() {
 
   const allReviews = reviews.getAll()
   const allObjectives = qualityObjectives.getAll()
-  const allComplaints = complaints.getAll()
-  const openComplaints = complaints.getOpenCount()
 
   return (
-    <AppLayout user={user} title="경영검토" subtitle="품질목표 / 고객불만 / 경영검토 기록">
+    <AppLayout user={user} title="경영검토" subtitle="품질목표 / 경영검토 기록">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
@@ -54,27 +49,24 @@ export default function ManagementReviewHub() {
 
         <HubBanner
           title="경영검토"
-          subtitle="ISO 13485 §5.6 / FDA QMSR §820.20(c) — KPI·품질목표·고객불만·CAPA현황 자동집계"
+          subtitle="ISO 13485 §5.6 / FDA QMSR §820.20(c) — KPI·품질목표·CAPA현황 자동집계"
           icon={ClipboardList}
           color="#6366F1"
-          workflow={['KPI 집계', '품질목표 검토', '고객불만 검토', '실행항목 수립', '승인·기록']}
+          workflow={['KPI 집계', '품질목표 검토', '실행항목 수립', '승인·기록']}
         />
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-2 gap-3 mb-5">
           <StatCard label="경영검토" value={allReviews.length} hint="누적 실시 건수" icon={ClipboardList} />
           <StatCard label="품질목표" value={allObjectives.length} hint="추적 중인 목표 수" icon={Target} />
-          <StatCard label="미종결 고객불만" value={openComplaints} hint={`전체 ${allComplaints.length}건 중`} icon={MessageSquareWarning} tone={openComplaints > 0 ? 'amber' : undefined} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
           <TabButton active={tab === 'review'} onClick={() => setTab('review')} icon={ClipboardList} label="경영검토 기록" en="REVIEWS" count={allReviews.length} />
           <TabButton active={tab === 'objective'} onClick={() => setTab('objective')} icon={Target} label="품질목표" en="OBJECTIVES" count={allObjectives.length} />
-          <TabButton active={tab === 'complaint'} onClick={() => setTab('complaint')} icon={MessageSquareWarning} label="고객불만" en="COMPLAINTS" count={allComplaints.length} />
         </div>
 
         {tab === 'review' && <ReviewTab key={tick} reviewList={allReviews} onAction={showToast} refresh={refresh} />}
         {tab === 'objective' && <ObjectiveTab key={'obj' + tick} list={allObjectives} onAction={showToast} refresh={refresh} />}
-        {tab === 'complaint' && <ComplaintTab key={'cx' + tick} list={allComplaints} onAction={showToast} refresh={refresh} />}
       </div>
     </AppLayout>
   )
@@ -168,7 +160,7 @@ function ReviewTab({ reviewList, onAction, refresh }) {
     setSelId(rec.id)
     setForm(EMPTY)
     setAdding(false)
-    onAction('경영검토가 생성되었습니다 · KPI·품질목표·고객불만·CAPA현황이 자동 집계되었습니다.')
+    onAction('경영검토가 생성되었습니다 · KPI·품질목표·CAPA현황이 자동 집계되었습니다.')
     refresh()
   }
   const del = (id) => {
@@ -191,7 +183,7 @@ function ReviewTab({ reviewList, onAction, refresh }) {
             <Field label="검토 대상 기간" value={form.period} onChange={(v) => setF('period', v)} placeholder="예: 2026년 상반기" />
             <Field label="회의일" type="date" value={form.meetingDate} onChange={(v) => setF('meetingDate', v)} />
             <Field label="참석자" value={form.attendees} onChange={(v) => setF('attendees', v)} placeholder="쉼표로 구분" />
-            <TextAreaField label="안건" value={form.agenda} onChange={(v) => setF('agenda', v)} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) 고객불만·CAPA 현황" minHeight={60} />
+            <TextAreaField label="안건" value={form.agenda} onChange={(v) => setF('agenda', v)} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) CAPA 현황" minHeight={60} />
             <div className="flex justify-end gap-2">
               <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
               <button onClick={create} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>생성 · 자동집계</button>
@@ -282,7 +274,6 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
           <MiniStat label="공급자 재평가 도래" value={k.supplierReevalDue} tone={k.supplierReevalDue > 0 ? 'amber' : undefined} />
           <MiniStat label="내부심사 미종결" value={k.auditOpenFindings} tone={k.auditOpenFindings > 0 ? 'amber' : undefined} />
           <MiniStat label="교육 이수율" value={k.trainingCompliance == null ? '—' : k.trainingCompliance + '%'} />
-          <MiniStat label="고객불만 미종결" value={k.complaintOpen + ' / ' + k.complaintTotal} tone={k.complaintOpen > 0 ? 'amber' : undefined} />
         </div>
       </div>
 
@@ -299,7 +290,7 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
 
       <div className="card-base p-4 space-y-3">
         <div className="text-[13px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--ink)' }}><FileText size={14} /> 회의록</div>
-        <TextAreaField label="안건" value={agenda} onChange={setAgenda} minHeight={60} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) 고객불만·CAPA 현황" disabled={!canEdit} />
+        <TextAreaField label="안건" value={agenda} onChange={setAgenda} minHeight={60} placeholder="예: 1) QMS 적절성 검토 2) 품질목표 실적 3) CAPA 현황" disabled={!canEdit} />
         <TextAreaField label="논의 내용·결정사항" value={decisions} onChange={setDecisions} minHeight={120} placeholder="QMS 적절성·효과성 평가, 자원 필요성, 개선 필요사항 등 (ISO 13485 §5.6.3)" disabled={!canEdit} />
         {canEdit && <div className="flex justify-end"><button onClick={saveMinutes} className="btn-ghost text-[12.5px]">회의록 저장</button></div>}
 
@@ -421,7 +412,7 @@ function ObjectiveTab({ list, onAction, refresh }) {
       {canEdit && (
         <div className="card-base p-4 space-y-2">
           <div className="grid sm:grid-cols-2 gap-2">
-            <Field label="품질목표" value={form.objective} onChange={(v) => setF('objective', v)} placeholder="예: 고객불만 재발률 감소" />
+            <Field label="품질목표" value={form.objective} onChange={(v) => setF('objective', v)} placeholder="예: 공정 불량률 감소" />
             <Field label="기간" value={form.period} onChange={(v) => setF('period', v)} placeholder="예: 2026년" />
             <Field label="목표값" value={form.target} onChange={(v) => setF('target', v)} placeholder="예: 5" />
             <Field label="단위" value={form.unit} onChange={(v) => setF('unit', v)} placeholder="예: % / 건" />
@@ -456,73 +447,3 @@ function ObjectiveTab({ list, onAction, refresh }) {
   )
 }
 
-/* ================================================================ 고객불만 ================================================================ */
-function ComplaintTab({ list, onAction, refresh }) {
-  const canEdit = permissions.can('mr.complaint.edit')
-  const EMPTY = { date: new Date().toISOString().slice(0, 10), customer: '', product: '', description: '', severity: '보통' }
-  const [form, setForm] = useState(EMPTY)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const add = () => {
-    if (!requirePermission('mr.complaint.edit')) return
-    if (!form.description.trim()) { window.alert('불만 내용을 입력하세요.'); return }
-    complaints.add(form)
-    setForm(EMPTY)
-    onAction('고객불만이 등록되었습니다.')
-    refresh()
-  }
-  const setStatus = (id, status) => {
-    if (!requirePermission('mr.complaint.edit')) return
-    complaints.update(id, { status, closedAt: status === COMPLAINT_STATUS.CLOSED ? new Date().toISOString() : '' })
-    refresh()
-  }
-  const del = (id) => {
-    if (!requirePermission('mr.complaint.edit')) return
-    complaints.delete(id)
-    refresh()
-  }
-
-  return (
-    <div className="space-y-3">
-      {canEdit && (
-        <div className="card-base p-4 space-y-2">
-          <div className="grid sm:grid-cols-3 gap-2">
-            <Field label="접수일" type="date" value={form.date} onChange={(v) => setF('date', v)} />
-            <Field label="고객" value={form.customer} onChange={(v) => setF('customer', v)} />
-            <Field label="제품" value={form.product} onChange={(v) => setF('product', v)} />
-          </div>
-          <SelectField label="심각도" value={form.severity} onChange={(v) => setF('severity', v)} options={['경미', '보통', '심각']} className="max-w-[200px]" />
-          <TextAreaField label="불만 내용" value={form.description} onChange={(v) => setF('description', v)} />
-          <div className="flex justify-end"><button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> 등록</button></div>
-        </div>
-      )}
-      {list.length === 0 ? (
-        <EmptyState icon={MessageSquareWarning} text="등록된 고객불만이 없습니다." />
-      ) : (
-        <div className="space-y-2">
-          {list.map((c) => (
-            <div key={c.id} className="card-base p-3.5">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge text={c.severity} tone={c.severity === '심각' ? 'rose' : c.severity === '보통' ? 'amber' : 'slate'} />
-                    <Badge text={c.status} tone={c.status === COMPLAINT_STATUS.CLOSED ? 'emerald' : 'slate'} />
-                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{c.date} · {c.customer || '고객 미기록'} · {c.product || '제품 미기록'}</span>
-                  </div>
-                  <div className="text-[12.5px] mt-1" style={{ color: 'var(--ink)' }}>{c.description}</div>
-                </div>
-                {canEdit && <button onClick={() => del(c.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
-              </div>
-              {canEdit && c.status !== COMPLAINT_STATUS.CLOSED && (
-                <div className="flex gap-2 mt-2">
-                  {c.status === COMPLAINT_STATUS.OPEN && <button onClick={() => setStatus(c.id, COMPLAINT_STATUS.INVESTIGATING)} className="btn-ghost text-[11.5px]">조사 시작</button>}
-                  <button onClick={() => setStatus(c.id, COMPLAINT_STATUS.CLOSED)} className="btn-ghost text-[11.5px]">종결</button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

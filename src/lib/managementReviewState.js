@@ -1,8 +1,8 @@
 // 경영검토 — ISO 13485 §5.6 / FDA QMSR §820.20(c)
 //
 // - qualityObjectives(품질목표) — 목표·실적 추적
-// - complaints(고객불만) — 접수·조사·종결 로그, 경영검토 입력으로 자동 집계
-// - reviews(경영검토 기록) — KPI·품질목표·고객불만·CAPA현황 자동 스냅샷 + 결정사항 + 승인 절차
+// - reviews(경영검토 기록) — KPI·품질목표·CAPA현황 자동 스냅샷 + 결정사항 + 승인 절차
+// 고객불만(/complaints, ComplaintHub)은 영업 도메인 소관이므로 여기서는 별도로 추적하지 않는다.
 //
 // 다른 SSoT 모듈(capaState/ncrState/equipmentState/supplierState/internalAuditState/trainingState)을
 // 직접 조회해 §5.6.2 요구 입력 항목을 자동 집계한다 (특허 P13 다중 데이터 통합 사상과 동일한 원칙).
@@ -62,7 +62,6 @@ function defaultState() {
   return {
     reviews: [],
     qualityObjectives: [],
-    complaints: [],
   }
 }
 
@@ -95,12 +94,6 @@ export const OBJECTIVE_STATUS = {
   MISSED: '미달성',
 }
 
-export const COMPLAINT_STATUS = {
-  OPEN: '접수',
-  INVESTIGATING: '조사중',
-  CLOSED: '종결',
-}
-
 export const REVIEW_STATUS = {
   DRAFT: '작성중',
   APPROVED: '승인완료',
@@ -131,35 +124,7 @@ export const qualityObjectives = {
   },
 }
 
-export const complaints = {
-  add(item) {
-    const s = load()
-    const rec = { id: uid(), date: new Date().toISOString().slice(0, 10), customer: '', product: '', description: '', severity: '보통', status: COMPLAINT_STATUS.OPEN, resolution: '', closedAt: '', ...item }
-    s.complaints = [...s.complaints, rec]
-    save(s)
-    return rec
-  },
-  update(id, patch) {
-    const s = load()
-    s.complaints = s.complaints.map((c) => (c.id === id ? { ...c, ...patch } : c))
-    save(s)
-    return s
-  },
-  delete(id) {
-    const s = load()
-    s.complaints = s.complaints.filter((c) => c.id !== id)
-    save(s)
-    return s
-  },
-  getAll() {
-    return load().complaints.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-  },
-  getOpenCount() {
-    return load().complaints.filter((c) => c.status !== COMPLAINT_STATUS.CLOSED).length
-  },
-}
-
-/** §5.6.2 요구 입력 항목 자동 집계 — KPI·품질목표·고객불만·CAPA현황 */
+/** §5.6.2 요구 입력 항목 자동 집계 — KPI·품질목표·CAPA현황 */
 export function buildSnapshot() {
   const eq = equipment.load()
   const overdueCalibration = eq.calibrationPlans.filter((p) => p.nextDate && new Date(p.nextDate).getTime() < Date.now()).length
@@ -178,11 +143,8 @@ export function buildSnapshot() {
       supplierReevalDue,
       auditOpenFindings: openAuditFindings,
       trainingCompliance,
-      complaintOpen: complaints.getOpenCount(),
-      complaintTotal: complaints.getAll().length,
     },
     qualityObjectivesSnapshot: qualityObjectives.getAll(),
-    complaintsSnapshot: complaints.getAll().slice(0, 10),
     capaSnapshot: allCapas.map((c) => ({ id: c.id, title: c.title, status: c.status })),
   }
 }
@@ -269,4 +231,4 @@ export const reviews = {
   },
 }
 
-export default { reviews, qualityObjectives, complaints, buildSnapshot, OBJECTIVE_STATUS, COMPLAINT_STATUS, REVIEW_STATUS }
+export default { reviews, qualityObjectives, buildSnapshot, OBJECTIVE_STATUS, REVIEW_STATUS }

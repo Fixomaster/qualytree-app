@@ -7,7 +7,7 @@ import { onboarding, productKeyOf } from './onboardingState'
 import { companyDocs, DOC_CATEGORY } from './companyState'
 import { productDocs, TECH_DOC_CATEGORY } from './productDocsState'
 // logisticsState.js는 더 이상 사용하지 않음 — 입고·출고는 /purchase-info, 이상사례는 /complaints(MDR)로 이전
-import { complaints, reviews } from './managementReviewState'
+import { reviews } from './managementReviewState'
 import { capa } from './capaState'
 import { sessions as trainingSessions } from './trainingState'
 import { audits } from './internalAuditState'
@@ -71,8 +71,8 @@ const RECEIVING_SHIPPING_KEY = 'qualytree.receiving_shipping'  // 구매·자재
 function loadReceivingShipping() {
   try { return JSON.parse(localStorage.getItem(RECEIVING_SHIPPING_KEY) || '[]') } catch { return [] }
 }
-// 수주·고객 › 고객불만 관리(/complaints)는 경영검토(managementReviewState.js)의 complaints와는
-// 별개의 localStorage 저장소를 쓴다(불만 접수·MDR 판단 등 상세 항목 포함) — 직접 읽는다.
+// 수주·고객 › 고객불만 관리(/complaints)의 저장소를 직접 읽는다(불만 접수·MDR 판단 등 상세 항목 포함).
+// 경영검토(managementReviewState.js)는 더 이상 별도의 고객불만 기록을 두지 않는다.
 const COMPLAINT_HUB_KEY = 'qualytree.complaints'
 function loadComplaintHubItems() {
   try { return JSON.parse(localStorage.getItem(COMPLAINT_HUB_KEY) || '[]') } catch { return [] }
@@ -130,7 +130,6 @@ function buildCtx() {
     roleDocs: cDocs.roleDocs || [],
     techDocsAll,
     licensesAll,
-    complaints: complaints.getAll(),
     capaAll: capa.loadAll(),
     trainingSessions: trainingSessions.getAll(),
     audits: audits.getAll(),
@@ -315,7 +314,7 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
         recordItem('입고 기록', ctx.receivingShipping.filter((r) => r.type === 'in').length, '/purchase-info?tab=inout'),
         recordItem('출고 기록', ctx.receivingShipping.filter((r) => r.type === 'out').length, '/purchase-info?tab=inout'),
         recordItem('유통 기록', ctx.distributions.length, '/traceability'),
-        recordItem('고객 불만 기록', ctx.complaints.length, '/management-review?tab=complaint'),
+        recordItem('고객 불만 기록', ctx.complaintHubItems.length, '/complaints'),
         recordItem('이상사례 보고 기록', ctx.complaintHubItems.filter((c) => c.mdrRequired).length, '/complaints?tab=mdr'),
         recordItem('CAPA 기록', ctx.capaAll.length, '/quality?tab=capa'),
         recordItem('교육훈련 기록', ctx.trainingSessions.length, '/training?tab=session'),
