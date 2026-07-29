@@ -224,13 +224,14 @@ function syncOrderFromIncoming(setOrders, poId, incomingStatus) {
 }
 
 /* ─── 발주 관리 ─── */
-function OrdersView({orders,setOrders,avl,openId,setIncoming}) {
+function OrdersView({orders,setOrders,avl,inventory,setInventory,openId,setIncoming}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [srch,setSrch]=useState('')
   useEffect(() => {
     if (openId) { const item = orders.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
   const statusOpts=['발주완료','입고예정','진행중','입고완료','취소']
+  const addNewItem = (name) => { setInventory(p=>[...p,{id:nid('MAT'),name,unit:'EA',stock:'0',min:'0',location:'',lot:'',status:'부족'}]) }
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setOrders(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
     if(edit){
@@ -261,7 +262,7 @@ function OrdersView({orders,setOrders,avl,openId,setIncoming}) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['PO번호','협력업체','품목','수량','발주일','납기일','금액(원)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['PO번호','협력업체','품목','수량','발주일','납기예정일','금액(원)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(o=>(
       <tr key={o.id}>
                 <TD mono color="var(--moss)">{o.id}</TD>
@@ -278,22 +279,36 @@ function OrdersView({orders,setOrders,avl,openId,setIncoming}) {
           </table>
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'발주 수정':'발주 등록'} onClose={()=>{setModal(null);setEdit(null)}}><PoForm initial={edit||{}} avl={avl} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
+      {modal==='form'&&<Modal title={edit?'발주 수정':'발주 등록'} onClose={()=>{setModal(null);setEdit(null)}}><PoForm initial={edit||{}} avl={avl} inventory={inventory} onAddItem={addNewItem} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/></Modal>}
     </div>
   )
 }
-function PoForm({initial,avl,onSave,onCancel,statusOpts}) {
+function PoForm({initial,avl,inventory,onAddItem,onSave,onCancel}) {
   const [f,sf]=useState({vendor:'',items:'',qty:'',date:new Date().toISOString().slice(0,10),dueDate:'',amount:'',status:'발주완료',...initial})
+  const [added,setAdded]=useState(false)
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
+  const itemExists = inventory.some(m=>m.name.trim().toLowerCase()===f.items.trim().toLowerCase())
+  const registerItem = () => { if(!f.items.trim()) return; onAddItem(f.items.trim()); setAdded(true) }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <FL label="협력업체 *"><select style={sel} value={f.vendor} onChange={set('vendor')}><option value="">선택</option>{avl.map(v=><option key={v.id}>{v.name}</option>)}</select></FL>
-        <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
-        <FL label="품목 *"><input style={inp} value={f.items} onChange={set('items')} placeholder="품목명 및 규격"/></FL>
+        <FL label="협력업체 * (검색)">
+          <input style={inp} list="po-vendor-list" value={f.vendor} onChange={set('vendor')} placeholder="업체명 입력·검색..."/>
+          <datalist id="po-vendor-list">{avl.map(v=><option key={v.id} value={v.name}/>)}</datalist>
+        </FL>
         <FL label="수량"><input style={inp} value={f.qty} onChange={set('qty')} placeholder="예) 500EA, 10kg"/></FL>
+        <FL label="품목 * (검색)">
+          <input style={inp} list="po-item-list" value={f.items} onChange={e=>{set('items')(e);setAdded(false)}} placeholder="품목명 및 규격 입력·검색..."/>
+          <datalist id="po-item-list">{inventory.map(m=><option key={m.id} value={m.name}/>)}</datalist>
+          {f.items.trim() && !itemExists && !added && (
+            <button type="button" onClick={registerItem} className="mt-1 text-[11px] px-2 py-1 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--moss)',border:'1px solid var(--line)',cursor:'pointer'}}>
+              + '{f.items.trim()}' 자재 목록에 신규 품목으로 등록
+            </button>
+          )}
+          {added && <div className="text-[11px] mt-1" style={{color:'var(--moss)'}}>✓ 자재 목록에 등록되었습니다</div>}
+        </FL>
         <FL label="발주일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
-        <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
+        <FL label="납기예정일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
         <FL label="금액(원)"><input style={inp} type="number" value={f.amount} onChange={set('amount')}/></FL>
       </div>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.vendor&&f.items&&onSave(f)}>{initial.vendor?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
@@ -761,7 +776,7 @@ export default function PurchaseHub() {
   const viewMap={
     home:<PurchaseHome avl={avl} orders={orders} incoming={incoming} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView}/>,
     avl:<AvlView avl={avl} setAvl={setAvl}/>,
-    orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} openId={editId} setIncoming={setIncoming}/>,
+    orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} inventory={inventory} setInventory={setInventory} openId={editId} setIncoming={setIncoming}/>,
     incoming:<IncomingView incoming={incoming} setIncoming={setIncoming} orders={orders} setOrders={setOrders}/>,
     inventory:<InventoryView inventory={inventory} setInventory={setInventory} openId={editId}/>,
     eval:<EvalView evals={evals} setEvals={setEvals} avl={avl}/>,
