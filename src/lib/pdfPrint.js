@@ -460,6 +460,33 @@ export function printInspectionCert(insp, wo) {
   openPrint(pageWrapper(insp.id || 'IPC-XXXX', '공정검사성적서', 'ISO 13485 §8.2.6', body))
 }
 
+// ── 청결·오염 모니터링 성적서 ───────────────────────────────
+export function printCleanlinessCert(rec, spec) {
+  const resultMap = { pass: ['badge-green', '합격'], fail: ['badge-red', '불합격'], conditional: ['badge-orange', '조건부합격'] }
+  const [cls, label] = resultMap[rec.result] || ['badge-gray', rec.result || '-']
+  const resultBadge = `<span class="badge ${cls}">${label}</span>`
+  const body = `
+    <div class="qt-subtitle">청결·오염 모니터링 성적서 (Cleanliness Monitoring Certificate)</div>
+    <div class="section-title">1. 기본 정보</div>
+    <table>
+      <tr><th>기록 ID</th><td>${rec.id || '-'}</td><th>일자</th><td>${rec.date || '-'}</td></tr>
+      <tr><th>제품/사양</th><td>${(spec && spec.productName) || '-'}</td><th>로트 번호</th><td>${rec.lotNo || '-'}</td></tr>
+      <tr><th>결과</th><td colspan="3">${resultBadge}</td></tr>
+    </table>
+
+    <div class="section-title">2. 측정 결과</div>
+    <table>
+      <tr><th>미립자 측정값</th><td>${rec.particleResult || '(없음)'}</td><th>미생물 측정값</th><td>${rec.microbialResult || '(없음)'}</td></tr>
+      <tr><th>온도</th><td>${rec.temperature ? rec.temperature + ' ℃' : '(없음)'}</td><th>습도</th><td>${rec.humidity ? rec.humidity + ' %RH' : '(없음)'}</td></tr>
+      <tr><th>차압</th><td colspan="3">${rec.pressureDiff ? rec.pressureDiff + ' Pa' : '(없음)'}</td></tr>
+    </table>
+
+    <div class="section-title">3. 비고</div>
+    <div class="text-area-box" style="min-height:60px;">${rec.notes || '(없음)'}</div>
+  `
+  openPrint(pageWrapper(rec.id || 'CLN-XXXX', '청결·오염 모니터링 성적서', 'ISO 13485 §7.5.2', body))
+}
+
 // ── 리콜 통보 대상 고객 목록 (리콜 시뮬레이션) ───────────────────
 export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
   const classMap = { I: 'Class I — 즉시 리콜', II: 'Class II — 신속 리콜', III: 'Class III — 일반 리콜' }

@@ -3,11 +3,12 @@
 import React, { useState, useMemo } from 'react'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, AlertTriangle,
-  Wind, Shield, FlaskConical, ClipboardList, BarChart2,
+  Wind, Shield, FlaskConical, ClipboardList, BarChart2, Printer, X,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { printCleanlinessCert } from '../../lib/pdfPrint'
 
 const LS_SPECS  = 'qualytree.cleanliness_specs'
 const LS_RECS   = 'qualytree.cleanliness_records'
@@ -74,9 +75,10 @@ const EMPTY_RECORD = {
   result: 'pass',    // pass | fail | conditional
   particleResult: '',
   microbialResult: '',
-  inspector: '',
+  temperature: '',
+  humidity: '',
+  pressureDiff: '',
   notes: '',
-  deviationRef: '',
 }
 
 const DEFAULT_PLAN = {
@@ -110,6 +112,7 @@ export default function CleanlinessHub() {
   const [showRecForm, setShowRecForm] = useState(false)
   const [recForm, setRecForm] = useState(EMPTY_RECORD)
   const [editRecId, setEditRecId] = useState(null)
+  const [certRow, setCertRow] = useState(null)
   const [editingPlan, setEditingPlan] = useState(false)
   const [planDraft, setPlanDraft] = useState(null)
 
@@ -279,6 +282,7 @@ export default function CleanlinessHub() {
         {tab === 'records' && (
           <div>
             <div className="flex gap-2 mb-4 items-center">
+              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>행 클릭 시 성적서 보기</span>
               {canEdit && (
                 <button onClick={function() { setRecForm(EMPTY_RECORD); setEditRecId(null); setShowRecForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
@@ -298,20 +302,23 @@ export default function CleanlinessHub() {
               <table className="w-full text-[12px]">
                 <thead>
                   <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['일자', '제품/사양', '로트 번호', '결과', '미립자', '미생물', '검사자', '비고', ''].map(function(h) { return (
+                    {['일자', '제품/사양', '로트 번호', '결과', '미립자', '미생물', '온도', '습도', '차압', '비고', ''].map(function(h) { return (
                       <th key={h} className="px-2 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                     )})}
                   </tr>
                 </thead>
                 <tbody>
                   {records.length === 0 && (
-                    <tr><td colSpan={9} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>모니터링 기록이 없습니다.</td></tr>
+                    <tr><td colSpan={11} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>모니터링 기록이 없습니다.</td></tr>
                   )}
                   {records.map(function(rec, idx) {
                     var rs = RESULT_STYLES[rec.result] || RESULT_STYLES.pass
                     var specName = (specs.find(function(s) { return s.id === rec.specId }) || {}).productName || '—'
                     return (
-                      <tr key={rec.id} style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
+                      <tr key={rec.id} onClick={function() { setCertRow(rec) }} className="cursor-pointer"
+                        style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)', transition: 'background 0.1s' }}
+                        onMouseEnter={function(e) { e.currentTarget.style.background = 'var(--bg-soft)' }}
+                        onMouseLeave={function(e) { e.currentTarget.style.background = idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)' }}>
                         <td className="px-2 py-2" style={{ color: 'var(--ink)' }}>{rec.date}</td>
                         <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{specName}</td>
                         <td className="px-2 py-2 font-mono text-[11px]" style={{ color: 'var(--ink-soft)' }}>{rec.lotNo || '—'}</td>
@@ -320,11 +327,13 @@ export default function CleanlinessHub() {
                         </td>
                         <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.particleResult || '—'}</td>
                         <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.microbialResult || '—'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.inspector || '—'}</td>
+                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.temperature ? rec.temperature + '℃' : '—'}</td>
+                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.humidity ? rec.humidity + '%' : '—'}</td>
+                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.pressureDiff ? rec.pressureDiff + 'Pa' : '—'}</td>
                         <td className="px-2 py-2 text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{rec.notes || '—'}</td>
                         <td className="px-2 py-2">
                           {canEdit && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1" onClick={function(e) { e.stopPropagation() }}>
                               <button onClick={function() { setRecForm({ ...EMPTY_RECORD, ...rec }); setEditRecId(rec.id); setShowRecForm(true) }}
                                 className="p-1 rounded" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                                 <Edit2 size={10} style={{ color: 'var(--ink-soft)' }} />
@@ -342,6 +351,12 @@ export default function CleanlinessHub() {
                 </tbody>
               </table>
             </div>
+
+            {certRow && (
+              <CertModal onClose={function() { setCertRow(null) }}>
+                <CleanlinessCertificate rec={certRow} specs={specs} onClose={function() { setCertRow(null) }} />
+              </CertModal>
+            )}
           </div>
         )}
 
@@ -588,8 +603,9 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
         </div>
         <F label="미립자 측정값" value={form.particleResult} onChange={function(v) { RF('particleResult', v) }} placeholder="12,500개/m³" />
         <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
-        <F label="검사자" value={form.inspector} onChange={function(v) { RF('inspector', v) }} />
-        <F label="일탈 참조 번호" value={form.deviationRef} onChange={function(v) { RF('deviationRef', v) }} placeholder="DEV-2026-001" />
+        <F label="온도 (℃)" value={form.temperature} onChange={function(v) { RF('temperature', v) }} placeholder="22.5" />
+        <F label="습도 (%RH)" value={form.humidity} onChange={function(v) { RF('humidity', v) }} placeholder="45" />
+        <F label="차압 (Pa)" value={form.pressureDiff} onChange={function(v) { RF('pressureDiff', v) }} placeholder="15" />
         <F label="비고" value={form.notes} onChange={function(v) { RF('notes', v) }} />
       </div>
       <div className="flex gap-2">
@@ -611,6 +627,64 @@ function F({ label, value, onChange, type, placeholder }) {
       <input type={type || 'text'} value={value || ''} onChange={function(e) { onChange(e.target.value) }} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+    </div>
+  )
+}
+
+// ── 모니터링 기록 성적서 모달 ─────────────────────────────────
+function CertModal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
+      onClick={function(e) { if (e.target === e.currentTarget) onClose() }}>
+      <div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        style={{ background: 'var(--bg-card)', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>{title || '모니터링 성적서'}</h3>
+          <button onClick={onClose} style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function CleanlinessCertificate({ rec, specs, onClose }) {
+  const spec = specs.find(function(s) { return s.id === rec.specId }) || {}
+  const rs = { pass: '합격', fail: '불합격', conditional: '조건부' }[rec.result] || rec.result
+  const Row = function({ label, value }) {
+    return (
+      <div className="grid grid-cols-3 gap-2 py-1.5" style={{ borderBottom: '1px solid var(--line)' }}>
+        <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</span>
+        <span className="col-span-2 text-[12.5px]" style={{ color: 'var(--ink)' }}>{value || '—'}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-1">
+      <div className="text-center mb-3">
+        <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>청결·오염 모니터링 성적서</div>
+        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>Cleanliness Monitoring Certificate · ISO 13485 §7.5.2</div>
+      </div>
+      <Row label="기록 ID" value={rec.id} />
+      <Row label="일자" value={rec.date} />
+      <Row label="제품/사양" value={spec.productName} />
+      <Row label="로트 번호" value={rec.lotNo} />
+      <Row label="결과" value={rs} />
+      <Row label="미립자 측정값" value={rec.particleResult} />
+      <Row label="미생물 측정값" value={rec.microbialResult} />
+      <Row label="온도" value={rec.temperature ? rec.temperature + ' ℃' : ''} />
+      <Row label="습도" value={rec.humidity ? rec.humidity + ' %RH' : ''} />
+      <Row label="차압" value={rec.pressureDiff ? rec.pressureDiff + ' Pa' : ''} />
+      <Row label="비고" value={rec.notes} />
+      <div className="flex gap-2 pt-4">
+        <button onClick={function() { printCleanlinessCert(rec, spec) }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold"
+          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          <Printer size={13} /> 인쇄
+        </button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px]"
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>닫기</button>
+      </div>
     </div>
   )
 }
