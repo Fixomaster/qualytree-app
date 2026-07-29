@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, Clock,
-  AlertTriangle, FileText, Link2, ChevronRight,
+  AlertTriangle, FileText, ChevronRight,
   Package, Layers, ClipboardList, BarChart2,
   Shield, FlaskConical, Microscope, GitBranch,
   Star, ArrowRight, X,
@@ -113,7 +113,6 @@ const EMPTY_PLAN = {
   projectManager: '', approver: '', approvedDate: '',
   startDate: todayStr(), targetDate: '',
   status: 'draft',
-  linkedDhfId: '', linkedRiskId: '', linkedValId: '', linkedChangeId: '',
   regulatorySubmission: '', customerRequirements: '',
   notes: '',
   activities: ALL_DEFAULT_ITEMS.map(a => ({ ...a })),
@@ -315,13 +314,6 @@ export default function QualityPlanHub() {
                       <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
                         활동 {actDone}/{actTotal} 완료 · PM: {plan.projectManager || '-'}
                       </div>
-                      {(plan.linkedDhfId || plan.linkedRiskId || plan.linkedValId) && (
-                        <div className="flex gap-2 mt-1.5 flex-wrap">
-                          {plan.linkedDhfId && <span className="text-[10px] flex items-center gap-0.5" style={{ color: '#2563EB' }}><Link2 size={9} /> DHF</span>}
-                          {plan.linkedRiskId && <span className="text-[10px] flex items-center gap-0.5" style={{ color: '#DC2626' }}><Link2 size={9} /> FMEA</span>}
-                          {plan.linkedValId && <span className="text-[10px] flex items-center gap-0.5" style={{ color: '#059669' }}><Link2 size={9} /> 밸리</span>}
-                        </div>
-                      )}
 
                       {canEdit && (
                         <div className="flex gap-1 mt-3" onClick={e => e.stopPropagation()}>
@@ -420,16 +412,6 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
           })}
         </div>
 
-        {/* 연결 링크 */}
-        {(plan.linkedDhfId || plan.linkedRiskId || plan.linkedValId || plan.linkedChangeId) && (
-          <div className="flex gap-2 flex-wrap">
-            {plan.linkedDhfId && <LinkChip label={`DHF: ${plan.linkedDhfId}`} color="#2563EB" />}
-            {plan.linkedRiskId && <LinkChip label={`FMEA: ${plan.linkedRiskId}`} color="#DC2626" />}
-            {plan.linkedValId && <LinkChip label={`밸리: ${plan.linkedValId}`} color="#059669" />}
-            {plan.linkedChangeId && <LinkChip label={`변경: ${plan.linkedChangeId}`} color="#7C3AED" />}
-          </div>
-        )}
-
         {plan.intendedUse && (
           <div className="mt-3 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
             <span className="font-bold" style={{ color: 'var(--ink)' }}>사용 목적: </span>{plan.intendedUse}
@@ -523,15 +505,6 @@ function ActTabBtn({ active, onClick, label }) {
   )
 }
 
-function LinkChip({ label, color }) {
-  return (
-    <span className="flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-      style={{ background: color + '15', color, border: `1px solid ${color}40` }}>
-      <Link2 size={9} /> {label}
-    </span>
-  )
-}
-
 // ── 분석 탭 ──────────────────────────────────────────────────
 function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
   return (
@@ -613,10 +586,6 @@ function PlanForm({ form, setForm, onSave, onCancel, isEdit }) {
         <Field label="승인자" value={form.approver} onChange={v => F('approver', v)} />
         <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={Object.entries(PLAN_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <Field label="연결 DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
-        <Field label="연결 FMEA ID" value={form.linkedRiskId} onChange={v => F('linkedRiskId', v)} placeholder="RISK-xxxx" />
-        <Field label="연결 밸리데이션 ID" value={form.linkedValId} onChange={v => F('linkedValId', v)} placeholder="VAL-xxxx" />
-        <Field label="연결 변경관리 ID" value={form.linkedChangeId} onChange={v => F('linkedChangeId', v)} placeholder="CHG-xxxx" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <FieldArea label="사용 목적 (Intended Use)" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2} />
