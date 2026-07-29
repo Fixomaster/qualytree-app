@@ -663,14 +663,7 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
         <Field label="이메일" value={form.contactEmail} onChange={v => F('contactEmail', v)} />
         <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
         <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
-        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
-          options={Object.entries(REQ_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         <Field label="접수일" type="date" value={form.inquiryDate} onChange={v => F('inquiryDate', v)} />
-        <Field label="검토자" value={form.reviewedBy} onChange={v => F('reviewedBy', v)} />
-        <Field label="승인자" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
-        <Field label="연결 영업 ID" value={form.linkedSalesId} onChange={v => F('linkedSalesId', v)} placeholder="SAL-xxxx" />
-        <Field label="연결 QP ID" value={form.linkedQualityPlanId} onChange={v => F('linkedQualityPlanId', v)} placeholder="QP-xxxx" />
-        <Field label="연결 DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
       </div>
       <div className="mb-3">
         <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
