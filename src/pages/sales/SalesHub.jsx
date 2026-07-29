@@ -24,7 +24,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
-import { fulfillOrderLineItems } from '../../lib/orderFulfillment'
+import { fulfillOrderLineItems, deductFinStockForDelivery } from '../../lib/orderFulfillment'
 import { fileStore } from '../../lib/fileStore'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
@@ -399,6 +399,7 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdR
     else {
       let newOrder = { ...init, ...f, id: nid('SO') }
       if (!newOrder.wo) {
+        // 수주 등록 시점에는 재고를 차감하지 않고 확인만 한다 — 실제 차감은 납품(출하) 등록 시점에 이루어진다.
         const result = fulfillOrderLineItems(newOrder)
         if (result.createdWos.length > 0) {
           newOrder = { ...newOrder, wo: result.firstWoId, status: WO_STATUS_TO_ORDER_STATUS['대기'] }
@@ -412,11 +413,11 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdR
               })),
             ])
           }
-        } else if (result.shipped.length > 0) {
+        } else if (result.sufficient.length > 0) {
           newOrder = { ...newOrder, status: '납품대기' }
         }
         const parts = []
-        if (result.shipped.length) parts.push(`완제품재고에서 ${result.shipped.map(s=>`${s.name} ${s.qty}개`).join(', ')} 자동 출고`)
+        if (result.sufficient.length) parts.push(`완제품재고 확인 완료 — ${result.sufficient.map(s=>`${s.name} ${s.qty}개`).join(', ')} (출고는 납품 등록 시 반영)`)
         if (result.createdWos.length) parts.push(`재고 부족으로 ${result.createdWos.map(w=>w.id).join(', ')} 작업지시 자동 발행 및 생산요청 등록`)
         if (parts.length) setFulfillMsg(parts.join(' · '))
       }
@@ -1072,6 +1073,7 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
+  const [fulfillMsg, setFulfillMsg] = useState(null)
   useEffect(() => {
     if (openId) { const item = deliveries.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -1079,7 +1081,16 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
 
   const save = (f) => {
     if (edit) { setDeliveries(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setDeliveries(p=>[...p, { ...init, ...f, id:nid('DL') }]) }
+    else {
+      const newDelivery = { ...init, ...f, id:nid('DL') }
+      setDeliveries(p=>[...p, newDelivery])
+      // 출하(납품) 등록 시점에 실제로 완제품재고를 차감한다 (수주 등록 시점에는 차감하지 않음)
+      const order = orders.find(o => o.id === newDelivery.so)
+      if (order) {
+        const { deducted } = deductFinStockForDelivery(order)
+        if (deducted.length > 0) setFulfillMsg(`완제품재고에서 ${deducted.map(d=>`${d.name} ${d.qty}개`).join(', ')} 출고 처리되었습니다.`)
+      }
+    }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setDeliveries(p=>p.filter(x=>x.id!==id)) }
@@ -1090,6 +1101,15 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   return (
     <div>
       <SectionTitle breadcrumb="납품 이력">납품 이력</SectionTitle>
+      {fulfillMsg && (
+        <div className="mb-4 p-3 rounded-lg flex items-start justify-between gap-2" style={{ background:'var(--sky-soft)', border:'1px solid var(--sky)' }}>
+          <div className="flex items-start gap-2">
+            <CheckCircle size={14} style={{ color:'var(--sky)', marginTop:2, flexShrink:0 }}/>
+            <div className="text-[12.5px]" style={{ color:'var(--sky)' }}>{fulfillMsg}</div>
+          </div>
+          <button onClick={()=>setFulfillMsg(null)} style={{ color:'var(--sky)' }}><X size={14}/></button>
+        </div>
+      )}
       <div className="rounded-xl p-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color:'var(--ink-faint)' }}>납품 이력 — UDI·Lot 추적 (ISO 13485 §7.5.3)</span>

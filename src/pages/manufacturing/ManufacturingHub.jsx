@@ -17,7 +17,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { syncOrderStatusFromWo } from '../../lib/woSync'
+import { syncOrderStatusFromWo, syncFinStockFromWoList } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
 import { fileStore } from '../../lib/fileStore'
 
@@ -104,7 +104,7 @@ function WoView({wo,setWo,openId}){
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
     const id = edit ? edit.id : nid('WO')
-    if(edit){setWo(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setWo(p=>[...p,{id,...f}])}
+    if(edit){setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncFinStockFromWoList([...p,{id,...f}]))}
     syncOrderStatusFromWo(id, f.status)
     setModal(null)
   }
@@ -127,7 +127,7 @@ function WoView({wo,setWo,openId}){
                   {w.so&&<span className="font-mono text-[10px]" style={{color:'var(--ink-faint)'}}>{w.so}</span>}
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>p.map(x=>x.id===w.id?{...x,status:v}:x));syncOrderStatusFromWo(w.id,v)}}/>
+                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>syncFinStockFromWoList(p.map(x=>x.id===w.id?{...x,status:v}:x)));syncOrderStatusFromWo(w.id,v)}}/>
                   <ActBtn label="수정" onClick={()=>{setEdit(w);setModal('form')}}/>
                   <ActBtn label="삭제" color="red" onClick={()=>del(w.id)}/>
                 </div>
@@ -151,7 +151,7 @@ function WoView({wo,setWo,openId}){
                   {[10,25,50,75,90,100].map(p=>(
                     <button key={p} onClick={()=>{
                       const newStatus = p===100?'완료':w.status
-                      setWo(prev=>prev.map(x=>x.id===w.id?{...x,progress:String(p),status:newStatus}:x))
+                      setWo(prev=>syncFinStockFromWoList(prev.map(x=>x.id===w.id?{...x,progress:String(p),status:newStatus}:x)))
                       if (newStatus !== w.status) syncOrderStatusFromWo(w.id, newStatus)
                     }}
                       className="text-[10px] px-2 py-0.5 rounded font-mono transition"

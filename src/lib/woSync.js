@@ -43,3 +43,40 @@ export function syncOrderStatusFromWo(woId, woStatus) {
   })
   if (changed) writeLS('qms_sal_orders', next)
 }
+
+/* ─── 생산 완료 → 완제품재고(qms_pur_fin) 자동 입고 ───────────────
+   작업지시(WO)가 '완료' 상태가 되면(=생산·품질 공정을 모두 거쳐 완제품이
+   나온 시점), 해당 품목 수량만큼 구매자재의 완제품재고에 자동으로 입고
+   반영한다. 이미 반영된 WO(finApplied)는 중복 반영하지 않는다. */
+export function addFinStockOnWoComplete(w) {
+  if (!w || w.status !== '완료' || w.finApplied) return null
+  const qty = parseFloat(w.qty) || 0
+  const name = (w.product || '').trim()
+  if (qty <= 0 || !name) return null
+  const fin = readLS('qms_pur_fin')
+  const idx = fin.findIndex(f => (f.name || '').trim().toLowerCase() === name.toLowerCase())
+  let next
+  if (idx >= 0) {
+    const item = fin[idx]
+    const newStock = (parseFloat(item.stock) || 0) + qty
+    const min = parseFloat(item.min) || 0
+    next = fin.map((f, i) => i === idx ? { ...f, stock: String(newStock), status: newStock < min ? '부족' : '정상' } : f)
+  } else {
+    const id = `FP-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+    next = [...fin, { id, name, unit: 'EA', stock: String(qty), min: '0', lot: w.lot || '', expiry: '', udi: '', status: '정상' }]
+  }
+  writeLS('qms_pur_fin', next)
+  return { name, qty }
+}
+
+/** WO 목록을 순회하며 새로 '완료'된 항목의 완제품재고 반영을 처리하고,
+ *  finApplied 플래그가 갱신된 새 목록을 반환한다. (중복 반영 방지) */
+export function syncFinStockFromWoList(list) {
+  return list.map(w => {
+    if (w.status === '완료' && !w.finApplied) {
+      const res = addFinStockOnWoComplete(w)
+      if (res) return { ...w, finApplied: true }
+    }
+    return w
+  })
+}
