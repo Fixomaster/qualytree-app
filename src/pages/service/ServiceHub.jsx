@@ -71,12 +71,8 @@ const EMPTY_SVC = {
   productName: '', productCode: '', serialNo: '',
   customerName: '', customerContact: '', customerAddress: '',
   svcType: 'corrective', status: 'open',
-  reportedDate: todayStr(), dispatchedDate: '', completedDate: '',
-  assignedTo: '', symptom: '', causeAnalysis: '', actionTaken: '',
-  partsReplaced: '', nextSvcDate: '',
-  linkedInstId: '', linkedComplaintId: '', linkedCalId: '',
-  followUpRequired: false, followUpNote: '',
-  customerFeedback: '', notes: '',
+  reportedDate: todayStr(), symptom: '',
+  notes: '',
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
@@ -161,10 +157,7 @@ export default function ServiceHub() {
   }
 
   function quickSvcStatus(id, status) {
-    const update = { status, updatedAt: todayStr() }
-    if (status === 'completed') update.completedDate = todayStr()
-    if (status === 'dispatched') update.dispatchedDate = todayStr()
-    saveSvc(services.map(s => s.id === id ? { ...s, ...update } : s))
+    saveSvc(services.map(s => s.id === id ? { ...s, status, updatedAt: todayStr() } : s))
   }
 
   // ── 필터 ─────────────────────────────────────────────────
@@ -207,13 +200,11 @@ export default function ServiceHub() {
   // 분석
   const analysis = useMemo(() => {
     const openSvc = services.filter(s => !['completed', 'cancelled'].includes(s.status))
-    const followUp = services.filter(s => s.followUpRequired && s.status !== 'completed')
-    const overdueSvc = services.filter(s => s.nextSvcDate && daysDiff(s.nextSvcDate) < 0)
     const instOk = installations.filter(i => i.status === 'completed' && i.verdict === 'pass').length
     const instFail = installations.filter(i => i.verdict === 'fail').length
     const svcByType = {}
     Object.keys(SVC_TYPES).forEach(k => { svcByType[k] = services.filter(s => s.svcType === k).length })
-    return { openSvc, followUp, overdueSvc, instOk, instFail, svcByType }
+    return { openSvc, instOk, instFail, svcByType }
   }, [installations, services])
 
   return (
@@ -221,11 +212,9 @@ export default function ServiceHub() {
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* KPI 요약 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+        <div className="grid grid-cols-2 gap-3 mb-5">
           <Kpi label="설치 완료" value={installations.filter(i => i.status === 'completed').length} good />
           <Kpi label="서비스 미결" value={analysis.openSvc.length} warn={analysis.openSvc.length > 0} />
-          <Kpi label="후속 조치 필요" value={analysis.followUp.length} bad={analysis.followUp.length > 0} />
-          <Kpi label="차기 점검 초과" value={analysis.overdueSvc.length} bad={analysis.overdueSvc.length > 0} />
         </div>
 
         {/* 탭 */}
@@ -413,40 +402,22 @@ export default function ServiceHub() {
                   const sm = SVC_STATUSES[svc.status] || SVC_STATUSES.open
                   const typeInfo = SVC_TYPES[svc.svcType] || SVC_TYPES.other
                   return (
-                    <div key={svc.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: `1.5px solid ${svc.followUpRequired && svc.status !== 'completed' ? '#FDE68A' : 'var(--line)'}` }}>
+                    <div key={svc.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--line)' }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{svc.id}</span>
                             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
                             <span className="text-[11px] font-semibold" style={{ color: typeInfo.color }}>{typeInfo.label}</span>
-                            {svc.followUpRequired && svc.status !== 'completed' && (
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>후속 조치 필요</span>
-                            )}
                           </div>
                           <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{svc.productName}</div>
                           <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
                             {svc.productCode && `${svc.productCode} · `}S/N: {svc.serialNo || '-'} · 고객: {svc.customerName || '-'}
                           </div>
                           {svc.symptom && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-soft)' }}>증상: {svc.symptom}</div>}
-                          {svc.actionTaken && <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>조치: {svc.actionTaken}</div>}
                           <div className="flex gap-3 mt-1 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
                             <span>접수: {svc.reportedDate}</span>
-                            {svc.completedDate && <span>완료: {svc.completedDate}</span>}
-                            {svc.assignedTo && <span>담당: {svc.assignedTo}</span>}
-                            {svc.nextSvcDate && (
-                              <span style={{ color: daysDiff(svc.nextSvcDate) < 0 ? '#DC2626' : daysDiff(svc.nextSvcDate) <= 30 ? '#D97706' : 'var(--ink-faint)' }}>
-                                다음 점검: {svc.nextSvcDate}
-                              </span>
-                            )}
                           </div>
-                          {(svc.linkedInstId || svc.linkedComplaintId || svc.linkedCalId) && (
-                            <div className="flex gap-2 mt-1 flex-wrap">
-                              {svc.linkedInstId && <span className="text-[11px] flex items-center gap-1" style={{ color: '#2563EB' }}><Link2 size={10} /> 설치 {svc.linkedInstId}</span>}
-                              {svc.linkedComplaintId && <span className="text-[11px] flex items-center gap-1" style={{ color: '#DC2626' }}><Link2 size={10} /> 불만 {svc.linkedComplaintId}</span>}
-                              {svc.linkedCalId && <span className="text-[11px] flex items-center gap-1" style={{ color: '#7C3AED' }}><Link2 size={10} /> 교정 {svc.linkedCalId}</span>}
-                            </div>
-                          )}
                         </div>
                         {canEdit && (
                           <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
@@ -501,7 +472,7 @@ export default function ServiceHub() {
                     </div>
                     <div className="space-y-1.5">
                       {[...dev.installs.map(i => ({ type: 'install', date: i.installDate, id: i.id, desc: `설치 — ${i.customerName || '-'} / ${i.installAddress || '-'}`, status: INST_STATUSES[i.status] })),
-                        ...dev.services.map(s => ({ type: 'service', date: s.reportedDate, id: s.id, desc: `${SVC_TYPES[s.svcType]?.label || '서비스'} — ${s.symptom || s.actionTaken || '-'}`, status: SVC_STATUSES[s.status] }))
+                        ...dev.services.map(s => ({ type: 'service', date: s.reportedDate, id: s.id, desc: `${SVC_TYPES[s.svcType]?.label || '서비스'} — ${s.symptom || '-'}`, status: SVC_STATUSES[s.status] }))
                       ].sort((a, b) => b.date.localeCompare(a.date)).map(item => (
                         <div key={item.id} className="flex items-center gap-3 p-2 rounded-lg text-[12px]"
                           style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
@@ -549,23 +520,6 @@ export default function ServiceHub() {
               </div>
             </div>
 
-            {/* 후속 조치 + 차기 점검 초과 */}
-            {analysis.followUp.length > 0 && (
-              <div className="p-5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>⚠ 후속 조치 미완료 ({analysis.followUp.length}건)</div>
-                {analysis.followUp.slice(0, 5).map(s => (
-                  <div key={s.id} className="text-[12px] py-1" style={{ color: '#78350F' }}>• {s.id} — {s.productName} / {s.customerName} {s.followUpNote && `— ${s.followUpNote}`}</div>
-                ))}
-              </div>
-            )}
-            {analysis.overdueSvc.length > 0 && (
-              <div className="p-5 rounded-2xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-                <div className="text-[13px] font-bold mb-2" style={{ color: '#991B1B' }}>차기 점검일 초과 ({analysis.overdueSvc.length}건)</div>
-                {analysis.overdueSvc.slice(0, 5).map(s => (
-                  <div key={s.id} className="text-[12px] py-1" style={{ color: '#7F1D1D' }}>• {s.id} — {s.productName} · 예정일 {s.nextSvcDate}</div>
-                ))}
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -659,30 +613,10 @@ function ServiceForm({ form, setForm, onSave, onCancel, isEdit }) {
         <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={Object.entries(SVC_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         <Field label="접수일" type="date" value={form.reportedDate} onChange={v => F('reportedDate', v)} />
-        <Field label="출동일" type="date" value={form.dispatchedDate} onChange={v => F('dispatchedDate', v)} />
-        <Field label="완료일" type="date" value={form.completedDate} onChange={v => F('completedDate', v)} />
-        <Field label="담당 엔지니어" value={form.assignedTo} onChange={v => F('assignedTo', v)} />
-        <Field label="차기 점검 예정일" type="date" value={form.nextSvcDate} onChange={v => F('nextSvcDate', v)} />
-        <Field label="연결 설치 ID" value={form.linkedInstId} onChange={v => F('linkedInstId', v)} placeholder="INS-xxxx" />
-        <Field label="연결 불만 ID" value={form.linkedComplaintId} onChange={v => F('linkedComplaintId', v)} placeholder="CMP-xxxx" />
-        <Field label="연결 교정 ID" value={form.linkedCalId} onChange={v => F('linkedCalId', v)} placeholder="CAL-xxxx" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <FieldArea label="증상 / 불만 내용" value={form.symptom} onChange={v => F('symptom', v)} rows={2} />
-        <FieldArea label="원인 분석" value={form.causeAnalysis} onChange={v => F('causeAnalysis', v)} rows={2} />
-        <FieldArea label="조치 내용" value={form.actionTaken} onChange={v => F('actionTaken', v)} rows={2} />
-        <FieldArea label="교체 부품" value={form.partsReplaced} onChange={v => F('partsReplaced', v)} rows={2} />
-        <FieldArea label="고객 피드백" value={form.customerFeedback} onChange={v => F('customerFeedback', v)} rows={2} />
         <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
-      </div>
-      <div className="flex items-center gap-2 mb-3">
-        <input type="checkbox" id="followUp" checked={form.followUpRequired} onChange={e => F('followUpRequired', e.target.checked)} />
-        <label htmlFor="followUp" className="text-[12.5px] font-semibold" style={{ color: '#D97706', cursor: 'pointer' }}>후속 조치 필요</label>
-        {form.followUpRequired && (
-          <input value={form.followUpNote} onChange={e => F('followUpNote', e.target.value)} placeholder="후속 조치 내용..."
-            className="flex-1 px-3 py-1.5 rounded-xl text-[12px]"
-            style={{ background: 'var(--bg)', border: '1px solid #FDE68A', color: 'var(--ink)' }} />
-        )}
       </div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
