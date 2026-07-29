@@ -1058,6 +1058,15 @@ function ComplaintForm({ initial, onSave, onCancel, statusOpts }) {
   )
 }
 
+/* UDI 전체 표시(DI+PI) — GS1 HRI 표기 규칙(예: (01)DI(10)LOT)을 따라 DI(udi)와 PI(LOT 등)를 합쳐서 보여준다.
+   실제 저장은 지금처럼 DI(udi)·LOT(lot)를 각각의 필드로 유지하고, 표시할 때만 합성한다. */
+function fullUdiDisplay(d) {
+  if (!d.udi) return '-'
+  const parts = [`(01)${d.udi}`]
+  if (d.lot) parts.push(`(10)${d.lot}`)
+  return parts.join(' ')
+}
+
 /* ─── 납품 이력 ─── */
 function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   const [modal, setModal] = useState(null)
@@ -1100,7 +1109,7 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              {['납품번호','SO','고객사','품목','납품일','LOT','UDI','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
+              {['납품번호','SO','고객사','품목','납품일','LOT','UDI (DI+PI)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
               {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(d=>(
@@ -1111,7 +1120,7 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
                   <TD muted>{d.items}</TD>
                   <TD mono muted>{d.date}</TD>
                   <TD mono muted>{d.lot}</TD>
-                  <TD mono muted>{d.udi}</TD>
+                  <TD mono muted>{fullUdiDisplay(d)}</TD>
                   <TD><Badge text={d.status} tone="green"/></TD>
                   <TD>
                     <div className="flex gap-1">
@@ -1153,8 +1162,8 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
         <FL label="고객사"><input style={inp} value={f.customer} onChange={set('customer')} placeholder="고객사명"/></FL>
         <FL label="품목"><input style={inp} value={f.items} onChange={set('items')} placeholder="품목·수량"/></FL>
         <FL label="납품일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
-        <FL label="LOT 번호"><input style={inp} value={f.lot} onChange={set('lot')} placeholder="LOT-XXXX-XXX"/></FL>
-        <FL label="UDI"><input style={inp} value={f.udi} onChange={set('udi')} placeholder="08806526XXXXXX"/></FL>
+        <FL label="LOT 번호 (UDI-PI)"><input style={inp} value={f.lot} onChange={set('lot')} placeholder="LOT-XXXX-XXX"/></FL>
+        <FL label="UDI-DI"><input style={inp} value={f.udi} onChange={set('udi')} placeholder="08806526XXXXXX"/></FL>
         <FL label="상태">
           <select style={sel} value={f.status} onChange={set('status')}>
             {['납품완료','반품','교환'].map(o=><option key={o}>{o}</option>)}
