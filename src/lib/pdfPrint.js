@@ -487,6 +487,38 @@ export function printCleanlinessCert(rec, spec) {
   openPrint(pageWrapper(rec.id || 'CLN-XXXX', '청결·오염 모니터링 성적서', 'ISO 13485 §7.5.2', body))
 }
 
+// ── 멸균 배치 성적서 ─────────────────────────────────────────
+export function printSterileBatchCert(batch, spec) {
+  const resultMap = { pass: ['badge-green', '합격'], fail: ['badge-red', '불합격'], conditional: ['badge-orange', '조건부합격'] }
+  const [cls, label] = resultMap[batch.result] || ['badge-gray', batch.result || '-']
+  const resultBadge = `<span class="badge ${cls}">${label}</span>`
+  const body = `
+    <div class="qt-subtitle">멸균 배치 성적서 (Sterilization Batch Certificate)</div>
+    <div class="section-title">1. 배치 기본 정보</div>
+    <table>
+      <tr><th>배치/로트 번호</th><td>${batch.batchNo || '-'}</td><th>멸균 일자</th><td>${batch.date || '-'}</td></tr>
+      <tr><th>제품명</th><td>${batch.productName || '-'}</td><th>생산 로트</th><td>${batch.lotNo || '-'}</td></tr>
+      <tr><th>멸균 방법</th><td>${batch.sterileMethod || '-'}</td><th>연결된 사양</th><td>${spec ? (spec.productName + ' (SAL ' + spec.salTarget + ')') : '(직접 입력)'}</td></tr>
+      <tr><th>합/불 판정</th><td colspan="3">${resultBadge}</td></tr>
+    </table>
+
+    <div class="section-title">2. 실측 사이클 파라미터</div>
+    <table>
+      <tr><th>온도</th><td>${batch.actualTemp ? batch.actualTemp + ' ℃' : '(없음)'}</td><th>시간</th><td>${batch.actualTime ? batch.actualTime + ' 분' : '(없음)'}</td></tr>
+      <tr><th>압력</th><td>${batch.actualPressure ? batch.actualPressure + ' bar' : '(없음)'}</td><th>선량</th><td>${batch.actualDose || '(없음)'}</td></tr>
+    </table>
+
+    <div class="section-title">3. 멸균 검증 결과</div>
+    <table>
+      <tr><th>바이오버든 결과</th><td>${batch.bioburdenResult ? batch.bioburdenResult + ' CFU/개' : '(없음)'}</td><th>달성 SAL</th><td>${batch.salAchieved || '(없음)'}</td></tr>
+    </table>
+
+    <div class="section-title">4. 비고</div>
+    <div class="text-area-box" style="min-height:60px;">${batch.notes || '(없음)'}</div>
+  `
+  openPrint(pageWrapper(batch.batchNo || 'SB-XXXX', '멸균 배치 성적서', 'ISO 13485 §7.5.7', body))
+}
+
 // ── 리콜 통보 대상 고객 목록 (리콜 시뮬레이션) ───────────────────
 export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
   const classMap = { I: 'Class I — 즉시 리콜', II: 'Class II — 신속 리콜', III: 'Class III — 일반 리콜' }

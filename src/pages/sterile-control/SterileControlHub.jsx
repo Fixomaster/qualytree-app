@@ -14,6 +14,7 @@ import {
 import {
   STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES, deriveSterileSpecs,
 } from '../../lib/sterileSpecConstants'
+import { printSterileBatchCert } from '../../lib/pdfPrint'
 
 // ─── 상수 ──────────────────────────────────────────────
 // 멸균 방법 사양(STERILE_METHODS 등)은 제품·공정 화면에서 입력되어
@@ -32,8 +33,8 @@ const EMPTY_BATCH = {
   specId: '', batchNo: '', date: new Date().toISOString().slice(0, 10),
   productName: '', lotNo: '', sterileMethod: STERILE_METHODS[0],
   actualTemp: '', actualTime: '', actualPressure: '', actualDose: '',
-  bioburdenResult: '', salAchieved: '', operator: '',
-  result: 'pass', releaseRef: '', deviationRef: '', notes: '',
+  bioburdenResult: '', salAchieved: '',
+  result: 'pass', notes: '',
 }
 
 const DEFAULT_POLICY = {
@@ -235,6 +236,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
   const [showForm, setShowForm] = useState(false)
   const [editing,  setEditing]  = useState(null)
   const [draft,    setDraft]    = useState(EMPTY_BATCH)
+  const [certRow,  setCertRow]  = useState(null)
 
   const openNew = () => {
     const base = specs.length > 0
@@ -270,7 +272,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>총 {batches.length}건의 멸균 배치 기록</span>
+        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>총 {batches.length}건의 멸균 배치 기록 · 행 클릭 시 성적서 확인</span>
         {canEdit && (
           <button onClick={openNew} style={{
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
@@ -340,19 +342,10 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
             <Field label="달성 SAL">
               <input style={inp} value={draft.salAchieved} onChange={upd('salAchieved')} placeholder="예: 10⁻⁶" />
             </Field>
-            <Field label="작업자">
-              <input style={inp} value={draft.operator} onChange={upd('operator')} placeholder="이름" />
-            </Field>
             <Field label="합/불 판정" required>
               <select style={sel} value={draft.result} onChange={upd('result')}>
                 {BATCH_RESULTS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
-            </Field>
-            <Field label="출하 기록 참조">
-              <input style={inp} value={draft.releaseRef} onChange={upd('releaseRef')} placeholder="예: REL-2024-001" />
-            </Field>
-            <Field label="일탈 보고서 참조">
-              <input style={inp} value={draft.deviationRef} onChange={upd('deviationRef')} placeholder="해당 시" />
             </Field>
           </div>
 
@@ -385,19 +378,18 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--bg-soft)' }}>
-                {['배치번호', '일자', '제품명', '멸균방법', '작업자', '바이오버든', 'SAL', '판정', ''].map(h => (
+                {['배치번호', '일자', '제품명', '멸균방법', '바이오버든', 'SAL', '판정', ''].map(h => (
                   <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, fontSize: 12, color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {batches.map((b, i) => (
-                <tr key={b.id} style={{ borderBottom: '1px solid var(--line)', background: i % 2 ? 'var(--bg-soft)' : 'var(--bg-card)' }}>
+                <tr key={b.id} onClick={() => setCertRow(b)} style={{ borderBottom: '1px solid var(--line)', background: i % 2 ? 'var(--bg-soft)' : 'var(--bg-card)', cursor: 'pointer' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{b.batchNo}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.date}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink)' }}>{b.productName || '—'}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)', fontSize: 12 }}>{b.sterileMethod}</td>
-                  <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.operator || '—'}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.bioburdenResult || '—'}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.salAchieved || '—'}</td>
                   <td style={{ padding: '8px 12px' }}>
@@ -408,7 +400,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
                       {BATCH_RESULTS.find(r => r.value === b.result)?.label || b.result}
                     </span>
                   </td>
-                  <td style={{ padding: '8px 12px' }}>
+                  <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
                     {canEdit && (
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button onClick={() => openEdit(b)} style={{
@@ -428,6 +420,82 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
           </table>
         </div>
       )}
+
+      {certRow && (
+        <SterileModal title="멸균 배치 성적서" onClose={() => setCertRow(null)}>
+          <BatchCertificate batch={certRow} specs={specs} onClose={() => setCertRow(null)} />
+        </SterileModal>
+      )}
+    </div>
+  )
+}
+
+function SterileModal({ title, onClose, children }) {
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'rgba(0,0,0,0.45)',
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        background: 'var(--bg-card)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 520,
+        maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', border: '1px solid var(--line)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{title}</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
+            <XCircle size={19} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function BatchCertificate({ batch, specs, onClose }) {
+  const spec = specs.find(s => s.id === batch.specId)
+  const Row = ({ label, value }) => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
+      <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>{label}</span>
+      <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>{value || '—'}</span>
+    </div>
+  )
+  return (
+    <div>
+      <div style={{ textAlign: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>멸균 배치 성적서</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Sterilization Batch Certificate · ISO 13485 §7.5.7</div>
+      </div>
+      <Row label="배치/로트 번호" value={batch.batchNo} />
+      <Row label="멸균 일자" value={batch.date} />
+      <Row label="제품명" value={batch.productName} />
+      <Row label="생산 로트" value={batch.lotNo} />
+      <Row label="멸균 방법" value={batch.sterileMethod} />
+      <Row label="연결된 사양" value={spec ? `${spec.productName} (SAL ${spec.salTarget})` : '— (직접 입력)'} />
+      <Row label="실측 온도" value={batch.actualTemp ? `${batch.actualTemp}℃` : ''} />
+      <Row label="실측 시간" value={batch.actualTime ? `${batch.actualTime}분` : ''} />
+      <Row label="실측 압력" value={batch.actualPressure ? `${batch.actualPressure} bar` : ''} />
+      <Row label="실측 선량" value={batch.actualDose} />
+      <Row label="바이오버든 결과" value={batch.bioburdenResult ? `${batch.bioburdenResult} CFU/개` : ''} />
+      <Row label="달성 SAL" value={batch.salAchieved} />
+      <Row label="합/불 판정" value={BATCH_RESULTS.find(r => r.value === batch.result)?.label || batch.result} />
+      <Row label="비고" value={batch.notes} />
+      <div style={{ display: 'flex', gap: 10, paddingTop: 16 }}>
+        <button onClick={() => printSterileBatchCert(batch, spec)} style={{
+          display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
+          background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
+          padding: '7px 16px', cursor: 'pointer',
+        }}>
+          <FileText size={14} /> 인쇄
+        </button>
+        <button onClick={onClose} style={{
+          fontSize: 13, background: 'none', border: '1px solid var(--line)',
+          borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
+        }}>닫기</button>
+      </div>
     </div>
   )
 }
