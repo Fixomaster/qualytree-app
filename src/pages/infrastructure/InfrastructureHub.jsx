@@ -348,6 +348,16 @@ export default function InfrastructureHub() {
 
 // ── 상세 뷰 ──────────────────────────────────────────────────
 function DetailView({ item, canEdit, showMntForm, setShowMntForm, mntForm, setMntForm, startMnt, submitMnt }) {
+  const [newCheckName, setNewCheckName] = useState('')
+  const addCheckItem = () => {
+    const name = newCheckName.trim()
+    if (!name) return
+    setMntForm(f => ({ ...f, checkResults: [...f.checkResults, { name, result: null }] }))
+    setNewCheckName('')
+  }
+  const removeCheckItem = (i) => {
+    setMntForm(f => ({ ...f, checkResults: f.checkResults.filter((_, idx) => idx !== i) }))
+  }
   const cat = INFRA_CATEGORIES[item.category] || INFRA_CATEGORIES.other
   const st = ITEM_STATUSES[item.status] || ITEM_STATUSES.active
   const CatIcon = cat.icon
@@ -453,10 +463,10 @@ function DetailView({ item, canEdit, showMntForm, setShowMntForm, mntForm, setMn
           </div>
 
           {/* 체크 항목 */}
-          {mntForm.checkResults.length > 0 && (
-            <div className="mb-4">
-              <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink)' }}>점검 항목</div>
-              <div className="space-y-1.5">
+          <div className="mb-4">
+            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink)' }}>점검 항목</div>
+            {mntForm.checkResults.length > 0 && (
+              <div className="space-y-1.5 mb-2">
                 {mntForm.checkResults.map((ch, i) => (
                   <div key={i} className="flex items-center gap-3 p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
                     <span className="flex-1 text-[12.5px]" style={{ color: 'var(--ink)' }}>{ch.name}</span>
@@ -473,11 +483,24 @@ function DetailView({ item, canEdit, showMntForm, setShowMntForm, mntForm, setMn
                         </button>
                       ))}
                     </div>
+                    <button onClick={() => removeCheckItem(i)} className="text-slate-300 hover:text-rose-600"><X size={14} /></button>
                   </div>
                 ))}
               </div>
+            )}
+            <div className="flex gap-2">
+              <input type="text" value={newCheckName} onChange={e => setNewCheckName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCheckItem() } }}
+                placeholder="점검 항목명을 입력 후 추가 (예: 배수구 상태 확인)"
+                className="flex-1 px-3 py-1.5 rounded-xl text-[12.5px]"
+                style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              <button onClick={addCheckItem}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12.5px] font-bold"
+                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
+                <Plus size={13} /> 추가
+              </button>
             </div>
-          )}
+          </div>
 
           <div className="mb-4">
             <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>비고·조치 내용</label>
