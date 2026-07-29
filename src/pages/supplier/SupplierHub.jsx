@@ -30,9 +30,10 @@ const CATEGORIES = ['원자재', '부품·반제품', '완제품', '소모품', 
 const GRADES     = [
   { value: 'A', label: 'A등급 — 우수', color: '#059669', bg: '#D1FAE5' },
   { value: 'B', label: 'B등급 — 양호', color: '#2563EB', bg: '#DBEAFE' },
-  { value: 'C', label: 'C등급 — 보통 (개선 필요)', color: '#D97706', bg: '#FEF3C7' },
-  { value: 'D', label: 'D등급 — 미흡 (조건부 승인)', color: '#DC2626', bg: '#FEE2E2' },
+  { value: 'C', label: 'C등급 — 보통 (조건부 승인)', color: '#D97706', bg: '#FEF3C7' },
+  { value: 'D', label: 'D등급 — 미흡 (승인 정지)', color: '#DC2626', bg: '#FEE2E2' },
 ]
+const COMMON_CERTS = ['ISO 13485', 'ISO 9001', 'KGMP', 'CE 인증', 'FDA 등록', 'MDSAP', 'KC 인증', 'RoHS']
 const IQC_RESULTS = [
   { value: 'pass',    label: '합격',    color: '#059669', bg: '#D1FAE5' },
   { value: 'fail',    label: '불합격',  color: '#DC2626', bg: '#FEE2E2' },
@@ -44,10 +45,10 @@ const EVAL_ITEMS = [
 ]
 
 const emptySupplier = () => ({
-  name: '', code: '', category: '', grade: 'B',
+  name: '', code: '', category: '',
   contact: '', phone: '', email: '', address: '',
-  items: '', certifications: '', approvedAt: '',
-  status: 'approved', notes: '',
+  items: '', certifications: [], notes: '',
+  grade: '', status: 'pending',
 })
 const emptyIqc = () => ({
   supplierId: '', supplierName: '', itemName: '', lotNo: '',
@@ -58,7 +59,25 @@ const emptyEval = () => ({
   supplierId: '', supplierName: '', year: new Date().getFullYear(),
   scores: { '납기 준수율': 0, '품질 합격률': 0, '가격 경쟁력': 0, '품질시스템 수준': 0, '대응성·서비스': 0 },
   grade: 'B', conclusion: '', evaluatedBy: '', evaluatedAt: new Date().toISOString().slice(0, 10),
+  isInitial: false,
 })
+
+function statusFromGrade(g) {
+  if (g === 'D') return 'suspended'
+  if (g === 'C') return 'conditional'
+  return 'approved'
+}
+function addMonths(dateStr, months) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  d.setMonth(d.getMonth() + months)
+  return d.toISOString().slice(0, 10)
+}
+function certArray(sup) {
+  if (Array.isArray(sup.certifications)) return sup.certifications
+  if (sup.certifications) return String(sup.certifications).split(',').map(s => s.trim()).filter(Boolean)
+  return []
+}
 
 function calcGrade(scores) {
   const vals = Object.values(scores)
@@ -94,9 +113,17 @@ export default function SupplierHub() {
   const openEditSup = s => { setForm({ ...s }); setEditId(s.id); setModal('supplier') }
   const submitSup = () => {
     if (!form.name) return alert('공급업체명 필수')
-    if (editId) saveSup(suppliers.map(s => s.id === editId ? { ...form, id: editId } : s))
-    else saveSup([{ ...form, id: genId('SUP'), createdAt: new Date().toISOString() }, ...suppliers])
-    setModal(null)
+    if (editId) {
+      saveSup(suppliers.map(s => s.id === editId ? { ...form, id: editId } : s))
+      setModal(null)
+      return
+    }
+    const rec = { ...form, id: genId('SUP'), createdAt: new Date().toISOString() }
+    saveSup([rec, ...suppliers])
+    // 신규 등록 시 등급·상태는 아직 없음 — 바로 업체평가(최초 심사)로 넘어가서 등급을 매긴다
+    setForm({ ...emptyEval(), supplierId: rec.id, supplierName: rec.name, evaluatedBy: user?.name || '', isInitial: true })
+    setEditId(null)
+    setModal('eval')
   }
   const removeSup = id => { if (!confirm('삭제?')) return; saveSup(suppliers.filter(s => s.id !== id)) }
 
@@ -121,9 +148,10 @@ export default function SupplierHub() {
   const submitEval = () => {
     if (!form.supplierName) return alert('공급업체 필수')
     const grade = calcGrade(form.scores)
+    const status = statusFromGrade(grade)
     const record = { ...form, id: genId('EVL'), grade, createdAt: new Date().toISOString() }
     if (editId) saveEval(evals.map(e => e.id === editId ? { ...record, id: editId } : e))
-    else { saveEval([record, ...evals]); saveSup(suppliers.map(s => s.id === form.supplierId ? { ...s, grade } : s)) }
+    else { saveEval([record, ...evals]); saveSup(suppliers.map(s => s.id === form.supplierId ? { ...s, grade, status } : s)) }
     setModal(null)
   }
 
@@ -284,8 +312,9 @@ export default function SupplierHub() {
 
 // ── 공급업체 행 ───────────────────────────────────────────────
 function SupRow({ sup, iqcCount, lastEval, expanded, onToggle, onEdit, onDelete, onAddIqc, onAddEval }) {
-  const gradeInfo = GRADES.find(g => g.value === sup.grade) || GRADES[1]
-  const statusColor = sup.status === 'approved' ? '#059669' : sup.status === 'conditional' ? '#D97706' : '#DC2626'
+  const gradeInfo = GRADES.find(g => g.value === sup.grade) || { color: '#9CA3AF', bg: '#F3F4F6' }
+  const statusColor = sup.status === 'approved' ? '#059669' : sup.status === 'conditional' ? '#D97706' : sup.status === 'pending' ? '#6B7280' : '#DC2626'
+  const nextReeval = lastEval ? addMonths(lastEval.evaluatedAt, 12) : null
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -299,12 +328,12 @@ function SupRow({ sup, iqcCount, lastEval, expanded, onToggle, onEdit, onDelete,
             {sup.code && <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{sup.code}</span>}
             {sup.category && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{sup.category}</span>}
             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ color: statusColor, background: `${statusColor}15` }}>
-              {sup.status === 'approved' ? '승인' : sup.status === 'conditional' ? '조건부 승인' : '정지'}
+              {sup.status === 'approved' ? '승인' : sup.status === 'conditional' ? '조건부 승인' : sup.status === 'pending' ? '심사 대기' : '정지'}
             </span>
           </div>
           <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{sup.name}</div>
           <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>
-            {sup.items || '공급 품목 미기재'} · IQC {iqcCount}건 · 최근 평가 {lastEval ? `${lastEval.year}년` : '미실시'}
+            {sup.items || '공급 품목 미기재'} · IQC {iqcCount}건 · 최근 심사 {lastEval ? `${lastEval.evaluatedAt || lastEval.year}` : '미실시'}{nextReeval ? ` · 차기 심사 예정 ${nextReeval}` : ''}
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -329,7 +358,11 @@ function SupRow({ sup, iqcCount, lastEval, expanded, onToggle, onEdit, onDelete,
             <SL>공급 품목 및 인증</SL>
             <div className="text-[12px] mb-2" style={{ color: 'var(--ink)' }}>{sup.items || '-'}</div>
             <SL>보유 인증</SL>
-            <div className="text-[12px]" style={{ color: 'var(--ink)' }}>{sup.certifications || '-'}</div>
+            <div className="flex flex-wrap gap-1">
+              {certArray(sup).length > 0
+                ? certArray(sup).map(c => <span key={c} className="text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: '#EFF6FF', color: '#2563EB' }}>{c}</span>)
+                : <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>-</span>}
+            </div>
           </div>
           {sup.notes && <div className="md:col-span-2"><SL>비고</SL><div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>{sup.notes}</div></div>}
           <div className="md:col-span-2 flex gap-2">
@@ -433,9 +466,56 @@ function avlSupplierNames() {
   } catch { return [] }
 }
 
+function CertPicker({ value, onChange }) {
+  const list = Array.isArray(value) ? value : []
+  const [custom, setCustom] = useState('')
+  const toggle = c => { onChange(list.includes(c) ? list.filter(x => x !== c) : [...list, c]) }
+  const addCustom = () => {
+    const v = custom.trim()
+    if (!v) return
+    if (!list.includes(v)) onChange([...list, v])
+    setCustom('')
+  }
+  return (
+    <div>
+      <div className="text-[10.5px] mb-1.5" style={{ color: 'var(--ink-faint)' }}>기본 목록에서 선택하거나 직접 입력하세요 (복수 선택 가능)</div>
+      <div className="flex flex-wrap gap-1.5 mb-2">
+        {COMMON_CERTS.map(c => (
+          <button key={c} type="button" onClick={() => toggle(c)}
+            className="px-2.5 py-1 rounded-lg text-[11.5px] font-medium transition"
+            style={{
+              background: list.includes(c) ? '#D1FAE5' : 'var(--bg-soft)',
+              color: list.includes(c) ? '#059669' : 'var(--ink-faint)',
+              border: `1px solid ${list.includes(c) ? '#6EE7B7' : 'var(--line)'}`,
+              cursor: 'pointer',
+            }}>
+            {list.includes(c) ? '✓ ' : ''}{c}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2 mb-2">
+        <input value={custom} onChange={e => setCustom(e.target.value)} placeholder="목록에 없는 인증서 직접 입력..."
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
+          style={IS} className="flex-1" />
+        <button type="button" onClick={addCustom} className="px-3 rounded-lg text-[12px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink)', border: '1px solid var(--line)', cursor: 'pointer' }}>추가</button>
+      </div>
+      {list.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {list.map(c => (
+            <span key={c} className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium" style={{ background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE' }}>
+              {c}
+              <button type="button" onClick={() => onChange(list.filter(x => x !== c))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563EB', lineHeight: 1, fontSize: 13 }}>×</button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SupForm({ form, fld, editId, onSubmit, onClose }) {
   return (
-    <Modal title={editId ? '공급업체 수정' : '공급업체 등록'} onClose={onClose} onSubmit={onSubmit} submitColor="#059669" submitLabel={editId ? '수정 저장' : '공급업체 등록'}>
+    <Modal title={editId ? '공급업체 수정' : '공급업체 등록'} onClose={onClose} onSubmit={onSubmit} submitColor="#059669" submitLabel={editId ? '수정 저장' : '공급업체 등록 → 최초 심사 진행'}>
       <R2>
         <F label="업체명 *">
           <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: (주)한국부품" style={IS} className="w-full" list="sup-avl-name-list" />
@@ -443,19 +523,12 @@ function SupForm({ form, fld, editId, onSubmit, onClose }) {
         </F>
         <F label="업체 코드"><input value={form.code} onChange={e => fld('code', e.target.value)} placeholder="예: SUP-001" style={IS} className="w-full" /></F>
       </R2>
-      <R2>
-        <F label="분류">
-          <select value={form.category} onChange={e => fld('category', e.target.value)} style={IS} className="w-full">
-            <option value="">선택...</option>
-            {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </F>
-        <F label="현재 등급">
-          <select value={form.grade} onChange={e => fld('grade', e.target.value)} style={IS} className="w-full">
-            {GRADES.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-          </select>
-        </F>
-      </R2>
+      <F label="분류">
+        <select value={form.category} onChange={e => fld('category', e.target.value)} style={IS} className="w-full">
+          <option value="">선택...</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </F>
       <R2>
         <F label="담당자"><input value={form.contact} onChange={e => fld('contact', e.target.value)} placeholder="담당자명" style={IS} className="w-full" /></F>
         <F label="전화"><input value={form.phone} onChange={e => fld('phone', e.target.value)} placeholder="02-0000-0000" style={IS} className="w-full" /></F>
@@ -463,16 +536,12 @@ function SupForm({ form, fld, editId, onSubmit, onClose }) {
       <F label="이메일"><input value={form.email} onChange={e => fld('email', e.target.value)} placeholder="contact@supplier.com" style={IS} className="w-full" /></F>
       <F label="주소"><input value={form.address} onChange={e => fld('address', e.target.value)} placeholder="서울시..." style={IS} className="w-full" /></F>
       <F label="공급 품목 (쉼표 구분)"><input value={form.items} onChange={e => fld('items', e.target.value)} placeholder="예: PCB, 커넥터, 전원모듈" style={IS} className="w-full" /></F>
-      <R2>
-        <F label="보유 인증"><input value={form.certifications} onChange={e => fld('certifications', e.target.value)} placeholder="예: ISO 9001, KS" style={IS} className="w-full" /></F>
-        <F label="승인 상태">
-          <select value={form.status} onChange={e => fld('status', e.target.value)} style={IS} className="w-full">
-            <option value="approved">✓ 승인</option>
-            <option value="conditional">△ 조건부 승인</option>
-            <option value="suspended">✗ 승인 정지</option>
-          </select>
-        </F>
-      </R2>
+      <F label="보유 인증"><CertPicker value={form.certifications} onChange={v => fld('certifications', v)} /></F>
+      {!editId && (
+        <div className="text-[11.5px] p-3 rounded-xl" style={{ background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }}>
+          등급 · 심사일 · 승인 상태는 여기서 입력하지 않습니다. 등록을 완료하면 바로 이어지는 업체평가(최초 심사)에서 자동으로 결정됩니다.
+        </div>
+      )}
       <F label="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
     </Modal>
   )
@@ -520,18 +589,27 @@ function EvalForm({ form, fld, fldScore, suppliers, onSubmit, onClose }) {
   const grade = calcGrade(form.scores)
   const gradeInfo = GRADES.find(g => g.value === grade) || GRADES[1]
   return (
-    <Modal title="공급업체 평가" onClose={onClose} onSubmit={onSubmit} submitColor="#F59E0B" submitLabel="평가 저장">
+    <Modal title={form.isInitial ? '업체평가 (최초 심사)' : '공급업체 평가'} onClose={onClose} onSubmit={onSubmit} submitColor="#F59E0B" submitLabel={form.isInitial ? '최초 심사 저장 · 등급 확정' : '평가 저장'}>
+      {form.isInitial && (
+        <div className="text-[12px] p-3 rounded-xl" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+          신규 등록된 업체입니다. 이 최초 심사 결과에 따라 등급과 승인 상태가 자동으로 결정됩니다.
+        </div>
+      )}
       <R2>
-        <F label="공급업체">
-          <select value={form.supplierId} onChange={e => {
-            const s = suppliers.find(s => s.id === e.target.value)
-            fld('supplierId', e.target.value)
-            if (s) fld('supplierName', s.name)
-          }} style={IS} className="w-full">
-            <option value="">선택...</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </F>
+        {form.isInitial ? (
+          <F label="공급업체"><div style={{ ...IS, background: 'var(--bg-soft)' }} className="w-full">{form.supplierName}</div></F>
+        ) : (
+          <F label="공급업체">
+            <select value={form.supplierId} onChange={e => {
+              const s = suppliers.find(s => s.id === e.target.value)
+              fld('supplierId', e.target.value)
+              if (s) fld('supplierName', s.name)
+            }} style={IS} className="w-full">
+              <option value="">선택...</option>
+              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </F>
+        )}
         <F label="평가 연도"><input type="number" value={form.year} onChange={e => fld('year', +e.target.value)} min="2020" max="2030" style={IS} className="w-full" /></F>
       </R2>
       <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
