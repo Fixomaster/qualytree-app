@@ -601,11 +601,14 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
 
           {/* MDR */}
           <div className="p-4 rounded-xl" style={{ background: form.mdrRequired ? '#EDE9FE' : 'var(--bg-soft)', border: `1px solid ${form.mdrRequired ? '#C4B5FD' : 'var(--line)'}` }}>
-            <label className="flex items-center gap-2 cursor-pointer mb-2">
+            <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: form.mdrRequired ? 8 : 0 }}>
               <input type="checkbox" checked={!!form.mdrRequired} onChange={e => fld('mdrRequired', e.target.checked)} style={{ width: 16, height: 16 }} />
               <span className="text-[13px] font-semibold" style={{ color: form.mdrRequired ? '#4C1D95' : 'var(--ink)' }}>규제 보고 필요 (MDR / 이상사례 보고)</span>
             </label>
-            {form.mdrRequired && (
+            {form.mdrRequired && !editId && (
+              <div className="text-[11.5px]" style={{ color: '#6D28D9' }}>보고일 · 식약처 접수 번호는 접수 후 조사가 진행되면 수정 화면에서 입력합니다.</div>
+            )}
+            {form.mdrRequired && editId && (
               <R2>
                 <F l="보고일"><input type="date" value={form.mdrReportDate} onChange={e => fld('mdrReportDate', e.target.value)} style={IS} className="w-full" /></F>
                 <F l="식약처 접수 번호"><input value={form.mdrRefNo} onChange={e => fld('mdrRefNo', e.target.value)} placeholder="접수 번호" style={IS} className="w-full" /></F>
@@ -618,27 +621,32 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
             <F l="담당자"><input value={form.assignee} onChange={e => fld('assignee', e.target.value)} style={IS} className="w-full" /></F>
             <F l="처리 마감일"><input type="date" value={form.dueDate} onChange={e => fld('dueDate', e.target.value)} style={IS} className="w-full" /></F>
           </R2>
-          <R2>
-            <F l="NCR 연결 번호"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="예: NCR-2026-00001" style={IS} className="w-full" /></F>
-            <F l="CAPA 연결 번호"><input value={form.capaId} onChange={e => fld('capaId', e.target.value)} placeholder="예: CAPA-2026-00001" style={IS} className="w-full" /></F>
-          </R2>
+          {editId && (
+            <>
+              <div className="text-[11.5px] font-bold pt-1" style={{ color: 'var(--ink-faint)' }}>진행 상황 (접수 후 조사·처리 진행에 따라 입력)</div>
+              <R2>
+                <F l="NCR 연결 번호"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="예: NCR-2026-00001" style={IS} className="w-full" /></F>
+                <F l="CAPA 연결 번호"><input value={form.capaId} onChange={e => fld('capaId', e.target.value)} placeholder="예: CAPA-2026-00001" style={IS} className="w-full" /></F>
+              </R2>
 
-          {/* 조사 결과 */}
-          <F l="조사 결과"><textarea value={form.investigation} onChange={e => fld('investigation', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-          <R2>
-            <F l="근본 원인"><textarea value={form.rootCause} onChange={e => fld('rootCause', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-            <F l="시정 조치"><textarea value={form.corrective} onChange={e => fld('corrective', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-          </R2>
+              {/* 조사 결과 */}
+              <F l="조사 결과"><textarea value={form.investigation} onChange={e => fld('investigation', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+              <R2>
+                <F l="근본 원인"><textarea value={form.rootCause} onChange={e => fld('rootCause', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+                <F l="시정 조치"><textarea value={form.corrective} onChange={e => fld('corrective', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+              </R2>
 
-          {/* 상태 */}
-          <R2>
-            <F l="처리 상태">
-              <select value={form.status} onChange={e => fld('status', e.target.value)} style={IS} className="w-full">
-                {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </F>
-            <F l="종결일">{form.status === 'closed' && <input type="date" value={form.closedDate} onChange={e => fld('closedDate', e.target.value)} style={IS} className="w-full" />}</F>
-          </R2>
+              {/* 상태 */}
+              <R2>
+                <F l="처리 상태">
+                  <select value={form.status} onChange={e => fld('status', e.target.value)} style={IS} className="w-full">
+                    {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </F>
+                <F l="종결일">{form.status === 'closed' && <input type="date" value={form.closedDate} onChange={e => fld('closedDate', e.target.value)} style={IS} className="w-full" />}</F>
+              </R2>
+            </>
+          )}
           <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
         </div>
 
