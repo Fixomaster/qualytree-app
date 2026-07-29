@@ -519,6 +519,38 @@ export function printSterileBatchCert(batch, spec) {
   openPrint(pageWrapper(batch.batchNo || 'SB-XXXX', '멸균 배치 성적서', 'ISO 13485 §7.5.7', body))
 }
 
+// ── 멸균관리 절차서 (재처리·라벨링 정책) ─────────────────────────
+export function printSterilizationProcedure(policy) {
+  const sec = (label, val) => `
+    <div class="section-title">${label}</div>
+    <div class="text-area-box" style="min-height:50px;">${val ? String(val).replace(/\n/g, '<br/>') : '(미입력)'}</div>
+  `
+  const revRows = (policy.revisionHistory || []).length === 0
+    ? '<tr><td colspan="4" style="color:#999;text-align:center;">개정 이력 없음</td></tr>'
+    : policy.revisionHistory.map(r => `
+      <tr><td>${r.date || '-'}</td><td>${r.revision || '-'}</td><td>${r.by || '-'}</td><td>${r.summary || '-'}</td></tr>
+    `).join('')
+  const body = `
+    <div class="qt-subtitle">멸균관리 절차서 (Sterilization Management Procedure)</div>
+    <table>
+      <tr><th>개정번호</th><td>${policy.revision || '-'}</td><th>발행일</th><td>${policy.issueDate || '-'}</td></tr>
+      <tr><th>승인자</th><td colspan="3">${policy.approvedBy || '-'}</td></tr>
+    </table>
+    ${sec('1. 적용 범위', policy.scope)}
+    ${sec('2. 단회 사용 명시 (§7.5.7 필수)', policy.singleUseStatement)}
+    ${sec('3. 재처리 정책', policy.reprocessingPolicy)}
+    ${sec('4. 라벨링 요구사항', policy.labelingReqs)}
+    ${sec('5. 유효기간 추적 방법', policy.expiryTrackingMethod)}
+    ${sec('6. 시판 후 멸균 모니터링', policy.postMarketMonitoring)}
+    <div class="section-title">7. 개정 이력</div>
+    <table>
+      <tr><th style="width:90px">날짜</th><th style="width:80px">개정번호</th><th style="width:100px">작성자</th><th>내용 요약</th></tr>
+      ${revRows}
+    </table>
+  `
+  openPrint(pageWrapper(policy.revision || 'STR-SOP', '멸균관리 절차서', 'ISO 13485 §7.5.7', body))
+}
+
 // ── 리콜 통보 대상 고객 목록 (리콜 시뮬레이션) ───────────────────
 export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
   const classMap = { I: 'Class I — 즉시 리콜', II: 'Class II — 신속 리콜', III: 'Class III — 일반 리콜' }
