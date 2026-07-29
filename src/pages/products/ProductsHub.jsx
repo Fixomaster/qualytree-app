@@ -43,6 +43,7 @@ import {
 } from '../../lib/productLifecycleState'
 import { extractLicenseFromPdf } from '../../lib/licenseExtract'
 import { STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES } from '../../lib/sterileSpecConstants'
+import { INSP_TYPES } from '../../lib/inspectionStandardConstants'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -1014,6 +1015,18 @@ function ProductPanel({ product, company, onAction }) {
     setTimeout(() => window.location.reload(), 600)
   }
 
+  const addInspItem = () => setDraft((d) => ({ ...d, inspStdCheckItems: [...(d.inspStdCheckItems || []), { name: '', spec: '', method: '' }] }))
+  const updInspItem = (i, k, v) => setDraft((d) => {
+    const items = [...(d.inspStdCheckItems || [])]
+    items[i] = { ...items[i], [k]: v }
+    return { ...d, inspStdCheckItems: items }
+  })
+  const delInspItem = (i) => setDraft((d) => {
+    const items = [...(d.inspStdCheckItems || [])]
+    items.splice(i, 1)
+    return { ...d, inspStdCheckItems: items }
+  })
+
   return (
     <div className="grid lg:grid-cols-3 gap-4">
       {/* 좌: 제품 카드 */}
@@ -1124,6 +1137,40 @@ function ProductPanel({ product, company, onAction }) {
                   )}
                 </div>
               )}
+
+              {product.inspStdName && (
+                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
+                    검사 기준서 (ISO 13485 §8.2.4 최종검사)
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="기준서 이름" value={product.inspStdName} />
+                    <Field label="버전 / 시행일" value={[product.inspStdVersion || '1.0', product.inspStdEffectiveDate].filter(Boolean).join(' · ')} />
+                    <Field label="검사 유형" value={(INSP_TYPES.find((t) => t.value === (product.inspStdType || 'fqc')) || {}).label || '-'} />
+                    <Field label="AQL 수준" value={product.inspStdAqlLevel || '-'} />
+                    <Field label="합격 / 불합격 수량" value={[product.inspStdAcceptQty, product.inspStdRejectQty].filter(Boolean).join(' / ') || '-'} />
+                  </div>
+                  {(product.inspStdCheckItems || []).length > 0 && (
+                    <div className="mt-3">
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>검사 항목</label>
+                      <div className="mt-1 grid md:grid-cols-2 gap-1.5">
+                        {product.inspStdCheckItems.map((ci, i) => (
+                          <div key={i} className="flex gap-2 text-[12px] p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                            <span style={{ color: 'var(--ink-faint)', minWidth: 16 }}>{i + 1}.</span>
+                            <span style={{ color: 'var(--ink)' }}>{ci.name}</span>
+                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>— {ci.spec}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {product.inspStdNotes && (
+                    <div className="mt-3">
+                      <Field label="비고" value={product.inspStdNotes} />
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div
@@ -1219,6 +1266,51 @@ function ProductPanel({ product, company, onAction }) {
                     <FieldEdit label="멸균 사양 비고" value={draft.sterileNotes} onChange={(v) => setDraft({ ...draft, sterileNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
                   </div>
                 )}
+              </div>
+
+              <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+                <div className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>
+                  검사 기준서 (ISO 13485 §8.2.4 최종검사 — 개발 설계단계 작성)
+                </div>
+                <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    <FieldEdit label="기준서 이름" value={draft.inspStdName} onChange={(v) => setDraft({ ...draft, inspStdName: v })} placeholder="예: 완제품 최종검사 기준서" />
+                    <FieldEdit label="버전" value={draft.inspStdVersion} onChange={(v) => setDraft({ ...draft, inspStdVersion: v })} placeholder="1.0" />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>검사 유형</label>
+                      <select className="input-base mt-1 w-full text-[13px]" value={draft.inspStdType || 'fqc'} onChange={(e) => setDraft({ ...draft, inspStdType: e.target.value })}>
+                        {INSP_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <FieldEdit label="시행일" type="date" value={draft.inspStdEffectiveDate} onChange={(v) => setDraft({ ...draft, inspStdEffectiveDate: v })} />
+                    <FieldEdit label="AQL 수준" value={draft.inspStdAqlLevel} onChange={(v) => setDraft({ ...draft, inspStdAqlLevel: v })} placeholder="0.65" />
+                    <FieldEdit label="합격 / 불합격 수량" value={draft.inspStdAcceptQty} onChange={(v) => setDraft({ ...draft, inspStdAcceptQty: v })} placeholder="Ac 0" />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>검사 항목</label>
+                      <button type="button" onClick={addInspItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ 항목 추가</button>
+                    </div>
+                    <div className="space-y-2">
+                      {(draft.inspStdCheckItems || []).map((ci, i) => (
+                        <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 1fr 32px' }}>
+                          <input value={ci.name} onChange={(e) => updInspItem(i, 'name', e.target.value)} placeholder="검사 항목명" className="input-base text-[12px]" />
+                          <input value={ci.spec} onChange={(e) => updInspItem(i, 'spec', e.target.value)} placeholder="기준/허용 범위" className="input-base text-[12px]" />
+                          <input value={ci.method} onChange={(e) => updInspItem(i, 'method', e.target.value)} placeholder="검사 방법" className="input-base text-[12px]" />
+                          <button type="button" onClick={() => delInspItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                        </div>
+                      ))}
+                      {(draft.inspStdCheckItems || []).length === 0 && (
+                        <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ 버튼으로 검사 항목을 추가하세요</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <FieldEdit label="검사 기준서 비고" value={draft.inspStdNotes} onChange={(v) => setDraft({ ...draft, inspStdNotes: v })} multiline placeholder="추가 참고사항" />
+                </div>
               </div>
 
               <FieldEdit
