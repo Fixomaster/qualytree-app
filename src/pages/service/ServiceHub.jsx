@@ -178,22 +178,29 @@ export default function ServiceHub() {
     return true
   }), [services, filterStatus, filterType, search])
 
-  // 장비별 이력 (serialNo 기준)
+  // 장비별 이력 (S/N 우선, 없으면 제품코드 · 제품명으로 그룹화하여 누락 방지)
+  const deviceKey = (r) => {
+    if (r.serialNo && r.serialNo.trim()) return `SN:${r.serialNo.trim()}`
+    if (r.productCode && r.productCode.trim()) return `PC:${r.productCode.trim()}`
+    return `PN:${(r.productName || '미지정').trim()}`
+  }
   const deviceMap = useMemo(() => {
     const m = {}
     installations.forEach(i => {
-      if (!i.serialNo) return
-      if (!m[i.serialNo]) m[i.serialNo] = { serialNo: i.serialNo, productName: i.productName, productCode: i.productCode, installs: [], services: [] }
-      m[i.serialNo].installs.push(i)
+      const key = deviceKey(i)
+      if (!m[key]) m[key] = { key, serialNo: i.serialNo || '', productName: i.productName, productCode: i.productCode, installs: [], services: [] }
+      m[key].installs.push(i)
     })
     services.forEach(s => {
-      if (!s.serialNo) return
-      if (!m[s.serialNo]) m[s.serialNo] = { serialNo: s.serialNo, productName: s.productName, productCode: s.productCode, installs: [], services: [] }
-      m[s.serialNo].services.push(s)
+      const key = deviceKey(s)
+      if (!m[key]) m[key] = { key, serialNo: s.serialNo || '', productName: s.productName, productCode: s.productCode, installs: [], services: [] }
+      m[key].services.push(s)
     })
     return Object.values(m).filter(d =>
-      !deviceSearch || d.serialNo.toLowerCase().includes(deviceSearch.toLowerCase()) ||
-      d.productName.toLowerCase().includes(deviceSearch.toLowerCase())
+      !deviceSearch ||
+      (d.serialNo && d.serialNo.toLowerCase().includes(deviceSearch.toLowerCase())) ||
+      (d.productName || '').toLowerCase().includes(deviceSearch.toLowerCase()) ||
+      (d.productCode || '').toLowerCase().includes(deviceSearch.toLowerCase())
     )
   }, [installations, services, deviceSearch])
 
@@ -205,6 +212,33 @@ export default function ServiceHub() {
     const svcByType = {}
     Object.keys(SVC_TYPES).forEach(k => { svcByType[k] = services.filter(s => s.svcType === k).length })
     return { openSvc, instOk, instFail, svcByType }
+  }, [installations, services])
+
+  // 월별 · 연도별 현황
+  const periodStats = useMemo(() => {
+    const monthly = {}
+    const yearly = {}
+    const bump = (map, key, field) => {
+      if (!key) return
+      if (!map[key]) map[key] = { key, instCount: 0, svcCount: 0, svcCompletedCount: 0 }
+      map[key][field] += 1
+    }
+    installations.forEach(i => {
+      if (!i.installDate) return
+      bump(monthly, i.installDate.slice(0, 7), 'instCount')
+      bump(yearly, i.installDate.slice(0, 4), 'instCount')
+    })
+    services.forEach(s => {
+      if (!s.reportedDate) return
+      bump(monthly, s.reportedDate.slice(0, 7), 'svcCount')
+      bump(yearly, s.reportedDate.slice(0, 4), 'svcCount')
+      if (s.status === 'completed') {
+        bump(monthly, s.reportedDate.slice(0, 7), 'svcCompletedCount')
+        bump(yearly, s.reportedDate.slice(0, 4), 'svcCompletedCount')
+      }
+    })
+    const toSorted = (map) => Object.values(map).sort((a, b) => b.key.localeCompare(a.key))
+    return { monthly: toSorted(monthly), yearly: toSorted(yearly) }
   }, [installations, services])
 
   return (
@@ -452,18 +486,18 @@ export default function ServiceHub() {
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', width: 260 }} />
             </div>
             {deviceMap.length === 0 ? (
-              <Empty icon={Package} text="S/N이 등록된 장비 기록이 없습니다." />
+              <Empty icon={Package} text="설치·서비스 기록이 없습니다." />
             ) : (
               <div className="space-y-4">
                 {deviceMap.map(dev => (
-                  <div key={dev.serialNo} className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                  <div key={dev.key} className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'var(--bg-soft)' }}>
                         <Package size={16} style={{ color: 'var(--moss)' }} />
                       </div>
                       <div>
                         <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{dev.productName}</div>
-                        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{dev.productCode} · S/N: {dev.serialNo}</div>
+                        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{dev.productCode ? `${dev.productCode} · ` : ''}S/N: {dev.serialNo || '미등록'}</div>
                       </div>
                       <div className="ml-auto flex gap-2">
                         <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#EFF6FF', color: '#2563EB' }}>설치 {dev.installs.length}건</span>
@@ -518,6 +552,48 @@ export default function ServiceHub() {
                   )
                 })}
               </div>
+            </div>
+
+            {/* 월별 현황 */}
+            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>월별 현황</div>
+              {periodStats.monthly.length === 0 ? (
+                <div className="text-[12px] py-4 text-center" style={{ color: 'var(--ink-faint)' }}>설치·서비스 기록을 등록하면 월별 현황이 표시됩니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {periodStats.monthly.map(m => (
+                    <div key={m.key} className="flex items-center gap-3 flex-wrap p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                      <span className="text-[12.5px] font-mono font-bold w-20 flex-shrink-0" style={{ color: 'var(--ink)' }}>{m.key}</span>
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#EFF6FF', color: '#2563EB' }}>설치 {m.instCount}건</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#FEF3C7', color: '#D97706' }}>서비스 {m.svcCount}건</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#ECFDF5', color: '#059669' }}>완료 {m.svcCompletedCount}건</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 연도별 현황 */}
+            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>연도별 현황</div>
+              {periodStats.yearly.length === 0 ? (
+                <div className="text-[12px] py-4 text-center" style={{ color: 'var(--ink-faint)' }}>설치·서비스 기록을 등록하면 연도별 현황이 표시됩니다.</div>
+              ) : (
+                <div className="space-y-2">
+                  {periodStats.yearly.map(y => (
+                    <div key={y.key} className="flex items-center gap-3 flex-wrap p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                      <span className="text-[12.5px] font-mono font-bold w-14 flex-shrink-0" style={{ color: 'var(--ink)' }}>{y.key}</span>
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#EFF6FF', color: '#2563EB' }}>설치 {y.instCount}건</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#FEF3C7', color: '#D97706' }}>서비스 {y.svcCount}건</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#ECFDF5', color: '#059669' }}>완료 {y.svcCompletedCount}건</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
