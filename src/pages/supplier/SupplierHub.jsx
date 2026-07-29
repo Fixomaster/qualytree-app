@@ -5,11 +5,16 @@ import {
   Plus, Search, Edit3, Trash2, Star, StarOff,
   ChevronDown, ChevronUp, X, CheckCircle2,
   AlertTriangle, ShoppingCart, ClipboardCheck,
-  TrendingUp, Building2, Package,
+  TrendingUp, Building2, Package, Settings, Info, Bell,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import {
+  loadCriteria, saveCriteria, loadPolicy, savePolicy,
+  newCriterion, newLevel, maxTotal, gradeFromPct, statusFromPct,
+  nextReevalDate, scoreFromSelections, syncCriteriaToProcedureDoc,
+} from '../../lib/supplierEvalCriteria'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_SUP  = 'qualytree.suppliers'
@@ -30,9 +35,16 @@ const CATEGORIES = ['원자재', '부품·반제품', '완제품', '소모품', 
 const GRADES     = [
   { value: 'A', label: 'A등급 — 우수', color: '#059669', bg: '#D1FAE5' },
   { value: 'B', label: 'B등급 — 양호', color: '#2563EB', bg: '#DBEAFE' },
-  { value: 'C', label: 'C등급 — 보통 (조건부 승인)', color: '#D97706', bg: '#FEF3C7' },
-  { value: 'D', label: 'D등급 — 미흡 (승인 정지)', color: '#DC2626', bg: '#FEE2E2' },
+  { value: 'C', label: 'C등급 — 보통', color: '#D97706', bg: '#FEF3C7' },
+  { value: 'D', label: 'D등급 — 미흡', color: '#DC2626', bg: '#FEE2E2' },
 ]
+const EVAL_STATUS = {
+  approved:    { label: '승인',      color: '#059669', bg: '#D1FAE5' },
+  conditional: { label: '조건부 승인', color: '#D97706', bg: '#FEF3C7' },
+  rejected:    { label: '반려',      color: '#DC2626', bg: '#FEE2E2' },
+  suspended:   { label: '정지',      color: '#DC2626', bg: '#FEE2E2' },
+  pending:     { label: '심사 대기',  color: '#6B7280', bg: '#F3F4F6' },
+}
 const COMMON_CERTS = ['ISO 13485', 'ISO 9001', 'KGMP', 'CE 인증', 'FDA 등록', 'MDSAP', 'KC 인증', 'RoHS']
 const IQC_RESULTS = [
   { value: 'pass',    label: '합격',    color: '#059669', bg: '#D1FAE5' },
@@ -40,10 +52,6 @@ const IQC_RESULTS = [
   { value: 'waiver',  label: '특채',    color: '#D97706', bg: '#FEF3C7' },
   { value: 'pending', label: '검사 중', color: '#6B7280', bg: '#F3F4F6' },
 ]
-const EVAL_ITEMS = [
-  '납기 준수율', '품질 합격률', '가격 경쟁력', '품질시스템 수준', '대응성·서비스',
-]
-
 const emptySupplier = () => ({
   name: '', code: '', category: '',
   contact: '', phone: '', email: '', address: '',
@@ -56,38 +64,18 @@ const emptyIqc = () => ({
   inspector: '', result: 'pending', failReason: '', notes: '',
 })
 const emptyEval = () => ({
-  supplierId: '', supplierName: '', year: new Date().getFullYear(),
-  scores: { '납기 준수율': 0, '품질 합격률': 0, '가격 경쟁력': 0, '품질시스템 수준': 0, '대응성·서비스': 0 },
-  grade: 'B', conclusion: '', evaluatedBy: '', evaluatedAt: new Date().toISOString().slice(0, 10),
+  supplierId: '', supplierName: '', year: new Date().getFullYear(), seq: 1,
+  selections: {}, // { [criterionId]: levelIndex }
+  conclusion: '', evaluatedBy: '', evaluatedAt: new Date().toISOString().slice(0, 10),
   isInitial: false,
 })
 
-function statusFromGrade(g) {
-  if (g === 'D') return 'suspended'
-  if (g === 'C') return 'conditional'
-  return 'approved'
-}
-function addMonths(dateStr, months) {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  d.setMonth(d.getMonth() + months)
-  return d.toISOString().slice(0, 10)
-}
 function certArray(sup) {
   if (Array.isArray(sup.certifications)) return sup.certifications
   if (sup.certifications) return String(sup.certifications).split(',').map(s => s.trim()).filter(Boolean)
   return []
 }
 
-function calcGrade(scores) {
-  const vals = Object.values(scores)
-  if (!vals.length) return 'B'
-  const avg = vals.reduce((a, b) => a + +b, 0) / vals.length
-  if (avg >= 90) return 'A'
-  if (avg >= 75) return 'B'
-  if (avg >= 60) return 'C'
-  return 'D'
-}
 
 // ── 메인 ─────────────────────────────────────────────────────
 export default function SupplierHub() {
@@ -95,10 +83,12 @@ export default function SupplierHub() {
   const [suppliers, setSuppliers] = useState(() => lsR(LS_SUP))
   const [iqcs,      setIqcs]      = useState(() => lsR(LS_IQC))
   const [evals,     setEvals]     = useState(() => lsR(LS_EVAL))
+  const [criteria,  setCriteria]  = useState(() => loadCriteria())
+  const [policy,    setPolicy]    = useState(() => loadPolicy())
   const [tab,       setTab]       = useState('asl')
   const [search,    setSearch]    = useState('')
   const [catFilter, setCatFilter] = useState('all')
-  const [modal,     setModal]     = useState(null) // 'supplier'|'iqc'|'eval'
+  const [modal,     setModal]     = useState(null) // 'supplier'|'iqc'|'eval'|'criteria'
   const [form,      setForm]      = useState({})
   const [editId,    setEditId]    = useState(null)
   const [expanded,  setExpanded]  = useState(null)
@@ -107,6 +97,19 @@ export default function SupplierHub() {
   const saveSup  = d => { setSuppliers(d); lsW(LS_SUP, d) }
   const saveIqc  = d => { setIqcs(d);      lsW(LS_IQC, d) }
   const saveEval = d => { setEvals(d);      lsW(LS_EVAL, d) }
+
+  // 공급업체의 "현재" 등급·상태는 가장 최근(연도→회차순) 평가 결과를 그대로 반영한다.
+  // (평가를 새로 추가하든 기존 평가를 삭제하든 항상 최신 평가 기준으로 재계산 — 과거엔 신규 평가 때만 반영되어
+  //  재평가 결과가 낮게 나와도 업체 목록엔 이전 상태가 남는 문제가 있었다)
+  const latestEvalOf = (supplierId, list) =>
+    (list || evals).filter(e => e.supplierId === supplierId).sort((a, b) => (b.year - a.year) || ((b.seq || 1) - (a.seq || 1)))[0]
+
+  const recomputeSupplierFromEvals = (supplierId, nextEvals, supplierList) => {
+    const latest = latestEvalOf(supplierId, nextEvals)
+    const base = supplierList || suppliers
+    if (latest) return base.map(s => s.id === supplierId ? { ...s, grade: latest.grade, status: latest.status } : s)
+    return base.map(s => s.id === supplierId ? { ...s, grade: '', status: 'pending' } : s)
+  }
 
   // 공급업체 CRUD
   const openNewSup = () => { setForm(emptySupplier()); setEditId(null); setModal('supplier') }
@@ -147,16 +150,48 @@ export default function SupplierHub() {
   }
   const submitEval = () => {
     if (!form.supplierName) return alert('공급업체 필수')
-    const grade = calcGrade(form.scores)
-    const status = statusFromGrade(grade)
-    const record = { ...form, id: genId('EVL'), grade, createdAt: new Date().toISOString() }
-    if (editId) saveEval(evals.map(e => e.id === editId ? { ...record, id: editId } : e))
-    else { saveEval([record, ...evals]); saveSup(suppliers.map(s => s.id === form.supplierId ? { ...s, grade, status } : s)) }
+    const selections = criteria.map(c => {
+      const li = form.selections?.[c.id]
+      const lvl = li != null ? (c.levels || [])[li] : null
+      return {
+        criterionId: c.id, criterionName: c.name, levelIndex: li != null ? li : null,
+        levelLabel: lvl ? lvl.label : null, levelScore: lvl ? lvl.score : 0,
+        levelDesc: lvl ? lvl.desc : '', maxScore: c.maxScore,
+      }
+    })
+    if (selections.some(s => s.levelIndex == null)) return alert('모든 평가 항목에 대해 근거(등급)를 선택하세요.')
+    const { total, max, pct } = scoreFromSelections(selections, criteria)
+    const grade = gradeFromPct(pct)
+    const status = statusFromPct(pct, policy)
+    const seq = editId
+      ? (form.seq || 1)
+      : (evals.filter(e => e.supplierId === form.supplierId && e.year === form.year).length + 1)
+    const record = { ...form, id: editId || genId('EVL'), selections, total, max, pct, grade, status, seq, updatedAt: new Date().toISOString() }
+    if (!editId) record.createdAt = new Date().toISOString()
+    const nextEvals = editId ? evals.map(e => e.id === editId ? record : e) : [record, ...evals]
+    saveEval(nextEvals)
+    saveSup(recomputeSupplierFromEvals(form.supplierId, nextEvals))
     setModal(null)
+  }
+  const removeEval = id => {
+    if (!confirm('삭제?')) return
+    const ev = evals.find(e => e.id === id)
+    const nextEvals = evals.filter(e => e.id !== id)
+    saveEval(nextEvals)
+    if (ev) saveSup(recomputeSupplierFromEvals(ev.supplierId, nextEvals))
   }
 
   const fld = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const fldScore = (item, v) => setForm(f => ({ ...f, scores: { ...f.scores, [item]: v } }))
+  const fldSelect = (criterionId, levelIndex) => setForm(f => ({ ...f, selections: { ...f.selections, [criterionId]: levelIndex } }))
+
+  // 평가 기준·정책
+  const submitCriteria = (nextCriteria, nextPolicy) => {
+    saveCriteria(nextCriteria); setCriteria(nextCriteria)
+    savePolicy(nextPolicy); setPolicy(nextPolicy)
+    syncCriteriaToProcedureDoc(nextCriteria, nextPolicy, user?.name)
+    setModal(null)
+    alert('평가 기준이 저장되었습니다. 문서·규정 › 문서관리의 "공급업체 평가관리 절차서"가 자동으로 개정되었습니다.')
+  }
 
   // 필터
   const filteredSup = useMemo(() => {
@@ -172,16 +207,25 @@ export default function SupplierHub() {
     return iqcs.filter(i => (i.supplierName + i.itemName + i.lotNo).toLowerCase().includes(q))
   }, [iqcs, search])
 
+  // 등급별 재평가 주기(policy.reevalYears)에 도달했거나 임박한(alertDaysBefore 이내) 공급업체 — 재평가 알림
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const reevalAlerts = useMemo(() => suppliers.map(s => {
+    const last = latestEvalOf(s.id, evals)
+    if (!last) return null
+    const due = nextReevalDate(last.evaluatedAt, last.grade, policy)
+    if (!due) return null
+    const daysLeft = Math.round((new Date(due) - new Date(todayStr)) / 86400000)
+    if (daysLeft > policy.alertDaysBefore) return null
+    return { supplier: s, lastEval: last, due, daysLeft }
+  }).filter(Boolean).sort((a, b) => a.daysLeft - b.daysLeft), [suppliers, evals, policy, todayStr])
+
   const stats = {
     total: suppliers.length,
     approved: suppliers.filter(s => s.status === 'approved').length,
     gradeA: suppliers.filter(s => s.grade === 'A').length,
     iqcThis: iqcs.filter(i => i.receivedAt?.startsWith(new Date().toISOString().slice(0, 7))).length,
     iqcFail: iqcs.filter(i => i.result === 'fail').length,
-    evalDue: suppliers.filter(s => {
-      const lastEval = evals.filter(e => e.supplierId === s.id).sort((a, b) => b.year - a.year)[0]
-      return !lastEval || lastEval.year < new Date().getFullYear()
-    }).length,
+    evalDue: reevalAlerts.length,
   }
 
   const TABS = [
@@ -234,6 +278,21 @@ export default function SupplierHub() {
         {/* ── ASL 탭 ── */}
         {tab === 'asl' && (
           <>
+            {reevalAlerts.length > 0 && (
+              <div className="mb-4 p-3 rounded-xl" style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Bell size={14} style={{ color: '#92400E' }} />
+                  <span className="text-[12.5px] font-bold" style={{ color: '#92400E' }}>재평가 알림 {reevalAlerts.length}건</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {reevalAlerts.map(a => (
+                    <span key={a.supplier.id} className="text-[11.5px] px-2 py-1 rounded-lg" style={{ background: 'white', color: '#92400E', border: '1px solid #FDE68A' }}>
+                      {a.supplier.name} ({a.lastEval.grade}등급) — 재평가 예정일 {a.due}{a.daysLeft < 0 ? ` (${-a.daysLeft}일 경과)` : a.daysLeft === 0 ? ' (오늘)' : ` (D-${a.daysLeft})`}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex gap-3 mb-4 flex-wrap">
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-[180px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <Search size={14} style={{ color: 'var(--ink-faint)' }} />
@@ -254,7 +313,8 @@ export default function SupplierHub() {
                   {filteredSup.map(s => (
                     <SupRow key={s.id} sup={s}
                       iqcCount={iqcs.filter(i => i.supplierId === s.id).length}
-                      lastEval={evals.filter(e => e.supplierId === s.id).sort((a, b) => b.year - a.year)[0]}
+                      lastEval={latestEvalOf(s.id, evals)}
+                      policy={policy}
                       expanded={expanded === s.id}
                       onToggle={() => setExpanded(expanded === s.id ? null : s.id)}
                       onEdit={() => openEditSup(s)}
@@ -290,13 +350,18 @@ export default function SupplierHub() {
         {/* ── 평가 탭 ── */}
         {tab === 'eval' && (
           <>
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>연간 공급업체 평가 (ISO 13485 §7.4.1)</div>
-              <button onClick={() => openNewEval(null)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#F59E0B', color: 'white', border: 'none', cursor: 'pointer' }}>
-                <Plus size={14} /> 평가 추가
-              </button>
+            <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
+              <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>연간 공급업체 평가 (ISO 13485 §7.4.1) · 판정: {policy.approveMin}%↑ 승인 · {policy.conditionalMin}~{policy.approveMin - 1}% 조건부 승인 · {policy.conditionalMin}%↓ 반려</div>
+              <div className="flex gap-2">
+                <button onClick={() => setModal('criteria')} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-card)', color: 'var(--ink)', border: '1px solid var(--line)', cursor: 'pointer' }}>
+                  <Settings size={14} /> 평가 기준 관리
+                </button>
+                <button onClick={() => openNewEval(null)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#F59E0B', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  <Plus size={14} /> 평가 추가
+                </button>
+              </div>
             </div>
-            <EvalList evals={evals} suppliers={suppliers} onRemove={id => { if (!confirm('삭제?')) return; saveEval(evals.filter(e => e.id !== id)) }} />
+            <EvalList evals={evals} suppliers={suppliers} onRemove={removeEval} />
           </>
         )}
 
@@ -305,16 +370,19 @@ export default function SupplierHub() {
       {/* 모달들 */}
       {modal === 'supplier' && <SupForm form={form} fld={fld} editId={editId} onSubmit={submitSup} onClose={() => setModal(null)} />}
       {modal === 'iqc'      && <IqcForm form={form} fld={fld} suppliers={suppliers} editId={editId} onSubmit={submitIqc} onClose={() => setModal(null)} />}
-      {modal === 'eval'     && <EvalForm form={form} fld={fld} fldScore={fldScore} suppliers={suppliers} onSubmit={submitEval} onClose={() => setModal(null)} />}
+      {modal === 'eval'     && <EvalForm form={form} fld={fld} fldSelect={fldSelect} suppliers={suppliers} criteria={criteria} policy={policy} onSubmit={submitEval} onClose={() => setModal(null)} />}
+      {modal === 'criteria' && <CriteriaManager criteria={criteria} policy={policy} onSubmit={submitCriteria} onClose={() => setModal(null)} />}
     </AppLayout>
   )
 }
 
 // ── 공급업체 행 ───────────────────────────────────────────────
-function SupRow({ sup, iqcCount, lastEval, expanded, onToggle, onEdit, onDelete, onAddIqc, onAddEval }) {
+function SupRow({ sup, iqcCount, lastEval, policy, expanded, onToggle, onEdit, onDelete, onAddIqc, onAddEval }) {
   const gradeInfo = GRADES.find(g => g.value === sup.grade) || { color: '#9CA3AF', bg: '#F3F4F6' }
-  const statusColor = sup.status === 'approved' ? '#059669' : sup.status === 'conditional' ? '#D97706' : sup.status === 'pending' ? '#6B7280' : '#DC2626'
-  const nextReeval = lastEval ? addMonths(lastEval.evaluatedAt, 12) : null
+  const statusInfo = EVAL_STATUS[sup.status] || EVAL_STATUS.pending
+  const statusColor = statusInfo.color
+  const nextReeval = lastEval ? nextReevalDate(lastEval.evaluatedAt, lastEval.grade, policy) : null
+  const isOverdue = nextReeval && nextReeval < new Date().toISOString().slice(0, 10)
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -328,12 +396,12 @@ function SupRow({ sup, iqcCount, lastEval, expanded, onToggle, onEdit, onDelete,
             {sup.code && <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{sup.code}</span>}
             {sup.category && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{sup.category}</span>}
             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ color: statusColor, background: `${statusColor}15` }}>
-              {sup.status === 'approved' ? '승인' : sup.status === 'conditional' ? '조건부 승인' : sup.status === 'pending' ? '심사 대기' : '정지'}
+              {statusInfo.label}
             </span>
           </div>
           <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{sup.name}</div>
           <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>
-            {sup.items || '공급 품목 미기재'} · IQC {iqcCount}건 · 최근 심사 {lastEval ? `${lastEval.evaluatedAt || lastEval.year}` : '미실시'}{nextReeval ? ` · 차기 심사 예정 ${nextReeval}` : ''}
+            {sup.items || '공급 품목 미기재'} · IQC {iqcCount}건 · 최근 심사 {lastEval ? `${lastEval.year}-${lastEval.seq || 1} (${lastEval.evaluatedAt})` : '미실시'}{nextReeval ? <span style={isOverdue ? { color: '#DC2626', fontWeight: 600 } : undefined}>{` · 차기 심사 예정 ${nextReeval}${isOverdue ? ' (기한 경과)' : ''}`}</span> : ''}
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -423,31 +491,42 @@ function EvalList({ evals, suppliers, onRemove }) {
   }
   return (
     <div className="space-y-3">
-      {evals.sort((a, b) => b.year - a.year || a.supplierName.localeCompare(b.supplierName, 'ko')).map(ev => {
+      {[...evals].sort((a, b) => b.year - a.year || (b.seq || 1) - (a.seq || 1) || a.supplierName.localeCompare(b.supplierName, 'ko')).map(ev => {
         const gradeInfo = GRADES.find(g => g.value === ev.grade) || GRADES[1]
-        const avg = Math.round(Object.values(ev.scores || {}).reduce((a, b) => a + +b, 0) / EVAL_ITEMS.length)
+        const statusInfo = EVAL_STATUS[ev.status] || EVAL_STATUS.pending
+        const pct = ev.pct ?? (ev.max ? Math.round((ev.total / ev.max) * 100) : 0)
         return (
           <div key={ev.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center text-[22px] font-black flex-shrink-0" style={{ background: gradeInfo.bg, color: gradeInfo.color }}>{ev.grade}</div>
                 <div>
-                  <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{ev.supplierName}</div>
-                  <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{ev.year}년도 평가 · 종합 {avg}점 · 평가자: {ev.evaluatedBy}</div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{ev.supplierName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ color: statusInfo.color, background: `${statusInfo.color}15` }}>{statusInfo.label}</span>
+                  </div>
+                  <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                    {ev.year}-{ev.seq || 1}차 평가 · 종합 {ev.total ?? '-'}/{ev.max ?? '-'}점 ({pct}%) · 평가자: {ev.evaluatedBy} · {ev.evaluatedAt}
+                  </div>
                 </div>
               </div>
               <button onClick={() => onRemove(ev.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
             </div>
-            <div className="mt-3 grid grid-cols-5 gap-2">
-              {EVAL_ITEMS.map(item => (
-                <div key={item} className="text-center p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-                  <div className="text-[16px] font-bold" style={{ color: +ev.scores?.[item] >= 80 ? '#059669' : +ev.scores?.[item] >= 60 ? '#D97706' : '#DC2626' }}>
-                    {ev.scores?.[item] ?? '-'}
+            {Array.isArray(ev.selections) && ev.selections.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2">
+                {ev.selections.map(s => (
+                  <div key={s.criterionId} className="p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11.5px] font-semibold" style={{ color: 'var(--ink)' }}>{s.criterionName}</span>
+                      <span className="text-[12px] font-bold" style={{ color: s.levelScore >= s.maxScore * 0.75 ? '#059669' : s.levelScore >= s.maxScore * 0.5 ? '#D97706' : '#DC2626' }}>
+                        {s.levelLabel} {s.levelScore}/{s.maxScore}점
+                      </span>
+                    </div>
+                    {s.levelDesc && <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>근거: {s.levelDesc}</div>}
                   </div>
-                  <div className="text-[9px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{item}</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             {ev.conclusion && <div className="mt-2 text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>{ev.conclusion}</div>}
           </div>
         )
@@ -584,10 +663,19 @@ function IqcForm({ form, fld, suppliers, onSubmit, onClose }) {
 }
 
 // ── 폼 모달: 평가 ────────────────────────────────────────────
-function EvalForm({ form, fld, fldScore, suppliers, onSubmit, onClose }) {
-  const avg = Math.round(Object.values(form.scores || {}).reduce((a, b) => a + +b, 0) / EVAL_ITEMS.length)
-  const grade = calcGrade(form.scores)
+function EvalForm({ form, fld, fldSelect, suppliers, criteria, policy, onSubmit, onClose }) {
+  const selections = criteria.map(c => {
+    const li = form.selections?.[c.id]
+    const lvl = li != null ? (c.levels || [])[li] : null
+    return { criterionId: c.id, criterionName: c.name, levelIndex: li != null ? li : null, levelScore: lvl ? lvl.score : 0, maxScore: c.maxScore }
+  })
+  const answeredCount = selections.filter(s => s.levelIndex != null).length
+  const { total, max, pct } = scoreFromSelections(selections, criteria)
+  const grade = gradeFromPct(pct)
+  const status = statusFromPct(pct, policy)
+  const statusInfo = EVAL_STATUS[status] || EVAL_STATUS.pending
   const gradeInfo = GRADES.find(g => g.value === grade) || GRADES[1]
+  const allAnswered = answeredCount === criteria.length
   return (
     <Modal title={form.isInitial ? '업체평가 (최초 심사)' : '공급업체 평가'} onClose={onClose} onSubmit={onSubmit} submitColor="#F59E0B" submitLabel={form.isInitial ? '최초 심사 저장 · 등급 확정' : '평가 저장'}>
       {form.isInitial && (
@@ -612,22 +700,43 @@ function EvalForm({ form, fld, fldScore, suppliers, onSubmit, onClose }) {
         )}
         <F label="평가 연도"><input type="number" value={form.year} onChange={e => fld('year', +e.target.value)} min="2020" max="2030" style={IS} className="w-full" /></F>
       </R2>
-      <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
-        <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>평가 항목 (0~100점)</div>
-        {EVAL_ITEMS.map(item => (
-          <div key={item} className="flex items-center gap-3 mb-2">
-            <span className="text-[12px] w-28 flex-shrink-0" style={{ color: 'var(--ink)' }}>{item}</span>
-            <input type="range" min="0" max="100" step="5" value={form.scores?.[item] || 0} onChange={e => fldScore(item, +e.target.value)} className="flex-1" />
-            <span className="text-[13px] font-bold w-8 text-right" style={{ color: +form.scores?.[item] >= 80 ? '#059669' : +form.scores?.[item] >= 60 ? '#D97706' : '#DC2626' }}>
-              {form.scores?.[item] || 0}
-            </span>
-          </div>
-        ))}
-        <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-          <span className="text-[12px] font-bold" style={{ color: 'var(--ink)' }}>종합 평균: {avg}점</span>
-          <span className="text-[13px] font-black px-3 py-1 rounded-lg" style={{ background: gradeInfo.bg, color: gradeInfo.color }}>
-            {grade}등급
-          </span>
+      <div className="text-[11px] p-2.5 rounded-lg" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+        각 항목마다 <b>왜 그 점수를 주는지 근거(등급)</b>를 선택하세요. 임의로 점수를 매기지 않고, 근거에 해당하는 등급을 고르면 배점이 자동 반영됩니다.
+      </div>
+      <div className="space-y-3">
+        {criteria.map(c => {
+          const li = form.selections?.[c.id]
+          return (
+            <div key={c.id} className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12.5px] font-bold" style={{ color: 'var(--ink)' }}>{c.name}</span>
+                <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>배점 {c.maxScore}점</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1.5">
+                {(c.levels || []).map((lvl, i) => (
+                  <label key={i} className="flex items-start gap-2 p-2 rounded-lg cursor-pointer transition"
+                    style={{ background: li === i ? '#FEF3C7' : 'var(--bg-card)', border: `1px solid ${li === i ? '#F59E0B' : 'var(--line)'}` }}>
+                    <input type="radio" name={`crit-${c.id}`} checked={li === i} onChange={() => fldSelect(c.id, i)} className="mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11.5px] font-semibold" style={{ color: 'var(--ink)' }}>{lvl.label}</span>
+                        <span className="text-[11px] font-bold" style={{ color: '#D97706' }}>{lvl.score}점</span>
+                      </div>
+                      {lvl.desc && <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{lvl.desc}</div>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-[12px] font-bold" style={{ color: 'var(--ink)' }}>종합 점수: {total}/{max}점 ({pct}%)</span>
+          <span className="text-[13px] font-black px-3 py-1 rounded-lg" style={{ background: gradeInfo.bg, color: gradeInfo.color }}>{grade}등급</span>
+          <span className="text-[12px] font-bold px-3 py-1 rounded-lg" style={{ background: statusInfo.bg, color: statusInfo.color }}>{statusInfo.label}</span>
+          {!allAnswered && <span className="text-[11px] font-semibold" style={{ color: '#DC2626' }}>{criteria.length - answeredCount}개 항목 미평가 — 모든 항목의 근거를 선택해야 저장할 수 있습니다</span>}
         </div>
       </div>
       <R2>
@@ -635,6 +744,81 @@ function EvalForm({ form, fld, fldScore, suppliers, onSubmit, onClose }) {
         <F label="평가일"><input type="date" value={form.evaluatedAt} onChange={e => fld('evaluatedAt', e.target.value)} style={IS} className="w-full" /></F>
       </R2>
       <F label="종합 의견"><textarea value={form.conclusion} onChange={e => fld('conclusion', e.target.value)} rows={3} style={{ ...IS, resize: 'vertical' }} className="w-full" placeholder="공급업체 평가 종합 의견 및 향후 방향..." /></F>
+    </Modal>
+  )
+}
+
+// ── 폼 모달: 평가 기준 관리 ────────────────────────────────────
+function CriteriaManager({ criteria, policy, onSubmit, onClose }) {
+  const [list, setList] = useState(() => criteria.map(c => ({ ...c, levels: c.levels.map(l => ({ ...l })) })))
+  const [pol, setPol] = useState(() => ({ ...policy, reevalYears: { ...policy.reevalYears } }))
+
+  const updCrit = (idx, patch) => setList(l => l.map((c, i) => i === idx ? { ...c, ...patch } : c))
+  const updLevel = (ci, li, patch) => setList(l => l.map((c, i) => i === ci ? { ...c, levels: c.levels.map((lv, j) => j === li ? { ...lv, ...patch } : lv) } : c))
+  const addLevel = ci => setList(l => l.map((c, i) => i === ci ? { ...c, levels: [...c.levels, newLevel()] } : c))
+  const removeLevel = (ci, li) => setList(l => l.map((c, i) => i === ci ? { ...c, levels: c.levels.filter((_, j) => j !== li) } : c))
+  const addCriterion = () => setList(l => [...l, newCriterion()])
+  const removeCriterion = idx => setList(l => l.filter((_, i) => i !== idx))
+
+  const total = maxTotal(list)
+  const valid = list.length > 0 && list.every(c => c.name.trim() && c.levels.length > 0)
+
+  return (
+    <Modal title="평가 기준 관리" onClose={onClose} onSubmit={() => valid && onSubmit(list, pol)} submitColor="#059669" submitLabel="저장 → 절차서 자동 개정">
+      <div className="text-[11.5px] p-3 rounded-xl" style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+        여기서 정한 평가 항목·배점·근거(루브릭)가 실제 "공급업체 평가" 화면의 평가 기준으로 사용됩니다.
+        저장하면 문서·규정 › 문서관리의 <b>"공급업체 평가관리 절차서"</b>가 자동으로 개정(리비전 증가)됩니다.
+      </div>
+
+      <div className="space-y-3">
+        {list.map((c, ci) => (
+          <div key={c.id} className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <input value={c.name} onChange={e => updCrit(ci, { name: e.target.value })} placeholder="평가 항목명 (예: 납기 준수율)" style={IS} className="flex-1" />
+              <input type="number" value={c.maxScore} onChange={e => updCrit(ci, { maxScore: +e.target.value })} style={{ ...IS, width: 72 }} />
+              <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>점</span>
+              <button onClick={() => removeCriterion(ci)} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
+            </div>
+            <div className="space-y-1.5">
+              {c.levels.map((lvl, li) => (
+                <div key={li} className="flex items-center gap-1.5">
+                  <input value={lvl.label} onChange={e => updLevel(ci, li, { label: e.target.value })} placeholder="등급명(우수/양호..)" style={{ ...IS, width: 90 }} />
+                  <input type="number" value={lvl.score} onChange={e => updLevel(ci, li, { score: +e.target.value })} style={{ ...IS, width: 60 }} />
+                  <input value={lvl.desc} onChange={e => updLevel(ci, li, { desc: e.target.value })} placeholder="이 점수를 주는 근거(설명)" style={IS} className="flex-1" />
+                  <button onClick={() => removeLevel(ci, li)} className="p-1 rounded" style={{ background: 'none', color: '#DC2626', border: 'none', cursor: 'pointer' }}><X size={13} /></button>
+                </div>
+              ))}
+              <button onClick={() => addLevel(ci)} className="text-[11px] font-semibold px-2 py-1 rounded-lg" style={{ background: 'var(--bg-card)', color: 'var(--ink-faint)', border: '1px solid var(--line)', cursor: 'pointer' }}>+ 근거 등급 추가</button>
+            </div>
+          </div>
+        ))}
+        <button onClick={addCriterion} className="w-full py-2 rounded-xl text-[12.5px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink)', border: '1px dashed var(--line)', cursor: 'pointer' }}>+ 평가 항목 추가</button>
+      </div>
+
+      <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>총 배점: {total}점 (종합 점수는 취득점수 ÷ 총배점 × 100%로 환산됩니다)</div>
+
+      <div className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+        <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink)' }}>판정 정책</div>
+        <R2>
+          <F label="승인 기준 (이 %(퍼센트) 이상)"><input type="number" value={pol.approveMin} onChange={e => setPol(p => ({ ...p, approveMin: +e.target.value }))} style={IS} className="w-full" /></F>
+          <F label="조건부 승인 기준 (이 %(퍼센트) 이상)"><input type="number" value={pol.conditionalMin} onChange={e => setPol(p => ({ ...p, conditionalMin: +e.target.value }))} style={IS} className="w-full" /></F>
+        </R2>
+        <div className="text-[11px] mt-1" style={{ color: 'var(--ink-faint)' }}>
+          {pol.approveMin}%↑ 승인 · {pol.conditionalMin}~{pol.approveMin - 1}% 조건부 승인 · {pol.conditionalMin}% 미만 반려
+        </div>
+        <div className="text-[12px] font-bold mt-3 mb-2" style={{ color: 'var(--ink)' }}>등급별 재평가 주기 (년)</div>
+        <div className="grid grid-cols-4 gap-2">
+          {['A', 'B', 'C', 'D'].map(g => (
+            <F key={g} label={`${g}등급`}>
+              <input type="number" min="1" value={pol.reevalYears[g] || 1} onChange={e => setPol(p => ({ ...p, reevalYears: { ...p.reevalYears, [g]: +e.target.value } }))} style={IS} className="w-full" />
+            </F>
+          ))}
+        </div>
+        <F label="재평가 예정일 며칠 전부터 알림 표시">
+          <input type="number" value={pol.alertDaysBefore} onChange={e => setPol(p => ({ ...p, alertDaysBefore: +e.target.value }))} style={IS} className="w-full" />
+        </F>
+      </div>
+      {!valid && <div className="text-[11.5px] font-semibold" style={{ color: '#DC2626' }}>모든 평가 항목에 이름과 근거 등급이 최소 1개 이상 있어야 저장할 수 있습니다.</div>}
     </Modal>
   )
 }
