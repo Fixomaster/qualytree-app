@@ -111,7 +111,14 @@ function nextPQDate(pq){
 }
 
 function QualEvalForm({title,current,onSave,onCancel}){
-  const [f,sf]=useState({date:new Date().toISOString().slice(0,10),evaluator:'',result:'적합',notes:'',fileId:null,fileName:'',...current})
+  const [f,sf]=useState(()=>({
+    date: current?.date || new Date().toISOString().slice(0,10),
+    evaluator: current?.evaluator || '',
+    result: current?.result || '적합',
+    notes: current?.notes || '',
+    fileId: current?.fileId || null,
+    fileName: current?.fileName || '',
+  }))
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
