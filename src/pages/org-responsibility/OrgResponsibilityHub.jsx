@@ -1,70 +1,68 @@
 // src/pages/org-responsibility/OrgResponsibilityHub.jsx
-// ISO 13485 §5.5 — 책임·권한 및 의사소통
+// ISO 13485 Â§5.5 â ì±ìÂ·ê¶í ë° ìì¬ìíµ
 import React, { useState, useMemo } from 'react'
 import {
   Plus, Save, Edit2, Trash2, User, Users,
   Building2, MessageSquare, ShieldCheck, Star,
   ChevronDown, ChevronRight, Link2, BarChart2,
   Check, X, Minus,
-  Network,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
-import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
-// ── 상수 ─────────────────────────────────────────────────────
+// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_KEY_ROLES   = 'qualytree.org_roles'
 const LS_KEY_COMMS   = 'qualytree.org_comms'
 
-// 역할 레벨
+// ì­í  ë ë²¨
 const ROLE_LEVELS = [
-  { value: 'executive',  label: '경영진',     color: '#7C3AED', bg: '#EDE9FE' },
-  { value: 'director',   label: '부서장',     color: '#2563EB', bg: '#DBEAFE' },
-  { value: 'manager',    label: '팀장·담당',  color: '#059669', bg: '#D1FAE5' },
-  { value: 'operator',   label: '실무자',     color: '#D97706', bg: '#FEF3C7' },
-  { value: 'external',   label: '외부·위탁',  color: '#6B7280', bg: '#F3F4F6' },
+  { value: 'executive',  label: 'ê²½ìì§',     color: '#7C3AED', bg: '#EDE9FE' },
+  { value: 'director',   label: 'ë¶ìì¥',     color: '#2563EB', bg: '#DBEAFE' },
+  { value: 'manager',    label: 'íì¥Â·ë´ë¹',  color: '#059669', bg: '#D1FAE5' },
+  { value: 'operator',   label: 'ì¤ë¬´ì',     color: '#D97706', bg: '#FEF3C7' },
+  { value: 'external',   label: 'ì¸ë¶Â·ìí',  color: '#6B7280', bg: '#F3F4F6' },
 ]
 
-// 부서
-const DEPTS = ['경영진', '품질부', '생산부', '개발부', '영업부', '구매부', '설비부', '문서관리', '인허가', '기타']
+// ë¶ì
+const DEPTS = ['ê²½ìì§', 'íì§ë¶', 'ìì°ë¶', 'ê°ë°ë¶', 'ììë¶', 'êµ¬ë§¤ë¶', 'ì¤ë¹ë¶', 'ë¬¸ìê´ë¦¬', 'ì¸íê°', 'ê¸°í']
 
-// §5.5에서 요구하는 핵심 QMS 프로세스 (RACI 행)
+// Â§5.5ìì ìêµ¬íë íµì¬ QMS íë¡ì¸ì¤ (RACI í)
 const QMS_PROCESSES = [
-  '품질방침 수립 및 검토',
-  '품질목표 설정 및 모니터링',
-  '경영검토 주관',
-  '내부감사 계획 및 실시',
-  '문서 승인 및 배포',
-  '부적합품 관리',
-  '시정·예방조치 (CAPA)',
-  '고객불만 처리',
-  '공급업체 평가·승인',
-  '설계·개발 관리',
-  '생산·공정 관리',
-  '교정·설비 관리',
-  '위험관리 (ISO 14971)',
-  '인허가·규제 대응',
-  '교육훈련 계획 및 실시',
-  '변경 관리',
+  'íì§ë°©ì¹¨ ìë¦½ ë° ê²í ',
+  'íì§ëª©í ì¤ì  ë° ëª¨ëí°ë§',
+  'ê²½ìê²í  ì£¼ê´',
+  'ë´ë¶ê°ì¬ ê³í ë° ì¤ì',
+  'ë¬¸ì ì¹ì¸ ë° ë°°í¬',
+  'ë¶ì í©í ê´ë¦¬',
+  'ìì Â·ìë°©ì¡°ì¹ (CAPA)',
+  'ê³ ê°ë¶ë§ ì²ë¦¬',
+  'ê³µê¸ìì²´ íê°Â·ì¹ì¸',
+  'ì¤ê³Â·ê°ë° ê´ë¦¬',
+  'ìì°Â·ê³µì  ê´ë¦¬',
+  'êµì Â·ì¤ë¹ ê´ë¦¬',
+  'ìíê´ë¦¬ (ISO 14971)',
+  'ì¸íê°Â·î·ì  ëì',
+  'êµì¡íë ¨ ê³í ë° ì¤ì',
+  'ë³ê²½ ê´ë¦¬',
 ]
 
-// 커뮤니케이션 유형
+// ì»¤ë®¤ëì¼ì´ì ì í
 const COMM_TYPES = [
-  '경영검토 회의', '부서 회의', '전사 공지', '업무 지시', '교육', 'QMS 공지', '품질 이슈 공유', '기타'
+  'ê²½ìê²í  íì', 'ë¶ì íì', 'ì ì¬ ê³µì§', 'ìë¬´ ì§ì', 'êµì¡', 'QMS ê³µì§', 'íì§ ì´ì ê³µì ', 'ê¸°í'
 ]
 const COMM_STATUSES = {
-  planned:   { label: '계획',   color: '#9CA3AF', bg: '#F3F4F6' },
-  completed: { label: '완료',   color: '#059669', bg: '#D1FAE5' },
-  recurring: { label: '정기',   color: '#2563EB', bg: '#DBEAFE' },
+  planned:   { label: 'ê³í',   color: '#9CA3AF', bg: '#F3F4F6' },
+  completed: { label: 'ìë£',   color: '#059669', bg: '#D1FAE5' },
+  recurring: { label: 'ì ê¸°',   color: '#2563EB', bg: '#DBEAFE' },
 }
 
-// RACI 값
+// RACI ê°
 const RACI = {
-  R: { label: 'R', desc: '실행 책임', color: '#2563EB', bg: '#DBEAFE' },
-  A: { label: 'A', desc: '최종 승인', color: '#7C3AED', bg: '#EDE9FE' },
-  C: { label: 'C', desc: '협의 필요', color: '#D97706', bg: '#FEF3C7' },
-  I: { label: 'I', desc: '통보 대상', color: '#059669', bg: '#D1FAE5' },
-  '': { label: '-', desc: '해당 없음', color: '#D1D5DB', bg: 'transparent' },
+  R: { label: 'R', desc: 'ì¤í ì±ì', color: '#2563EB', bg: '#DBEAFE' },
+  A: { label: 'A', desc: 'ìµì¢ ì¹ì¸', color: '#7C3AED', bg: '#EDE9FE' },
+  C: { label: 'C', desc: 'íì íì', color: '#D97706', bg: '#FEF3C7' },
+  I: { label: 'I', desc: 'íµë³´ ëì', color: '#059669', bg: '#D1FAE5' },
+  '': { label: '-', desc: 'í´ë¹ ìì', color: '#D1D5DB', bg: 'transparent' },
 }
 
 function genRoleId() { return `ROLE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
@@ -72,12 +70,12 @@ function genCommId() { return `COMM-${new Date().getFullYear()}-${String(Date.no
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_ROLE = {
-  name: '', title: '', dept: '품질부', level: 'manager',
-  isMR: false,      // 경영대리인 (§5.5.2)
-  responsibilities: '',   // 주요 책임
-  authorities: '',        // 권한
-  qualifications: '',     // 자격 요건
-  reportTo: '',           // 보고 대상 (다른 역할 id)
+  name: '', title: '', dept: 'íì§ë¶', level: 'manager',
+  isMR: false,      // ê²½ìëë¦¬ì¸ (Â§5.5.2)
+  responsibilities: '',   // ì£¼ì ì±ì
+  authorities: '',        // ê¶í
+  qualifications: '',     // ìê²© ìê±´
+  reportTo: '',           // ë³´ê³  ëì (ë¤ë¥¸ ì­í  id)
   email: '', phone: '',
   linkedCompetencyId: '',
   notes: '',
@@ -85,14 +83,14 @@ const EMPTY_ROLE = {
 }
 
 const EMPTY_COMM = {
-  title: '', type: '부서 회의', frequency: '월1회',
+  title: '', type: 'ë¶ì íì', frequency: 'ì1í',
   participants: '', responsible: '',
-  agenda: '', medium: '대면 회의',
+  agenda: '', medium: 'ëë©´ íì',
   status: 'recurring', lastDate: '', nextDate: '',
   notes: '',
 }
 
-// ── 메인 ─────────────────────────────────────────────────────
+// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function OrgResponsibilityHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
@@ -119,8 +117,8 @@ export default function OrgResponsibilityHub() {
   function saveComms(list) { setComms(list); localStorage.setItem(LS_KEY_COMMS, JSON.stringify(list)) }
 
   function submitRole() {
-    if (!roleForm.name.trim()) return alert('담당자명을 입력하세요.')
-    if (!roleForm.title.trim()) return alert('직책/역할명을 입력하세요.')
+    if (!roleForm.name.trim()) return alert('ë´ë¹ìëªì ìë ¥íì¸ì.')
+    if (!roleForm.title.trim()) return alert('ì§ì±/ì­í ëªì ìë ¥íì¸ì.')
     const isEdit = !!editRoleId
     const obj = isEdit
       ? roles.map(r => r.id === editRoleId ? { ...r, ...roleForm } : r)
@@ -130,7 +128,7 @@ export default function OrgResponsibilityHub() {
   }
 
   function submitComm() {
-    if (!commForm.title.trim()) return alert('커뮤니케이션 제목을 입력하세요.')
+    if (!commForm.title.trim()) return alert('ì»¤ë®¤ëì¼ì´ì ì ëª©ì ìë ¥íì¸ì.')
     const isEdit = !!editCommId
     const obj = isEdit
       ? comms.map(c => c.id === editCommId ? { ...c, ...commForm } : c)
@@ -139,10 +137,10 @@ export default function OrgResponsibilityHub() {
     setShowCommForm(false); setCommForm(EMPTY_COMM); setEditCommId(null)
   }
 
-  function deleteRole(id) { if (confirm('역할을 삭제하시겠습니까?')) saveRoles(roles.filter(r => r.id !== id)) }
-  function deleteComm(id) { if (confirm('커뮤니케이션 항목을 삭제하시겠습니까?')) saveComms(comms.filter(c => c.id !== id)) }
+  function deleteRole(id) { if (confirm('ì­í ì ì­ì íìê² ìµëê¹?')) saveRoles(roles.filter(r => r.id !== id)) }
+  function deleteComm(id) { if (confirm('ì»¤ë®¤ëì¼ì´ì í­ëª©ì ì­ì íìê² ìµëê¹?')) saveComms(comms.filter(c => c.id !== id)) }
 
-  // RACI 셀 토글 (순환: '' → R → A → C → I → '')
+  // RACI ì í ê¸ (ìí: '' â R â A â C â I â '')
   const RACI_CYCLE = ['', 'R', 'A', 'C', 'I']
   function cycleRaci(roleId, process) {
     if (!canEdit) return
@@ -167,13 +165,13 @@ export default function OrgResponsibilityHub() {
 
   const mrRole = roles.find(r => r.isMR)
 
-  // 분석
+  // ë¶ì
   const analysis = useMemo(() => {
     const byDept = {}
     DEPTS.forEach(d => { byDept[d] = roles.filter(r => r.dept === d).length })
     const byLevel = {}
     ROLE_LEVELS.forEach(l => { byLevel[l.value] = roles.filter(r => r.level === l.value).length })
-    // RACI 커버리지: 각 프로세스마다 R 담당자 있는지
+    // RACI ì»¤ë²ë¦¬ì§: ê° íë¡ì¸ì¤ë§ë¤ R ë´ë¹ì ìëì§
     const raciCoverage = QMS_PROCESSES.map(p => ({
       process: p,
       hasR: roles.some(r => (r.raciMap || {})[p] === 'R'),
@@ -184,33 +182,33 @@ export default function OrgResponsibilityHub() {
   }, [roles])
 
   return (
-    <AppLayout user={user} title="조직 및 책임 관리" subtitle="ISO 13485 §5.5 — 책임·권한·경영대리인·내부 커뮤니케이션">
+    <AppLayout user={user} title="ì¡°ì§ ë° ì±ì ê´ë¦¬" subtitle="ISO 13485 Â§5.5 â ì±ìÂ·ê¶íÂ·ê²½ìëë¦¬ì¸Â·ë´ë¶ ì»¤ë®¤ëì¼ì´ì">
       <div className="px-6 lg:px-8 py-6 max-w-[1800px] mx-auto">
 
-        {/* 경영대리인 배너 (§5.5.2) */}
+        {/* ê²½ìëë¦¬ì¸ ë°°ë (Â§5.5.2) */}
         {mrRole ? (
           <div className="mb-5 p-4 rounded-2xl flex items-center gap-3"
             style={{ background: '#EDE9FE', border: '1.5px solid #7C3AED40' }}>
             <ShieldCheck size={20} style={{ color: '#7C3AED', flexShrink: 0 }} />
             <div>
-              <span className="text-[12px] font-bold" style={{ color: '#7C3AED' }}>§5.5.2 경영대리인 (Management Representative)</span>
-              <span className="ml-3 text-[13px] font-semibold" style={{ color: '#4C1D95' }}>{mrRole.name} — {mrRole.title} ({mrRole.dept})</span>
+              <span className="text-[12px] font-bold" style={{ color: '#7C3AED' }}>Â§5.5.2 ê²½ìëë¦¬ì¸ (Management Representative)</span>
+              <span className="ml-3 text-[13px] font-semibold" style={{ color: '#4C1D95' }}>{mrRole.name} â {mrRole.title} ({mrRole.dept})</span>
             </div>
           </div>
         ) : canEdit ? (
           <div className="mb-5 p-3 rounded-xl text-[12.5px] flex items-center gap-2"
             style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E' }}>
-            <Star size={14} /> §5.5.2 경영대리인이 지정되지 않았습니다. 역할 등록 시 "경영대리인 지정" 체크박스를 선택하세요.
+            <Star size={14} /> Â§5.5.2 ê²½ìëë¦¬ì¸ì´ ì§ì ëì§ ìììµëë¤. ì­í  ë±ë¡ ì "ê²½ìëë¦¬ì¸ ì§ì " ì²´í¬ë°ì¤ë¥¼ ì ííì¸ì.
           </div>
         ) : null}
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'roles',    label: `역할·책임 (${roles.length})` },
-            { key: 'raci',     label: 'RACI 매트릭스' },
-            { key: 'comms',    label: `커뮤니케이션 (${comms.length})` },
-            { key: 'analysis', label: '현황 분석' },
+            { key: 'roles',    label: `ì­í Â·ì±ì (${roles.length})` },
+            { key: 'raci',     label: 'RACI ë§¤í¸ë¦­ì¤' },
+            { key: 'comms',    label: `ì»¤ë®¤ëì¼ì´ì (${comms.length})` },
+            { key: 'analysis', label: 'íí© ë¶ì' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -225,28 +223,28 @@ export default function OrgResponsibilityHub() {
           ))}
         </div>
 
-        {/* ── 역할·책임 탭 ── */}
+        {/* ââ ì­í Â·ì±ì í­ ââ */}
         {tab === 'roles' && (
           <div>
-            {/* 필터 + 등록 */}
+            {/* íí° + ë±ë¡ */}
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">전체 부서</option>
+                <option value="all">ì ì²´ ë¶ì</option>
                 {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">전체 레벨</option>
+                <option value="all">ì ì²´ ë ë²¨</option>
                 {ROLE_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setRoleForm(EMPTY_ROLE); setEditRoleId(null); setShowRoleForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 역할 등록
+                  <Plus size={14} /> ì­í  ë±ë¡
                 </button>
               )}
             </div>
@@ -258,10 +256,10 @@ export default function OrgResponsibilityHub() {
                 isEdit={!!editRoleId} roles={roles} />
             )}
 
-            {/* 역할 카드 목록 */}
+            {/* ì­í  ì¹´ë ëª©ë¡ */}
             <div className="space-y-2">
               {filteredRoles.length === 0 && (
-                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>등록된 역할이 없습니다.</div>
+                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ì­í ì´ ììµëë¤.</div>
               )}
               {filteredRoles.map(role => {
                 const lvl = ROLE_LEVELS.find(l => l.value === role.level) || ROLE_LEVELS[2]
@@ -271,7 +269,7 @@ export default function OrgResponsibilityHub() {
                 }, {})
                 return (
                   <div key={role.id} className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
-                    {/* 헤더 행 */}
+                    {/* í¤ë í */}
                     <div className="flex items-center gap-3 px-4 py-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-[14px] shrink-0"
                         style={{ background: lvl.bg, color: lvl.color }}>
@@ -284,7 +282,7 @@ export default function OrgResponsibilityHub() {
                           {role.isMR && (
                             <span className="flex items-center gap-1 text-[10.5px] font-bold px-2 py-0.5 rounded-full"
                               style={{ background: '#EDE9FE', color: '#7C3AED' }}>
-                              <ShieldCheck size={9} /> 경영대리인
+                              <ShieldCheck size={9} /> ê²½ìëë¦¬ì¸
                             </span>
                           )}
                           <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full"
@@ -319,21 +317,21 @@ export default function OrgResponsibilityHub() {
                         </button>
                       </div>
                     </div>
-                    {/* 상세 펼침 */}
+                    {/* ìì¸ í¼ì¹¨ */}
                     {isOpen && (
                       <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--line)' }}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           {role.responsibilities && (
-                            <InfoBlock label="주요 책임" value={role.responsibilities} />
+                            <InfoBlock label="ì£¼ì ì±ì" value={role.responsibilities} />
                           )}
                           {role.authorities && (
-                            <InfoBlock label="권한" value={role.authorities} />
+                            <InfoBlock label="ê¶í" value={role.authorities} />
                           )}
                           {role.qualifications && (
-                            <InfoBlock label="자격 요건" value={role.qualifications} />
+                            <InfoBlock label="ìê²© ìê±´" value={role.qualifications} />
                           )}
                           {(role.email || role.phone) && (
-                            <InfoBlock label="연락처" value={[role.email, role.phone].filter(Boolean).join(' · ')} />
+                            <InfoBlock label="ì°ë½ì²" value={[role.email, role.phone].filter(Boolean).join(' Â· ')} />
                           )}
                         </div>
                       </div>
@@ -345,7 +343,7 @@ export default function OrgResponsibilityHub() {
           </div>
         )}
 
-        {/* ── RACI 매트릭스 탭 ── */}
+        {/* ââ RACI ë§¤í¸ë¦­ì¤ í­ ââ */}
         {tab === 'raci' && (
           <div>
             <div className="text-[12.5px] mb-3 flex gap-4 flex-wrap" style={{ color: 'var(--ink-soft)' }}>
@@ -355,17 +353,17 @@ export default function OrgResponsibilityHub() {
                   {v.desc}
                 </span>
               ))}
-              {canEdit && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>· 셀 클릭으로 R→A→C→I→(공백) 순환</span>}
+              {canEdit && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>Â· ì í´ë¦­ì¼ë¡ RâAâCâIâ(ê³µë°±) ìí</span>}
             </div>
             {roles.length === 0 ? (
-              <div className="text-center py-12 text-[13px]" style={{ color: 'var(--ink-faint)' }}>먼저 역할을 등록하세요.</div>
+              <div className="text-center py-12 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ë¨¼ì  ì­í ì ë±ë¡íì¸ì.</div>
             ) : (
               <div className="overflow-x-auto rounded-2xl" style={{ border: '1px solid var(--line)' }}>
                 <table className="text-[11.5px]" style={{ borderCollapse: 'collapse', minWidth: 600 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg-soft)' }}>
                       <th className="px-3 py-2 text-left font-semibold sticky left-0 z-10" style={{ color: 'var(--ink-soft)', background: 'var(--bg-soft)', minWidth: 200, borderBottom: '1px solid var(--line)' }}>
-                        QMS 프로세스
+                        QMS íë¡ì¸ì¤
                       </th>
                       {roles.map(r => (
                         <th key={r.id} className="px-2 py-2 text-center font-semibold" style={{ color: 'var(--ink-soft)', minWidth: 72, borderBottom: '1px solid var(--line)', borderLeft: '1px solid var(--line)' }}>
@@ -382,7 +380,7 @@ export default function OrgResponsibilityHub() {
                         <tr key={proc} style={{ background: pi % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
                           <td className="px-3 py-2 sticky left-0 z-10" style={{ color: 'var(--ink)', background: pi % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderRight: '1px solid var(--line)' }}>
                             <div className="flex items-center gap-2">
-                              {!hasR && <span title="R(실행책임) 미지정" style={{ color: '#DC2626', fontSize: 10 }}>⚠</span>}
+                              {!hasR && <span title="R(ì¤íì±ì) ë¯¸ì§ì " style={{ color: '#DC2626', fontSize: 10 }}>â </span>}
                               {proc}
                             </div>
                           </td>
@@ -397,7 +395,7 @@ export default function OrgResponsibilityHub() {
                                   <span className="inline-block font-bold px-2 py-0.5 rounded text-[11px]"
                                     style={{ background: rv.bg, color: rv.color }}>{val}</span>
                                 ) : (
-                                  <span style={{ color: 'var(--line)' }}>—</span>
+                                  <span style={{ color: 'var(--line)' }}>â</span>
                                 )}
                               </td>
                             )
@@ -412,16 +410,16 @@ export default function OrgResponsibilityHub() {
           </div>
         )}
 
-        {/* ── 커뮤니케이션 탭 (§5.5.3) ── */}
+        {/* ââ ì»¤ë®¤ëì¼ì´ì í­ (Â§5.5.3) ââ */}
         {tab === 'comms' && (
           <div>
             <div className="flex justify-between items-center mb-4">
-              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>§5.5.3 내부 커뮤니케이션 — QMS 효과성에 관한 소통 채널 및 방법 등록</div>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>Â§5.5.3 ë´ë¶ ì»¤ë®¤ëì¼ì´ì â QMS í¨ê³¼ì±ì ê´í ìíµ ì±ë ë° ë°©ë² ë±ë¡</div>
               {canEdit && (
                 <button onClick={() => { setCommForm(EMPTY_COMM); setEditCommId(null); setShowCommForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 커뮤니케이션 등록
+                  <Plus size={14} /> ì»¤ë®¤ëì¼ì´ì ë±ë¡
                 </button>
               )}
             </div>
@@ -437,14 +435,14 @@ export default function OrgResponsibilityHub() {
               <table className="w-full text-[12.5px]">
                 <thead>
                   <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['제목', '유형', '주기·매체', '참석 대상', '담당자', '상태', '최근 일자', ''].map(h => (
+                    {['ì ëª©', 'ì í', 'ì£¼ê¸°Â·ë§¤ì²´', 'ì°¸ì ëì', 'ë´ë¹ì', 'ìí', 'ìµê·¼ ì¼ì', ''].map(h => (
                       <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {comms.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 커뮤니케이션 항목이 없습니다.</td></tr>
+                    <tr><td colSpan={8} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ì»¤ë®¤ëì¼ì´ì í­ëª©ì´ ììµëë¤.</td></tr>
                   ) : comms.map((c, idx) => {
                     const st = COMM_STATUSES[c.status] || COMM_STATUSES.planned
                     return (
@@ -485,7 +483,7 @@ export default function OrgResponsibilityHub() {
           </div>
         )}
 
-        {/* ── 현황 분석 탭 ── */}
+        {/* ââ íí© ë¶ì í­ */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} roles={roles} comms={comms} mrRole={mrRole} />
         )}
@@ -494,19 +492,19 @@ export default function OrgResponsibilityHub() {
   )
 }
 
-// ── 분석 뷰 ──────────────────────────────────────────────────
+// ââ ë¶ì ë¶° ââââââââââââââââââââââââââââââââââââââââââââââââââ
 function AnalysisView({ analysis, roles, comms, mrRole }) {
   const covered = analysis.raciCoverage.filter(p => p.hasR).length
   const coverRate = QMS_PROCESSES.length > 0 ? Math.round((covered / QMS_PROCESSES.length) * 100) : 0
   return (
     <div className="space-y-5">
-      {/* 요약 카드 */}
+      {/* Éªì(ì ì½¼ë */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: '등록 역할', value: roles.length, color: '#2563EB', bg: '#DBEAFE' },
-          { label: '경영대리인', value: mrRole ? '지정됨' : '미지정', color: mrRole ? '#059669' : '#DC2626', bg: mrRole ? '#D1FAE5' : '#FEE2E2' },
-          { label: 'RACI 커버율', value: `${coverRate}%`, color: coverRate >= 80 ? '#059669' : '#D97706', bg: coverRate >= 80 ? '#D1FAE5' : '#FEF3C7' },
-          { label: '커뮤니케이션', value: comms.length, color: '#7C3AED', bg: '#EDE9FE' },
+          { label: 'ë±ë¡ì´ ì­í ì´', value: roles.length, color: '#2563EB', bg: '#DBEAFE' },
+          { label: 'ê²½ìëë¦¬ ì´', value: mrRole ? 'ì§ì ê¨' : 'å¯¸ç§ì ', color: mrRole ? '#059669' : '#DC2626', bg: mrRole ? '#D1FAE5' : '#FEE2E2' },
+          { label: 'RACI ì»¤ë²ì¨', value: `${coverRate}%`, color: coverRate >= 80 ? '#059669' : '#D97706', bg: coverRate >= 80 ? '#D1FAE5' : '#FEF3C7' },
+          { label: 'ì»¤ë®¤ëì¼ì´ì', value: comms.length, color: '#7C3AED', bg: '#EDE9FE' },
         ].map(card => (
           <div key={card.label} className="p-4 rounded-2xl text-center" style={{ background: card.bg, border: `1px solid ${card.color}30` }}>
             <div className="text-[26px] font-bold" style={{ color: card.color }}>{card.value}</div>
@@ -515,10 +513,10 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
         ))}
       </div>
 
-      {/* RACI 미지정 프로세스 */}
+      {/* RACI ë¯¸ì§ì íë¡ì¸ì¤ */}
       {analysis.uncovered.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
-          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>⚠ R(실행책임) 미지정 프로세스 ({analysis.uncovered.length}개)</div>
+          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>â  R(ì¤íì±ì) ë¯¸ì§ì íë¡ì¸ì¤ ({analysis.uncovered.length}ê°)</div>
           <div className="flex flex-wrap gap-2">
             {analysis.uncovered.map(p => (
               <span key={p.process} className="text-[12px] px-2 py-1 rounded-lg"
@@ -530,9 +528,9 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
         </div>
       )}
 
-      {/* 레벨별 분포 */}
+      {/* ë ë²¨ë³ ë¶í¬ */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>조직 레벨별 분포</div>
+        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ì¡°ì§ ë ë²¨ë³ ë¶í¬</div>
         {ROLE_LEVELS.map(l => (
           <div key={l.value} className="flex items-center gap-3 mb-2">
             <span className="text-[12px] w-20" style={{ color: 'var(--ink-soft)' }}>{l.label}</span>
@@ -544,9 +542,9 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
         ))}
       </div>
 
-      {/* 부서별 분포 */}
+      {/* ë¶ìë³ ë¶í¬ */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>부서별 역할 수</div>
+        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ë¶ìë³ ì­í  ì</div>
         {DEPTS.filter(d => (analysis.byDept[d] || 0) > 0).map(d => (
           <div key={d} className="flex items-center gap-3 mb-2">
             <span className="text-[12px] flex-1" style={{ color: 'var(--ink-soft)' }}>{d}</span>
@@ -561,85 +559,85 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
   )
 }
 
-// ── 역할 폼 ──────────────────────────────────────────────────
+// ââ ì­í  í¼ ââââââââââââââââââââââââââââââââââââââââââââââââââ
 function RoleForm({ form, setForm, onSave, onCancel, isEdit, roles }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '역할 수정' : '역할 등록 (§5.5.1)'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'ì­í  ìì ' : 'ì­í  ë±ë¡ (Â§5.5.1)'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <Field label="담당자명 *" value={form.name} onChange={v => F('name', v)} />
-        <Field label="직책·역할명 *" value={form.title} onChange={v => F('title', v)} placeholder="품질보증팀장, QMS 담당자..." />
-        <FieldSelect label="부서" value={form.dept} onChange={v => F('dept', v)}
+        <Field label="ë´ë¹ìëª *" value={form.name} onChange={v => F('name', v)} />
+        <Field label="ì§ì±Â·ì­í ëª *" value={form.title} onChange={v => F('title', v)} placeholder="íì§ë³´ì¦íì¥, QMS ë´ë¹ì..." />
+        <FieldSelect label="ë¶ì" value={form.dept} onChange={v => F('dept', v)}
           options={DEPTS.map(d => ({ value: d, label: d }))} />
-        <FieldSelect label="조직 레벨" value={form.level} onChange={v => F('level', v)}
+        <FieldSelect label="ì¡°ì§ ë ë²¨" value={form.level} onChange={v => F('level', v)}
           options={ROLE_LEVELS.map(l => ({ value: l.value, label: l.label }))} />
-        <Field label="이메일" value={form.email} onChange={v => F('email', v)} type="email" />
-        <Field label="전화번호" value={form.phone} onChange={v => F('phone', v)} />
-        <FieldSelect label="보고 대상" value={form.reportTo} onChange={v => F('reportTo', v)}
-          options={[{ value: '', label: '(없음)' }, ...roles.filter(r => r.id !== form.id).map(r => ({ value: r.id, label: `${r.name} (${r.title})` }))]} />
-        <Field label="연결 역량 ID" value={form.linkedCompetencyId} onChange={v => F('linkedCompetencyId', v)} placeholder="COMP-xxxx" />
+        <Field label="ì´ë©ì¼" value={form.email} onChange={v => F('email', v)} type="email" />
+        <Field label="ì íë²í¸" value={form.phone} onChange={v => F('phone', v)} />
+        <FieldSelect label="ë³´ê³  ëì" value={form.reportTo} onChange={v => F('reportTo', v)}
+          options={[{ value: '', label: '(ìì)' }, ...roles.filter(r => r.id !== form.id).map(r => ({ value: r.id, label: `${r.name} (${r.title})` }))]} />
+        {/* #349: ì°ê²° ì­ë ID ì­ì  */}
       </div>
       <div className="mb-3">
         <label className="flex items-center gap-2 cursor-pointer text-[12.5px] font-semibold" style={{ color: '#7C3AED' }}>
           <input type="checkbox" checked={!!form.isMR} onChange={e => F('isMR', e.target.checked)} className="accent-violet-600 w-4 h-4" />
-          <ShieldCheck size={14} /> §5.5.2 경영대리인 (Management Representative) 지정
+          <ShieldCheck size={14} /> Â§5.5.2 ê²½ìëë¦¬ì¸ (Management Representative) ì§ì 
         </label>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <FieldArea label="주요 책임" value={form.responsibilities} onChange={v => F('responsibilities', v)} rows={3}
-          placeholder="- QMS 수립·유지·개선 책임&#10;- 내부감사 조율&#10;..." />
-        <FieldArea label="권한" value={form.authorities} onChange={v => F('authorities', v)} rows={3}
-          placeholder="- 부적합 제품 출하 보류&#10;- 시정조치 요구·검증&#10;..." />
-        <FieldArea label="자격 요건" value={form.qualifications} onChange={v => F('qualifications', v)} rows={2} />
-        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
+        <FieldArea label="ì£¼ì ì±ì" value={form.responsibilities} onChange={v => F('responsibilities', v)} rows={3}
+          placeholder="- QMS ìë¦½Â·ì ì§Â·ê°ì  ì±ì&#10;- ë´ë¶ê°ì¬ ì¡°ì¨&#10;..." />
+        <FieldArea label="ê¶í" value={form.authorities} onChange={v => F('authorities', v)} rows={3}
+          placeholder="- ë¶ì í© ì í ì¶í ë³´ë¥&#10;- ìì ì¡°ì¹ ìêµ¬Â·ê²ì¦&#10;..." />
+        <FieldArea label="ìê²© ìê±´" value={form.qualifications} onChange={v => F('qualifications', v)} rows={2} />
+        <FieldArea label="ë¹ê³ " value={form.notes} onChange={v => F('notes', v)} rows={2} />
       </div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
+          <Save size={13} /> ì ì¥
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
       </div>
     </div>
   )
 }
 
-// ── 커뮤니케이션 폼 ──────────────────────────────────────────
+// ââ ì»¤ë®¤ëì¼ì´ì í¼ ââââââââââââââââââââââââââââââââââââââââââ
 function CommForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '커뮤니케이션 수정' : '커뮤니케이션 등록 (§5.5.3)'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'ì»¤ë®¤ëì¼ì´ì ìì ' : 'ì»¤ë®¤ëì¼ì´ì ë±ë¡ (Â§5.5.3)'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <Field label="제목 *" value={form.title} onChange={v => F('title', v)} placeholder="월간 품질 회의..." />
-        <FieldSelect label="유형" value={form.type} onChange={v => F('type', v)}
+        <Field label="ì ëª© *" value={form.title} onChange={v => F('title', v)} placeholder="ìê° íì§ íì..." />
+        <FieldSelect label="ì í" value={form.type} onChange={v => F('type', v)}
           options={COMM_TYPES.map(t => ({ value: t, label: t }))} />
-        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
+        <FieldSelect label="ìí" value={form.status} onChange={v => F('status', v)}
           options={Object.entries(COMM_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <Field label="주기" value={form.frequency} onChange={v => F('frequency', v)} placeholder="월1회, 분기1회..." />
-        <Field label="매체·방법" value={form.medium} onChange={v => F('medium', v)} placeholder="대면 회의, 이메일, 공지게시판..." />
-        <Field label="담당자" value={form.responsible} onChange={v => F('responsible', v)} />
-        <Field label="참석 대상 부서·인원" value={form.participants} onChange={v => F('participants', v)} placeholder="품질부, 생산부, 경영진..." />
-        <Field label="최근 실시일" type="date" value={form.lastDate} onChange={v => F('lastDate', v)} />
-        <Field label="다음 예정일" type="date" value={form.nextDate} onChange={v => F('nextDate', v)} />
+        <Field label="ì£¼ê¸°" value={form.frequency} onChange={v => F('frequency', v)} placeholder="ì1í, ë¶ê¸°1í..." />
+        <Field label="ë§¤ì²´Â·ë°©ë²" value={form.medium} onChange={v => F('medium', v)} placeholder="ëë©´ íì, ì´ë©ì¼, ê³µì§ê²ìí..." />
+        {/* #352: ë´ë¹ì ì­ì  (ìì±ì=ë´ë¹ì) */}
+        <Field label="ì°¸ì ëì ë¶ìÂ·ì¸ì" value={form.participants} onChange={v => F('participants', v)} placeholder="íì§ë¶, ìì°ë¶, ê²½ìì§..." />
+        <Field label="ìµê·¼ ì¤ìì¼" type="date" value={form.lastDate} onChange={v => F('lastDate', v)} />
+        <Field label="ë¤ì ìì ì¼" type="date" value={form.nextDate} onChange={v => F('nextDate', v)} />
       </div>
-      <div className="mb-3"><FieldArea label="주요 안건" value={form.agenda} onChange={v => F('agenda', v)} rows={2} /></div>
-      <div className="mb-4"><FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} /></div>
+      <div className="mb-3"><FieldArea label="ì£¼ì ìê±´" value={form.agenda} onChange={v => F('agenda', v)} rows={2} /></div>
+      <div className="mb-4"><FieldArea label="ë¹ê³ " value={form.notes} onChange={v => F('notes', v)} rows={2} /></div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
+          <Save size={13} /> ì ì¥
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
       </div>
     </div>
   )
 }
 
-// ── 공통 ─────────────────────────────────────────────────────
+// ââ ê³µíµ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function InfoBlock({ label, value }) {
   return (
     <div className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
