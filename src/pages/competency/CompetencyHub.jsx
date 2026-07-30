@@ -1,30 +1,28 @@
 // src/pages/competency/CompetencyHub.jsx
-// ISO 13485 §6.2 인적자원 — 역량 관리 허브
+// ISO 13485 Â§6.2 ì¸ì ìì â ì­ë ê´ë¦¬ íë¸
 import React, { useState, useMemo } from 'react'
 import {
   Plus, X, Save, Edit2, Trash2, Users, Star, CheckCircle2,
   AlertTriangle, XCircle, BarChart2, BookOpen, Award,
   User, Briefcase, ChevronRight, Download,
-  GraduationCap,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
-import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
-// ── 상수 ─────────────────────────────────────────────────────
+// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_ROLES  = 'qualytree.comp_roles'
 const LS_EMP    = 'qualytree.comp_employees'
 
 const COMP_LEVELS = [
-  { value: 0, label: '미평가', color: '#9CA3AF', bg: '#F3F4F6' },
-  { value: 1, label: '기초',   color: '#3B82F6', bg: '#EFF6FF' },
-  { value: 2, label: '실무',   color: '#8B5CF6', bg: '#F5F3FF' },
-  { value: 3, label: '숙련',   color: '#059669', bg: '#ECFDF5' },
-  { value: 4, label: '전문',   color: '#D97706', bg: '#FEF3C7' },
+  { value: 0, label: 'ë¯¸íê°', color: '#9CA3AF', bg: '#F3F4F6' },
+  { value: 1, label: 'ê¸°ì´',   color: '#3B82F6', bg: '#EFF6FF' },
+  { value: 2, label: 'ì¤ë¬´',   color: '#8B5CF6', bg: '#F5F3FF' },
+  { value: 3, label: 'ìë ¨',   color: '#059669', bg: '#ECFDF5' },
+  { value: 4, label: 'ì ë¬¸',   color: '#D97706', bg: '#FEF3C7' },
 ]
 const LEVEL_MAP = Object.fromEntries(COMP_LEVELS.map(l => [l.value, l]))
 
-const COMP_CATEGORIES = ['기술 역량', '품질/규제', '안전', '관리/리더십', '언어/소통', '기타']
+const COMP_CATEGORIES = ['ê¸°ì  ì­ë', 'íì§/ê·ì ', 'ìì ', 'ê´ë¦¬/ë¦¬ëì­', 'ì¸ì´/ìíµ', 'ê¸°í']
 
 const DEPT_CODES = ['SAL','MFG','PUR','QUA','EQP','DEV','DOC','MR','TRN','RA','AUD','IMP','ALL']
 
@@ -43,7 +41,7 @@ const EMPTY_EMP = {
   notes: '',
 }
 
-// ── 메인 ─────────────────────────────────────────────────────
+// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function CompetencyHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
@@ -57,13 +55,13 @@ export default function CompetencyHub() {
 
   const [tab, setTab] = useState('matrix')   // matrix | roles | employees | analysis
 
-  // 역할 폼
+  // ì­í  í¼
   const [showRoleForm, setShowRoleForm] = useState(false)
   const [roleForm, setRoleForm] = useState(EMPTY_ROLE)
   const [editRoleId, setEditRoleId] = useState(null)
-  const [roleCompDraft, setRoleCompDraft] = useState({ name: '', category: '기술 역량', requiredLevel: 2 })
+  const [roleCompDraft, setRoleCompDraft] = useState({ name: '', category: 'ê¸°ì  ì­ë', requiredLevel: 2 })
 
-  // 직원 폼
+  // ì§ì í¼
   const [showEmpForm, setShowEmpForm] = useState(false)
   const [empForm, setEmpForm] = useState(EMPTY_EMP)
   const [editEmpId, setEditEmpId] = useState(null)
@@ -73,9 +71,9 @@ export default function CompetencyHub() {
   function saveRoles(list) { setRoles(list); localStorage.setItem(LS_ROLES, JSON.stringify(list)) }
   function saveEmps(list)  { setEmployees(list); localStorage.setItem(LS_EMP, JSON.stringify(list)) }
 
-  // ── 역할 CRUD ─────────────────────────────────────────────
+  // ââ ì­í  CRUD âââââââââââââââââââââââââââââââââââââââââââââ
   function submitRole() {
-    if (!roleForm.title.trim()) return alert('직무명을 입력하세요.')
+    if (!roleForm.title.trim()) return alert('ì§ë¬´ëªì ìë ¥íì¸ì.')
     let next
     if (editRoleId) {
       next = roles.map(r => r.id === editRoleId ? { ...r, ...roleForm } : r)
@@ -87,22 +85,22 @@ export default function CompetencyHub() {
   }
 
   function deleteRole(id) {
-    if (!confirm('직무를 삭제하시겠습니까?')) return
+    if (!confirm('ì§ë¬´ë¥¼ ì­ì íìê² ìµëê¹?')) return
     saveRoles(roles.filter(r => r.id !== id))
   }
 
   function addRoleComp() {
     if (!roleCompDraft.name.trim()) return
     setRoleForm(f => ({ ...f, competencies: [...(f.competencies || []), { ...roleCompDraft }] }))
-    setRoleCompDraft({ name: '', category: '기술 역량', requiredLevel: 2 })
+    setRoleCompDraft({ name: '', category: 'ê¸°ì  ì­ë', requiredLevel: 2 })
   }
   function removeRoleComp(idx) {
     setRoleForm(f => ({ ...f, competencies: f.competencies.filter((_, i) => i !== idx) }))
   }
 
-  // ── 직원 CRUD ─────────────────────────────────────────────
+  // ââ ì§ì CRUD âââââââââââââââââââââââââââââââââââââââââââââ
   function submitEmp() {
-    if (!empForm.name.trim()) return alert('직원명을 입력하세요.')
+    if (!empForm.name.trim()) return alert('ì§ìëªì ìë ¥íì¸ì.')
     let next
     if (editEmpId) {
       next = employees.map(e => e.id === editEmpId ? { ...e, ...empForm } : e)
@@ -114,7 +112,7 @@ export default function CompetencyHub() {
   }
 
   function deleteEmp(id) {
-    if (!confirm('직원 기록을 삭제하시겠습니까?')) return
+    if (!confirm('ì§ì ê¸°ë¡ì ì­ì íìê² ìµëê¹?')) return
     saveEmps(employees.filter(e => e.id !== id))
   }
 
@@ -127,11 +125,11 @@ export default function CompetencyHub() {
     setEmpForm(f => ({ ...f, competencies: f.competencies.filter((_, i) => i !== idx) }))
   }
 
-  // ── 역량 매트릭스 계산 ─────────────────────────────────────
-  // 직무별로 요구 역량을 모으고, 직원들의 실제 수준과 비교
+  // ââ ì­ë ë§¤í¸ë¦­ì¤ ê³ì° âââââââââââââââââââââââââââââââââââââ
+  // ì§ë¬´ë³ë¡ ìêµ¬ ì­ëì ëª¨ì¼ê³ , ì§ìë¤ì ì¤ì  ìì¤ê³¼ ë¹êµ
   const matrixData = useMemo(() => {
     const filteredEmps = filterDept === 'all' ? employees : employees.filter(e => e.dept === filterDept)
-    // 전체 역량 항목 목록 (role에서 모음)
+    // ì ì²´ ì­ë í­ëª© ëª©ë¡ (roleìì ëª¨ì)
     const allComps = new Map()
     roles.forEach(r => {
       ;(r.competencies || []).forEach(c => {
@@ -144,14 +142,14 @@ export default function CompetencyHub() {
     })
     const compList = Array.from(allComps.values())
 
-    // 직원별 역량 맵
+    // ì§ìë³ ì­ë ë§µ
     const empCompMap = {}
     filteredEmps.forEach(e => {
       empCompMap[e.id] = {}
       ;(e.competencies || []).forEach(c => { empCompMap[e.id][c.name] = c })
     })
 
-    // GAP 계산
+    // GAP ê³ì°
     const gapStats = filteredEmps.map(e => {
       let total = 0, gaps = 0, met = 0
       roles.filter(r => r.dept === e.dept).forEach(r => {
@@ -168,7 +166,7 @@ export default function CompetencyHub() {
     return { compList, filteredEmps, empCompMap, gapStats }
   }, [roles, employees, filterDept])
 
-  // 분석 데이터
+  // ë¶ì ë°ì´í°
   const analysis = useMemo(() => {
     const deptGap = {}
     DEPT_CODES.forEach(d => { deptGap[d] = { total: 0, gaps: 0 } })
@@ -189,16 +187,16 @@ export default function CompetencyHub() {
   }, [matrixData, employees])
 
   return (
-    <AppLayout user={user} title="역량 관리" subtitle="ISO 13485 §6.2 인적자원 · 직무별 역량 요구사항 · GAP 분석">
+    <AppLayout user={user} title="ì­ë ê´ë¦¬" subtitle="ISO 13485 Â§6.2 ì¸ì ìì Â· ì§ë¬´ë³ ì­ë ìêµ¬ì¬í­ Â· GAP ë¶ì">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'matrix',    label: '역량 매트릭스' },
-            { key: 'roles',     label: `직무 관리 (${roles.length})` },
-            { key: 'employees', label: `직원 역량 (${employees.length})` },
-            { key: 'analysis',  label: 'GAP 분석' },
+            { key: 'matrix',    label: 'ì­ë ë§¤í¸ë¦­ì¤' },
+            { key: 'roles',     label: `ì§ë¬´ ê´ë¦¬ (${roles.length})` },
+            { key: 'employees', label: `ì§ì ì­ë (${employees.length})` },
+            { key: 'analysis',  label: 'GAP ë¶ì' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -213,7 +211,7 @@ export default function CompetencyHub() {
           ))}
         </div>
 
-        {/* ── 역량 매트릭스 탭 ── */}
+        {/* ââ ì­ë ë§¤í¸ë¦­ì¤ í­ ââ */}
         {tab === 'matrix' && (
           <MatrixView
             matrixData={matrixData} roles={roles}
@@ -221,7 +219,7 @@ export default function CompetencyHub() {
           />
         )}
 
-        {/* ── 직무 관리 탭 ── */}
+        {/* ââ ì§ë¬´ ê´ë¦¬ í­ ââ */}
         {tab === 'roles' && (
           <RolesTab
             roles={roles} canEdit={canEdit}
@@ -234,7 +232,7 @@ export default function CompetencyHub() {
           />
         )}
 
-        {/* ── 직원 역량 탭 ── */}
+        {/* ââ ì§ì ì­ë í­ ââ */}
         {tab === 'employees' && (
           <EmployeesTab
             employees={employees} canEdit={canEdit}
@@ -248,7 +246,7 @@ export default function CompetencyHub() {
           />
         )}
 
-        {/* ── GAP 분석 탭 ── */}
+        {/* ââ GAP ë¶ì í­ ââ */}
         {tab === 'analysis' && (
           <AnalysisTab analysis={analysis} matrixData={matrixData} employees={employees} />
         )}
@@ -257,11 +255,11 @@ export default function CompetencyHub() {
   )
 }
 
-// ── 역량 매트릭스 뷰 ─────────────────────────────────────────
+// ââ ì­ë ë§¤í¸ë¦­ì¤ ë·° âââââââââââââââââââââââââââââââââââââââââ
 function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
   const { compList, filteredEmps, empCompMap, gapStats } = matrixData
 
-  // 직무의 역량 요구 수준 맵 (이름→최고 requiredLevel)
+  // ì§ë¬´ì ì­ë ìêµ¬ ìì¤ ë§µ (ì´ë¦âìµê³  requiredLevel)
   const reqMap = useMemo(() => {
     const m = {}
     roles.forEach(r => (r.competencies || []).forEach(c => {
@@ -276,7 +274,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
         <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
           className="px-3 py-1.5 rounded-xl text-[13px]"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-          <option value="all">전체 부서</option>
+          <option value="all">ì ì²´ ë¶ì</option>
           {DEPT_CODES.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <div className="flex gap-2 flex-wrap">
@@ -288,7 +286,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
           ))}
           <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-semibold"
             style={{ background: '#FEE2E2', color: '#DC2626' }}>
-            ✕ GAP
+            â GAP
           </span>
         </div>
       </div>
@@ -296,19 +294,20 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
       {filteredEmps.length === 0 || compList.length === 0 ? (
         <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
           <BarChart2 size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-          <div className="text-[14px]">직무와 직원 역량 데이터를 먼저 등록하세요.</div>
+          <div className="text-[14px]">ì§ë¬´ì ì§ì ì­ë ë°ì´í°ë¥¼ ë¨¼ì  ë±ë¡íì¸ì.</div>
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="text-[11.5px] border-collapse" style={{ minWidth: 600 }}>
             <thead>
               <tr>
-                <th className="text-left px-3 py-2 sticky left-0" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 120 }}>직원</th>
-                <th className="px-2 py-2" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 60 }}>충족률</th>
+                <th className="text-left px-3 py-2 sticky left-0" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 120 }}>ì§ì</th>
+                <th className="px-2 py-2" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 60 }}>ì¶©ì¡±ë¥ </th>
                 {compList.map(c => (
                   <th key={c.name} className="px-2 py-1.5 text-center" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 72 }}>
-                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 80, fontSize: 10, fontWeight: 600, color: 'var(--ink)' }}>{c.name}</div>
-                    <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>요구 {reqMap[c.name] || '-'}</div>
+                    {/* #344: rotate(180deg) â rotate(0deg)ì¼ë¡ ìì  (ê¸ì¨ ì ë°©í¥) */}
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(0deg)', height: 80, fontSize: 10, fontWeight: 600, color: 'var(--ink)' }}>{c.name}</div>
+                    <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>ìêµ¬ {reqMap[c.name] || '-'}</div>
                   </th>
                 ))}
               </tr>
@@ -320,7 +319,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
                   <tr key={emp.id}>
                     <td className="px-3 py-2 sticky left-0 font-semibold" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', whiteSpace: 'nowrap' }}>
                       {emp.name}
-                      <div className="text-[10px] font-normal" style={{ color: 'var(--ink-faint)' }}>{emp.dept} · {emp.jobTitle}</div>
+                      <div className="text-[10px] font-normal" style={{ color: 'var(--ink-faint)' }}>{emp.dept} Â· {emp.jobTitle}</div>
                     </td>
                     <td className="text-center px-2 py-2" style={{ border: '1px solid var(--line)' }}>
                       <span className="font-bold text-[12px]" style={{ color: rate === null ? 'var(--ink-faint)' : rate >= 80 ? '#059669' : rate >= 50 ? '#D97706' : '#DC2626' }}>
@@ -341,7 +340,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
                               {actual}
                             </span>
                           ) : (
-                            <span className="text-[10px]" style={{ color: isGap ? '#DC2626' : 'var(--ink-faint)' }}>{isGap ? '✕' : '–'}</span>
+                            <span className="text-[10px]" style={{ color: isGap ? '#DC2626' : 'var(--ink-faint)' }}>{isGap ? 'â' : 'â'}</span>
                           )}
                         </td>
                       )
@@ -357,38 +356,38 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
   )
 }
 
-// ── 직무 관리 탭 ─────────────────────────────────────────────
+// ââ ì§ë¬´ ê´ë¦¬ í­ âââââââââââââââââââââââââââââââââââââââââââââ
 function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId, setEditId,
   onSubmit, onDelete, compDraft, setCompDraft, onAddComp, onRemoveComp }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>직무별 역량 요구사항을 정의합니다.</div>
+        <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>ì§ë¬´ë³ ì­ë ìêµ¬ì¬í­ì ì ìí©ëë¤.</div>
         {canEdit && (
           <button onClick={() => { setForm(EMPTY_ROLE); setEditId(null); setShowForm(true) }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <Plus size={14} /> 직무 추가
+            <Plus size={14} /> ì§ë¬´ ì¶ê°
           </button>
         )}
       </div>
 
       {showForm && (
         <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{editId ? '직무 수정' : '직무 추가'}</div>
+          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{editId ? 'ì§ë¬´ ìì ' : 'ì§ë¬´ ì¶ê°'}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <Field label="직무명 *" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} />
-            <FieldSelect label="부서" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
+            <Field label="ì§ë¬´ëª *" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} />
+            <FieldSelect label="ë¶ì" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
               options={DEPT_CODES.map(d => ({ value: d, label: d }))} />
-            <FieldArea label="직무 설명" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} rows={2} />
+            <FieldArea label="ì§ë¬´ ì¤ëª" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} rows={2} />
           </div>
 
-          {/* 역량 항목 추가 */}
+          {/* ì­ë í­ëª© ì¶ê° */}
           <div className="mb-4">
-            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>역량 요구사항</div>
+            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>ì­ë ìêµ¬ì¬í­</div>
             <div className="flex gap-2 flex-wrap mb-3">
               <input value={compDraft.name} onChange={e => setCompDraft(d => ({ ...d, name: e.target.value }))}
-                placeholder="역량명 (예: 멸균 공정 이해)" className="px-3 py-1.5 rounded-xl text-[12px] flex-1"
+                placeholder="ì­ëëª (ì: ë©¸ê·  ê³µì  ì´í´)" className="px-3 py-1.5 rounded-xl text-[12px] flex-1"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)', minWidth: 160 }} />
               <select value={compDraft.category} onChange={e => setCompDraft(d => ({ ...d, category: e.target.value }))}
                 className="px-3 py-1.5 rounded-xl text-[12px]"
@@ -399,12 +398,12 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
                 className="px-3 py-1.5 rounded-xl text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
                 {COMP_LEVELS.filter(l => l.value > 0).map(l => (
-                  <option key={l.value} value={l.value}>요구 {l.value} — {l.label}</option>
+                  <option key={l.value} value={l.value}>ìêµ¬ {l.value} â {l.label}</option>
                 ))}
               </select>
               <button onClick={onAddComp} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-bold"
                 style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                <Plus size={12} /> 추가
+                <Plus size={12} /> ì¶ê°
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -414,7 +413,7 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
                   <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
                     style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
                     <span className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>{c.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: lv.bg, color: lv.color }}>요구 {c.requiredLevel}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: lv.bg, color: lv.color }}>ìêµ¬ {c.requiredLevel}</span>
                     <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{c.category}</span>
                     <button onClick={() => onRemoveComp(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}><X size={12} /></button>
                   </div>
@@ -426,12 +425,12 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
           <div className="flex gap-2">
             <button onClick={onSubmit} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
               style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              <Save size={13} /> 저장
+              <Save size={13} /> ì ì¥
             </button>
             <button onClick={() => { setShowForm(false); setForm(EMPTY_ROLE); setEditId(null) }}
               className="px-4 py-2 rounded-xl text-[13px]"
               style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-              취소
+              ì·¨ì
             </button>
           </div>
         </div>
@@ -440,7 +439,7 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
       {roles.length === 0 ? (
         <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
           <Briefcase size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-          <div className="text-[14px]">등록된 직무가 없습니다.</div>
+          <div className="text-[14px]">ë±ë¡ë ì§ë¬´ê° ììµëë¤.</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -449,7 +448,7 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{role.title}</div>
-                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{role.dept} · {(role.competencies || []).length}개 역량 요구</div>
+                  <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{role.dept} Â· {(role.competencies || []).length}ê° ì­ë ìêµ¬</div>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1">
@@ -484,78 +483,78 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
   )
 }
 
-// ── 직원 역량 탭 ─────────────────────────────────────────────
+// ââ ì§ì ì­ë í­ âââââââââââââââââââââââââââââââââââââââââââââ
 function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm, editId, setEditId,
   onSubmit, onDelete, compDraft, setCompDraft, onAddComp, onRemoveComp, roles }) {
 
   const EFFECTIVENESS = [
-    { value: '', label: '미평가' },
-    { value: 'effective', label: '효과적' },
-    { value: 'partial', label: '부분 효과' },
-    { value: 'ineffective', label: '비효과적' },
+    { value: '', label: 'ë¯¸íê°' },
+    { value: 'effective', label: 'í¨ê³¼ì ' },
+    { value: 'partial', label: 'ë¶ë¶ í¨ê³¼' },
+    { value: 'ineffective', label: 'ë¹í¨ê³¼ì ' },
   ]
 
-  // 선택된 부서의 직무 역량 자동 채우기
+  // ì íë ë¶ìì ì§ë¬´ ì­ë ìë ì±ì°ê¸°
   function autofillFromRole() {
     const role = roles.find(r => r.dept === form.dept)
-    if (!role || !(role.competencies || []).length) return alert('해당 부서의 직무 역량 요구사항이 없습니다.')
+    if (!role || !(role.competencies || []).length) return alert('í´ë¹ ë¶ìì ì§ë¬´ ì­ë ìêµ¬ì¬í­ì´ ììµëë¤.')
     const existing = new Set((form.competencies || []).map(c => c.name))
     const toAdd = (role.competencies || []).filter(c => !existing.has(c.name)).map(c => ({
       name: c.name, actualLevel: 0, evaluatedAt: todayStr(), evaluatedBy: '', effectiveness: '', notes: '',
     }))
-    if (!toAdd.length) return alert('이미 모든 역량이 등록되어 있습니다.')
+    if (!toAdd.length) return alert('ì´ë¯¸ ëª¨ë  ì­ëì´ ë±ë¡ëì´ ììµëë¤.')
     setForm(f => ({ ...f, competencies: [...(f.competencies || []), ...toAdd] }))
   }
 
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
-        <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>직원별 실제 역량 수준을 기록·평가합니다.</div>
+        <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>ì§ìë³ ì¤ì  ì­ë ìì¤ì ê¸°ë¡Â·íê°í©ëë¤.</div>
         {canEdit && (
           <button onClick={() => { setForm(EMPTY_EMP); setEditId(null); setShowForm(true) }}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <Plus size={14} /> 직원 추가
+            <Plus size={14} /> ì§ì ì¶ê°
           </button>
         )}
       </div>
 
       {showForm && (
         <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{editId ? '직원 역량 수정' : '직원 역량 추가'}</div>
+          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{editId ? 'ì§ì ì­ë ìì ' : 'ì§ì ì­ë ì¶ê°'}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <Field label="이름 *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
-            <Field label="사번" value={form.employeeNo} onChange={v => setForm(f => ({ ...f, employeeNo: v }))} />
-            <FieldSelect label="부서" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
+            <Field label="ì´ë¦ *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
+            {/* #346: ì¬ë² ì­ì  */}
+            <FieldSelect label="ë¶ì" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
               options={DEPT_CODES.map(d => ({ value: d, label: d }))} />
-            <Field label="직책" value={form.jobTitle} onChange={v => setForm(f => ({ ...f, jobTitle: v }))} />
-            <Field label="입사일" type="date" value={form.hireDate} onChange={v => setForm(f => ({ ...f, hireDate: v }))} />
-            <Field label="이메일" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />
+            <Field label="ì§ì±" value={form.jobTitle} onChange={v => setForm(f => ({ ...f, jobTitle: v }))} />
+            <Field label="ìì¬ì¼" type="date" value={form.hireDate} onChange={v => setForm(f => ({ ...f, hireDate: v }))} />
+            <Field label="ì´ë©ì¼" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />
           </div>
 
-          {/* 역량 평가 입력 */}
+          {/* ì­ë íê° ìë ¥ */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <div className="text-[12px] font-bold" style={{ color: 'var(--ink-soft)' }}>역량 평가 기록</div>
+              <div className="text-[12px] font-bold" style={{ color: 'var(--ink-soft)' }}>ì­ë íê° ê¸°ë¡</div>
               <button onClick={autofillFromRole} className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px]"
                 style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>
-                <BookOpen size={11} /> 직무 역량 자동 채우기
+                <BookOpen size={11} /> ì§ë¬´ ì­ë ìë ì±ì°ê¸°
               </button>
             </div>
             <div className="flex gap-2 flex-wrap mb-3">
               <input value={compDraft.name} onChange={e => setCompDraft(d => ({ ...d, name: e.target.value }))}
-                placeholder="역량명" className="px-3 py-1.5 rounded-xl text-[12px] flex-1"
+                placeholder="ì­ëëª" className="px-3 py-1.5 rounded-xl text-[12px] flex-1"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)', minWidth: 140 }} />
               <select value={compDraft.actualLevel} onChange={e => setCompDraft(d => ({ ...d, actualLevel: Number(e.target.value) }))}
                 className="px-3 py-1.5 rounded-xl text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                {COMP_LEVELS.map(l => <option key={l.value} value={l.value}>{l.value} — {l.label}</option>)}
+                {COMP_LEVELS.map(l => <option key={l.value} value={l.value}>{l.value} â {l.label}</option>)}
               </select>
               <input type="date" value={compDraft.evaluatedAt} onChange={e => setCompDraft(d => ({ ...d, evaluatedAt: e.target.value }))}
                 className="px-3 py-1.5 rounded-xl text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
               <input value={compDraft.evaluatedBy} onChange={e => setCompDraft(d => ({ ...d, evaluatedBy: e.target.value }))}
-                placeholder="평가자" className="px-3 py-1.5 rounded-xl text-[12px]"
+                placeholder="íê°ì" className="px-3 py-1.5 rounded-xl text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)', width: 100 }} />
               <select value={compDraft.effectiveness} onChange={e => setCompDraft(d => ({ ...d, effectiveness: e.target.value }))}
                 className="px-3 py-1.5 rounded-xl text-[12px]"
@@ -564,13 +563,13 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
               </select>
               <button onClick={onAddComp} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-bold"
                 style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                <Plus size={12} /> 추가
+                <Plus size={12} /> ì¶ê°
               </button>
             </div>
             <div className="space-y-1">
               {(form.competencies || []).map((c, i) => {
                 const lv = LEVEL_MAP[c.actualLevel]
-                const eff = { effective: { label: '효과적', color: '#059669' }, partial: { label: '부분', color: '#D97706' }, ineffective: { label: '비효과적', color: '#DC2626' } }
+                const eff = { effective: { label: 'í¨ê³¼ì ', color: '#059669' }, partial: { label: 'ë¶ë¶', color: '#D97706' }, ineffective: { label: 'ë¹í¨ê³¼ì ', color: '#DC2626' } }
                 const effInfo = eff[c.effectiveness]
                 return (
                   <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl flex-wrap"
@@ -578,7 +577,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                     <span className="text-[12px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{c.name}</span>
                     <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: lv.bg, color: lv.color }}>Lv.{c.actualLevel} {lv.label}</span>
                     {effInfo && <span className="text-[10px] font-bold" style={{ color: effInfo.color }}>{effInfo.label}</span>}
-                    <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{c.evaluatedAt} {c.evaluatedBy && `· ${c.evaluatedBy}`}</span>
+                    <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{c.evaluatedAt} {c.evaluatedBy && `Â· ${c.evaluatedBy}`}</span>
                     <button onClick={() => onRemoveComp(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}><X size={12} /></button>
                   </div>
                 )
@@ -589,12 +588,12 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
           <div className="flex gap-2">
             <button onClick={onSubmit} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
               style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              <Save size={13} /> 저장
+              <Save size={13} /> ì ì¥
             </button>
             <button onClick={() => { setShowForm(false); setForm(EMPTY_EMP); setEditId(null) }}
               className="px-4 py-2 rounded-xl text-[13px]"
               style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-              취소
+              ì·¨ì
             </button>
           </div>
         </div>
@@ -603,7 +602,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
       {employees.length === 0 ? (
         <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
           <Users size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-          <div className="text-[14px]">등록된 직원이 없습니다.</div>
+          <div className="text-[14px]">ë±ë¡ë ì§ìì´ ììµëë¤.</div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -621,7 +620,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                     </div>
                     <div>
                       <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{emp.name}</div>
-                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} · {emp.jobTitle} · {emp.employeeNo}</div>
+                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} Â· {emp.jobTitle} Â· {emp.employeeNo}</div>
                     </div>
                   </div>
                   {canEdit && (
@@ -638,8 +637,8 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                   )}
                 </div>
                 <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-soft)' }}>
-                  역량 평가 {evalCount}/{totalCount}건
-                  {ineffective.length > 0 && <span className="ml-2 font-bold" style={{ color: '#DC2626' }}>⚠ 비효과적 {ineffective.length}건</span>}
+                  ì­ë íê° {evalCount}/{totalCount}ê±´
+                  {ineffective.length > 0 && <span className="ml-2 font-bold" style={{ color: '#DC2626' }}>â  ë¹í¨ê³¼ì  {ineffective.length}ê±´</span>}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {(emp.competencies || []).slice(0, 6).map((c, i) => {
@@ -653,7 +652,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                     )
                   })}
                   {(emp.competencies || []).length > 6 && (
-                    <span className="text-[10px] self-center" style={{ color: 'var(--ink-faint)' }}>+{(emp.competencies || []).length - 6}개</span>
+                    <span className="text-[10px] self-center" style={{ color: 'var(--ink-faint)' }}>+{(emp.competencies || []).length - 6}ê°</span>
                   )}
                 </div>
               </div>
@@ -665,7 +664,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
   )
 }
 
-// ── GAP 분석 탭 ──────────────────────────────────────────────
+// ââ GAP ë¶ì í­ ââââââââââââââââââââââââââââââââââââââââââââââ
 function AnalysisTab({ analysis, matrixData, employees }) {
   const { gapStats } = matrixData
   const withGaps = gapStats.filter(s => s.gaps > 0)
@@ -675,16 +674,16 @@ function AnalysisTab({ analysis, matrixData, employees }) {
     <div className="space-y-5">
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MiniKpi label="전체 직원" value={employees.length} />
-        <MiniKpi label="GAP 존재" value={withGaps.length} warn={withGaps.length > 0} />
-        <MiniKpi label="미평가" value={analysis.noEvalEmps.length} warn={analysis.noEvalEmps.length > 0} />
-        <MiniKpi label="교육 비효과" value={analysis.lowEffEmps.length} bad={analysis.lowEffEmps.length > 0} />
+        <MiniKpi label="ì ì²´ ì§ì" value={employees.length} />
+        <MiniKpi label="GAP ì¡´ì¬" value={withGaps.length} warn={withGaps.length > 0} />
+        <MiniKpi label="ë¯¸íê°" value={analysis.noEvalEmps.length} warn={analysis.noEvalEmps.length > 0} />
+        <MiniKpi label="êµì¡ ë¹í¨ê³¼" value={analysis.lowEffEmps.length} bad={analysis.lowEffEmps.length > 0} />
       </div>
 
-      {/* GAP 상위 직원 */}
+      {/* GAP ìì ì§ì */}
       {withGaps.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>역량 GAP 직원</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ì­ë GAP ì§ì</div>
           <div className="space-y-2">
             {withGaps.sort((a, b) => b.gaps - a.gaps).slice(0, 10).map(({ emp, total, gaps, met, rate }) => (
               <div key={emp.id} className="flex items-center gap-3 p-2.5 rounded-xl"
@@ -692,7 +691,7 @@ function AnalysisTab({ analysis, matrixData, employees }) {
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
                   style={{ background: 'var(--bg-card)', color: 'var(--moss)' }}>{emp.name?.[0]}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-bold" style={{ color: 'var(--ink)' }}>{emp.name} <span className="font-normal text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} · {emp.jobTitle}</span></div>
+                  <div className="text-[12px] font-bold" style={{ color: 'var(--ink)' }}>{emp.name} <span className="font-normal text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} Â· {emp.jobTitle}</span></div>
                   <div className="h-1.5 rounded-full mt-1" style={{ background: 'var(--line)' }}>
                     <div className="h-1.5 rounded-full" style={{ width: `${rate}%`, background: rate >= 80 ? '#059669' : rate >= 50 ? '#D97706' : '#DC2626' }} />
                   </div>
@@ -707,10 +706,10 @@ function AnalysisTab({ analysis, matrixData, employees }) {
         </div>
       )}
 
-      {/* 미평가 직원 */}
+      {/* ë¯¸íê°  ì§ì */}
       {analysis.noEvalEmps.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>⚠ 역량 미평가 직원 ({analysis.noEvalEmps.length}명)</div>
+          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>â  ì­ë ë¯¸íê° ì§ì ({analysis.noEvalEmps.length}ëª)</div>
           <div className="flex flex-wrap gap-2">
             {analysis.noEvalEmps.map(e => (
               <span key={e.id} className="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold"
@@ -722,10 +721,10 @@ function AnalysisTab({ analysis, matrixData, employees }) {
         </div>
       )}
 
-      {/* 교육 비효과 */}
+      {/* êµì¡ ë¹í¨ê³¼ */}
       {analysis.lowEffEmps.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-          <div className="text-[13px] font-bold mb-2" style={{ color: '#991B1B' }}>교육 효과성 미달 직원</div>
+          <div className="text-[13px] font-bold mb-2" style={{ color: '#991B1B' }}>êµì¡ í¨ê³¼ì± ë¯¸ë¬ ì§ì</div>
           <div className="flex flex-wrap gap-2">
             {analysis.lowEffEmps.map(e => (
               <span key={e.id} className="px-2.5 py-1 rounded-lg text-[11.5px] font-semibold"
