@@ -21,6 +21,16 @@ import { fileStore } from '../../lib/fileStore'
 
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+function toISODate(d){
+  if(!d||d==='—') return null
+  const s=String(d).trim()
+  let m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if(m) return s
+  m=s.match(/^(\d{2})-(\d{2})-(\d{2})$/)
+  if(m) return `20${m[1]}-${m[2]}-${m[3]}`
+  const t=new Date(s).getTime()
+  return isNaN(t)?null:s
+}
 const inp={width:'100%',padding:'7px 10px',borderRadius:'7px',border:'1px solid var(--line)',background:'var(--bg)',color:'var(--ink)',fontSize:'13px',outline:'none'}
 const sel={...inp,appearance:'none'}
 const Badge=({text,tone='gray'})=>{const c={red:{bg:'var(--rust-soft)',fg:'var(--rust)'},green:{bg:'var(--leaf-soft)',fg:'var(--moss)'},amber:{bg:'#fff7ed',fg:'#b45309'},blue:{bg:'#eff6ff',fg:'#1d4ed8'},gray:{bg:'var(--bg-soft)',fg:'var(--ink-mute)'}}[tone]??{bg:'var(--bg-soft)',fg:'var(--ink-mute)'};return <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{background:c.bg,color:c.fg,fontWeight:500}}>{text}</span>}
@@ -429,7 +439,7 @@ function CalibCompleteForm({instr,onSave,onCancel}){
 function ScheduleView({instruments,setInstruments,history,setHistory}){
   const [calibModal,setCalibModal]=useState(null)
   const calibItems=instruments.filter(i=>i.interval!=='PM 관리'&&i.interval!=='해당없음')
-  const parseDate=(d)=>{ if(!d||d==='—') return null; const t=new Date(d).getTime(); return isNaN(t)?null:t }
+  const parseDate=(d)=>{ const iso=toISODate(d); if(!iso) return null; const t=new Date(iso).getTime(); return isNaN(t)?null:t }
   const sorted=[...calibItems].sort((a,b)=>{
     const ta=parseDate(a.nextCalib), tb=parseDate(b.nextCalib)
     if(ta===null&&tb===null) return 0
@@ -438,8 +448,8 @@ function ScheduleView({instruments,setInstruments,history,setHistory}){
     return ta-tb
   })
   const today=new Date().toISOString().slice(0,10)
-  const getDday=(d)=>{if(!d||d==='—')return'—';const diff=Math.ceil((new Date(d)-new Date(today))/(1000*60*60*24));if(diff<0)return`D+${Math.abs(diff)} 초과`;if(diff===0)return'오늘';return`D-${diff}`}
-  const getTone=(d)=>{if(!d||d==='—')return'gray';const diff=Math.ceil((new Date(d)-new Date(today))/(1000*60*60*24));if(diff<0)return'red';if(diff<=30)return'amber';return'green'}
+  const getDday=(d)=>{const iso=toISODate(d);if(!iso)return'—';const diff=Math.ceil((new Date(iso)-new Date(today))/(1000*60*60*24));if(diff<0)return`D+${Math.abs(diff)} 초과`;if(diff===0)return'오늘';return`D-${diff}`}
+  const getTone=(d)=>{const iso=toISODate(d);if(!iso)return'gray';const diff=Math.ceil((new Date(iso)-new Date(today))/(1000*60*60*24));if(diff<0)return'red';if(diff<=30)return'amber';return'green'}
   const urgent=sorted.filter(i=>{const t=parseDate(i.nextCalib);return t!==null&&t<new Date(today).getTime()})
   const soon=sorted.filter(i=>{const t=parseDate(i.nextCalib);if(t===null)return false;const diff=(t-new Date(today).getTime())/(1000*60*60*24);return diff>=0&&diff<=30})
   const completeCalib=(f)=>{
