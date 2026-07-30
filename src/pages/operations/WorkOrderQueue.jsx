@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight,
   Plus,
@@ -56,6 +56,7 @@ function OpsShell({ embedded, user, title, subtitle, children }) {
 
 export default function WorkOrderQueue({ embedded = false } = {}) {
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
   const user = auth.current()
   const onbState = onboarding.load()
 
@@ -74,7 +75,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
   const [opState, setOpState] = useState(() => operations.load())
   const [filter, setFilter] = useState('all') // all | pending | in_progress | completed
   const [showNew, setShowNew] = useState(false)
-  const [selectedId, setSelectedId] = useState(null)
+  const [selectedId, setSelectedId] = useState(() => searchParams.get('id') || null)
 
   const reload = () => setOpState(operations.load())
 

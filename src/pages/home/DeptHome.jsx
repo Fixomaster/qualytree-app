@@ -43,7 +43,7 @@ function getMyTasks(dept) {
         id: n.id, type: 'ncr', urgent,
         label: `NCR · ${n.title || n.id}`,
         sub: `심각도: ${n.severity || '-'} · 상태: ${n.status}`,
-        link: '/quality', color: urgent ? '#EF4444' : '#F59E0B',
+        link: `/quality?tab=ncr&ncrId=${n.id}`, color: urgent ? '#EF4444' : '#F59E0B',
         createdAt: n.detectedAt || n.createdAt,
       })
     }
@@ -60,7 +60,7 @@ function getMyTasks(dept) {
         id: c.id, type: 'capa', urgent: overdue,
         label: `CAPA · ${c.title || c.id}`,
         sub: overdue ? `⚠️ 기한 초과 (${c.targetDate})` : `📅 D-${Math.ceil((due - now) / 86400000)} (${c.targetDate})`,
-        link: '/quality', color: overdue ? '#EF4444' : '#F59E0B',
+        link: `/quality?tab=capa&capaId=${c.id}`, color: overdue ? '#EF4444' : '#F59E0B',
         createdAt: c.createdAt,
       })
     }
@@ -75,7 +75,7 @@ function getMyTasks(dept) {
         urgent: w.priority === 'urgent',
         label: `WO · ${w.productName || w.woId}`,
         sub: `로트: ${w.lotNumber || '-'} · ${w.status === 'pending' ? '시작 대기' : '진행 중'}`,
-        link: '/operations', color: w.priority === 'urgent' ? '#EF4444' : '#3B82F6',
+        link: `/operations?id=${w.woId || w.id}`, color: w.priority === 'urgent' ? '#EF4444' : '#3B82F6',
         createdAt: w.issuedAt || w.createdAt,
       })
     }
@@ -89,7 +89,7 @@ function getMyTasks(dept) {
         id: c.id, type: 'car', urgent: c.severity === 'major',
         label: `CAR · ${c.finding?.slice(0, 40) || c.id}...`,
         sub: `감사: ${c.auditId || '-'} · 담당: ${c.assignee || '-'}`,
-        link: '/audit', color: '#EF4444',
+        link: `/audit?tab=cars&carId=${c.id}`, color: '#EF4444',
         createdAt: c.createdAt,
       })
     }
@@ -103,7 +103,7 @@ function getMyTasks(dept) {
         id: i.id, type: 'imp', urgent: i.priority === 'high',
         label: `개선 · ${i.title || i.id}`,
         sub: `우선순위: ${i.priority === 'high' ? '높음' : '보통'} · 승인 대기`,
-        link: '/improvement', color: i.priority === 'high' ? '#F59E0B' : '#6B7280',
+        link: `/improvement?id=${i.id}`, color: i.priority === 'high' ? '#F59E0B' : '#6B7280',
         createdAt: i.createdAt,
       })
     }
@@ -117,7 +117,7 @@ function getMyTasks(dept) {
         id: a.id, type: 'audit', urgent: false,
         label: `감사 종결 대기 · ${a.title || a.id}`,
         sub: `감사일: ${a.auditDate || '-'} · 시정조치 확인 필요`,
-        link: '/audit', color: '#8B5CF6',
+        link: `/audit?tab=audits&auditId=${a.id}`, color: '#8B5CF6',
         createdAt: a.createdAt,
       })
     }
@@ -133,7 +133,7 @@ function getMyTasks(dept) {
         id: o.id, type: 'order', urgent: days < 0,
         label: `수주 · ${o.id} ${o.customer || ''}`,
         sub: days < 0 ? `⚠️ 납기 ${Math.abs(days)}일 초과` : `📅 D-${days} (${o.dueDate})`,
-        link: '/sales', color: days < 0 ? '#EF4444' : '#F59E0B',
+        link: `/sales?tab=orders&edit=${o.id}`, color: days < 0 ? '#EF4444' : '#F59E0B',
         createdAt: o.dueDate,
       })
     }
@@ -149,7 +149,7 @@ function getMyTasks(dept) {
         id: i.id, type: 'stock', urgent: s <= 0,
         label: `재고부족 · ${i.name || i.id}`,
         sub: `현재 ${i.stock}${i.unit || ''} (최소 ${i.min}${i.unit || ''})`,
-        link: '/purchase', color: '#F59E0B',
+        link: `/purchase?tab=inventory&edit=${i.id}`, color: '#F59E0B',
         createdAt: null,
       })
     }
@@ -165,7 +165,7 @@ function getMyTasks(dept) {
         id: e.id, type: 'cal', urgent: true,
         label: `교정초과 · ${e.name || e.id}`,
         sub: `교정일 ${e.nextCalib} 경과 (${Math.abs(days)}일)`,
-        link: '/equipment', color: '#EF4444',
+        link: `/equipment?tab=instruments&edit=${e.id}`, color: '#EF4444',
         createdAt: e.nextCalib,
       })
     }
@@ -174,7 +174,6 @@ function getMyTasks(dept) {
   // 우선순위 정렬: urgent 먼저, 최신 순
   return tasks
     .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))
-    .slice(0, 8)
 }
 
 // ── 부서별 KPI 카드 정의 ─────────────────────────────────
@@ -402,7 +401,9 @@ export default function DeptHome() {
   }, [])
 
   const deptInfo = DEPT_LIST.find(d => d.code === dept)
-  const tasks = useMemo(() => getMyTasks(dept), [dept])
+  const allTasks = useMemo(() => getMyTasks(dept), [dept])
+  const [showAllTasks, setShowAllTasks] = useState(false)
+  const tasks = showAllTasks ? allTasks : allTasks.slice(0, 8)
   const kpis = useMemo(() => getDeptKPIs(dept), [dept])
   const quickActions = QUICK_ACTIONS[dept] || QUICK_ACTIONS['ALL']
   const workflow = WORKFLOW_GUIDES[dept] || WORKFLOW_GUIDES['ALL']
@@ -502,22 +503,24 @@ export default function DeptHome() {
                 <div className="flex items-center gap-2">
                   <Bell size={16} style={{ color: 'var(--ink-soft)' }} />
                   <span className="font-semibold text-[14px]" style={{ color: 'var(--ink)' }}>내 할 일</span>
-                  {tasks.length > 0 && (
+                  {allTasks.length > 0 && (
                     <span className="text-[11px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#EF4444', color: '#fff' }}>
-                      {tasks.length}
+                      {allTasks.length}
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => nav('/quality')}
-                  className="text-[12px] flex items-center gap-1"
-                  style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}
-                >
-                  전체 보기 <ChevronRight size={13} />
-                </button>
+                {allTasks.length > 8 && (
+                  <button
+                    onClick={() => setShowAllTasks(v => !v)}
+                    className="text-[12px] flex items-center gap-1"
+                    style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    {showAllTasks ? '접기' : `전체 보기 (${allTasks.length})`} <ChevronRight size={13} style={{ transform: showAllTasks ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                  </button>
+                )}
               </div>
 
-              {tasks.length === 0 ? (
+              {allTasks.length === 0 ? (
                 <div className="flex flex-col items-center py-12 text-center">
                   <CheckCircle2 size={32} style={{ color: '#10B981', opacity: 0.5, marginBottom: 8 }} />
                   <div className="text-[14px] font-medium" style={{ color: 'var(--ink-soft)' }}>모든 업무 처리 완료</div>

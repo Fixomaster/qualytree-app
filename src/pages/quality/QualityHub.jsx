@@ -33,10 +33,10 @@ export default function QualityHub() {
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'ncr') // ncr | capa | quarantine | ccr
   const [filter, setFilter] = useState('open') // open | all
-  const [selectedNcrId, setSelectedNcrId] = useState(null)
-  const [selectedCapaId, setSelectedCapaId] = useState(null)
-  const [selectedQId, setSelectedQId] = useState(null)
-  const [selectedCcrId, setSelectedCcrId] = useState(null)
+  const [selectedNcrId, setSelectedNcrId] = useState(() => searchParams.get('ncrId') || null)
+  const [selectedCapaId, setSelectedCapaId] = useState(() => searchParams.get('capaId') || null)
+  const [selectedQId, setSelectedQId] = useState(() => searchParams.get('qId') || null)
+  const [selectedCcrId, setSelectedCcrId] = useState(() => searchParams.get('ccrId') || null)
   const [showHelp, setShowHelp] = useState(false)
   const [, setRefresh] = useState(0)
   const refresh = () => setRefresh((t) => t + 1)

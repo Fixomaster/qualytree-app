@@ -1,6 +1,7 @@
 // src/pages/improvement/ImprovementHub.jsx
 // ISO 13485:2016 §8.5 개선활동 허브
 import React, { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   TrendingUp, Plus, BarChart2, CheckCircle2,
   Clock, AlertTriangle, Target, Lightbulb,
@@ -71,6 +72,8 @@ function genId() { return `IMP-${new Date().getFullYear()}-${String(Date.now()).
 
 export default function ImprovementHub() {
   const user = auth.current()
+  const [searchParams] = useSearchParams()
+  const highlightId = searchParams.get('id')
   const [tab, setTab] = useState('list')
   const [items, setItems] = useState(() => load())
   const [showForm, setShowForm] = useState(false)
@@ -254,6 +257,7 @@ export default function ImprovementHub() {
                   <ImprovementCard
                     key={item.id}
                     item={item}
+                    highlight={highlightId === item.id}
                     onEdit={() => { setEditItem(item); setShowForm(true) }}
                     onStatusChange={(s) => handleStatusChange(item.id, s)}
                   />
@@ -271,13 +275,20 @@ export default function ImprovementHub() {
 }
 
 /* ── 개선 과제 카드 ── */
-function ImprovementCard({ item, onEdit, onStatusChange }) {
-  const [open, setOpen] = useState(false)
+function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
+  const [open, setOpen] = useState(() => !!highlight)
+  const cardRef = React.useRef(null)
   const sc = IMP_STATUS_COLOR[item.status] || '#6B7280'
   const pc = IMP_PRIORITY_COLOR[item.priority] || '#6B7280'
 
+  React.useEffect(() => {
+    if (highlight && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlight])
+
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+    <div ref={cardRef} className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: highlight ? '2px solid var(--moss)' : '1px solid var(--line)', boxShadow: highlight ? '0 0 0 3px var(--leaf-soft)' : 'none' }}>
       <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setOpen(o => !o)}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: pc }} />

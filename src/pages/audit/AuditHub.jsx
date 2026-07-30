@@ -1,6 +1,7 @@
 // src/pages/audit/AuditHub.jsx
 // ISO 13485:2016 §8.2.2 내부감사 허브
 import React, { useState, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Search, Plus, ChevronRight, CheckCircle2,
   Clock, AlertTriangle, Calendar, Users,
@@ -81,7 +82,10 @@ function genId(prefix) {
 
 export default function AuditHub() {
   const user = auth.current()
-  const [tab, setTab] = useState('audits')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'audits')
+  const highlightCarId = searchParams.get('carId')
+  const highlightAuditId = searchParams.get('auditId')
   const [audits, setAudits] = useState(() => loadAudits())
   const [cars, setCARs] = useState(() => loadCARs())
   const [showForm, setShowForm] = useState(false)
@@ -193,6 +197,7 @@ export default function AuditHub() {
             setShowForm={setShowForm}
             selectedAudit={selectedAudit}
             setSelectedAudit={setSelectedAudit}
+            highlightAuditId={highlightAuditId}
             onSave={(form) => {
               const updated = selectedAudit
                 ? audits.map(a => a.id === selectedAudit.id ? { ...a, ...form, updatedAt: new Date().toISOString() } : a)
@@ -222,6 +227,7 @@ export default function AuditHub() {
             cars={cars}
             showCARForm={showCARForm}
             setShowCARForm={setShowCARForm}
+            highlightCarId={highlightCarId}
             onSave={(form) => {
               const updated = [...cars, {
                 ...form,
@@ -249,7 +255,7 @@ export default function AuditHub() {
 }
 
 /* ── 감사 목록 탭 ── */
-function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, onSave, onStatusChange }) {
+function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, highlightAuditId, onSave, onStatusChange }) {
   const [form, setForm] = useState({
     title: '', scope: '', auditDate: '', auditor: '', auditee: '',
     type: 'internal', standard: 'ISO 13485',
@@ -317,6 +323,7 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
             <AuditCard
               key={audit.id}
               audit={audit}
+              highlight={highlightAuditId === audit.id}
               onEdit={() => startEdit(audit)}
               onStatusChange={(status) => onStatusChange(audit.id, status)}
             />
@@ -327,14 +334,22 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
   )
 }
 
-function AuditCard({ audit, onEdit, onStatusChange }) {
-  const [open, setOpen] = useState(false)
+function AuditCard({ audit, highlight, onEdit, onStatusChange }) {
+  const [open, setOpen] = useState(() => !!highlight)
+  const cardRef = React.useRef(null)
   const statusColor = AUDIT_STATUS_COLOR[audit.status] || '#6B7280'
+
+  React.useEffect(() => {
+    if (highlight && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [highlight])
 
   return (
     <div
+      ref={cardRef}
       className="rounded-2xl overflow-hidden"
-      style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}
+      style={{ background: 'var(--bg-card)', border: highlight ? '2px solid var(--moss)' : '1px solid var(--line)', boxShadow: highlight ? '0 0 0 3px var(--leaf-soft)' : 'none' }}
     >
       <div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setOpen(o => !o)}>
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -441,9 +456,15 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
 }
 
 /* ── CAR 탭 ── */
-function CARsTab({ cars, showCARForm, setShowCARForm, onSave, onStatusChange }) {
+function CARsTab({ cars, showCARForm, setShowCARForm, highlightCarId, onSave, onStatusChange }) {
   const [form, setForm] = useState({ auditId: '', finding: '', requirement: '', assignee: '', dueDate: '', severity: 'major' })
   const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
+
+  React.useEffect(() => {
+    if (!highlightCarId) return
+    const el = document.getElementById(`car-${highlightCarId}`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlightCarId, cars])
 
   return (
     <>
@@ -509,8 +530,9 @@ function CARsTab({ cars, showCARForm, setShowCARForm, onSave, onStatusChange }) 
             const sc = CAR_STATUS_COLOR[car.status] || '#6B7280'
             const severityColor = car.severity === 'major' ? '#EF4444' : car.severity === 'minor' ? '#F59E0B' : '#6B7280'
             const severityLabel = car.severity === 'major' ? 'Major' : car.severity === 'minor' ? 'Minor' : 'Obs.'
+            const isHighlighted = car.id === highlightCarId
             return (
-              <div key={car.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div key={car.id} id={`car-${car.id}`} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: isHighlighted ? '2px solid var(--moss)' : '1px solid var(--line)', boxShadow: isHighlighted ? '0 0 0 3px var(--leaf-soft)' : 'none' }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
