@@ -821,6 +821,7 @@ function QuotesView({ quotes, setQuotes, customers, orders, setOrders, onNavigat
   )
 }
 function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
+  const [orderableModels] = useState(() => loadOrderableModels())
   const legacyLine = () => {
     if (!initial.items) return [{ name:'', qty:'', price:'' }]
     const qty = parseFloat(initial.qty) || ''
@@ -855,11 +856,12 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <FL label="고객사 *">
-          <select style={sel} value={f.customer} onChange={set('customer')}>
-            <option value="">선택</option>
-            {customers.map(c=><option key={c.id}>{c.name}</option>)}
-          </select>
+        <FL label="고객사 * (검색)">
+          <input style={inp} list="quote-customer-list" value={f.customer} onChange={set('customer')}
+            placeholder="고객사명 입력 또는 검색..."/>
+          <datalist id="quote-customer-list">
+            {customers.map(c=><option key={c.id} value={c.name}/>)}
+          </datalist>
         </FL>
         <FL label="상태">
           <select style={sel} value={f.status} onChange={set('status')}>
@@ -894,7 +896,8 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
                 <tr key={i} style={{ borderTop:'1px solid var(--line)' }}>
                   <td className="p-1">
                     <input value={li.name} onChange={e=>setLine(i,'name',e.target.value)}
-                      placeholder="예) SCS M3.5×22mm"
+                      list="quote-model-list"
+                      placeholder="허가 모델 검색..."
                       className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
                       style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
                   </td>
