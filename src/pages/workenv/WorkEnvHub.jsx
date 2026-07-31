@@ -97,7 +97,7 @@ export default function WorkEnvHub() {
   const saveLogs  = d => { setLogs(d); lsW(LS_LOG, d) }
   const saveZones = d => { setZones(d); lsW(LS_ZONE, d) }
 
-  const openNewLog  = () => { setLogForm(emptyLog()); setEditLogId(null); setShowLogForm(true) }
+  const openNewLog  = () => { setLogForm({ ...emptyLog(), measuredBy: user?.name || '' }); setEditLogId(null); setShowLogForm(true) }
   const openEditLog = r  => { setLogForm({ ...r }); setEditLogId(r.id); setShowLogForm(true) }
   const openNewZone = ()  => { setZoneForm(emptyZone()); setEditZoneId(null); setShowZoneForm(true) }
   const openEditZone = z  => { setZoneForm({ ...z }); setEditZoneId(z.id); setShowZoneForm(true) }
@@ -424,8 +424,8 @@ function ZonesTab({ zones, logs, onNew, onEdit, onDelete }) {
                     <div className="font-bold" style={{ color: '#3B82F6' }}>{z.humMin}~{z.humMax}%RH</div>
                   </div>
                   <div className="p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-                    <div style={{ color: 'var(--ink-faint)' }}>파티클 상한</div>
-                    <div className="font-bold" style={{ color: '#8B5CF6' }}>≤{Number(z.partMax).toLocaleString()}/m³</div>
+                    <div style={{ color: 'var(--ink-faint)' }}>차압</div>
+                    <div className="font-bold" style={{ color: '#059669' }}>{z.pressMin}~{z.pressMax}Pa</div>
                   </div>
                   <div className="p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                     <div style={{ color: 'var(--ink-faint)' }}>측정 기록</div>
@@ -576,7 +576,7 @@ function LogForm({ form, lfld, zones, editId, user, onSubmit, onClose }) {
             </F>
             <F l="측정 일시"><input type="datetime-local" value={form.measuredAt} onChange={e => lfld('measuredAt', e.target.value)} style={IS} className="w-full" /></F>
           </R2>
-          <F l="측정자 *"><input value={form.measuredBy} onChange={e => lfld('measuredBy', e.target.value)} placeholder={user?.name || '측정자 이름'} style={IS} className="w-full" /></F>
+          <F l="측정자"><input value={form.measuredBy || user?.name || '-'} readOnly disabled style={{ ...IS, background: 'var(--bg-soft)', color: 'var(--ink-mute)' }} className="w-full" /></F>
 
           {/* 측정값 */}
           <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
@@ -618,7 +618,6 @@ function LogForm({ form, lfld, zones, editId, user, onSubmit, onClose }) {
             })}
           </div>
 
-          <F l="연결 NCR (이탈 시)"><input value={form.ncrId} onChange={e => lfld('ncrId', e.target.value)} placeholder="NCR-2026-00001" style={IS} className="w-full" /></F>
           <F l="비고"><textarea value={form.notes} onChange={e => lfld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
         </div>
 
@@ -658,6 +657,7 @@ function ZoneForm({ form, zfld, editId, onSubmit, onClose }) {
                 <option value="realtime">실시간</option>
                 <option value="hourly">1시간마다</option>
                 <option value="daily">1일 1회</option>
+                <option value="daily2">1일 2회</option>
                 <option value="weekly">주 1회</option>
                 <option value="monthly">월 1회</option>
               </select>

@@ -14,6 +14,19 @@ import { auth } from '../../lib/auth'
 
 const STORAGE_KEY = 'qualytree.audits'
 const CAR_KEY = 'qualytree.audit_cars'
+const ORG_ROLES_KEY = 'qualytree.org_roles'
+const DEFAULT_DEPTS = ['경영진', '품질부', '생산부', '개발부', '영업부', '구매부', '설비부', '문서관리', '인허가', '기타']
+function loadOrgDepts() {
+  try {
+    const roles = JSON.parse(localStorage.getItem(ORG_ROLES_KEY) || '[]')
+    const depts = [...new Set(roles.map(r => r.dept).filter(Boolean))]
+    return depts.length ? depts : DEFAULT_DEPTS
+  } catch { return DEFAULT_DEPTS }
+}
+function composeAuditTitle(f) {
+  const parts = [f.auditType || '정기', f.auditee, f.auditYear].filter(Boolean)
+  return parts.join(' · ')
+}
 
 const AUDIT_STATUS = {
   PLANNED:     'planned',
@@ -258,18 +271,18 @@ export default function AuditHub() {
 function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, highlightAuditId, onSave, onStatusChange }) {
   const [form, setForm] = useState({
     title: '', scope: '', auditDate: '', auditor: '', auditee: '',
-    type: 'internal', standard: 'ISO 13485',
+    type: 'internal', standard: 'ISO 13485', auditType: '정기', auditYear: String(new Date().getFullYear()),
   })
 
   const startEdit = (audit) => {
     setSelectedAudit(audit)
-    setForm({ title: audit.title, scope: audit.scope || '', auditDate: audit.auditDate || '', auditor: audit.auditor || '', auditee: audit.auditee || '', type: audit.type || 'internal', standard: audit.standard || 'ISO 13485' })
+    setForm({ title: audit.title, scope: audit.scope || '', auditDate: audit.auditDate || '', auditor: audit.auditor || '', auditee: audit.auditee || '', type: audit.type || 'internal', standard: audit.standard || 'ISO 13485', auditType: audit.auditType || '정기', auditYear: audit.auditYear || String(new Date().getFullYear()) })
     setShowForm(true)
   }
 
   const resetForm = () => {
     setSelectedAudit(null)
-    setForm({ title: '', scope: '', auditDate: '', auditor: '', auditee: '', type: 'internal', standard: 'ISO 13485' })
+    setForm({ title: '', scope: '', auditDate: '', auditor: '', auditee: '', type: 'internal', standard: 'ISO 13485', auditType: '정기', auditYear: String(new Date().getFullYear()) })
   }
 
   return (
@@ -306,7 +319,7 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
           form={form}
           setForm={setForm}
           isEdit={!!selectedAudit}
-          onSubmit={() => onSave(form)}
+          onSubmit={() => onSave({ ...form, title: composeAuditTitle(form) })}
           onCancel={() => { setShowForm(false); resetForm() }}
         />
       )}
@@ -408,14 +421,22 @@ function AuditCard({ audit, highlight, onEdit, onStatusChange }) {
 
 function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
   const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
+  const depts = React.useMemo(() => loadOrgDepts(), [])
+  const canSubmit = !!form.auditType && !!form.auditee
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
         {isEdit ? '감사 수정' : '내부감사 등록'}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="감사명 *" required>
-          <input {...f('title')} placeholder="예: 생산부 정기 내부감사 2026-Q3" className="qt-input" />
+        <FormField label="감사종류 *" required>
+          <select {...f('auditType')} className="qt-input">
+            <option value="정기">정기</option>
+            <option value="불시">불시</option>
+          </select>
+        </FormField>
+        <FormField label="감사연도">
+          <input {...f('auditYear')} placeholder="예: 2026" className="qt-input" />
         </FormField>
         <FormField label="감사 유형">
           <select {...f('type')} className="qt-input">
@@ -430,23 +451,26 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
         <FormField label="감사 기준">
           <input {...f('standard')} placeholder="예: ISO 13485:2016" className="qt-input" />
         </FormField>
-        <FormField label="감사일">
-          <input type="date" {...f('auditDate')} className="qt-input" />
+        <FormField label="감사예정일">
+          <input type="datetime-local" {...f('auditDate')} className="qt-input" />
         </FormField>
         <FormField label="감사원">
           <input {...f('auditor')} placeholder="감사원 이름" className="qt-input" />
         </FormField>
-        <FormField label="피감사 부서">
-          <input {...f('auditee')} placeholder="예: 생산부" className="qt-input" />
+        <FormField label="피감사 부서 *" required>
+          <select {...f('auditee')} className="qt-input">
+            <option value="">선택</option>
+            {depts.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
         </FormField>
       </div>
       <div className="flex justify-end gap-3 mt-4">
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
         <button
           onClick={onSubmit}
-          disabled={!form.title}
+          disabled={!canSubmit}
           className="px-5 py-2 rounded-xl text-[13px] font-semibold"
-          style={{ background: form.title ? '#6366F1' : 'var(--bg-soft)', color: form.title ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.title ? 'pointer' : 'not-allowed' }}
+          style={{ background: canSubmit ? '#6366F1' : 'var(--bg-soft)', color: canSubmit ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: canSubmit ? 'pointer' : 'not-allowed' }}
         >
           {isEdit ? '저장' : '등록'}
         </button>
