@@ -38,13 +38,6 @@ import {
   DB_SYNC_STATUS,
   LABEL_FORMATS,
 } from '../../lib/udi'
-import {
-  vigilance,
-  SOURCE_TYPES,
-  HARM_TYPES,
-  REPORT_FORMS,
-  VIG_STATUS,
-} from '../../lib/vigilance'
 
 /**
  * RegulatoryHub — 인허가 통합 (RA-001 + RA-002 + RA-003)
@@ -178,21 +171,6 @@ export default function RegulatoryHub() {
                 : null
             }
           />
-          <TabButton
-            active={tab === 'vigilance'}
-            onClick={() => setTab('vigilance')}
-            icon={AlertOctagon}
-            label="시판후 감시"
-            en="RA-003"
-            count={stats.vig.open}
-            badge={
-              stats.vig.overdue > 0
-                ? { text: `초과 ${stats.vig.overdue}`, tone: 'rust' }
-                : stats.vig.upcomingReports > 0
-                ? { text: `임박 ${stats.vig.upcomingReports}`, tone: 'amber' }
-                : null
-            }
-          />
         </div>
 
         {tab === 'submissions' && (
@@ -209,15 +187,6 @@ export default function RegulatoryHub() {
           <UdiPanel
             product={product}
             certs={ob.certs || {}}
-            onAction={(t, k) => {
-              showToast(t, k)
-              reload()
-            }}
-          />
-        )}
-        {tab === 'vigilance' && (
-          <VigilancePanel
-            product={product}
             onAction={(t, k) => {
               showToast(t, k)
               reload()
