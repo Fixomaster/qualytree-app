@@ -501,25 +501,23 @@ function ScheduleView({instruments,setInstruments,history,setHistory}){
 }
 
 /* ─── 설비 홈 ─── */
-function EqpHome({instruments,history,onNavigate}){
+function EqpHome({instruments,onNavigate}){
   const urgent=instruments.filter(i=>i.status==='교정임박').length
   const broken=instruments.filter(i=>i.status==='사용제한').length
   const CARDS=[
     {id:'instruments',icon:Wrench,label:'설비현황목록',desc:'기기 등록 · IQ/OQ/PQ · S/N 관리',count:`${instruments.length}개`,warn:urgent>0||broken>0},
-    {id:'history',icon:Activity,label:'이력 관리',desc:'PM · 교정 · 수리 이력 기록',count:`${history.length}건`},
     {id:'schedule',icon:Calendar,label:'점검 일정',desc:'D-day 관리 · 도래순 정렬 · 초과 경보',count:`${urgent}건 임박`,warn:urgent>0},
   ]
   const summary=[
     {label:'전체 기기',value:`${instruments.length}개`,warn:false,sub:'등록 기기 수'},
     {label:'점검 임박',value:`${urgent}개`,warn:urgent>0,sub:'30일 이내'},
     {label:'사용 제한',value:`${broken}개`,warn:broken>0,sub:'점검 필요'},
-    {label:'이력 기록',value:`${history.length}건`,warn:false,sub:'PM+교정+수리'},
   ]
   return(
     <div>
       <HubBanner
           title="설비·교정 관리"
-          subtitle="ISO 13485 §7.6 · 설비현황목록 · IQ/OQ/PQ · 점검 일정 · PM 이력"
+          subtitle="ISO 13485 §7.6 · 설비현황목록 · IQ/OQ/PQ 적격성평가 · 점검 일정"
           icon={Settings2}
           color="#0284C7"
           quickActions={[{label:'기기 등록',icon:Plus,onClick:()=>onNavigate('instruments'),primary:true},{label:'점검 일정',icon:Calendar,onClick:()=>onNavigate('schedule')}]}
@@ -561,9 +559,9 @@ export default function EquipmentHub({ embedded = false } = {}){
   const editId = searchParams.get('edit')
   const[instruments,setInstruments]=useLS('qms_eqp_instruments',INIT_INSTR)
   const[history,setHistory]=useLS('qms_eqp_history',INIT_HIST)
-  const tabLabels={instruments:'설비현황목록',history:'이력관리',schedule:'점검일정'}
+  const tabLabels={instruments:'설비현황목록',schedule:'점검일정'}
   const viewMap={
-    home:<EqpHome instruments={instruments} history={history} onNavigate={setView}/>,
+    home:<EqpHome instruments={instruments} onNavigate={setView}/>,
     instruments:<InstrumentsView instruments={instruments} setInstruments={setInstruments} openId={editId}/>,
     history:<HistoryView history={history} setHistory={setHistory} instruments={instruments}/>,
     schedule:<ScheduleView instruments={instruments} setInstruments={setInstruments} history={history} setHistory={setHistory}/>,
@@ -577,7 +575,7 @@ export default function EquipmentHub({ embedded = false } = {}){
   )
   if (embedded) return content
   return(
-    <AppLayout user={user} title="설비·교정" subtitle="설비현황 · IQ/OQ/PQ · 점검 일정 · PM 이력">
+    <AppLayout user={user} title="설비·교정" subtitle="설비현황 · IQ/OQ/PQ · 점검 일정">
       {content}
     </AppLayout>
   )
