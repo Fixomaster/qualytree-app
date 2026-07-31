@@ -243,6 +243,8 @@ export default function DocControlHub() {
             { key: 'company',  label: '회사·인증서류' },
             { key: 'docs',     label: `문서 대장 (${docs.length})` },
             { key: 'analysis', label: '현황 분석' },
+{ key: 'quality-manual', label: '품질매뉴얼' },
+{ key: 'medical-device-file', label: '의료기기파일' },
           ].map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setShowDetail(null) }}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -380,6 +382,9 @@ export default function DocControlHub() {
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} docs={docs} setShowDetail={setShowDetail} setTab={setTab} />
         )}
+
+{tab === 'quality-manual' && <QualityManualTab />}
+{tab === 'medical-device-file' && <MedicalDeviceFileTab />}
       </div>
     </AppLayout>
   )
@@ -670,6 +675,105 @@ function FieldArea({ label, value, onChange, rows = 3 }) {
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+    </div>
+  )
+}
+
+// ── 품질매뉴얼 탭 (ISO 13485 §4.2.1) ────────────────────────
+function QualityManualTab() {
+  const navigate = useNavigate()
+  const LS_KEY = 'qualytree.quality_manual'
+  const [sections, setSections] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+  })
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>품질 매뉴얼</div>
+          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.1 — 품질경영시스템 문서화</div>
+        </div>
+        <button onClick={() => navigate('/quality-manual')}
+          className="px-4 py-2 rounded-xl text-[13px] font-bold"
+          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          전체 관리 →
+        </button>
+      </div>
+      <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        {sections.length === 0 ? (
+          <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
+            <BookOpen size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+            <div>등록된 품질 매뉴얼 섹션이 없습니다.</div>
+            <button onClick={() => navigate('/quality-manual')}
+              className="mt-3 text-[12px] font-medium"
+              style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
+              품질매뉴얼 관리에서 등록하기 →
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sections.map((s, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+                <span className="text-[12px] font-mono font-bold" style={{ color: 'var(--moss)' }}>{s.no || s.sectionNo || (i+1)}</span>
+                <span className="text-[13px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{s.title}</span>
+                {s.status && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#D1FAE5', color: '#065F46' }}>{s.status}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── 의료기기파일 탭 (ISO 13485 §4.2.3) — 열람 전용 ──────────
+function MedicalDeviceFileTab() {
+  const navigate = useNavigate()
+  const LS_KEY = 'qualytree.medical_device_file'
+  const [files, setFiles] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+  })
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>의료기기 파일</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DBEAFE', color: '#1E40AF' }}>열람 전용</span>
+          </div>
+          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.3 — 의료기기별 규제 문서</div>
+        </div>
+        <button onClick={() => navigate('/medical-device-file')}
+          className="px-4 py-2 rounded-xl text-[13px] font-bold"
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
+          상세 관리 →
+        </button>
+      </div>
+      <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        {files.length === 0 ? (
+          <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
+            <Archive size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+            <div>등록된 의료기기 파일이 없습니다.</div>
+            <button onClick={() => navigate('/medical-device-file')}
+              className="mt-3 text-[12px] font-medium"
+              style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
+              의료기기파일 관리에서 등록하기 →
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {files.map((f, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
+                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+                <span className="text-[12px] font-mono font-bold" style={{ color: 'var(--moss)' }}>{f.no || f.deviceNo || (i+1)}</span>
+                <span className="text-[13px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{f.title || f.deviceName}</span>
+                <Eye size={13} style={{ color: 'var(--ink-faint)' }} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

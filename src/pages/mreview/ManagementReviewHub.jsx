@@ -1,7 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import {
-  Target,
   ClipboardList,
   Plus,
   Trash2,
@@ -20,14 +18,11 @@ import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
 import {
   reviews,
-  qualityObjectives,
-  OBJECTIVE_STATUS,
   REVIEW_STATUS,
 } from '../../lib/managementReviewState'
 
 export default function ManagementReviewHub() {
   const user = auth.current()
-  const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'review') // review | objective
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
@@ -35,7 +30,6 @@ export default function ManagementReviewHub() {
   const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
 
   const allReviews = reviews.getAll()
-  const allObjectives = qualityObjectives.getAll()
 
   return (
     <AppLayout user={user} title="경영검토" subtitle="품질목표 / 경영검토 기록">
@@ -55,18 +49,9 @@ export default function ManagementReviewHub() {
           workflow={['KPI 집계', '품질목표 검토', '실행항목 수립', '승인·기록']}
         />
 
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <StatCard label="경영검토" value={allReviews.length} hint="누적 실시 건수" icon={ClipboardList} />
-          <StatCard label="품질목표" value={allObjectives.length} hint="추적 중인 목표 수" icon={Target} />
-        </div>
-
-        <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
-          <TabButton active={tab === 'review'} onClick={() => setTab('review')} icon={ClipboardList} label="경영검토 기록" en="REVIEWS" count={allReviews.length} />
-          <TabButton active={tab === 'objective'} onClick={() => setTab('objective')} icon={Target} label="품질목표" en="OBJECTIVES" count={allObjectives.length} />
-        </div>
-
+        
+        
         {tab === 'review' && <ReviewTab key={tick} reviewList={allReviews} onAction={showToast} refresh={refresh} />}
-        {tab === 'objective' && <ObjectiveTab key={'obj' + tick} list={allObjectives} onAction={showToast} refresh={refresh} />}
       </div>
     </AppLayout>
   )
@@ -378,72 +363,6 @@ function MinutesFileUploadButton({ onUpload }) {
         <Paperclip size={12} /> {busy ? '업로드 중…' : '파일 첨부'}
       </button>
     </>
-  )
-}
-
-/* ================================================================ 품질목표 ================================================================ */
-function ObjectiveTab({ list, onAction, refresh }) {
-  const canEdit = permissions.can('mr.objective.edit')
-  const EMPTY = { objective: '', target: '', unit: '', actual: '', period: '', status: OBJECTIVE_STATUS.ON_TRACK }
-  const [form, setForm] = useState(EMPTY)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const add = () => {
-    if (!requirePermission('mr.objective.edit')) return
-    if (!form.objective.trim()) { window.alert('품질목표를 입력하세요.'); return }
-    qualityObjectives.add(form)
-    setForm(EMPTY)
-    onAction('품질목표가 등록되었습니다.')
-    refresh()
-  }
-  const del = (id) => {
-    if (!requirePermission('mr.objective.edit')) return
-    qualityObjectives.delete(id)
-    refresh()
-  }
-  const updateField = (id, patch) => {
-    if (!requirePermission('mr.objective.edit')) return
-    qualityObjectives.update(id, patch)
-    refresh()
-  }
-
-  return (
-    <div className="space-y-3">
-      {canEdit && (
-        <div className="card-base p-4 space-y-2">
-          <div className="grid sm:grid-cols-2 gap-2">
-            <Field label="품질목표" value={form.objective} onChange={(v) => setF('objective', v)} placeholder="예: 공정 불량률 감소" />
-            <Field label="기간" value={form.period} onChange={(v) => setF('period', v)} placeholder="예: 2026년" />
-            <Field label="목표값" value={form.target} onChange={(v) => setF('target', v)} placeholder="예: 5" />
-            <Field label="단위" value={form.unit} onChange={(v) => setF('unit', v)} placeholder="예: % / 건" />
-          </div>
-          <div className="flex justify-end"><button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> 목표 등록</button></div>
-        </div>
-      )}
-      {list.length === 0 ? (
-        <EmptyState icon={Target} text="등록된 품질목표가 없습니다." />
-      ) : (
-        <div className="space-y-2">
-          {list.map((o) => (
-            <div key={o.id} className="card-base p-3.5">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div className="min-w-0">
-                  <div className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>{o.objective}</div>
-                  <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{o.period} · 목표 {o.target}{o.unit}</div>
-                </div>
-                {canEdit && <button onClick={() => del(o.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>}
-              </div>
-              {canEdit && (
-                <div className="grid sm:grid-cols-3 gap-2 mt-2">
-                  <Field label="실적" value={o.actual} onChange={(v) => updateField(o.id, { actual: v })} />
-                  <SelectField label="상태" value={o.status} onChange={(v) => updateField(o.id, { status: v })} options={Object.values(OBJECTIVE_STATUS)} className="sm:col-span-2" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   )
 }
 

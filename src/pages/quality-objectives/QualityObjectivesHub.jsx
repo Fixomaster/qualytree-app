@@ -178,7 +178,6 @@ export default function QualityObjectivesHub() {
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
             { key: 'list',     label: `목표 목록 (${objectives.length})` },
-            { key: 'detail',   label: '목표 상세', disabled: !selectedId },
             { key: 'analysis', label: '달성 현황' },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
