@@ -18,7 +18,6 @@ import { Paperclip, X, Building2 } from 'lucide-react'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY_DOCS = 'qualytree.doc_register'
-const LS_KEY_RECS = 'qualytree.doc_records'
 
 const DOC_TYPES = {
   QM:   { label: '품질 매뉴얼',   badge: 'QM',  color: '#7C3AED', bg: '#EDE9FE' },
@@ -46,7 +45,6 @@ const RETENTION_PERIODS = ['1년', '2년', '3년', '5년', '7년', '10년', '영
 const DOC_DEPTS = ['품질부(QUA)', '생산부(MFG)', '개발부(DEV)', '영업부(SAL)', '구매부(PUR)', '설비부(EQP)', '문서관리(DOC)', '경영검토(MR)', '인허가(RA)', '전 부서']
 
 function genDocId() { return `DOC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
-function genRecId() { return `REC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_DOC = {
@@ -61,15 +59,6 @@ const EMPTY_DOC = {
   supersededBy: '', supersedes: '',
   scope: '', purpose: '',
   revisionHistory: [],
-  notes: '',
-}
-
-const EMPTY_REC = {
-  recNo: '', title: '', type: 'FORM', status: 'approved',
-  formNo: '', revision: 'Rev.0', issueDate: '',
-  ownerDept: '품질부(QUA)', retentionPeriod: '3년',
-  retentionLocation: '', protectionMethod: '',
-  disposalMethod: '파쇄', relatedDocNo: '',
   notes: '',
 }
 
@@ -163,9 +152,6 @@ export default function DocControlHub() {
   const [docs, setDocs] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_DOCS) || '[]') } catch { return [] }
   })
-  const [recs, setRecs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_KEY_RECS) || '[]') } catch { return [] }
-  })
 
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'docs')    // company | docs | records | analysis
   const [showForm, setShowForm] = useState(false)
@@ -177,13 +163,7 @@ export default function DocControlHub() {
   const [searchQ, setSearchQ] = useState(() => searchParams.get('openName') || '')
   const [showDetail, setShowDetail] = useState(null)
 
-  // 기록 관리
-  const [recForm, setRecForm] = useState(EMPTY_REC)
-  const [recEditId, setRecEditId] = useState(null)
-  const [showRecForm, setShowRecForm] = useState(false)
-
   function saveDocs(list) { setDocs(list); localStorage.setItem(LS_KEY_DOCS, JSON.stringify(list)) }
-  function saveRecs(list) { setRecs(list); localStorage.setItem(LS_KEY_RECS, JSON.stringify(list)) }
 
   function submitDoc() {
     if (!form.title.trim()) return alert('문서 제목을 입력하세요.')
@@ -218,20 +198,6 @@ export default function DocControlHub() {
     }))
   }
 
-  function submitRec() {
-    if (!recForm.title.trim()) return alert('기록명을 입력하세요.')
-    const next = recEditId
-      ? recs.map(r => r.id === recEditId ? { ...r, ...recForm } : r)
-      : [{ id: genRecId(), createdAt: today(), ...recForm }, ...recs]
-    saveRecs(next)
-    setShowRecForm(false); setRecForm(EMPTY_REC); setRecEditId(null)
-  }
-
-  function deleteRec(id) {
-    if (!confirm('기록 항목을 삭제하시겠습니까?')) return
-    saveRecs(recs.filter(r => r.id !== id))
-  }
-
   // 필터링
   const filteredDocs = useMemo(() => docs.filter(d => {
     if (filterType !== 'all' && d.type !== filterType) return false
@@ -240,6 +206,16 @@ export default function DocControlHub() {
     if (searchQ && !(d.title.toLowerCase().includes(searchQ.toLowerCase()) || d.docNo.toLowerCase().includes(searchQ.toLowerCase()))) return false
     return true
   }), [docs, filterType, filterStatus, filterDept, searchQ])
+
+  // 문서 유형 우선순위: 매뉴얼 → 절차서 → 작업지시서 → 양식 순으로 표시 (ISO 13485 §4.2.3 문서 체계)
+  const TYPE_ORDER = Object.keys(DOC_TYPES)
+  const sortedDocs = useMemo(() => {
+    return [...filteredDocs].sort((a, b) => {
+      const ai = TYPE_ORDER.indexOf(a.type), bi = TYPE_ORDER.indexOf(b.type)
+      if (ai !== bi) return ai - bi
+      return (a.docNo || '').localeCompare(b.docNo || '')
+    })
+  }, [filteredDocs])
 
   // 분석 데이터
   const analysis = useMemo(() => {
@@ -252,10 +228,8 @@ export default function DocControlHub() {
       return new Date(d.reviewDate) <= new Date()
     })
     const draftDocs = docs.filter(d => d.status === 'draft' || d.status === 'review')
-    const recsByDept = {}
-    recs.forEach(r => { recsByDept[r.ownerDept] = (recsByDept[r.ownerDept] || 0) + 1 })
-    return { byType, byStatus, pendingReview, draftDocs, recsByDept }
-  }, [docs, recs])
+    return { byType, byStatus, pendingReview, draftDocs }
+  }, [docs])
 
   const detailDoc = docs.find(d => d.id === showDetail)
 
@@ -268,7 +242,6 @@ export default function DocControlHub() {
           {[
             { key: 'company',  label: '회사·인증서류' },
             { key: 'docs',     label: `문서 대장 (${docs.length})` },
-            { key: 'records',  label: `기록 목록 (${recs.length})` },
             { key: 'analysis', label: '현황 분석' },
           ].map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setShowDetail(null) }}
@@ -345,9 +318,9 @@ export default function DocControlHub() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredDocs.length === 0 ? (
+                  {sortedDocs.length === 0 ? (
                     <tr><td colSpan={9} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 문서가 없습니다.</td></tr>
-                  ) : filteredDocs.map((doc, i) => {
+                  ) : sortedDocs.map((doc, i) => {
                     const tp = DOC_TYPES[doc.type] || DOC_TYPES.OTHER
                     const st = DOC_STATUSES[doc.status] || DOC_STATUSES.draft
                     const reviewOverdue = doc.reviewDate && new Date(doc.reviewDate) <= new Date() && doc.status !== 'obsolete'
@@ -403,73 +376,9 @@ export default function DocControlHub() {
             onDelete={() => deleteDoc(detailDoc.id)} />
         )}
 
-        {/* ── 기록 목록 ── */}
-        {tab === 'records' && (
-          <div>
-            <div className="flex justify-end mb-4">
-              {canEdit && (
-                <button onClick={() => { setRecForm(EMPTY_REC); setRecEditId(null); setShowRecForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 기록 등록
-                </button>
-              )}
-            </div>
-
-            {showRecForm && (
-              <RecordForm form={recForm} setForm={setRecForm} onSave={submitRec}
-                onCancel={() => { setShowRecForm(false); setRecForm(EMPTY_REC); setRecEditId(null) }}
-                isEdit={!!recEditId} />
-            )}
-
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
-              <table className="w-full text-[12.5px]">
-                <thead>
-                  <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['기록명', '서식번호', '개정', '관리 부서', '보존 기간', '보존 장소', '폐기 방법', ''].map(h => (
-                      <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recs.length === 0 ? (
-                    <tr><td colSpan={8} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 기록이 없습니다.</td></tr>
-                  ) : recs.map((rec, i) => (
-                    <tr key={rec.id} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
-                      <td className="px-3 py-2 font-semibold" style={{ color: 'var(--ink)' }}>{rec.title}</td>
-                      <td className="px-3 py-2 font-mono text-[11.5px]" style={{ color: 'var(--moss)' }}>{rec.formNo || '-'}</td>
-                      <td className="px-3 py-2 font-mono text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{rec.revision}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.ownerDept}</td>
-                      <td className="px-3 py-2">
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#EEF2FF', color: '#6366F1' }}>{rec.retentionPeriod}</span>
-                      </td>
-                      <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.retentionLocation || '-'}</td>
-                      <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.disposalMethod || '-'}</td>
-                      <td className="px-3 py-2">
-                        {canEdit && (
-                          <div className="flex gap-1">
-                            <button onClick={() => { setRecForm({ ...EMPTY_REC, ...rec }); setRecEditId(rec.id); setShowRecForm(true) }}
-                              className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                              <Edit2 size={11} style={{ color: 'var(--ink-soft)' }} />
-                            </button>
-                            <button onClick={() => deleteRec(rec.id)}
-                              className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
-                              <Trash2 size={11} style={{ color: '#DC2626' }} />
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
         {/* ── 분석 탭 ── */}
         {tab === 'analysis' && (
-          <AnalysisView analysis={analysis} docs={docs} recs={recs} setShowDetail={setShowDetail} setTab={setTab} />
+          <AnalysisView analysis={analysis} docs={docs} setShowDetail={setShowDetail} setTab={setTab} />
         )}
       </div>
     </AppLayout>
@@ -599,7 +508,7 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
 }
 
 // ── 분석 ─────────────────────────────────────────────────────
-function AnalysisView({ analysis, docs, recs, setShowDetail, setTab }) {
+function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -639,7 +548,7 @@ function AnalysisView({ analysis, docs, recs, setShowDetail, setTab }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>문서 유형별 현황</div>
           {Object.entries(DOC_TYPES).map(([k, v]) => (
@@ -654,20 +563,6 @@ function AnalysisView({ analysis, docs, recs, setShowDetail, setTab }) {
           ))}
         </div>
 
-        <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>기록 현황</div>
-          <div className="text-center py-4">
-            <div className="text-[36px] font-bold" style={{ color: 'var(--moss)' }}>{recs.length}</div>
-            <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>등록된 기록 양식</div>
-          </div>
-          <div className="space-y-1">
-            {Object.entries(analysis.recsByDept).slice(0, 5).map(([dept, cnt]) => (
-              <div key={dept} className="flex justify-between text-[12px]" style={{ color: 'var(--ink-soft)' }}>
-                <span>{dept}</span><span className="font-bold" style={{ color: 'var(--ink)' }}>{cnt}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -725,39 +620,6 @@ function DocForm({ form, setForm, onSave, onCancel, isEdit }) {
           })}
         </div>
       </div>
-      <div className="flex gap-2">
-        <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
-        </button>
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
-      </div>
-    </div>
-  )
-}
-
-function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
-  const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  return (
-    <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '기록 수정' : '기록 등록 (§4.2.4)'}</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <Field label="기록명 *" value={form.title} onChange={v => F('title', v)} />
-        <Field label="서식 번호" value={form.formNo} onChange={v => F('formNo', v)} placeholder="QF-001" />
-        <Field label="개정 번호" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
-        <FieldSelect label="관리 부서" value={form.ownerDept} onChange={v => F('ownerDept', v)}
-          options={DOC_DEPTS.map(d => ({ value: d, label: d }))} />
-        <FieldSelect label="보존 기간" value={form.retentionPeriod} onChange={v => F('retentionPeriod', v)}
-          options={RETENTION_PERIODS.map(r => ({ value: r, label: r }))} />
-        <Field label="발행일" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
-        <Field label="보존 장소" value={form.retentionLocation} onChange={v => F('retentionLocation', v)} placeholder="품질부 서버 / 문서함" />
-        <FieldSelect label="폐기 방법" value={form.disposalMethod} onChange={v => F('disposalMethod', v)}
-          options={['파쇄', '소각', '전자 삭제', '기타'].map(v => ({ value: v, label: v }))} />
-        <Field label="보호 방법" value={form.protectionMethod} onChange={v => F('protectionMethod', v)} placeholder="접근 제한 / 암호화" />
-        <Field label="관련 문서 번호" value={form.relatedDocNo} onChange={v => F('relatedDocNo', v)} />
-      </div>
-      <div className="mb-3"><FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} /></div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
