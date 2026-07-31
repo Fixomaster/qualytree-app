@@ -29,9 +29,7 @@ export default function TrainingHub() {
   const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
 
   const allPlans = plans.getAll()
-  const allMaterials = materials.getAll()
   const allSessions = sessions.getAll()
-  const allEmployees = employees.getAll()
   const compliance = sessions.complianceRate()
 
   return (
@@ -54,22 +52,15 @@ export default function TrainingHub() {
 
         <div className="grid grid-cols-4 gap-3 mb-5">
           <StatCard label="연간계획" value={allPlans.length} hint="등록 연도 수" icon={GraduationCap} />
-          <StatCard label="교육자료" value={allMaterials.length} hint="등록 자료 수" icon={BookOpen} />
           <StatCard label="교육 이수율" value={compliance == null ? '—' : compliance + '%'} hint="완료 세션 기준 합격률" icon={Users} tone={compliance != null && compliance < 80 ? 'amber' : undefined} />
-          <StatCard label="역량평가·자격" value={allEmployees.length} hint="등록 인원 수" icon={BadgeCheck} tone={employees.expiringCertifications(60).length > 0 ? 'amber' : undefined} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
           <TabButton active={tab === 'plan'} onClick={() => setTab('plan')} icon={GraduationCap} label="연간교육계획" en="ANNUAL PLAN" count={allPlans.length} />
-          <TabButton active={tab === 'material'} onClick={() => setTab('material')} icon={BookOpen} label="교육자료" en="MATERIALS" count={allMaterials.length} />
           <TabButton active={tab === 'session'} onClick={() => setTab('session')} icon={Users} label="교육 · 평가 · 참석기록" en="SESSIONS" count={allSessions.length} />
-          <TabButton active={tab === 'competency'} onClick={() => setTab('competency')} icon={BadgeCheck} label="역량평가·자격" en="COMPETENCY" count={allEmployees.length} />
         </div>
 
         {tab === 'plan' && <PlanTab key={tick} plans={allPlans} onAction={showToast} refresh={refresh} />}
-        {tab === 'material' && <MaterialTab key={'mat' + tick} materials={allMaterials} onAction={showToast} refresh={refresh} />}
-        {tab === 'session' && <SessionTab key={'ses' + tick} sessions={allSessions} materials={allMaterials} onAction={showToast} refresh={refresh} />}
-        {tab === 'competency' && <CompetencyTab key={'emp' + tick} employees={allEmployees} onAction={showToast} refresh={refresh} />}
       </div>
     </AppLayout>
   )
@@ -305,102 +296,9 @@ const SUGGESTED_TITLES = [
   '21 CFR Part 11 전자기록·전자서명 교육',
 ]
 
-function MaterialTab({ materials: allMaterials, onAction, refresh }) {
-  const canEdit = permissions.can('training.material.edit')
-  const [form, setForm] = useState({ title: '', category: '' })
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const ref = useRef(null)
-  const [busy, setBusy] = useState(false)
-
-  const upload = async (e) => {
-    const f = e.target.files && e.target.files[0]
-    e.target.value = ''
-    if (!f) return
-    if (!form.title.trim()) { window.alert('자료명을 먼저 입력하세요.'); return }
-    setBusy(true)
-    try {
-      const fileId = await fileStore.saveFile(f)
-      materials.add({ title: form.title, category: form.category, fileId, fileName: f.name })
-      setForm({ title: '', category: '' })
-      onAction('교육자료가 등록되었습니다.')
-      refresh()
-    } catch (err) {
-      window.alert((err && err.message) || String(err))
-    } finally {
-      setBusy(false)
-    }
-  }
-  const openFile = async (fileId) => {
-    const url = await fileStore.getObjectURL(fileId)
-    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
-    window.open(url, '_blank')
-    setTimeout(() => URL.revokeObjectURL(url), 30000)
-  }
-  const del = (id) => {
-    if (!requirePermission('training.material.edit')) return
-    materials.delete(id)
-    onAction('교육자료가 삭제되었습니다.')
-    refresh()
-  }
-
-  return (
-    <div className="space-y-3">
-      {canEdit && (
-        <div className="card-base p-4 space-y-2">
-          <div className="grid sm:grid-cols-2 gap-2">
-            <Field label="자료명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: ISO 13485 개정판 교육자료" />
-            <Field label="분류" value={form.category} onChange={(v) => setF('category', v)} placeholder="예: QMS / 공정 / 안전" />
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10.5px] shrink-0" style={{ color: 'var(--ink-faint)' }}>추천 자료명</span>
-              {SUGGESTED_TITLES.map((t) => (
-                <button key={t} type="button" onClick={() => setF('title', t)} className="text-[11px] px-2 py-0.5 rounded-full transition"
-                  style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
-                  {t}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10.5px] shrink-0" style={{ color: 'var(--ink-faint)' }}>추천 분류</span>
-              {SUGGESTED_CATEGORIES.map((c) => (
-                <button key={c} type="button" onClick={() => setF('category', c)} className="text-[11px] px-2 py-0.5 rounded-full transition"
-                  style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-                  {c}
-                </button>
-              ))}
-            </div>
-          </div>
-          <input ref={ref} type="file" className="hidden" onChange={upload} />
-          <button onClick={() => ref.current && ref.current.click()} disabled={busy} className="btn-ghost text-[12.5px]"><Paperclip size={13} /> {busy ? '업로드 중…' : '파일 업로드'}</button>
-        </div>
-      )}
-      {allMaterials.length === 0 ? (
-        <EmptyState icon={BookOpen} text="등록된 교육자료가 없습니다." />
-      ) : (
-        <div className="space-y-2">
-          {allMaterials.map((m) => (
-            <div key={m.id} className="card-base p-3.5 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{m.title}</div>
-                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{m.category || '분류 없음'}</div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button onClick={() => openFile(m.fileId)} className="btn-ghost text-[11.5px]"><Download size={12} /> {m.fileName}</button>
-                {canEdit && <button onClick={() => del(m.id)} className="text-slate-300 hover:text-rose-600"><Trash2 size={14} /></button>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ================================================================
    교육 · 평가 · 참석기록
    ================================================================ */
-function SessionTab({ sessions: allSessions, materials: allMaterials, onAction, refresh }) {
   const canEdit = permissions.can('training.session.edit')
   const [selId, setSelId] = useState(allSessions[0]?.id || null)
   const sel = allSessions.find((s) => s.id === selId) || null
@@ -464,13 +362,11 @@ function SessionTab({ sessions: allSessions, materials: allMaterials, onAction, 
         </div>
       </div>
       <div>
-        {sel ? <SessionDetail session={sel} materials={allMaterials} canEdit={canEdit} onAction={onAction} onDelete={() => del(sel.id)} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 교육을 선택하세요." />}
       </div>
     </div>
   )
 }
 
-function SessionDetail({ session, materials: allMaterials, canEdit, onAction, onDelete, refresh }) {
   const [status, setStatus] = useState(session.status)
   const [attForm, setAttForm] = useState({ name: '', dept: '', score: '', passed: true })
   const setAF = (k, v) => setAttForm((f) => ({ ...f, [k]: v }))
@@ -607,81 +503,6 @@ function SessionDetail({ session, materials: allMaterials, canEdit, onAction, on
 /* ================================================================
    직원 역량평가 · 자격관리 (ISO 13485 §6.2)
    ================================================================ */
-function CompetencyTab({ employees: allEmployees, onAction, refresh }) {
-  const canEdit = permissions.can('training.competency.edit')
-  const [selId, setSelId] = useState(allEmployees[0]?.id || null)
-  const sel = allEmployees.find((e) => e.id === selId) || null
-  const EMPTY = { name: '', dept: '', position: '', hireDate: '', requiredCompetency: '' }
-  const [form, setForm] = useState(EMPTY)
-  const [adding, setAdding] = useState(allEmployees.length === 0)
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const create = () => {
-    if (!requirePermission('training.competency.edit')) return
-    if (!form.name.trim()) { window.alert('성명을 입력하세요.'); return }
-    const rec = employees.add(form)
-    setSelId(rec.id)
-    setForm(EMPTY)
-    setAdding(false)
-    onAction('직원이 등록되었습니다.')
-    refresh()
-  }
-  const del = (id) => {
-    if (!requirePermission('training.competency.edit')) return
-    if (!window.confirm('이 직원의 역량평가·자격 기록을 삭제할까요?')) return
-    employees.delete(id)
-    setSelId(null)
-    onAction('직원 기록이 삭제되었습니다.')
-    refresh()
-  }
-
-  return (
-    <div className="grid lg:grid-cols-[320px_1fr] gap-5">
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>직원 목록 ({allEmployees.length}명)</div>
-          {canEdit && <button onClick={() => setAdding((v) => !v)} className="inline-flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--moss)' }}><Plus size={13} /> 직원 등록</button>}
-        </div>
-        {adding && canEdit && (
-          <div className="card-base p-3 mb-3 space-y-2">
-            <Field label="성명" value={form.name} onChange={(v) => setF('name', v)} />
-            <Field label="부서" value={form.dept} onChange={(v) => setF('dept', v)} />
-            <Field label="직책/직무" value={form.position} onChange={(v) => setF('position', v)} />
-            <Field label="입사일" type="date" value={form.hireDate} onChange={(v) => setF('hireDate', v)} />
-            <Field label="필요 역량·자격 요건" value={form.requiredCompetency} onChange={(v) => setF('requiredCompetency', v)} placeholder="예: 품질경영시스템 내부심사원 자격" />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>
-              <button onClick={create} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장</button>
-            </div>
-          </div>
-        )}
-        <div className="space-y-1.5">
-          {allEmployees.map((e) => {
-            const latest = employees.latestEvaluation(e)
-            const tone = !latest ? 'slate' : latest.result === QUALIFICATION_RESULT.QUALIFIED ? 'emerald' : latest.result === QUALIFICATION_RESULT.CONDITIONAL ? 'amber' : 'rose'
-            return (
-              <button key={e.id} onClick={() => setSelId(e.id)} className="w-full text-left px-3 py-2.5 rounded-lg border flex items-center gap-2 transition"
-                style={{ borderColor: e.id === selId ? 'var(--moss)' : 'var(--line)', background: e.id === selId ? 'var(--leaf-soft)' : 'var(--bg-card)' }}>
-                <BadgeCheck size={14} style={{ color: 'var(--moss)' }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium truncate" style={{ color: 'var(--ink)' }}>{e.name}</span>
-                  <span className="block text-[11px]" style={{ color: 'var(--ink-faint)' }}>{e.dept || '부서 미기록'} · {e.position || '직책 미기록'}</span>
-                </span>
-                <Badge text={latest ? latest.result : '미평가'} tone={tone} />
-                <ChevronRight size={14} style={{ color: 'var(--ink-faint)' }} />
-              </button>
-            )
-          })}
-          {allEmployees.length === 0 && !adding && <EmptyState icon={BadgeCheck} text="등록된 직원이 없습니다." />}
-        </div>
-      </div>
-      <div>
-        {sel ? <EmployeeDetail employee={sel} canEdit={canEdit} onAction={onAction} onDelete={() => del(sel.id)} refresh={refresh} /> : <EmptyState icon={BadgeCheck} text="왼쪽에서 직원을 선택하세요." />}
-      </div>
-    </div>
-  )
-}
-
 function EmployeeDetail({ employee, canEdit, onAction, onDelete, refresh }) {
   const [form, setForm] = useState({ dept: employee.dept, position: employee.position, hireDate: employee.hireDate, requiredCompetency: employee.requiredCompetency })
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
