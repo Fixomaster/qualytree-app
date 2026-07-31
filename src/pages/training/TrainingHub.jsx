@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   GraduationCap,
-  BookOpen,
   Users,
   Plus,
   Trash2,
@@ -11,18 +10,17 @@ import {
   CheckCircle2,
   ChevronRight,
   X,
-  BadgeCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
-import { plans, materials, sessions, employees, PLAN_STATUS, QUALIFICATION_RESULT } from '../../lib/trainingState'
+import { plans, sessions, employees, PLAN_STATUS, QUALIFICATION_RESULT } from '../../lib/trainingState'
 import { fileStore } from '../../lib/fileStore'
 
 export default function TrainingHub() {
   const user = auth.current()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'plan') // plan | material | session
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'plan') // plan | session
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)
@@ -61,6 +59,7 @@ export default function TrainingHub() {
         </div>
 
         {tab === 'plan' && <PlanTab key={tick} plans={allPlans} onAction={showToast} refresh={refresh} />}
+        {tab === 'session' && <SessionTab key={tick} sessions={allSessions} onAction={showToast} refresh={refresh} />}
       </div>
     </AppLayout>
   )
@@ -165,7 +164,7 @@ function PlanTab({ plans: allPlans, onAction, refresh }) {
             <button onClick={create} disabled={yearTaken} className="btn-primary text-[12.5px] mt-5" style={yearTaken ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}><Plus size={13} /> 연간계획 생성</button>
           </div>
           {yearTaken && (
-            <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--rust)' }}>{newYear}년 계획이 이미 존재합니다. 다른 연도를 입력하세요.</div>
+            <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--rust)' }}>{newYear}텄 계획이 이미 존재합니다. 다른 연도를 입력하세요.</div>
           )}
         </div>
       )}
@@ -224,7 +223,7 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
   return (
     <div className="card-base p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{plan.year}년 교육계획</div>
+        <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{plan.year}텄 교육계획</div>
         <Badge text={plan.status} tone={plan.status === PLAN_STATUS.APPROVED ? 'emerald' : 'slate'} />
       </div>
 
@@ -287,7 +286,7 @@ function PlanCard({ plan, canEdit, canApprove, onAction, refresh }) {
 /* ================================================================
    교육자료
    ================================================================ */
-// 홈페이지(qualy-tree.com)에 표기된 대응 규제·표준과 백서 주제 — 교육자료 등록 시 빠른 선택용 추천값
+// 홆페이지(qualy-tree.com)에 표기된 대응 규제·표준과 백서 주제 — 교육자료 등록 시 빠른 선택용 추천값
 const SUGGESTED_CATEGORIES = ['ISO 13485:2016', 'FDA QMSR', 'EU MDR', 'KGMP', '21 CFR Part 11', 'GAMP 5']
 const SUGGESTED_TITLES = [
   'MDR 전환 가이드',
@@ -299,6 +298,7 @@ const SUGGESTED_TITLES = [
 /* ================================================================
    교육 · 평가 · 참석기록
    ================================================================ */
+function SessionTab({ sessions: allSessions, onAction, refresh }) {
   const canEdit = permissions.can('training.session.edit')
   const [selId, setSelId] = useState(allSessions[0]?.id || null)
   const sel = allSessions.find((s) => s.id === selId) || null
@@ -362,11 +362,13 @@ const SUGGESTED_TITLES = [
         </div>
       </div>
       <div>
+        {sel ? <SessionDetailPanel session={sel} canEdit={canEdit} onAction={onAction} onDelete={() => del(sel.id)} refresh={refresh} /> : <EmptyState icon={Users} text="좌측에서 교육을 선택하세요." />}
       </div>
     </div>
   )
 }
 
+function SessionDetailPanel({ session, canEdit, onAction, onDelete, refresh }) {
   const [status, setStatus] = useState(session.status)
   const [attForm, setAttForm] = useState({ name: '', dept: '', score: '', passed: true })
   const setAF = (k, v) => setAttForm((f) => ({ ...f, [k]: v }))
@@ -429,7 +431,7 @@ const SUGGESTED_TITLES = [
     <div className="space-y-4">
       <div className="card-base p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{session.topic}</div>
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)" }}>{session.topic}</div>
           {canEdit && <button onClick={onDelete} className="text-[12px] inline-flex items-center gap-1" style={{ color: 'var(--rust)' }}><Trash2 size={13} /> 삭제</button>}
         </div>
         <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>일시 {session.date || '—'} · 강사 {session.instructor || '—'} · 평가방법 {session.evaluationMethod || '—'}</div>
@@ -458,7 +460,7 @@ const SUGGESTED_TITLES = [
           <div className="space-y-1.5">
             {(session.attachments || []).map((a) => (
               <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-                <button onClick={() => openAttachment(a.fileId)} className="inline-flex items-center gap-1.5 text-[12.5px] min-w-0" style={{ color: 'var(--ink)' }}>
+                <button onClick={() => openAttachment(a.fileId)} className="inline-flex items-center gap-1.5 text-[12.5px] min-w-0" style={{ color: 'var(--ink)" }}>
                   <Download size={12} style={{ color: 'var(--moss)' }} /> <span className="truncate">{a.fileName}</span>
                 </button>
                 {canEdit && <button onClick={() => removeAttachment(a.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={13} /></button>}
@@ -484,7 +486,7 @@ const SUGGESTED_TITLES = [
         <div className="space-y-1.5">
           {session.attendees.map((a) => (
             <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-              <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink)" }}>
                 {a.name} <span style={{ color: 'var(--ink-faint)' }}>· {a.dept || '부서 미기록'} · {a.score || '—'}</span>
               </div>
               <div className="flex items-center gap-2">
