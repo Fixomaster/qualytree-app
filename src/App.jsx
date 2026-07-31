@@ -35,7 +35,7 @@ let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
 let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
-let OrgResponsibilityHub, PurchaseVerificationHub, QualityManualHub, DeviceFileHub
+let OrgResponsibilityHub, QualityManualHub, DeviceFileHub
 let ProductionControlHub, QualityPolicyHub, MeasurementPlanHub, CleanlinessHub, SterileControlHub
 
 try { AuditHub              = React.lazy(() => import(/* @vite-ignore */ './pages/audit/AuditHub')) } catch {}
@@ -64,7 +64,6 @@ try { DocControlHub         = React.lazy(() => import(/* @vite-ignore */ './page
 try { QualityObjectivesHub  = React.lazy(() => import(/* @vite-ignore */ './pages/quality-objectives/QualityObjectivesHub')) } catch {}
 try { ProductIdHub          = React.lazy(() => import(/* @vite-ignore */ './pages/product-id/ProductIdHub')) } catch {}
 try { OrgResponsibilityHub  = React.lazy(() => import(/* @vite-ignore */ './pages/org-responsibility/OrgResponsibilityHub')) } catch {}
-try { PurchaseVerificationHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase-verification/PurchaseVerificationHub')) } catch {}
 try { QualityManualHub      = React.lazy(() => import(/* @vite-ignore */ './pages/quality-manual/QualityManualHub')) } catch {}
 try { DeviceFileHub         = React.lazy(() => import(/* @vite-ignore */ './pages/device-file/DeviceFileHub')) } catch {}
 try { ProductionControlHub  = React.lazy(() => import(/* @vite-ignore */ './pages/production-control/ProductionControlHub')) } catch {}
@@ -157,7 +156,6 @@ export default function App() {
       <Route path="/quality-objectives" element={<ProtectedRoute><LazyRoute Component={QualityObjectivesHub} /></ProtectedRoute>} />
       <Route path="/product-id"        element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
       <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />
-      <Route path="/purchase-info" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
       <Route path="/quality-manual"    element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />
       <Route path="/medical-device-file"       element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
       <Route path="/production-control" element={<ProtectedRoute><LazyRoute Component={ProductionControlHub} /></ProtectedRoute>} />

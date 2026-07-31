@@ -305,6 +305,7 @@ function genLot() {
 function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [receiveTarget,setReceiveTarget]=useState(null)
+  const [issueTarget,setIssueTarget]=useState(null)
   const [zeroOnly,setZeroOnly]=useState(false)
   useEffect(() => {
     if (openId) { const item = inventory.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
@@ -326,6 +327,16 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
     }))
     if(f.poId) setOrders(p=>p.map(o=>o.id===f.poId?{...o,status:'입고완료'}:o))
     setReceiveTarget(null)
+  }
+  const issue=f=>{
+    setInventory(p=>p.map(m=>{
+      if(m.id!==issueTarget.id) return m
+      const newStock=Math.max(0,(parseFloat(m.stock)||0)-(parseFloat(f.qty)||0))
+      const status=newStock<parseFloat(m.min)?'부족':'정상'
+      const issues=[...(m.issues||[]),{id:nid('ISS'),date:f.date,qty:f.qty,reason:f.reason,notes:f.notes}]
+      return {...m,stock:String(newStock),status,issues}
+    }))
+    setIssueTarget(null)
   }
   const shortfall=inventory.filter(i=>i.status==='부족')
   const zeroStock=inventory.filter(i=>parseFloat(i.stock)===0)
@@ -384,7 +395,7 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
                     <ActBtn label="+" color="green" onClick={()=>{const v=parseFloat(m.stock)+1;setInventory(p=>p.map(x=>x.id===m.id?{...x,stock:String(v),status:v<parseFloat(x.min)?'부족':'정상'}:x))}}/>
                   </div>
                 </TD>
-                <TD><div className="flex gap-1"><ActBtn label="입고" color="green" onClick={()=>setReceiveTarget(m)}/><ActBtn label="수정" onClick={()=>{setEdit(m);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(m.id)}/></div></TD>
+                <TD><div className="flex gap-1"><ActBtn label="입고" color="green" onClick={()=>setReceiveTarget(m)}/><ActBtn label="출고" onClick={()=>setIssueTarget(m)}/><ActBtn label="수정" onClick={()=>{setEdit(m);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(m.id)}/></div></TD>
               </tr>
             )})}</tbody>
           </table>
@@ -392,6 +403,7 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
       </Card>
       {modal==='form'&&<Modal title={edit?'자재 수정':'자재 등록'} onClose={()=>{setModal(null);setEdit(null)}}><MatForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/></Modal>}
       {receiveTarget&&<Modal title={`자재 입고 — ${receiveTarget.name}`} onClose={()=>setReceiveTarget(null)}><ReceiveForm material={receiveTarget} orders={orders} onSave={receive} onCancel={()=>setReceiveTarget(null)}/></Modal>}
+      {issueTarget&&<Modal title={`자재 출고 — ${issueTarget.name}`} onClose={()=>setIssueTarget(null)}><IssueForm material={issueTarget} onSave={issue} onCancel={()=>setIssueTarget(null)}/></Modal>}
     </div>
   )
 }
@@ -438,6 +450,24 @@ function ReceiveForm({material,orders,onSave,onCancel}) {
         <FL label="성적서 번호"><input style={inp} value={f.certNo} onChange={set('certNo')} placeholder="COA/시험성적서 번호"/></FL>
       </div>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.qty&&onSave(f)}>입고 등록</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+    </div>
+  )
+}
+function IssueForm({material,onSave,onCancel}) {
+  const [f,sf]=useState({qty:'',reason:'생산 투입',notes:'',date:new Date().toISOString().slice(0,10)})
+  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
+  return (
+    <div className="space-y-3">
+      <div className="p-3 rounded-lg" style={{background:'var(--bg-soft)'}}>
+        <div className="text-[11.5px]" style={{color:'var(--ink-mute)'}}>현재 재고: <b style={{color:'var(--ink)'}}>{material.stock} {material.unit}</b> · 최소재고 {material.min} {material.unit}</div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <FL label="출고 수량 *"><input style={inp} type="number" step="0.1" value={f.qty} onChange={set('qty')}/></FL>
+        <FL label="출고일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
+        <FL label="사유"><select style={sel} value={f.reason} onChange={set('reason')}>{['생산 투입','반품(공급업체)','폐기','기타'].map(o=><option key={o}>{o}</option>)}</select></FL>
+      </div>
+      <FL label="비고"><input style={inp} value={f.notes} onChange={set('notes')}/></FL>
+      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.qty&&onSave(f)}>출고 등록</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
