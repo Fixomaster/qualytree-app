@@ -11,7 +11,8 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { onboarding } from '../../lib/onboardingState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { productModels } from '../../lib/productLifecycleState'
 import { companyDocs } from '../../lib/companyState'
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -23,6 +24,22 @@ function salesCustomerNames() {
     if (!raw) return []
     const list = JSON.parse(raw)
     return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
+}
+
+// 기존 허가 제품 목록(모델·코드) — 제품명 검색 시 매칭되면 제품 코드를 자동으로 채운다.
+function licensedProducts() {
+  try {
+    const ob = onboarding.load()
+    const products = (Array.isArray(ob.products) && ob.products.length)
+      ? ob.products
+      : (ob.product && ob.product.name ? [ob.product] : [])
+    return productModels.getAll()
+      .map(m => {
+        const p = products.find(pp => productKeyOf(pp) === m.productKey)
+        return { name: (p && p.name) || '', code: m.code || m.spec || '' }
+      })
+      .filter(m => m.name && m.code)
   } catch { return [] }
 }
 
@@ -666,8 +683,14 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
         <Field label="담당자명" value={form.contactPerson} onChange={v => F('contactPerson', v)} />
         <Field label="연락처" value={form.contactPhone} onChange={v => F('contactPhone', v)} />
         <Field label="이메일" value={form.contactEmail} onChange={v => F('contactEmail', v)} />
-        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
-        <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
+        <Field label="제품명 * (기존 허가 제품 검색)" value={form.productName}
+          onChange={v => {
+            F('productName', v)
+            const match = licensedProducts().find(p => p.name === v)
+            if (match) F('productCode', match.code)
+          }}
+          list="customerreq-product-list" listOptions={licensedProducts().map(p => p.name)} />
+        <Field label="제품 코드 (기존 허가 제품 선택 시 자동)" value={form.productCode} onChange={v => F('productCode', v)} />
         <Field label="접수일" type="date" value={form.inquiryDate} onChange={v => F('inquiryDate', v)} />
       </div>
       <div className="mb-3">

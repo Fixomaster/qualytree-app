@@ -932,6 +932,13 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
             </tfoot>
           </table>
         </div>
+        <datalist id="quote-model-list">
+          {orderableModels.map(m=>(
+            <option key={m.id} value={m.spec || m.code}>
+              {m.productName ? `${m.productName} · ${m.code}` : m.code}
+            </option>
+          ))}
+        </datalist>
       </div>
 
       <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
@@ -1144,7 +1151,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
           <button onClick={()=>{setEdit(null);setModal('form')}}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
             style={{ background:'var(--moss)', color:'var(--bg)' }}>
-            <Plus size={13}/> 생산 요청
+            <Plus size={13}/> 생산요청 등록
           </button>
         </div>
         <div className="flex items-center gap-2 mb-3">
@@ -1157,7 +1164,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              {['요청ID','SO','품목','수량','납기일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
+              {['요청ID','SO','품목','수량','납기요청일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
               {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(r=>(
@@ -1168,10 +1175,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
                   <TD right>{r.qty}EA</TD>
                   <TD mono muted>{r.dueDate}</TD>
                   <TD><Badge text={r.priority} tone={r.priority==='긴급'?'red':'gray'}/></TD>
-                  <TD>
-                    <StatusSelect value={r.status} options={statusOpts}
-                      onChange={v=>setProdReqs(p=>p.map(x=>x.id===r.id?{...x,status:v}:x))}/>
-                  </TD>
+                  <TD><Badge text={r.status} tone={r.status==='완료'?'green':r.status==='취소'?'gray':r.status==='생산중'?'blue':'amber'}/></TD>
                   <TD>
                     <div className="flex gap-1">
                       <ActBtn label="수정" onClick={()=>{setEdit(r);setModal('form')}}/>
@@ -1193,6 +1197,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
   )
 }
 function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
+  const [orderableModels] = useState(() => loadOrderableModels())
   const [f, sf] = useState(initial)
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
   const selectSO = e => {
@@ -1202,27 +1207,33 @@ function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
   }
   return (
     <div className="space-y-3">
-      <FL label="연계 수주 (SO)">
-        <select style={sel} value={f.so} onChange={selectSO}>
-          <option value="">직접 입력</option>
+      <FL label="연계 수주 (SO) (검색)">
+        <input style={inp} list="prodreq-so-list" value={f.so} onChange={selectSO}
+          placeholder="SO번호 또는 고객사명 입력·검색... (미입력 시 직접 입력)"/>
+        <datalist id="prodreq-so-list">
           {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer} · {o.items}</option>)}
-        </select>
+        </datalist>
       </FL>
       <div className="grid grid-cols-2 gap-3">
-        <FL label="품목 *"><input style={inp} value={f.item} onChange={set('item')} placeholder="품목명"/></FL>
+        <FL label="품목 * (허가 모델 검색)">
+          <input style={inp} list="prodreq-model-list" value={f.item} onChange={set('item')} placeholder="허가 모델 검색..."/>
+          <datalist id="prodreq-model-list">
+            {orderableModels.map(m=>(
+              <option key={m.id} value={m.spec || m.code}>
+                {m.productName ? `${m.productName} · ${m.code}` : m.code}
+              </option>
+            ))}
+          </datalist>
+        </FL>
         <FL label="수량(EA)"><input style={inp} type="number" value={f.qty} onChange={set('qty')}/></FL>
-        <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
+        <FL label="납기요청일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
         <FL label="우선순위">
           <select style={sel} value={f.priority} onChange={set('priority')}>
             {['긴급','높음','보통','낮음'].map(o=><option key={o}>{o}</option>)}
           </select>
         </FL>
-        <FL label="상태">
-          <select style={sel} value={f.status} onChange={set('status')}>
-            {statusOpts.map(o=><option key={o}>{o}</option>)}
-          </select>
-        </FL>
       </div>
+      <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 상태는 연계된 생산 작업지시(WO)의 진행 상황에 따라 자동으로 갱신됩니다.</div>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>f.item&&onSave(f)}>{initial.item?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
