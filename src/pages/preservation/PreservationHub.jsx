@@ -192,7 +192,6 @@ export default function PreservationHub() {
           subtitle="ISO 13485 §7.5.11 · 보관 조건 · LOT 유효기간 추적 · 출하 전 점검"
           icon={Package2}
           color="#8B5CF6"
-          quickActions={[{label:'LOT 등록',icon:Plus,onClick:openNew,primary:true}]}
           workflow={['보존 사양 설정','LOT 재고 등록','환경·조건 확인','유효기간 추적','출하 전 점검']}
         />
 
@@ -241,13 +240,7 @@ export default function PreservationHub() {
                   {Object.entries(LOT_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
-              {canEdit && (
-                <button onClick={() => { setLotForm(EMPTY_LOT); setEditLotId(null); setShowLotForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> LOT 등록
-                </button>
-              )}
+              <div className="text-[11.5px] px-1" style={{ color: 'var(--ink-faint)' }}>ℹ 작업지시(WO) 생산완료 시 자동 등록됩니다. 목록의 항목을 눌러 상세 정보를 수정하세요.</div>
             </div>
 
             {showLotForm && (

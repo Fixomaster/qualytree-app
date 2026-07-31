@@ -587,7 +587,6 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
     {id:'inspect',icon:Activity,label:'공정 검사 (IPC)',desc:'공정검사 규격 vs 측정값',count:`${inspect.filter(i=>i.status==='조건부'||i.status==='불합격').length}건 주의`,warn:inspect.filter(i=>i.status==='조건부'||i.status==='불합격').length>0},
     {id:'ncr',icon:AlertTriangle,label:'부적합 관리 (NCR)',desc:'발생 부적합 · 처리방법 · CAPA 연동',count:`${openNcr}건 미결`,warn:openNcr>0},
     {id:'perf',icon:Cog,label:'생산 실적',desc:'WO 현황 · 진행률 통계',count:`${wo.length}건`},
-    {id:'ops',icon:Workflow,label:'현장 운영',desc:'작업지시 큐 · 배치기록 · 공정검사 진행',count:'바로가기'},
   ]
   const summary=[
     {label:'진행중 WO',value:`${inProg}건`,warn:false,sub:'현재 생산 중'},
@@ -671,7 +670,7 @@ export default function ManufacturingHub(){
     }
   }, [wo, proc])
 
-  const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적',ops:'현장 운영'}
+  const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적'}
   const viewMap={
     home:<MfgHome wo={wo} ncr={ncr} inspect={inspect} proc={proc} onNavigate={setView}/>,
     wo:<WoView wo={wo} setWo={setWo} openId={editId} proc={proc} pcps={pcps} onOpenProc={onOpenProc}/>,
@@ -679,7 +678,6 @@ export default function ManufacturingHub(){
     inspect:<InspectView inspect={inspect} setInspect={setInspect} wo={wo}/>,
     ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo} openId={editId}/>,
     perf:<PerfView wo={wo}/>,
-    ops:<WorkOrderQueue embedded/>,
   }
   return(
     <AppLayout user={user} title="생산" subtitle="작업지시 · 공정기록 · 검사 · 부적합 관리">
