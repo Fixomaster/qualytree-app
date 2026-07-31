@@ -47,10 +47,12 @@ const DOC_REGISTER_KEY = 'qualytree.doc_register'       // 문서·규정 › �
 const QUALITY_MANUAL_KEY = 'qualytree.quality_manual'   // 문서·규정 › 품질매뉴얼 (/quality-manual)
 const ORG_ROLES_KEY = 'qualytree.org_roles'             // 교육·인력 › 조직·책임 (/org-responsibility)
 const DISTRIBUTIONS_KEY = 'qualytree.distributions'     // 생산·제조 › 제품추적성관리 (/traceability)
-// 수입검사·입고·출고 기록은 구매·자재 › 구매현황(/purchase)이 유일한 소스다.
-// (구 /purchase-info 페이지는 구매현황과 중복이라 삭제되었고, 그 전에 이쪽으로 증빙 소스를 이전했다.)
+// 수입검사·입고·출고 기록은 구매·자재 › 구매현황(/purchase)과 구매정보·수입검사(/purchase-info)
+// 두 화면 모두에서 입력될 수 있다 — 어느 화면에 입력하든 KGMP 증빙 카운트에 반영되도록 두 소스를 병합한다.
 const PUR_IQC_KEY = 'qms_pur_iqc'               // 구매·자재 › 구매현황 (/purchase?tab=iqc)
 const PUR_INVENTORY_KEY = 'qms_pur_inventory'   // 구매·자재 › 구매현황 (/purchase?tab=inventory) — 자재별 입고(receipts)/출고(issues) 이력 포함
+const LEGACY_IQC_KEY = 'qualytree.iqc_records'         // 구매·자재 › 구매정보·수입검사 (/purchase-info, IQC 탭)
+const LEGACY_INOUT_KEY = 'qualytree.receiving_shipping' // 구매·자재 › 구매정보·수입검사 (/purchase-info, 입고·출고 탭)
 
 function loadDocRegister() {
   try { return JSON.parse(localStorage.getItem(DOC_REGISTER_KEY) || '[]') } catch { return [] }
@@ -70,15 +72,41 @@ function loadPurIqc() {
 function loadPurInventory() {
   try { return JSON.parse(localStorage.getItem(PUR_INVENTORY_KEY) || '[]') } catch { return [] }
 }
+function loadLegacyIqc() {
+  try { return JSON.parse(localStorage.getItem(LEGACY_IQC_KEY) || '[]') } catch { return [] }
+}
+function loadLegacyInOut() {
+  try { return JSON.parse(localStorage.getItem(LEGACY_INOUT_KEY) || '[]') } catch { return [] }
+}
+// id 기준으로 중복 제거하며 병합한다(id가 없는 항목은 모두 유지).
+function mergeById(...lists) {
+  const seen = new Set()
+  const out = []
+  for (const list of lists) {
+    for (const item of list) {
+      if (item && item.id != null) {
+        if (seen.has(item.id)) continue
+        seen.add(item.id)
+      }
+      out.push(item)
+    }
+  }
+  return out
+}
 function loadDistributions() {
   try { return JSON.parse(localStorage.getItem(DISTRIBUTIONS_KEY) || '[]') } catch { return [] }
 }
-// 자재별 receipts(입고)/issues(출고) 이력을 평탄화해 { type:'in'|'out' } 형태로 합친다 — 구 receiving_shipping 포맷과 호환.
+// 자재별 receipts(입고)/issues(출고) 이력을 평탄화해 { type:'in'|'out' } 형태로 합친 뒤,
+// 구 /purchase-info 화면의 입고·출고 기록(receiving_shipping)과 병합한다.
 function loadReceivingShipping() {
   const inv = loadPurInventory()
   const receipts = inv.flatMap(m => (m.receipts || []).map(r => ({ ...r, type: 'in' })))
   const issues = inv.flatMap(m => (m.issues || []).map(r => ({ ...r, type: 'out' })))
-  return [...receipts, ...issues]
+  return mergeById([...receipts, ...issues], loadLegacyInOut())
+}
+// 신규(구매현황) + 구(구매정보) IQC 기록을 병합한다.
+function loadAllIqc() {
+  return mergeById(loadPurIqc(), loadLegacyIqc())
 }
 // 수주·고객 › 고객불만 관리(/complaints)의 저장소를 직접 읽는다(불만 접수·MDR 판단 등 상세 항목 포함).
 // 경영검토(managementReviewState.js)는 더 이상 별도의 고객불만 기록을 두지 않는다.
@@ -147,7 +175,7 @@ function buildCtx() {
     docRegister: loadDocRegister(),
     qualityManual: loadQualityManual(),
     orgRoles: loadOrgRoles(),
-    iqcRecords: loadPurIqc(),
+    iqcRecords: loadAllIqc(),
     distributions: loadDistributions(),
     receivingShipping: loadReceivingShipping(),
     complaintHubItems: loadComplaintHubItems(),

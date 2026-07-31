@@ -34,6 +34,7 @@ label: '구매·자재', icon: ShoppingCart,
 items: [
 { to: '/purchase', label: '구매 현황' },
 { to: '/supplier', label: '공급업체 관리' },
+{ to: '/purchase-info', label: '구매정보·수입검사' },
 ],
 },
 {
