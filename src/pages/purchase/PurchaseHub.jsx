@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Package,
   ClipboardList,
@@ -13,6 +13,7 @@ import {
   Archive,
   CheckCircle,
   ShoppingCart,
+  ExternalLink,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -116,11 +117,6 @@ const INIT_INVENTORY = [
   {id:'MAT-003',name:'SCS M3.5 반제품',unit:'EA',stock:'320',min:'100',location:'B-01-02',lot:'LOT-2405-015',status:'정상'},
   {id:'MAT-004',name:'UDI 라벨 (8806526)',unit:'매',stock:'180',min:'500',location:'C-02-01',lot:'LOT-2406-0 3',status:'부족'},
   {id:'MAT-005',name:'멸균 파우치 85×210mm',unit:'EA',stock:'2400',min:'1000',location:'C-01-03',lot:'LOT-2406-005',status:'정상'},
-]
-const INIT_EVAL = [
-  {id:'E-001',vendor:'대한금속㈜',period:'2024 Q1',quality:'95',delivery:'98',price:'88',response:'92',total:'93',grade:'A',comment:'품질 안정적, 납기 우수'},
-  {id:'E-002',vendor:'한국폴리머㈜',period:'2024 Q1',quality:'90',delivery:'92',price:'85',response:'88',total:'89',grade:'A',comment:'원료 순도 관리 양호'},
-  {id:'E-003',vendor:'우정정밀㈜',period:'2024 Q1',quality:'78',delivery:'82',price:'90',response:'75',total:'81',grade:'B',comment:'치수 산포 개선 요청'},
 ]
 const INIT_IQC = [
   {id:'IQC-2406-015',date:'24-06-20',po:'PO-2406-006',vendor:'태양포장㈜',items:'UDI 라벨',qty:'2,000매',inspector:'김검사',nc:'—',status:'합격'},
@@ -446,77 +442,6 @@ function ReceiveForm({material,orders,onSave,onCancel}) {
   )
 }
 
-/* ─── 공급업체 평가 ─── */
-function EvalView({evals,setEvals,avl}) {
-  const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
-  const [srch,setSrch]=useState('')
-  const del=id=>{if(window.confirm('삭제하시겠습니까?'))setEvals(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{
-    const t=Math.round((Number(f.quality)+Number(f.delivery)+Number(f.price)+Number(f.response))/4)
-    const grade=t>=90?'A':t>=80?'B':'C'
-    if(edit){setEvals(p=>p.map(x=>x.id===edit.id?{...x,...f,total:String(t),grade}:x));setEdit(null)}
-    else{setEvals(p=>[...p,{id:nid('E'),...f,total:String(t),grade}])}
-    setModal(null)
-  }
-  const shown=srch
-    ? evals.filter(e=>[e.vendor,e.period,e.comment,e.grade].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
-    : evals
-  return (
-    <div>
-      <SectionTitle breadcrumb="공급업체 평가">공급업체 평가</SectionTitle>
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>공급업체 평가 결과 (ISO 13485 §7.4.1)</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 평가 등록</button>
-        </div>
-        <div className="flex items-center gap-2 mb-3">
-          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}} placeholder="업체명 · 평가기간 · 등급 · 비고 검색..." value={srch} onChange={e=>setSrch(e.target.value)}/>
-          {srch&&<button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead><tr>{['업체명','평가기간','품질','납기','가격','대응','종합','등급','비고','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(e=>(
-      <tr key={e.id}>
-                <TD><span className="font-medium">{e.vendor}</span></TD>
-                <TD muted>{e.period}</TD>
-                <TD right>{e.quality}</TD>
-                <TD right>{e.delivery}</TD>
-                <TD right>{e.price}</TD>
-                <TD right>{e.response}</TD>
-                <TD right color="var(--moss)"><b>{e.total}</b></TD>
-                <TD><Badge text={e.grade+'등급'} tone={e.grade==='A'?'green':e.grade==='B'?'amber':'red'}/></TD>
-                <TD muted>{e.comment}</TD>
-                <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(e);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(e.id)}/></div></TD>
-              </tr>
-            ))}</tbody>
-          </table>
-        </div>
-      </Card>
-      {modal==='form'&&<Modal title={edit?'평가 수정':'평가 등록'} onClose={()=>{setModal(null);setEdit(null)}}><EvalForm initial={edit||{}} avl={avl} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/></Modal>}
-    </div>
-  )
-}
-function EvalForm({initial,avl,onSave,onCancel}) {
-  const [f,sf]=useState({vendor:'',period:'',quality:'90',delivery:'90',price:'85',response:'88',comment:'',...initial})
-  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="업체명 *"><select style={sel} value={f.vendor} onChange={set('vendor')}><option value="">선택</option>{avl.map(v=><option key={v.id}>{v.name}</option>)}</select></FL>
-        <FL label="평가기간"><input style={inp} value={f.period} onChange={set('period')} placeholder="예) 2024 Q2"/></FL>
-        <FL label="품질 (0-100)"><input style={inp} type="number" min="0" max="100" value={f.quality} onChange={set('quality')}/></FL>
-        <FL label="납기 (0-100)"><input style={inp} type="number" min="0" max="100" value={f.delivery} onChange={set('delivery')}/></FL>
-        <FL label="가격경쟁력 (0-100)"><input style={inp} type="number" min="0" max="100" value={f.price} onChange={set('price')}/></FL>
-        <FL label="대응능력 (0-100)"><input style={inp} type="number" min="0" max="100" value={f.response} onChange={set('response')}/></FL>
-      </div>
-      <FL label="종합 의견"><textarea style={{...inp,minHeight:'60px',resize:'vertical'}} value={f.comment} onChange={set('comment')}/></FL>
-      <div className="text-[12px] p-2 rounded" style={{background:'var(--bg-soft)',color:'var(--ink-mute)'}}>종합 점수는 4개 항목 평균으로 자동 계산됩니다.</div>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.vendor&&onSave(f)}>{initial.vendor?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
-    </div>
-  )
-}
-
 /* ─── 수입검사 (IQC) ─── */
 function IqcView({iqc,setIqc,orders,openId}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
@@ -670,18 +595,17 @@ function FinForm({initial,onSave,onCancel}) {
 }
 
 /* ─── 구매 홈 ─── */
-function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate}) {
+function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate,onGoSupplier}) {
   const shortMat=inventory.filter(i=>i.status==='부족').length
   const shortFin=fin.filter(i=>i.status==='부족').length
   const pendingIQC=iqc.filter(i=>i.status==='검사중').length
   const overdueOrders=orders.filter(isOrderOverdue).length
   const CARDS=[
-    {id:'avl',icon:Star,label:'협력업체 (AVL)',desc:'등록 업체 · 등급 · 심사 관리',count:`${avl.length}개사`},
     {id:'orders',icon:ClipboardList,label:'발주 관리',desc:'PO 발행 · 납기 추적',count:overdueOrders>0?`납기 지연 ${overdueOrders}건`:`${orders.filter(o=>!['입고완료','취소'].includes(o.status)).length}건 진행중`,warn:overdueOrders>0},
     {id:'inventory',icon:Archive,label:'자재 재고',desc:'현재고 · 최소재고 알림',count:`${shortMat}개 부족`,warn:shortMat>0},
-    {id:'eval',icon:Star,label:'공급업체 평가',desc:'품질·납기·가격 종합 평가',count:`${INIT_EVAL.length}건`},
     {id:'iqc',icon:CheckCircle,label:'수입검사 (IQC)',desc:'입고 품질검사 결과 관리',count:`${pendingIQC}건 대기`,warn:pendingIQC>0},
     {id:'fin',icon:Package,label:'완제품 재고',desc:'완제품 · UDI · LOT 현황',count:`${shortFin}개 부족`,warn:shortFin>0},
+    {id:'analysis',icon:FileText,label:'현황 분석',desc:'발주·IQC·재고 통계',count:`${orders.length}건 발주`},
   ]
   const summary=[
     {label:'재고 부족 자재',value:`${shortMat}개`,warn:shortMat>0,sub:'발주 요청 필요'},
@@ -724,7 +648,71 @@ function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate}) {
             <div className="text-[12px] mt-1" style={{color:'var(--ink-mute)'}}>{card.desc}</div>
           </button>
         ))}
+        <button onClick={onGoSupplier}
+          className="rounded-xl p-4 text-left transition hover:shadow-md"
+          style={{background:'var(--bg-card)',border:'1px dashed var(--line)'}}>
+          <div className="flex items-start justify-between mb-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{background:'var(--leaf-soft)'}}>
+              <ExternalLink size={18} style={{color:'var(--moss)'}} strokeWidth={1.7}/>
+            </div>
+            <span className="text-[13px] font-bold" style={{color:'var(--moss)'}}>{avl.length}개사</span>
+          </div>
+          <div className="text-[13.5px] font-semibold" style={{color:'var(--ink)'}}>협력업체 · 평가 관리</div>
+          <div className="text-[12px] mt-1" style={{color:'var(--ink-mute)'}}>업체 등록 · 등급 · 공급업체 평가는 「공급업체 관리」로 이동</div>
+        </button>
       </div>
+    </div>
+  )
+}
+
+/* ─── 현황 분석 ─── */
+function AnalysisView({orders,iqc,inventory,fin}) {
+  const totalOrders=orders.length
+  const doneOrders=orders.filter(o=>o.status==='입고완료').length
+  const overdue=orders.filter(isOrderOverdue).length
+  const totalIqc=iqc.length
+  const passIqc=iqc.filter(i=>i.status==='합격').length
+  const failIqc=iqc.filter(i=>i.status==='불합격').length
+  const condIqc=iqc.filter(i=>i.status==='조건부').length
+  const failRate=totalIqc>0?Math.round((failIqc/totalIqc)*1000)/10:0
+  const shortMat=inventory.filter(i=>i.status==='부족').length
+  const shortFin=fin.filter(i=>i.status==='부족').length
+  const stats=[
+    {label:'총 발주 건수',value:`${totalOrders}건`,sub:`입고완료 ${doneOrders}건`},
+    {label:'납기 지연 발주',value:`${overdue}건`,warn:overdue>0,sub:'납기예정일 경과'},
+    {label:'IQC 총 건수',value:`${totalIqc}건`,sub:`합격 ${passIqc} · 조건부 ${condIqc} · 불합격 ${failIqc}`},
+    {label:'IQC 불합격률',value:`${failRate}%`,warn:failRate>5,sub:'전체 IQC 대비'},
+    {label:'자재 재고 부족',value:`${shortMat}건`,warn:shortMat>0,sub:'안전재고 미만'},
+    {label:'완제품 재고 부족',value:`${shortFin}건`,warn:shortFin>0,sub:'안전재고 미만'},
+  ]
+  const byVendor={}
+  orders.forEach(o=>{byVendor[o.vendor]=(byVendor[o.vendor]||0)+1})
+  const vendorRows=Object.entries(byVendor).sort((a,b)=>b[1]-a[1])
+  return (
+    <div>
+      <SectionTitle breadcrumb="현황 분석">현황 분석</SectionTitle>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        {stats.map(s=>(
+          <Card key={s.label}>
+            <div className="text-[12px] mb-1" style={{color:'var(--ink-mute)'}}>{s.label}</div>
+            <div className="text-[24px] font-bold" style={{color:s.warn?'var(--rust)':'var(--moss)'}}>{s.value}</div>
+            <div className="text-[11px] mt-0.5" style={{color:'var(--ink-faint)'}}>{s.sub}</div>
+          </Card>
+        ))}
+      </div>
+      <Card>
+        <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{color:'var(--ink-faint)'}}>업체별 발주 현황</div>
+        {vendorRows.length===0?<EmptyCard/>:(
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead><tr>{['업체명','발주 건수'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+              <tbody>{vendorRows.map(([v,c])=>(
+                <tr key={v}><TD><span className="font-medium">{v}</span></TD><TD right>{c}건</TD></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }
@@ -732,25 +720,24 @@ function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate}) {
 /* ─── 메인 ─── */
 export default function PurchaseHub() {
   const user=auth.current()
+  const navigate=useNavigate()
   const [searchParams] = useSearchParams()
   const [view,setView]=useState(searchParams.get('tab') || 'home')
   const editId = searchParams.get('edit')
   const [avl,setAvl]=useLS('qms_pur_avl',INIT_AVL)
   const [orders,setOrders]=useLS('qms_pur_orders',INIT_ORDERS)
   const [inventory,setInventory]=useLS('qms_pur_inventory',INIT_INVENTORY)
-  const [evals,setEvals]=useLS('qms_pur_evals',INIT_EVAL)
   const [iqc,setIqc]=useLS('qms_pur_iqc',INIT_IQC)
   const [fin,setFin]=useLS('qms_pur_fin',INIT_FIN)
 
-  const tabLabels={avl:'협력업체(AVL)',orders:'발주관리',inventory:'자재재고',eval:'업체평가',iqc:'수입검사',fin:'완제품재고'}
+  const tabLabels={orders:'발주관리',inventory:'자재재고',iqc:'수입검사',fin:'완제품재고',analysis:'현황분석'}
   const viewMap={
-    home:<PurchaseHome avl={avl} orders={orders} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView}/>,
-    avl:<AvlView avl={avl} setAvl={setAvl}/>,
+    home:<PurchaseHome avl={avl} orders={orders} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView} onGoSupplier={()=>navigate('/supplier')}/>,
     orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} inventory={inventory} setInventory={setInventory} openId={editId}/>,
     inventory:<InventoryView inventory={inventory} setInventory={setInventory} orders={orders} setOrders={setOrders} openId={editId}/>,
-    eval:<EvalView evals={evals} setEvals={setEvals} avl={avl}/>,
     iqc:<IqcView iqc={iqc} setIqc={setIqc} orders={orders} openId={editId}/>,
     fin:<FinStockView fin={fin} setFin={setFin}/>,
+    analysis:<AnalysisView orders={orders} iqc={iqc} inventory={inventory} fin={fin}/>,
   }
   return (
     <AppLayout user={user} title="구매자재" subtitle="협력업체 · 발주 · 입고 · 재고 관리">

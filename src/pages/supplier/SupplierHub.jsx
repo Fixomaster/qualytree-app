@@ -18,7 +18,6 @@ import {
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_SUP  = 'qualytree.suppliers'
-const LS_IQC  = 'qualytree.iqc'
 const LS_EVAL = 'qualytree.supplier_evals'
 
 function lsR(key, fb = []) {
@@ -46,22 +45,11 @@ const EVAL_STATUS = {
   pending:     { label: '심사 대기',  color: '#6B7280', bg: '#F3F4F6' },
 }
 const COMMON_CERTS = ['ISO 13485', 'ISO 9001', 'KGMP', 'CE 인증', 'FDA 등록', 'MDSAP', 'KC 인증', 'RoHS']
-const IQC_RESULTS = [
-  { value: 'pass',    label: '합격',    color: '#059669', bg: '#D1FAE5' },
-  { value: 'fail',    label: '불합격',  color: '#DC2626', bg: '#FEE2E2' },
-  { value: 'waiver',  label: '특채',    color: '#D97706', bg: '#FEF3C7' },
-  { value: 'pending', label: '검사 중', color: '#6B7280', bg: '#F3F4F6' },
-]
 const emptySupplier = () => ({
   name: '', code: '', category: '',
   contact: '', phone: '', email: '', address: '',
   items: '', certifications: [], notes: '',
   grade: '', status: 'pending',
-})
-const emptyIqc = () => ({
-  supplierId: '', supplierName: '', itemName: '', lotNo: '',
-  qty: '', receivedAt: new Date().toISOString().slice(0, 10),
-  inspector: '', result: 'pending', failReason: '', notes: '',
 })
 const emptyEval = () => ({
   supplierId: '', supplierName: '', year: new Date().getFullYear(), seq: 1,
@@ -81,7 +69,6 @@ function certArray(sup) {
 export default function SupplierHub() {
   const user = auth.current()
   const [suppliers, setSuppliers] = useState(() => lsR(LS_SUP))
-  const [iqcs,      setIqcs]      = useState(() => lsR(LS_IQC))
   const [evals,     setEvals]     = useState(() => lsR(LS_EVAL))
   const [criteria,  setCriteria]  = useState(() => loadCriteria())
   const [policy,    setPolicy]    = useState(() => loadPolicy())
@@ -95,7 +82,6 @@ export default function SupplierHub() {
 
   // 저장
   const saveSup  = d => { setSuppliers(d); lsW(LS_SUP, d) }
-  const saveIqc  = d => { setIqcs(d);      lsW(LS_IQC, d) }
   const saveEval = d => { setEvals(d);      lsW(LS_EVAL, d) }
 
   // 공급업체의 "현재" 등급·상태는 가장 최근(연도→회차순) 평가 결과를 그대로 반영한다.
@@ -129,19 +115,6 @@ export default function SupplierHub() {
     setModal('eval')
   }
   const removeSup = id => { if (!confirm('삭제?')) return; saveSup(suppliers.filter(s => s.id !== id)) }
-
-  // IQC CRUD
-  const openNewIqc = (sup) => {
-    setForm({ ...emptyIqc(), supplierId: sup?.id || '', supplierName: sup?.name || '', inspector: user?.name || '' })
-    setEditId(null); setModal('iqc')
-  }
-  const submitIqc = () => {
-    if (!form.itemName) return alert('품목명 필수')
-    if (editId) saveIqc(iqcs.map(i => i.id === editId ? { ...form, id: editId } : i))
-    else saveIqc([{ ...form, id: genId('IQC'), createdAt: new Date().toISOString() }, ...iqcs])
-    setModal(null)
-  }
-  const removeIqc = id => { if (!confirm('삭제?')) return; saveIqc(iqcs.filter(i => i.id !== id)) }
 
   // 평가 CRUD
   const openNewEval = (sup) => {
@@ -201,12 +174,6 @@ export default function SupplierHub() {
     return list.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
   }, [suppliers, search, catFilter])
 
-  const filteredIqc = useMemo(() => {
-    if (!search) return iqcs
-    const q = search.toLowerCase()
-    return iqcs.filter(i => (i.supplierName + i.itemName + i.lotNo).toLowerCase().includes(q))
-  }, [iqcs, search])
-
   // 등급별 재평가 주기(policy.reevalYears)에 도달했거나 임박한(alertDaysBefore 이내) 공급업체 — 재평가 알림
   const todayStr = new Date().toISOString().slice(0, 10)
   const reevalAlerts = useMemo(() => suppliers.map(s => {
@@ -223,14 +190,11 @@ export default function SupplierHub() {
     total: suppliers.length,
     approved: suppliers.filter(s => s.status === 'approved').length,
     gradeA: suppliers.filter(s => s.grade === 'A').length,
-    iqcThis: iqcs.filter(i => i.receivedAt?.startsWith(new Date().toISOString().slice(0, 7))).length,
-    iqcFail: iqcs.filter(i => i.result === 'fail').length,
     evalDue: reevalAlerts.length,
   }
 
   const TABS = [
     { key: 'asl',  label: '승인 공급업체 목록 (ASL)', icon: Building2 },
-    { key: 'iqc',  label: '수입검사 기록 (IQC)',       icon: ClipboardCheck },
     { key: 'eval', label: '공급업체 평가',              icon: TrendingUp },
   ]
 
@@ -248,13 +212,11 @@ export default function SupplierHub() {
         />
 
         {/* KPI */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: '총 공급업체', count: stats.total,    color: '#6B7280' },
             { label: '승인 업체',   count: stats.approved, color: '#059669' },
             { label: 'A등급',       count: stats.gradeA,   color: '#2563EB' },
-            { label: '이번 달 IQC', count: stats.iqcThis,  color: '#8B5CF6' },
-            { label: 'IQC 불합격',  count: stats.iqcFail,  color: '#DC2626' },
             { label: '평가 필요',   count: stats.evalDue,  color: '#D97706' },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -312,37 +274,16 @@ export default function SupplierHub() {
               : <div className="space-y-2">
                   {filteredSup.map(s => (
                     <SupRow key={s.id} sup={s}
-                      iqcCount={iqcs.filter(i => i.supplierId === s.id).length}
                       lastEval={latestEvalOf(s.id, evals)}
                       policy={policy}
                       expanded={expanded === s.id}
                       onToggle={() => setExpanded(expanded === s.id ? null : s.id)}
                       onEdit={() => openEditSup(s)}
                       onDelete={() => removeSup(s.id)}
-                      onAddIqc={() => openNewIqc(s)}
                       onAddEval={() => openNewEval(s)}
                     />
                   ))}
                 </div>
-            }
-          </>
-        )}
-
-        {/* ── IQC 탭 ── */}
-        {tab === 'iqc' && (
-          <>
-            <div className="flex gap-3 mb-4 flex-wrap">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-[180px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-                <Search size={14} style={{ color: 'var(--ink-faint)' }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="업체명 · 품목 · LOT 검색..." className="flex-1 text-[13px] outline-none" style={{ background: 'none', border: 'none', color: 'var(--ink)' }} />
-              </div>
-              <button onClick={() => openNewIqc(null)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#8B5CF6', color: 'white', border: 'none', cursor: 'pointer' }}>
-                <Plus size={14} /> IQC 기록 추가
-              </button>
-            </div>
-            {filteredIqc.length === 0
-              ? <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}><ClipboardCheck size={40} strokeWidth={1.2} className="mx-auto mb-3 opacity-30" /><div>수입검사 기록이 없습니다</div></div>
-              : <IqcTable iqcs={filteredIqc} onRemove={removeIqc} />
             }
           </>
         )}
@@ -369,7 +310,6 @@ export default function SupplierHub() {
 
       {/* 모달들 */}
       {modal === 'supplier' && <SupForm form={form} fld={fld} editId={editId} onSubmit={submitSup} onClose={() => setModal(null)} />}
-      {modal === 'iqc'      && <IqcForm form={form} fld={fld} suppliers={suppliers} editId={editId} onSubmit={submitIqc} onClose={() => setModal(null)} />}
       {modal === 'eval'     && <EvalForm form={form} fld={fld} fldSelect={fldSelect} suppliers={suppliers} criteria={criteria} policy={policy} onSubmit={submitEval} onClose={() => setModal(null)} />}
       {modal === 'criteria' && <CriteriaManager criteria={criteria} policy={policy} onSubmit={submitCriteria} onClose={() => setModal(null)} />}
     </AppLayout>
@@ -377,7 +317,7 @@ export default function SupplierHub() {
 }
 
 // ── 공급업체 행 ───────────────────────────────────────────────
-function SupRow({ sup, iqcCount, lastEval, policy, expanded, onToggle, onEdit, onDelete, onAddIqc, onAddEval }) {
+function SupRow({ sup, lastEval, policy, expanded, onToggle, onEdit, onDelete, onAddEval }) {
   const gradeInfo = GRADES.find(g => g.value === sup.grade) || { color: '#9CA3AF', bg: '#F3F4F6' }
   const statusInfo = EVAL_STATUS[sup.status] || EVAL_STATUS.pending
   const statusColor = statusInfo.color
@@ -401,11 +341,10 @@ function SupRow({ sup, iqcCount, lastEval, policy, expanded, onToggle, onEdit, o
           </div>
           <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{sup.name}</div>
           <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>
-            {sup.items || '공급 품목 미기재'} · IQC {iqcCount}건 · 최근 심사 {lastEval ? `${lastEval.year}-${lastEval.seq || 1} (${lastEval.evaluatedAt})` : '미실시'}{nextReeval ? <span style={isOverdue ? { color: '#DC2626', fontWeight: 600 } : undefined}>{` · 차기 심사 예정 ${nextReeval}${isOverdue ? ' (기한 경과)' : ''}`}</span> : ''}
+            {sup.items || '공급 품목 미기재'} · 최근 심사 {lastEval ? `${lastEval.year}-${lastEval.seq || 1} (${lastEval.evaluatedAt})` : '미실시'}{nextReeval ? <span style={isOverdue ? { color: '#DC2626', fontWeight: 600 } : undefined}>{` · 차기 심사 예정 ${nextReeval}${isOverdue ? ' (기한 경과)' : ''}`}</span> : ''}
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={e => { e.stopPropagation(); onAddIqc() }} title="IQC 추가" className="p-1.5 rounded-lg text-[11px] font-medium" style={{ background: '#EDE9FE', color: '#7C3AED', border: 'none', cursor: 'pointer' }}>IQC</button>
           <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
           {expanded ? <ChevronUp size={16} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ink-faint)' }} />}
@@ -445,38 +384,6 @@ function SupRow({ sup, iqcCount, lastEval, policy, expanded, onToggle, onEdit, o
 }
 
 function SL({ children }) { return <div className="text-[10.5px] font-bold mb-1 mt-1" style={{ color: 'var(--ink-faint)' }}>{children}</div> }
-
-// ── IQC 테이블 ────────────────────────────────────────────────
-function IqcTable({ iqcs, onRemove }) {
-  return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-      <div className="grid gap-3 px-4 py-2.5 text-[11px] font-semibold" style={{ gridTemplateColumns: '100px 1fr 100px 80px 80px 70px 60px', color: 'var(--ink-faint)', borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
-        <span>IQC 번호</span><span>공급업체 / 품목명</span><span>LOT 번호</span><span>수량</span><span>수입일</span><span>결과</span><span className="text-right">삭제</span>
-      </div>
-      {iqcs.map((i, idx) => {
-        const res = IQC_RESULTS.find(r => r.value === i.result) || IQC_RESULTS[3]
-        return (
-          <div key={i.id} className="grid gap-3 px-4 py-3 items-center" style={{ gridTemplateColumns: '100px 1fr 100px 80px 80px 70px 60px', borderBottom: idx < iqcs.length - 1 ? '1px solid var(--line)' : 'none' }}
-            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-soft)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'none'}>
-            <span className="font-mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{i.id}</span>
-            <div>
-              <div className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>{i.supplierName || '-'}</div>
-              <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{i.itemName}</div>
-            </div>
-            <span className="font-mono text-[11px]" style={{ color: 'var(--ink-faint)' }}>{i.lotNo || '-'}</span>
-            <span className="text-[12px]" style={{ color: 'var(--ink)' }}>{i.qty || '-'}</span>
-            <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{i.receivedAt || '-'}</span>
-            <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: res.bg, color: res.color }}>{res.label}</span>
-            <div className="flex justify-end">
-              <button onClick={() => onRemove(i.id)} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={12} /></button>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
 
 // ── 평가 목록 ─────────────────────────────────────────────────
 function EvalList({ evals, suppliers, onRemove }) {
@@ -621,42 +528,6 @@ function SupForm({ form, fld, editId, onSubmit, onClose }) {
           등급 · 심사일 · 승인 상태는 여기서 입력하지 않습니다. 등록을 완료하면 바로 이어지는 업체평가(최초 심사)에서 자동으로 결정됩니다.
         </div>
       )}
-      <F label="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-    </Modal>
-  )
-}
-
-// ── 폼 모달: IQC ─────────────────────────────────────────────
-function IqcForm({ form, fld, suppliers, onSubmit, onClose }) {
-  return (
-    <Modal title="수입검사 기록 추가" onClose={onClose} onSubmit={onSubmit} submitColor="#8B5CF6" submitLabel="IQC 기록 저장">
-      <R2>
-        <F label="공급업체">
-          <select value={form.supplierId} onChange={e => {
-            const s = suppliers.find(s => s.id === e.target.value)
-            fld('supplierId', e.target.value)
-            if (s) fld('supplierName', s.name)
-          }} style={IS} className="w-full">
-            <option value="">선택...</option>
-            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
-        </F>
-        <F label="수입일"><input type="date" value={form.receivedAt} onChange={e => fld('receivedAt', e.target.value)} style={IS} className="w-full" /></F>
-      </R2>
-      <R2>
-        <F label="품목명 *"><input value={form.itemName} onChange={e => fld('itemName', e.target.value)} placeholder="예: PCB 어셈블리" style={IS} className="w-full" /></F>
-        <F label="LOT 번호"><input value={form.lotNo} onChange={e => fld('lotNo', e.target.value)} placeholder="예: LOT-2026-0001" style={IS} className="w-full" /></F>
-      </R2>
-      <R2>
-        <F label="수량"><input value={form.qty} onChange={e => fld('qty', e.target.value)} placeholder="예: 100 EA" style={IS} className="w-full" /></F>
-        <F label="검사자"><input value={form.inspector} onChange={e => fld('inspector', e.target.value)} style={IS} className="w-full" /></F>
-      </R2>
-      <F label="검사 결과">
-        <select value={form.result} onChange={e => fld('result', e.target.value)} style={IS} className="w-full">
-          {IQC_RESULTS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-        </select>
-      </F>
-      {form.result === 'fail' && <F label="불합격 사유"><textarea value={form.failReason} onChange={e => fld('failReason', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" placeholder="불합격 원인 및 처리 방법..." /></F>}
       <F label="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
     </Modal>
   )
