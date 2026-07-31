@@ -164,7 +164,7 @@ function PlanTab({ plans: allPlans, onAction, refresh }) {
             <button onClick={create} disabled={yearTaken} className="btn-primary text-[12.5px] mt-5" style={yearTaken ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}><Plus size={13} /> 연간계획 생성</button>
           </div>
           {yearTaken && (
-            <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--rust)' }}>{newYear}텄 계획이 이미 존재합니다. 다른 연도를 입력하세요.</div>
+            <div className="text-[11.5px] mt-1.5" style={{ color: 'var(--rust)' }}>{newYear}년 계획이 이미 존재합니다. 다른 연도를 입력하세요.</div>
           )}
         </div>
       )}
@@ -431,7 +431,7 @@ function SessionDetailPanel({ session, canEdit, onAction, onDelete, refresh }) {
     <div className="space-y-4">
       <div className="card-base p-4">
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)" }}>{session.topic}</div>
+          <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{session.topic}</div>
           {canEdit && <button onClick={onDelete} className="text-[12px] inline-flex items-center gap-1" style={{ color: 'var(--rust)' }}><Trash2 size={13} /> 삭제</button>}
         </div>
         <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>일시 {session.date || '—'} · 강사 {session.instructor || '—'} · 평가방법 {session.evaluationMethod || '—'}</div>
@@ -460,7 +460,7 @@ function SessionDetailPanel({ session, canEdit, onAction, onDelete, refresh }) {
           <div className="space-y-1.5">
             {(session.attachments || []).map((a) => (
               <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-                <button onClick={() => openAttachment(a.fileId)} className="inline-flex items-center gap-1.5 text-[12.5px] min-w-0" style={{ color: 'var(--ink)" }}>
+                <button onClick={() => openAttachment(a.fileId)} className="inline-flex items-center gap-1.5 text-[12.5px] min-w-0" style={{ color: 'var(--ink)' }}>
                   <Download size={12} style={{ color: 'var(--moss)' }} /> <span className="truncate">{a.fileName}</span>
                 </button>
                 {canEdit && <button onClick={() => removeAttachment(a.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={13} /></button>}
@@ -486,7 +486,7 @@ function SessionDetailPanel({ session, canEdit, onAction, onDelete, refresh }) {
         <div className="space-y-1.5">
           {session.attendees.map((a) => (
             <div key={a.id} className="flex items-center justify-between p-2.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
-              <div className="text-[12.5px]" style={{ color: 'var(--ink)" }}>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
                 {a.name} <span style={{ color: 'var(--ink-faint)' }}>· {a.dept || '부서 미기록'} · {a.score || '—'}</span>
               </div>
               <div className="flex items-center gap-2">
