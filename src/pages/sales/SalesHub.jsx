@@ -6,7 +6,6 @@ import {
   ShoppingCart,
   ClipboardList,
   FileText,
-  MessageSquare,
   Truck,
   BarChart2,
   Plus,
@@ -233,11 +232,14 @@ const INIT_QUOTES = [
   { id:'QT-2406-005', customer:'삼성의료기기㈜', items:'BPL 시리즈 정기계약', date:'24-06-10', validUntil:'24-07-10', amount:'82000000', status:'협의중' },
   { id:'QT-2406-003', customer:'부산척추클리닉', items:'SCS M3.5×22mm 200EA', date:'24-05-28', validUntil:'24-06-28', amount:'4200000', status:'수주확정' },
 ]
-const INIT_COMPLAINTS = [
-  { id:'CMP-2406-003', date:'24-06-18', customer:'한국외과의원', content:'포장 파손 — 멸균 유효성 우려', severity:'중요', deadline:'24-06-25', capa:'CA-2406-006', status:'조치중' },
-  { id:'CMP-2406-002', date:'24-06-05', customer:'서울대학병원구매팀', content:'제품 치수 편차 — 나사 체결 불량', severity:'심각', deadline:'24-06-19', capa:'CA-2406-004', status:'CAPA완료' },
-  { id:'CMP-2406-001', date:'24-05-22', customer:'삼성의료기기㈜', content:'UDI 라벨 인쇄 오류', severity:'경미', deadline:'24-06-05', capa:'CA-2406-001', status:'종결' },
-]
+// 고객불만은 별도 메뉴(고객불만관리 / ComplaintHub.jsx, localStorage 'qualytree.complaints')에서 단일 관리한다.
+// 이 화면(영업)에서는 통계 카드에서만 그 데이터를 읽기 전용으로 참조한다 (§7.2 — 중복 입력 방지).
+function realComplaintsList() {
+  try { return JSON.parse(localStorage.getItem('qualytree.complaints') || '[]') } catch { return [] }
+}
+function realComplaintsOpenCount() {
+  return realComplaintsList().filter(c => !['closed', 'rejected'].includes(c.status)).length
+}
 const INIT_DELIVERIES = [
   { id:'DL-2406-008', so:'SO-2406-008', customer:'부산척추클리닉', items:'BPL 4㎖ 50EA', date:'24-06-20', lot:'LOT-2406-045', udi:'08806526001234', status:'납품완료' },
   { id:'DL-2406-007', so:'SO-2406-005', customer:'삼성의료기기㈜', items:'SCS M3.5×24mm 100EA', date:'24-06-14', lot:'LOT-2406-043', udi:'08806526001187', status:'납품완료' },
@@ -942,125 +944,6 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
 }
 
 /* ─── 고객 불만 ─── */
-function ComplaintsView({ complaints, setComplaints, openId }) {
-  const [modal, setModal] = useState(null)
-  const [edit, setEdit] = useState(null)
-  const [srch, setSrch] = useState('')
-  useEffect(() => {
-    if (openId) { const item = complaints.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
-  }, [openId])
-  const statusOpts = ['접수','조사중','조치중','CAPA완료','종결']
-  const init = { id:'', date:new Date().toISOString().slice(0,10), customer:'', content:'', severity:'중요', deadline:'', capa:'', status:'접수' }
-
-  const save = (f) => {
-    if (edit) { setComplaints(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setComplaints(p=>[...p, { ...init, ...f, id:nid('CMP') }]) }
-    setModal(null)
-  }
-  const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setComplaints(p=>p.filter(x=>x.id!==id)) }
-  const open = complaints.filter(c=>c.status!=='종결')
-  const shown = srch
-    ? complaints.filter(c=>[c.id,c.customer,c.content,c.severity,c.status,c.capa].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
-    : complaints
-
-  return (
-    <div>
-      <SectionTitle breadcrumb="고객 불만">고객 불만 관리</SectionTitle>
-      {open.length > 0 && (
-        <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{ background:'var(--rust-soft)', border:'1px solid var(--rust)' }}>
-          <AlertTriangle size={14} style={{ color:'var(--rust)', marginTop:2, flexShrink:0 }}/>
-          <div className="text-[12.5px]" style={{ color:'var(--rust)' }}>
-            <b>미결 고객불만 {open.length}건</b> — CAPA 조치 기한 내 완료 필요 (ISO 13485 §8.2.1)
-          </div>
-        </div>
-      )}
-      <div className="rounded-xl p-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{ color:'var(--ink-faint)' }}>고객불만 목록 — {complaints.length}건</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
-            style={{ background:'var(--rust)', color:'white' }}>
-            <Plus size={13}/> 불만 접수
-          </button>
-        </div>
-        <div className="flex items-center gap-2 mb-3">
-          <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
-            style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
-            placeholder="불만번호 · 고객사 · 내용 · CAPA번호 검색..."
-            value={srch} onChange={e=>setSrch(e.target.value)}/>
-          {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
-        </div>
-        <div className="space-y-3">
-          {shown.length===0?<EmptyCard msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(c=>(
-      <div key={c.id} className="p-3 rounded-xl" style={{ border:'1px solid var(--line)', background:'var(--bg)' }}>
-              <div className="flex items-start gap-3 flex-wrap justify-between mb-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-[11.5px] font-medium" style={{ color:'var(--rust)' }}>{c.id}</span>
-                  <span className="text-[11px]" style={{ color:'var(--ink-faint)' }}>{c.date}</span>
-                  <Badge text={c.customer} tone="gray"/>
-                  <Badge text={c.severity} tone={c.severity==='심각'?'red':c.severity==='중요'?'amber':'gray'}/>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusSelect value={c.status} options={statusOpts}
-                    onChange={v=>setComplaints(p=>p.map(x=>x.id===c.id?{...x,status:v}:x))}/>
-                  <ActBtn label="수정" onClick={()=>{setEdit(c);setModal('form')}}/>
-                  <ActBtn label="삭제" color="red" onClick={()=>del(c.id)}/>
-                </div>
-              </div>
-              <div className="text-[13px]" style={{ color:'var(--ink)' }}>{c.content}</div>
-              <div className="mt-1.5 flex items-center gap-3 text-[11.5px]" style={{ color:'var(--ink-mute)' }}>
-                {c.capa && <span>CAPA: <span className="font-mono" style={{ color:'var(--moss)' }}>{c.capa}</span></span>}
-                {c.deadline && <span>조치기한: {c.deadline}</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      {modal==='form' && (
-        <Modal title={edit?'불만 수정':'고객불만 접수'} onClose={()=>{setModal(null);setEdit(null)}}>
-          <ComplaintForm initial={edit||init} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
-        </Modal>
-      )}
-    </div>
-  )
-}
-function ComplaintForm({ initial, onSave, onCancel, statusOpts }) {
-  const [f, sf] = useState(initial)
-  const set = k => e => sf(p=>({...p,[k]:e.target.value}))
-  return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="고객사 *"><input style={inp} value={f.customer} onChange={set('customer')} placeholder="고객사명"/></FL>
-        <FL label="접수일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
-        <FL label="심각도">
-          <select style={sel} value={f.severity} onChange={set('severity')}>
-            {['경미','중요','심각'].map(o=><option key={o}>{o}</option>)}
-          </select>
-        </FL>
-        <FL label="상태">
-          <select style={sel} value={f.status} onChange={set('status')}>
-            {statusOpts.map(o=><option key={o}>{o}</option>)}
-          </select>
-        </FL>
-      </div>
-      <FL label="불만 내용 *">
-        <textarea style={{...inp,minHeight:'72px',resize:'vertical'}} value={f.content} onChange={set('content')} placeholder="불만 사항을 자세히 기입하세요"/>
-      </FL>
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="조치 기한"><input style={inp} type="date" value={f.deadline} onChange={set('deadline')}/></FL>
-        <FL label="CAPA 번호"><input style={inp} value={f.capa} onChange={set('capa')} placeholder="CA-XXXX-XXX"/></FL>
-      </div>
-      <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
-      <div className="flex gap-2 pt-2">
-        <SBtn onClick={()=>f.customer&&f.content&&onSave(f)}>{initial.customer?'수정 저장':'접수 등록'}</SBtn>
-        <SBtn onClick={onCancel} secondary>취소</SBtn>
-      </div>
-    </div>
-  )
-}
-
-/* UDI 전체 표시(DI+PI) — GS1 HRI 표기 규칙(예: (01)DI(10)LOT)을 따라 DI(udi)와 PI(LOT 등)를 합쳐서 보여준다.
-   실제 저장은 지금처럼 DI(udi)·LOT(lot)를 각각의 필드로 유지하고, 표시할 때만 합성한다. */
 function fullUdiDisplay(d) {
   if (!d.udi) return '-'
   const parts = [`(01)${d.udi}`]
@@ -1349,7 +1232,8 @@ function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
 }
 
 /* ─── 영업 실적 (읽기 전용 요약) ─── */
-function PerformanceView({ orders, deliveries, complaints }) {
+function PerformanceView({ orders, deliveries }) {
+  const complaints = realComplaintsList()
   const months = ['1월','2월','3월','4월','5월','6월']
   const total = orders.reduce((a,o)=>a+(Number(o.amount)||0),0)
   return (
@@ -1526,15 +1410,14 @@ function MarketResForm({ init, onSave }) {
   )
 }
 
-function SalesHome({ customers, orders, complaints, deliveries, prodReqs, onNavigate }) {
+function SalesHome({ customers, orders, deliveries, prodReqs, onNavigate }) {
   const active = orders.filter(o=>!['납품완료','취소'].includes(o.status)).length
   const [mktItems] = useLS('qms_sal_mktres', [])
-  const openCmp = complaints.filter(c=>c.status!=='종결').length
+  const openCmp = realComplaintsOpenCount()
   const CARDS = [
     { id:'customers', icon:Users, label:'고객사 관리', desc:'고객사 등록 · 등급 · 담당자 · 수주이력', count:`${customers.length}개사` },
     { id:'orders', icon:ClipboardList, label:'수주 관리', desc:'수주 목록 · WO 연동 · 상태 추적', count:`${active}건 진행중` },
     { id:'quotes', icon:FileText, label:'견적 관리', desc:'견적서 작성 · 발송 · 수주 전환', count:`${INIT_QUOTES.length}건` },
-    { id:'complaints', icon:MessageSquare, label:'고객 불만', desc:'고객불만 접수 · CAPA 연동 · 종결 관리', count:`${openCmp}건 미결`, warn:openCmp>0 },
     { id:'delivery', icon:Truck, label:'납품 이력', desc:'납품 완료 · UDI·Lot 추적 · 증빙 관리', count:`${deliveries.length}건` },
     { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'prod-req', icon:ShoppingCart, label:'생산 요청', desc:'수주 기반 생산 요청 발행 · WO 연동', count:`${prodReqs.length}건` },
@@ -1596,24 +1479,22 @@ export default function SalesHub() {
   const [customers, setCustomers] = useLS('qms_sal_customers', INIT_CUSTOMERS)
   const [orders, setOrders] = useLS('qms_sal_orders', INIT_ORDERS)
   const [quotes, setQuotes] = useLS('qms_sal_quotes', INIT_QUOTES)
-  const [complaints, setComplaints] = useLS('qms_sal_complaints', INIT_COMPLAINTS)
   const [deliveries, setDeliveries] = useLS('qms_sal_deliveries', INIT_DELIVERIES)
   const [prodReqs, setProdReqs] = useLS('qms_sal_prodreqs', INIT_PRODREQS)
 
   const tabLabels = {
     customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
-    complaints:'고객 불만', delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'고객요구',
+    delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'고객요구',
   }
 
   const viewMap = {
-    home: <SalesHome customers={customers} orders={orders} complaints={complaints}
+    home: <SalesHome customers={customers} orders={orders}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
     orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView}/>,
     quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers} orders={orders} setOrders={setOrders} onNavigate={setView}/>,
-    complaints: <ComplaintsView complaints={complaints} setComplaints={setComplaints} openId={editId}/>,
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
-    performance: <PerformanceView orders={orders} deliveries={deliveries} complaints={complaints}/>,
+    performance: <PerformanceView orders={orders} deliveries={deliveries}/>,
     'prod-req': <ProdRequestView prodReqs={prodReqs} setProdReqs={setProdReqs} orders={orders} onNavigate={setView}/>,
     'market': <MarketResView />,
   }
