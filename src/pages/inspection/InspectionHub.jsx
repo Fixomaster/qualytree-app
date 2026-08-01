@@ -32,6 +32,23 @@ const VERDICTS = [
 
 const PROCESS_STEPS = ['원자재 입고', '절단/가공', '성형/조립', '용접/접합', '표면처리', '검교정', '포장', '최종검사', '출하']
 
+// 표준 검사기준서가 없는 제품에 적용할 기본 최종검사 항목
+const DEFAULT_FQC_CHECKLIST = ['외관 검사', '치수/규격 확인', '기능 동작 시험', '표시사항(라벨) 확인', '포장 상태 확인']
+
+// 검사 항목 판정 상태(구버전 boolean 값과 신버전 3단계 문자열 값을 모두 지원)
+function ciState(ci) {
+  if (ci.ok === true || ci.ok === 'true' || ci.ok === 'pass') return 'pass'
+  if (ci.ok === false || ci.ok === 'false' || ci.ok === 'fail') return 'fail'
+  if (ci.ok === 'conditional') return 'conditional'
+  return null
+}
+function loadWos() {
+  try { return JSON.parse(localStorage.getItem('qms_mfg_wo') || '[]') } catch { return [] }
+}
+function loadProcRecords() {
+  try { return JSON.parse(localStorage.getItem('qms_mfg_proc') || '[]') } catch { return [] }
+}
+
 const emptyForm = () => ({
   inspType: 'ipc', productName: '', productCode: '', lotNo: '', woId: '',
   sampleSize: '', inspectedQty: '', defectQty: '',
@@ -61,6 +78,35 @@ export default function InspectionHub() {
   const goToProduct  = (productId) => navigate('/products?tab=product&productId=' + encodeURIComponent(productId) + '&detailTab=info')
   const goToProducts = () => navigate('/products?tab=product')
 
+  // 생산 완료 → 최종검사 대기 목록 (WO 상태가 '완료'이고 아직 최종검사 기록이 없는 작업지시)
+  const wos = useMemo(() => loadWos(), [])
+  const procRecords = useMemo(() => loadProcRecords(), [])
+  const waitingWos = useMemo(
+    () => wos.filter(w => w.status === '완료' && !records.some(r => r.woId === w.id)),
+    [wos, records]
+  )
+
+  function openFinal(w) {
+    const std = standards.find(s => (s.productName || '').trim() === (w.product || '').trim())
+    const items = std && (std.checkItems || []).length
+      ? std.checkItems.map(ci => ({ name: ci.name, spec: ci.spec, result: '', ok: null }))
+      : DEFAULT_FQC_CHECKLIST.map(name => ({ name, spec: '', result: '', ok: null }))
+    setForm({
+      ...emptyForm(),
+      inspType: 'fqc',
+      productName: w.product,
+      productCode: std?.productCode || '',
+      woId: w.id,
+      inspDate: new Date().toISOString().slice(0, 10),
+      inspector: user?.name || '',
+      processStep: '최종검사',
+      standardId: std?.id || '',
+      checkItems: items,
+    })
+    setEditId(null)
+    setShowForm(true)
+  }
+
   const saveRec = d => { setRecords(d); lsW(LS_INS, d) }
 
   const openNew      = () => { setForm(emptyForm()); setEditId(null); setShowForm(true) }
@@ -73,10 +119,13 @@ export default function InspectionHub() {
   const updCheckItem  = (i, k, v) => setForm(f => {
     const items = [...(f.checkItems || [])]
     items[i] = { ...items[i], [k]: v }
-    // 전체 합/불 자동 판정
-    const allDone = items.every(it => it.ok !== null && it.ok !== undefined && it.ok !== '')
-    const anyFail = items.some(it => it.ok === false || it.ok === 'false')
-    return { ...f, checkItems: items, verdict: allDone ? (anyFail ? 'fail' : 'pass') : f.verdict }
+    // 전체 항목 입력값에 따라 합격/조건부합격/불합격/판정대기 자동 산출 (#229)
+    const states = items.map(ciState)
+    const allDone = items.length > 0 && states.every(s => s !== null)
+    const anyFail = states.some(s => s === 'fail')
+    const anyCond = states.some(s => s === 'conditional')
+    const verdict = allDone ? (anyFail ? 'fail' : anyCond ? 'conditional' : 'pass') : 'pending'
+    return { ...f, checkItems: items, verdict }
   })
   const delCheckItem  = i => setForm(f => { const c = [...(f.checkItems||[])]; c.splice(i,1); return { ...f, checkItems: c } })
 
@@ -118,6 +167,7 @@ export default function InspectionHub() {
   const fails    = records.filter(r => r.verdict === 'fail')
   const pending  = records.filter(r => r.verdict === 'pending').length
   const failedNoNcr = fails.filter(r => !r.ncrId).length
+  const conditionals = records.filter(r => r.verdict === 'conditional')
 
   const TABS = [
     { key: 'records',    label: '검사 기록',   icon: ClipboardList },
@@ -139,13 +189,21 @@ export default function InspectionHub() {
           </div>
         )}
 
+        {conditionals.length > 0 && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-5" style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
+            <AlertTriangle size={14} style={{ color: '#D97706' }} />
+            <span className="text-[13px] font-semibold" style={{ color: '#92400E' }}>
+              조건부합격 {conditionals.length}건 — 품질책임자 확인 및 조건 이행 필요
+            </span>
+          </div>
+        )}
+
         <HubBanner
           title="검사 관리"
           subtitle="ISO 13485 §8.2.3/§8.2.4 · 공정검사 · 최종검사 · 합격판정 · 검사 기록 유지"
           icon={ClipboardCheck}
           color="#0EA5E9"
-          quickActions={[{ label: '검사 기록 추가', icon: Plus, onClick: openNew, primary: true }]}
-          workflow={['수입검사', '공정검사', '최종검사', '합격/불합격 판정', '기록 보관', '출하 승인']}
+          workflow={['생산 완료', '최종검사 대기', '검사 진행', '합격/불합격/조건부 판정', '기록 보관', '출하 승인']}
         />
 
         {/* KPI */}
@@ -178,6 +236,26 @@ export default function InspectionHub() {
         {/* ── 검사 기록 탭 ── */}
         {tab === 'records' && (
           <>
+            {waitingWos.length > 0 && (
+              <div className="mb-5">
+                <div className="text-[12px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--ink-soft)' }}>
+                  <BadgeCheck size={13} style={{ color: '#059669' }} /> 최종검사 대기 ({waitingWos.length}) — 생산이 완료된 작업지시입니다. 클릭하여 검사를 시작하세요.
+                </div>
+                <div className="space-y-2">
+                  {waitingWos.map(w => (
+                    <div key={w.id} onClick={() => openFinal(w)} className="flex items-center justify-between gap-3 p-3 rounded-xl cursor-pointer transition"
+                      style={{ background: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                      <div>
+                        <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>{w.product}</div>
+                        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{w.id} · 수량 {w.qty} · 완료일 {w.dueDate || '-'}</div>
+                      </div>
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-full flex-shrink-0" style={{ background: '#059669', color: '#fff' }}>검사 시작 →</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 mb-4 flex-wrap">
               <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-[180px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <Search size={14} style={{ color: 'var(--ink-faint)' }} />
@@ -191,13 +269,10 @@ export default function InspectionHub() {
                 <option value="all">전체 판정</option>
                 {VERDICTS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
               </select>
-              <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-                <Plus size={14} /> 검사 기록 추가
-              </button>
             </div>
 
             {filtered.length === 0
-              ? <InsEmpty onAdd={openNew} />
+              ? <InsEmpty />
               : <div className="space-y-2">
                   {filtered.map(r => (
                     <InsRow key={r.id} record={r} standards={standards}
@@ -213,7 +288,7 @@ export default function InspectionHub() {
         )}
 
         {/* ── 현황 분석 탭 ── */}
-        {tab === 'analysis' && <InsAnalysis records={records} />}
+        {tab === 'analysis' && <InsAnalysis records={records} procRecords={procRecords} />}
 
         {/* ── 검사 기준서 탭 ── */}
         {tab === 'standards' && (
@@ -223,9 +298,8 @@ export default function InspectionHub() {
       </div>
 
       {showForm && (
-        <InsForm form={form} fld={fld}
-          addCheckItem={addCheckItem} updCheckItem={updCheckItem} delCheckItem={delCheckItem}
-          editId={editId} standards={standards} applyStandard={applyStandard}
+        <InsForm form={form} fld={fld} updCheckItem={updCheckItem}
+          editId={editId} standards={standards}
           user={user} onSubmit={submitRec} onClose={() => setShowForm(false)} />
       )}
     </AppLayout>
@@ -239,7 +313,7 @@ function InsRow({ record: r, standards, expanded, onToggle, onEdit, onDelete }) 
   const VIcon = vd.icon
   const ITIcon = it.icon
   const std = standards?.find(s => s.id === r.standardId)
-  const passItems = (r.checkItems || []).filter(c => c.ok === true || c.ok === 'true').length
+  const passItems = (r.checkItems || []).filter(c => ciState(c) === 'pass').length
   const totalItems = (r.checkItems || []).length
 
   return (
@@ -296,13 +370,13 @@ function InsRow({ record: r, standards, expanded, onToggle, onEdit, onDelete }) 
             {(r.checkItems || []).length === 0 && <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>항목 없음</div>}
             <div className="space-y-1">
               {(r.checkItems || []).map((ci, i) => {
-                const ok = ci.ok === true || ci.ok === 'true'
-                const ng = ci.ok === false || ci.ok === 'false'
+                const st = ciState(ci)
+                const bg = st === 'pass' ? '#D1FAE5' : st === 'fail' ? '#FEE2E2' : st === 'conditional' ? '#FEF3C7' : 'var(--bg-soft)'
+                const color = st === 'pass' ? '#059669' : st === 'fail' ? '#DC2626' : st === 'conditional' ? '#D97706' : '#9CA3AF'
+                const mark = st === 'pass' ? '✓' : st === 'fail' ? '✗' : st === 'conditional' ? '△' : '○'
                 return (
-                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: ok ? '#D1FAE5' : ng ? '#FEE2E2' : 'var(--bg-soft)' }}>
-                    <span style={{ color: ok ? '#059669' : ng ? '#DC2626' : '#9CA3AF', fontSize: 13 }}>
-                      {ok ? '✓' : ng ? '✗' : '○'}
-                    </span>
+                  <div key={i} className="flex items-center gap-2 p-1.5 rounded-lg" style={{ background: bg }}>
+                    <span style={{ color, fontSize: 13 }}>{mark}</span>
                     <span className="text-[12px] flex-1" style={{ color: 'var(--ink)' }}>{ci.name}</span>
                     <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{ci.result || ci.spec}</span>
                   </div>
@@ -335,13 +409,24 @@ function InsRow({ record: r, standards, expanded, onToggle, onEdit, onDelete }) 
 }
 
 // ── 현황 분석 ─────────────────────────────────────────────────
-function InsAnalysis({ records }) {
-  const byType = INSP_TYPES.map(t => ({
-    ...t,
-    total: records.filter(r => r.inspType === t.value).length,
-    pass:  records.filter(r => r.inspType === t.value && r.verdict === 'pass').length,
-    fail:  records.filter(r => r.inspType === t.value && r.verdict === 'fail').length,
-  }))
+function InsAnalysis({ records, procRecords }) {
+  // 공정 중 검사(IPC)는 생산현황의 공정기록에서 직접 판정되므로(#231), 현황 분석에서도
+  // 공정기록 데이터를 함께 집계하여 유형별 검사 현황에 반영한다.
+  const ipcTotal = (procRecords || []).length
+  const ipcPass  = (procRecords || []).filter(p => p.result === '합격').length
+  const ipcFail  = (procRecords || []).filter(p => p.result === '불합격').length
+
+  const byType = INSP_TYPES.map(t => {
+    if (t.value === 'ipc') {
+      return { ...t, total: ipcTotal, pass: ipcPass, fail: ipcFail }
+    }
+    return {
+      ...t,
+      total: records.filter(r => r.inspType === t.value).length,
+      pass:  records.filter(r => r.inspType === t.value && r.verdict === 'pass').length,
+      fail:  records.filter(r => r.inspType === t.value && r.verdict === 'fail').length,
+    }
+  })
 
   // 월별 불량률
   const monthly = {}
@@ -547,95 +632,61 @@ function StdDetailModal({ std, onGoToProduct, onClose }) {
 }
 
 // ── 검사 기록 폼 ──────────────────────────────────────────────
-function InsForm({ form, fld, addCheckItem, updCheckItem, delCheckItem, editId, standards, applyStandard, user, onSubmit, onClose }) {
+function InsForm({ form, fld, updCheckItem, editId, standards, user, onSubmit, onClose }) {
+  const std = standards.find(s => s.id === form.standardId)
+  const vd = VERDICTS.find(v => v.value === form.verdict) || VERDICTS[3]
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }} onClick={onClose}>
       <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 720, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28 }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? '검사 기록 수정' : '검사 기록 추가'}</div>
+          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? '최종검사 기록 수정' : '최종검사 진행'}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><X size={20} /></button>
         </div>
 
         <div className="space-y-3">
-          <R2>
-            <F l="검사 유형">
-              <select value={form.inspType} onChange={e => fld('inspType', e.target.value)} style={IS} className="w-full">
-                {INSP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </F>
-            <F l="검사 기준서 적용">
-              <select value={form.standardId} onChange={e => { fld('standardId', e.target.value); if (e.target.value) applyStandard(e.target.value) }} style={IS} className="w-full">
-                <option value="">기준서 미적용</option>
-                {standards.map(s => <option key={s.id} value={s.id}>{s.name} (v{s.version})</option>)}
-              </select>
-            </F>
-          </R2>
-          <R2>
-            <F l="제품명 *"><input value={form.productName} onChange={e => fld('productName', e.target.value)} placeholder="제품명" style={IS} className="w-full" /></F>
-            <F l="제품 코드"><input value={form.productCode} onChange={e => fld('productCode', e.target.value)} placeholder="예: MD-001" style={IS} className="w-full" /></F>
-          </R2>
-          <R2>
-            <F l="LOT 번호"><input value={form.lotNo} onChange={e => fld('lotNo', e.target.value)} placeholder="LOT-2026-001" style={IS} className="w-full" /></F>
-            <F l="연결 작업지시(WO)"><input value={form.woId} onChange={e => fld('woId', e.target.value)} placeholder="WO-2026-00001" style={IS} className="w-full" /></F>
-          </R2>
-          <R2>
-            <F l="검사일"><input type="date" value={form.inspDate} onChange={e => fld('inspDate', e.target.value)} style={IS} className="w-full" /></F>
-            <F l="검사자 *"><input value={form.inspector} onChange={e => fld('inspector', e.target.value)} placeholder={user?.name || '검사자 이름'} style={IS} className="w-full" /></F>
-          </R2>
-          <R2>
-            <F l="공정 단계">
-              <select value={form.processStep} onChange={e => fld('processStep', e.target.value)} style={IS} className="w-full">
-                <option value="">선택 안 함</option>
-                {PROCESS_STEPS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </F>
-            <div className="grid grid-cols-2 gap-2">
-              <F l="검사 수량"><input value={form.inspectedQty} onChange={e => fld('inspectedQty', e.target.value)} placeholder="100" style={IS} className="w-full" type="number" /></F>
-              <F l="불량 수량"><input value={form.defectQty} onChange={e => fld('defectQty', e.target.value)} placeholder="0" style={IS} className="w-full" type="number" /></F>
-            </div>
-          </R2>
+          {/* 제품·로트·검사자 정보 — 작업지시(WO) 클릭 시 자동 반영, 수정 불가 (#225,#226,#227) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
+            <IR k="제품명" v={form.productName} />
+            <IR k="제품 코드" v={form.productCode} />
+            <IR k="연결 작업지시" v={form.woId} />
+            <IR k="공정 단계" v={form.processStep || '최종검사'} />
+            <IR k="검사일" v={form.inspDate} />
+            <IR k="검사자" v={form.inspector || user?.name} />
+            <IR k="적용 기준서" v={std ? `${std.name} (v${std.version})` : '기본 최종검사 항목'} />
+          </div>
 
-          {/* 검사 항목 */}
+          {/* 검사 항목 — 검사기준서(SSoT)로 자동 생성, 결과 입력만 가능 (#224,#228) */}
           <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[12px] font-bold" style={{ color: 'var(--ink-soft)' }}>검사 항목</div>
-              <button type="button" onClick={addCheckItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#DBEAFE', color: '#2563EB', border: 'none', cursor: 'pointer' }}>+ 항목 추가</button>
-            </div>
-            {(form.checkItems || []).length === 0 && (
-              <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)', background: 'var(--bg-soft)', borderRadius: 8 }}>검사 기준서를 적용하거나 항목을 직접 추가하세요</div>
-            )}
+            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>검사 항목 ({(form.checkItems || []).length}개)</div>
             <div className="space-y-2">
               {(form.checkItems || []).map((ci, i) => (
-                <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 80px 32px' }}>
-                  <input value={ci.name} onChange={e => updCheckItem(i, 'name', e.target.value)} placeholder="검사 항목명" style={{ ...IS, fontSize: 12 }} />
+                <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 96px' }}>
+                  <div className="text-[12.5px] px-1" style={{ color: 'var(--ink)' }}>{ci.name}</div>
                   <input value={ci.result} onChange={e => updCheckItem(i, 'result', e.target.value)} placeholder="측정값 / 기준치" style={{ ...IS, fontSize: 12 }} />
-                  <select value={ci.ok === null || ci.ok === undefined || ci.ok === '' ? '' : String(ci.ok)} onChange={e => updCheckItem(i, 'ok', e.target.value === '' ? null : e.target.value === 'true')} style={{ ...IS, fontSize: 12 }}>
+                  <select value={ci.ok === null || ci.ok === undefined || ci.ok === '' ? '' : ciState(ci) || ''} onChange={e => updCheckItem(i, 'ok', e.target.value === '' ? null : e.target.value)} style={{ ...IS, fontSize: 12 }}>
                     <option value="">-</option>
-                    <option value="true">합격</option>
-                    <option value="false">불합격</option>
+                    <option value="pass">합격</option>
+                    <option value="conditional">조건부</option>
+                    <option value="fail">불합격</option>
                   </select>
-                  <button type="button" onClick={() => delCheckItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><X size={12} /></button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 판정 */}
+          {/* 판정 — 검사 항목 결과에 따라 자동 산출 (#229) */}
           <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>최종 판정</div>
+            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>최종 판정 (자동)</div>
+            <div className="p-3 rounded-xl flex items-center gap-2" style={{ background: vd.bg }}>
+              <vd.icon size={16} style={{ color: vd.color }} />
+              <span className="text-[14px] font-bold" style={{ color: vd.color }}>{form.verdict === 'pending' ? '검사 항목 입력 대기' : vd.label}</span>
+            </div>
           </div>
-          <R2>
-            <F l="판정 결과">
-              <select value={form.verdict} onChange={e => fld('verdict', e.target.value)} style={{ ...IS, fontWeight: 600, color: VERDICTS.find(v=>v.value===form.verdict)?.color || '#374151' }} className="w-full">
-                {VERDICTS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-              </select>
-            </F>
-            {form.verdict === 'fail' && (
-              <F l="연결 NCR ID"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="NCR-2026-00001" style={IS} className="w-full" /></F>
-            )}
-          </R2>
+          {form.verdict === 'fail' && (
+            <F l="연결 NCR ID"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="NCR-2026-00001" style={IS} className="w-full" /></F>
+          )}
           {form.verdict === 'conditional' && (
-            <F l="조건부 합격 조건"><textarea value={form.conditionNote} onChange={e => fld('conditionNote', e.target.value)} rows={2} placeholder="허용 조건 및 후속 조치..." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+            <F l="조건부 합격 조건 (품질책임자 확인 필요)"><textarea value={form.conditionNote} onChange={e => fld('conditionNote', e.target.value)} rows={2} placeholder="허용 조건 및 후속 조치..." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
           )}
           <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
         </div>
@@ -643,7 +694,7 @@ function InsForm({ form, fld, addCheckItem, updCheckItem, delCheckItem, editId, 
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
           <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-            {editId ? '수정 저장' : '검사 기록 등록'}
+            {editId ? '수정 저장' : '검사 결과 저장'}
           </button>
         </div>
       </div>
@@ -671,15 +722,12 @@ function F({ l, children }) {
 }
 const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none' }
 
-function InsEmpty({ onAdd }) {
+function InsEmpty() {
   return (
     <div className="flex flex-col items-center py-20 text-center">
       <Microscope size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#2563EB' }} />
       <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>검사 기록 없음</div>
-      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>공정 중 검사·최종 검사 결과를 기록하고 합격률을 추적하세요</div>
-      <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-        <Plus size={15} /> 첫 번째 검사 기록 추가
-      </button>
+      <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>생산에서 작업지시가 완료되면 이곳에 최종검사 대기 항목이 자동으로 표시됩니다.</div>
     </div>
   )
 }
