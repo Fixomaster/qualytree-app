@@ -88,8 +88,9 @@ const emptyForm = () => ({
 })
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ValidationHub() {
+export default function ValidationHub({ embedded = false, role = 'production' } = {}) {
   const user = auth.current()
+  const canRequest = role === 'quality'
   const [records, setRecords] = useState(() => lsR())
   const [tab, setTab]     = useState('list')
   const [search, setSearch]       = useState('')
@@ -156,15 +157,16 @@ export default function ValidationHub() {
   const overdue       = revalDue.filter(r => daysDiff(r.nextRevalDate) < 0)
   const inProgress    = records.filter(r => ['iq','oq','pq'].includes(r.status)).length
 
-  const TABS = [
+  const TABS = canRequest ? [
     { key: 'list',     label: '밸리데이션 목록', icon: FlaskConical },
     { key: 'schedule', label: '재밸리데이션 일정', icon: CalendarClock },
     { key: 'analysis', label: '현황 분석',       icon: BarChart2 },
+  ] : [
+    { key: 'list',     label: '밸리데이션 실행 목록', icon: FlaskConical },
   ]
 
-  return (
-    <AppLayout user={user} title="공정 유효성 확인" subtitle="ISO 13485 §7.5.6 · VMP · IQ/OQ/PQ · 재밸리데이션 일정 관리">
-      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+  const body = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
 
         {/* 긴급 알림 */}
         {overdue.length > 0 && (
@@ -184,14 +186,25 @@ export default function ValidationHub() {
           </div>
         )}
 
-        <HubBanner
-          title="공정 유효성 확인"
-          subtitle="ISO 13485 §7.5.6 · IQ/OQ/PQ 공정 밸리데이션 · 재검증 주기 관리"
-          icon={FlaskConical}
-          color="#7C3AED"
-          quickActions={[{ label: '검증 프로젝트 등록', icon: Plus, onClick: openNew, primary: true }]}
-          workflow={['검증 계획', '프로토콜 작성', 'IQ/OQ/PQ', '결과 검토', '보고서 승인', '주기적 재검증']}
-        />
+        {!canRequest && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-5" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+            <FlaskConical size={14} style={{ color: '#2563EB' }} />
+            <span className="text-[12.5px]" style={{ color: '#1E40AF' }}>
+              새 밸리데이션 요청 등록·재밸리데이션 일정·현황 분석은 품질·검사 &gt; NCR·부적합 화면의 "밸리데이션" 탭에서 관리합니다. 이 화면에서는 품질에서 요청한 항목의 IQ/OQ/PQ 실행 결과만 입력합니다.
+            </span>
+          </div>
+        )}
+
+        {!embedded && (
+          <HubBanner
+            title="공정 유효성 확인"
+            subtitle="ISO 13485 §7.5.6 · IQ/OQ/PQ 공정 밸리데이션 · 재검증 주기 관리"
+            icon={FlaskConical}
+            color="#7C3AED"
+            quickActions={canRequest ? [{ label: '검증 프로젝트 등록', icon: Plus, onClick: openNew, primary: true }] : []}
+            workflow={['검증 계획(품질)', '프로토콜 작성(품질)', 'IQ/OQ/PQ 실행(생산)', '결과 검토(품질)', '보고서 승인(품질)', '주기적 재검증(품질)']}
+          />
+        )}
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
@@ -236,13 +249,15 @@ export default function ValidationHub() {
                 <option value="all">전체 상태</option>
                 {VAL_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
-              <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-                <Plus size={14} /> 밸리데이션 추가
-              </button>
+              {canRequest && (
+                <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
+                  <Plus size={14} /> 밸리데이션 추가
+                </button>
+              )}
             </div>
 
             {filtered.length === 0
-              ? <ValEmpty onAdd={openNew} />
+              ? <ValEmpty onAdd={openNew} canRequest={canRequest} />
               : <div className="space-y-2">
                   {filtered.map(r => (
                     <ValRow key={r.id} record={r}
@@ -259,19 +274,25 @@ export default function ValidationHub() {
           </>
         )}
 
-        {/* ── 재밸리데이션 일정 탭 ── */}
-        {tab === 'schedule' && <RevalSchedule records={records} />}
+        {/* ── 재밸리데이션 일정 탭 (품질 전용) ── */}
+        {canRequest && tab === 'schedule' && <RevalSchedule records={records} />}
 
-        {/* ── 현황 분석 탭 ── */}
-        {tab === 'analysis' && <ValAnalysis records={records} />}
-
-      </div>
+        {/* ── 현황 분석 탭 (품질 전용) ── */}
+        {canRequest && tab === 'analysis' && <ValAnalysis records={records} />}
 
       {showForm && (
         <ValForm form={form} fld={fld} updPhaseItem={updPhaseItem}
           handleValidatedDate={handleValidatedDate}
           editId={editId} user={user} onSubmit={submit} onClose={() => setShowForm(false)} />
       )}
+    </div>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="공정 유효성 확인" subtitle="ISO 13485 §7.5.6 · VMP · IQ/OQ/PQ · 재밸리데이션 일정 관리">
+      {body}
     </AppLayout>
   )
 }
@@ -705,15 +726,21 @@ function F({ l, children }) {
 const IS  = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none' }
 const SEL = { border: '1px solid var(--line)', borderRadius: 10, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none', cursor: 'pointer' }
 
-function ValEmpty({ onAdd }) {
+function ValEmpty({ onAdd, canRequest }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
       <FlaskConical size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#2563EB' }} />
       <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>밸리데이션 기록 없음</div>
-      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>제조 공정, 멸균, 포장 등 특수 공정의 유효성 확인을 기록하고 IQ/OQ/PQ 단계를 추적하세요</div>
-      <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-        <Plus size={15} /> 첫 번째 밸리데이션 등록
-      </button>
+      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>
+        {canRequest
+          ? '제조 공정, 멸균, 포장 등 특수 공정의 유효성 확인을 기록하고 IQ/OQ/PQ 단계를 추적하세요'
+          : '품질에서 요청한 밸리데이션 항목이 없습니다. 새 요청은 품질·검사 화면에서 등록합니다.'}
+      </div>
+      {canRequest && (
+        <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
+          <Plus size={15} /> 첫 번째 밸리데이션 등록
+        </button>
+      )}
     </div>
   )
 }

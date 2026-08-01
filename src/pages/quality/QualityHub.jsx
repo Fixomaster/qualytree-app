@@ -25,6 +25,8 @@ import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../li
 import { getAllRecords as getCcrRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/changeControl'
 import { permissions, requirePermission } from '../../lib/permissions'
 import EquipmentHub from '../equipment/EquipmentHub'
+import ValidationHub from '../validation/ValidationHub'
+import { FlaskConical } from 'lucide-react'
 
 export default function QualityHub() {
   const nav = useNavigate()
@@ -137,6 +139,14 @@ export default function QualityHub() {
             onClick={() => setTab('equipment')}
             active={tab === 'equipment'}
           />
+          <StatCard
+            icon={FlaskConical}
+            label="밸리데이션 관리"
+            value="IQ/OQ/PQ"
+            tone="moss"
+            onClick={() => setTab('validation')}
+            active={tab === 'validation'}
+          />
         </div>
 
         {/* 용어 안내 */}
@@ -180,6 +190,7 @@ export default function QualityHub() {
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} selectedId={selectedQId} onSelect={setSelectedQId} onChanged={refresh} />}
         {tab === 'ccr' && <CcrList records={allCcrs} selectedId={selectedCcrId} onSelect={setSelectedCcrId} onChanged={refresh} />}
         {tab === 'equipment' && <EquipmentHub embedded />}
+        {tab === 'validation' && <ValidationHub embedded role="quality" />}
       </div>
     </AppLayout>
   )
