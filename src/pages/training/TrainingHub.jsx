@@ -338,7 +338,7 @@ function SessionTab({ sessions: allSessions, onAction, refresh }) {
             <Field label="주제" value={form.topic} onChange={(v) => setF('topic', v)} />
             <Field label="일시" type="date" value={form.date} onChange={(v) => setF('date', v)} />
             <Field label="강사" value={form.instructor} onChange={(v) => setF('instructor', v)} />
-            <Field label="평가 방법" value={form.evaluationMethod} onChange={(v) => setF('evaluationMethod', v)} placeholder="예: 필기시험 / 실습평가" />
+            <SelectField label="평가 방법" value={form.evaluationMethod} onChange={(v) => setF('evaluationMethod', v)} options={['필기시험', '실습평가', '구술평가', '현장관찰평가', '설문·만족도평가']} />
             <SelectField label="상태" value={form.status} onChange={(v) => setF('status', v)} options={['예정', '완료']} />
             <div className="flex justify-end gap-2">
               <button onClick={() => setAdding(false)} className="btn-ghost" style={{ padding: '0.4rem 0.8rem', fontSize: 12.5 }}>취소</button>

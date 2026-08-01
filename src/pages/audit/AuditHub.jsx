@@ -11,18 +11,11 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { loadOrgDepts } from '../../lib/orgDepts'
 
 const STORAGE_KEY = 'qualytree.audits'
 const CAR_KEY = 'qualytree.audit_cars'
-const ORG_ROLES_KEY = 'qualytree.org_roles'
-const DEFAULT_DEPTS = ['경영진', '품질부', '생산부', '개발부', '영업부', '구매부', '설비부', '문서관리', '인허가', '기타']
-function loadOrgDepts() {
-  try {
-    const roles = JSON.parse(localStorage.getItem(ORG_ROLES_KEY) || '[]')
-    const depts = [...new Set(roles.map(r => r.dept).filter(Boolean))]
-    return depts.length ? depts : DEFAULT_DEPTS
-  } catch { return DEFAULT_DEPTS }
-}
+
 function composeAuditTitle(f) {
   const parts = [f.auditType || '정기', f.auditee, f.auditYear].filter(Boolean)
   return parts.join(' · ')

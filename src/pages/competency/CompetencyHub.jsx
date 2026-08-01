@@ -10,6 +10,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { loadOrgDepts } from '../../lib/orgDepts'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_ROLES  = 'qualytree.comp_roles'
@@ -26,18 +27,17 @@ const LEVEL_MAP = Object.fromEntries(COMP_LEVELS.map(l => [l.value, l]))
 
 const COMP_CATEGORIES = ['기술 역량', '품질/규제', '안전', '관리/리더십', '언어/소통', '기타']
 
-const DEPT_CODES = ['SAL','MFG','PUR','QUA','EQP','DEV','DOC','MR','TRN','RA','AUD','IMP','ALL']
 
 function todayStr() { return new Date().toISOString().slice(0, 10) }
 function roleId()  { return `ROL-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function empId()   { return `EMP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 const EMPTY_ROLE = {
-  title: '', dept: 'QUA', description: '',
+  title: '', dept: '', description: '',
   competencies: [], // [{ name, category, requiredLevel }]
 }
 const EMPTY_EMP = {
-  name: '', employeeNo: '', dept: 'QUA', jobTitle: '',
+  name: '', dept: '', jobTitle: '',
   hireDate: todayStr(), email: '', phone: '',
   competencies: [], // [{ name, actualLevel, evaluatedAt, evaluatedBy, effectiveness, notes }]
   notes: '',
@@ -171,7 +171,7 @@ export default function CompetencyHub() {
   // 분석 데이터
   const analysis = useMemo(() => {
     const deptGap = {}
-    DEPT_CODES.forEach(d => { deptGap[d] = { total: 0, gaps: 0 } })
+    loadOrgDepts().forEach(d => { deptGap[d] = { total: 0, gaps: 0 } })
     matrixData.gapStats.forEach(({ emp, total, gaps }) => {
       if (deptGap[emp.dept]) {
         deptGap[emp.dept].total += total
@@ -277,7 +277,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
           className="px-3 py-1.5 rounded-xl text-[13px]"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
           <option value="all">전체 부서</option>
-          {DEPT_CODES.map(d => <option key={d} value={d}>{d}</option>)}
+          {loadOrgDepts().map(d => <option key={d} value={d}>{d}</option>)}
         </select>
         <div className="flex gap-2 flex-wrap">
           {COMP_LEVELS.map(l => (
@@ -307,7 +307,7 @@ function MatrixView({ matrixData, roles, filterDept, setFilterDept }) {
                 <th className="px-2 py-2" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 60 }}>충족률</th>
                 {compList.map(c => (
                   <th key={c.name} className="px-2 py-1.5 text-center" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', minWidth: 72 }}>
-                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', height: 80, fontSize: 10, fontWeight: 600, color: 'var(--ink)' }}>{c.name}</div>
+                    <div style={{ writingMode: 'vertical-rl', height: 80, fontSize: 10, fontWeight: 600, color: 'var(--ink)' }}>{c.name}</div>
                     <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>요구 {reqMap[c.name] || '-'}</div>
                   </th>
                 ))}
@@ -379,7 +379,7 @@ function RolesTab({ roles, canEdit, showForm, setShowForm, form, setForm, editId
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <Field label="직무명 *" value={form.title} onChange={v => setForm(f => ({ ...f, title: v }))} />
             <FieldSelect label="부서" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
-              options={DEPT_CODES.map(d => ({ value: d, label: d }))} />
+              options={loadOrgDepts().map(d => ({ value: d, label: d }))} />
             <FieldArea label="직무 설명" value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))} rows={2} />
           </div>
 
@@ -525,9 +525,8 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
           <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{editId ? '직원 역량 수정' : '직원 역량 추가'}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <Field label="이름 *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} />
-            <Field label="사번" value={form.employeeNo} onChange={v => setForm(f => ({ ...f, employeeNo: v }))} />
             <FieldSelect label="부서" value={form.dept} onChange={v => setForm(f => ({ ...f, dept: v }))}
-              options={DEPT_CODES.map(d => ({ value: d, label: d }))} />
+              options={loadOrgDepts().map(d => ({ value: d, label: d }))} />
             <Field label="직책" value={form.jobTitle} onChange={v => setForm(f => ({ ...f, jobTitle: v }))} />
             <Field label="입사일" type="date" value={form.hireDate} onChange={v => setForm(f => ({ ...f, hireDate: v }))} />
             <Field label="이메일" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />
@@ -567,19 +566,25 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                 <Plus size={12} /> 추가
               </button>
             </div>
+            <input value={compDraft.notes} onChange={e => setCompDraft(d => ({ ...d, notes: e.target.value }))}
+              placeholder="평가 근거 (예: OJT 관찰 결과, 시험 성적, 자격증 사본 등)" className="w-full px-3 py-1.5 rounded-xl text-[12px] mb-3"
+              style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
             <div className="space-y-1">
               {(form.competencies || []).map((c, i) => {
                 const lv = LEVEL_MAP[c.actualLevel]
                 const eff = { effective: { label: '효과적', color: '#059669' }, partial: { label: '부분', color: '#D97706' }, ineffective: { label: '비효과적', color: '#DC2626' } }
                 const effInfo = eff[c.effectiveness]
                 return (
-                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl flex-wrap"
+                  <div key={i} className="px-3 py-2 rounded-xl"
                     style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-                    <span className="text-[12px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{c.name}</span>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: lv.bg, color: lv.color }}>Lv.{c.actualLevel} {lv.label}</span>
-                    {effInfo && <span className="text-[10px] font-bold" style={{ color: effInfo.color }}>{effInfo.label}</span>}
-                    <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{c.evaluatedAt} {c.evaluatedBy && `· ${c.evaluatedBy}`}</span>
-                    <button onClick={() => onRemoveComp(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}><X size={12} /></button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[12px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{c.name}</span>
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: lv.bg, color: lv.color }}>Lv.{c.actualLevel} {lv.label}</span>
+                      {effInfo && <span className="text-[10px] font-bold" style={{ color: effInfo.color }}>{effInfo.label}</span>}
+                      <span className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>{c.evaluatedAt} {c.evaluatedBy && `· ${c.evaluatedBy}`}</span>
+                      <button onClick={() => onRemoveComp(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}><X size={12} /></button>
+                    </div>
+                    {c.notes && <div className="text-[11px] mt-1" style={{ color: 'var(--ink-faint)' }}>근거: {c.notes}</div>}
                   </div>
                 )
               })}
@@ -621,7 +626,7 @@ function EmployeesTab({ employees, canEdit, showForm, setShowForm, form, setForm
                     </div>
                     <div>
                       <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{emp.name}</div>
-                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} · {emp.jobTitle} · {emp.employeeNo}</div>
+                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{emp.dept} · {emp.jobTitle}</div>
                     </div>
                   </div>
                   {canEdit && (

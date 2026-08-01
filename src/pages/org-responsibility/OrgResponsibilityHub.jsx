@@ -1,6 +1,6 @@
 // src/pages/org-responsibility/OrgResponsibilityHub.jsx
 // ISO 13485 §5.5 — 책임·권한 및 의사소통
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Save, Edit2, Trash2, User, Users,
   Building2, MessageSquare, ShieldCheck, Star,
@@ -11,6 +11,8 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { loadOrgDepts } from '../../lib/orgDepts'
+import { supabase } from '../../lib/supabase'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY_ROLES   = 'qualytree.org_roles'
@@ -25,8 +27,7 @@ const ROLE_LEVELS = [
   { value: 'external',   label: '외부·위탁',  color: '#6B7280', bg: '#F3F4F6' },
 ]
 
-// 부서
-const DEPTS = ['경영진', '품질부', '생산부', '개발부', '영업부', '구매부', '설비부', '문서관리', '인허가', '기타']
+// 부서 — 조직도 자체가 부서 출처이므로 화면 로드 시 자기 자신의 등록 데이터로 동적 로드(loadOrgDepts)
 
 // §5.5에서 요구하는 핵심 QMS 프로세스 (RACI 행)
 const QMS_PROCESSES = [
@@ -79,15 +80,14 @@ const EMPTY_ROLE = {
   qualifications: '',     // 자격 요건
   reportTo: '',           // 보고 대상 (다른 역할 id)
   email: '', phone: '',
-  linkedCompetencyId: '',
   notes: '',
   raciMap: {},            // { processName: 'R'|'A'|'C'|'I'|'' }
 }
 
 const EMPTY_COMM = {
   title: '', type: '부서 회의', frequency: '월1회',
-  participants: '', responsible: '',
-  agenda: '', medium: '대면 회의',
+  participants: [], responsible: '',
+  agenda: '', minutes: '', medium: '대면 회의',
   status: 'recurring', lastDate: '', nextDate: '',
   notes: '',
 }
@@ -112,6 +112,14 @@ export default function OrgResponsibilityHub() {
   const [editRoleId, setEditRoleId] = useState(null)
   const [editCommId, setEditCommId] = useState(null)
   const [expandedRole, setExpandedRole] = useState(null)
+  const [expandedComm, setExpandedComm] = useState(null)
+  const [memberNames, setMemberNames] = useState([])
+  useEffect(() => {
+    supabase.rpc('manager_context').then(({ data }) => {
+      const members = (data && Array.isArray(data.members)) ? data.members : []
+      setMemberNames(members.map(m => m.name).filter(Boolean))
+    }).catch(() => {})
+  }, [])
   const [filterDept, setFilterDept] = useState('all')
   const [filterLevel, setFilterLevel] = useState('all')
 
@@ -132,9 +140,11 @@ export default function OrgResponsibilityHub() {
   function submitComm() {
     if (!commForm.title.trim()) return alert('커뮤니케이션 제목을 입력하세요.')
     const isEdit = !!editCommId
+    // 담당자는 별도 입력이 아닌 작성(등록/수정)한 로그인 사용자로 자동 기입한다.
+    const withResponsible = { ...commForm, responsible: user?.name || commForm.responsible || '' }
     const obj = isEdit
-      ? comms.map(c => c.id === editCommId ? { ...c, ...commForm } : c)
-      : [{ id: genCommId(), createdAt: today(), ...commForm }, ...comms]
+      ? comms.map(c => c.id === editCommId ? { ...c, ...withResponsible } : c)
+      : [{ id: genCommId(), createdAt: today(), ...withResponsible }, ...comms]
     saveComms(obj)
     setShowCommForm(false); setCommForm(EMPTY_COMM); setEditCommId(null)
   }
@@ -170,7 +180,7 @@ export default function OrgResponsibilityHub() {
   // 분석
   const analysis = useMemo(() => {
     const byDept = {}
-    DEPTS.forEach(d => { byDept[d] = roles.filter(r => r.dept === d).length })
+    loadOrgDepts().forEach(d => { byDept[d] = roles.filter(r => r.dept === d).length })
     const byLevel = {}
     ROLE_LEVELS.forEach(l => { byLevel[l.value] = roles.filter(r => r.level === l.value).length })
     // RACI 커버리지: 각 프로세스마다 R 담당자 있는지
@@ -234,7 +244,7 @@ export default function OrgResponsibilityHub() {
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
                 <option value="all">전체 부서</option>
-                {DEPTS.map(d => <option key={d} value={d}>{d}</option>)}
+                {loadOrgDepts().map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <select value={filterLevel} onChange={e => setFilterLevel(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
@@ -255,7 +265,7 @@ export default function OrgResponsibilityHub() {
               <RoleForm form={roleForm} setForm={setRoleForm}
                 onSave={submitRole}
                 onCancel={() => { setShowRoleForm(false); setRoleForm(EMPTY_ROLE); setEditRoleId(null) }}
-                isEdit={!!editRoleId} roles={roles} />
+                isEdit={!!editRoleId} roles={roles} memberNames={memberNames} />
             )}
 
             {/* 역할 카드 목록 */}
@@ -447,15 +457,18 @@ export default function OrgResponsibilityHub() {
                     <tr><td colSpan={8} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 커뮤니케이션 항목이 없습니다.</td></tr>
                   ) : comms.map((c, idx) => {
                     const st = COMM_STATUSES[c.status] || COMM_STATUSES.planned
+                    const isOpen = expandedComm === c.id
+                    const participantList = Array.isArray(c.participants) ? c.participants : (c.participants ? [c.participants] : [])
                     return (
-                      <tr key={c.id} style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
+                    <React.Fragment key={c.id}>
+                      <tr onClick={() => setExpandedComm(isOpen ? null : c.id)} style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)', cursor: 'pointer' }}>
                         <td className="px-3 py-2 font-semibold" style={{ color: 'var(--ink)' }}>{c.title}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{c.type}</td>
                         <td className="px-3 py-2">
                           <div style={{ color: 'var(--ink-soft)' }}>{c.frequency}</div>
                           <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{c.medium}</div>
                         </td>
-                        <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{c.participants || '-'}</td>
+                        <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{participantList.length ? participantList.join(', ') : '-'}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{c.responsible || '-'}</td>
                         <td className="px-3 py-2">
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
@@ -464,8 +477,8 @@ export default function OrgResponsibilityHub() {
                         <td className="px-3 py-2 text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{c.lastDate || '-'}</td>
                         <td className="px-3 py-2">
                           {canEdit && (
-                            <div className="flex gap-1">
-                              <button onClick={() => { setCommForm({ ...EMPTY_COMM, ...c }); setEditCommId(c.id); setShowCommForm(true) }}
+                            <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                              <button onClick={() => { setCommForm({ ...EMPTY_COMM, ...c, participants: Array.isArray(c.participants) ? c.participants : [] }); setEditCommId(c.id); setShowCommForm(true) }}
                                 className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                                 <Edit2 size={11} style={{ color: 'var(--ink-soft)' }} />
                               </button>
@@ -477,6 +490,17 @@ export default function OrgResponsibilityHub() {
                           )}
                         </td>
                       </tr>
+                      {isOpen && (
+                        <tr style={{ background: 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
+                          <td colSpan={8} className="px-4 py-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <InfoBlock label="주요 안건" value={c.agenda || '등록된 안건이 없습니다.'} />
+                              <InfoBlock label="회의 내용" value={c.minutes || '아직 기록된 회의 내용이 없습니다. 수정 버튼을 눌러 입력하세요.'} />
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                     )
                   })}
                 </tbody>
@@ -547,7 +571,7 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
       {/* 부서별 분포 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>부서별 역할 수</div>
-        {DEPTS.filter(d => (analysis.byDept[d] || 0) > 0).map(d => (
+        {loadOrgDepts().filter(d => (analysis.byDept[d] || 0) > 0).map(d => (
           <div key={d} className="flex items-center gap-3 mb-2">
             <span className="text-[12px] flex-1" style={{ color: 'var(--ink-soft)' }}>{d}</span>
             <div className="w-32 h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -562,23 +586,30 @@ function AnalysisView({ analysis, roles, comms, mrRole }) {
 }
 
 // ── 역할 폼 ──────────────────────────────────────────────────
-function RoleForm({ form, setForm, onSave, onCancel, isEdit, roles }) {
+function RoleForm({ form, setForm, onSave, onCancel, isEdit, roles, memberNames = [] }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '역할 수정' : '역할 등록 (§5.5.1)'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <Field label="담당자명 *" value={form.name} onChange={v => F('name', v)} />
+        <div>
+          <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>담당자명 *</label>
+          <input value={form.name || ''} onChange={e => F('name', e.target.value)} list="qt-member-names"
+            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+          <datalist id="qt-member-names">
+            {memberNames.map(n => <option key={n} value={n} />)}
+          </datalist>
+        </div>
         <Field label="직책·역할명 *" value={form.title} onChange={v => F('title', v)} placeholder="품질보증팀장, QMS 담당자..." />
         <FieldSelect label="부서" value={form.dept} onChange={v => F('dept', v)}
-          options={DEPTS.map(d => ({ value: d, label: d }))} />
+          options={loadOrgDepts().map(d => ({ value: d, label: d }))} />
         <FieldSelect label="조직 레벨" value={form.level} onChange={v => F('level', v)}
           options={ROLE_LEVELS.map(l => ({ value: l.value, label: l.label }))} />
         <Field label="이메일" value={form.email} onChange={v => F('email', v)} type="email" />
         <Field label="전화번호" value={form.phone} onChange={v => F('phone', v)} />
         <FieldSelect label="보고 대상" value={form.reportTo} onChange={v => F('reportTo', v)}
           options={[{ value: '', label: '(없음)' }, ...roles.filter(r => r.id !== form.id).map(r => ({ value: r.id, label: `${r.name} (${r.title})` }))]} />
-        <Field label="연결 역량 ID" value={form.linkedCompetencyId} onChange={v => F('linkedCompetencyId', v)} placeholder="COMP-xxxx" />
       </div>
       <div className="mb-3">
         <label className="flex items-center gap-2 cursor-pointer text-[12.5px] font-semibold" style={{ color: '#7C3AED' }}>
@@ -620,12 +651,32 @@ function CommForm({ form, setForm, onSave, onCancel, isEdit }) {
           options={Object.entries(COMM_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         <Field label="주기" value={form.frequency} onChange={v => F('frequency', v)} placeholder="월1회, 분기1회..." />
         <Field label="매체·방법" value={form.medium} onChange={v => F('medium', v)} placeholder="대면 회의, 이메일, 공지게시판..." />
-        <Field label="담당자" value={form.responsible} onChange={v => F('responsible', v)} />
-        <Field label="참석 대상 부서·인원" value={form.participants} onChange={v => F('participants', v)} placeholder="품질부, 생산부, 경영진..." />
         <Field label="최근 실시일" type="date" value={form.lastDate} onChange={v => F('lastDate', v)} />
         <Field label="다음 예정일" type="date" value={form.nextDate} onChange={v => F('nextDate', v)} />
       </div>
+      <div className="mb-3">
+        <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>참석 대상 부서</label>
+        <div className="flex flex-wrap gap-2">
+          {loadOrgDepts().map(d => {
+            const checked = (form.participants || []).includes(d)
+            return (
+              <label key={d} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] cursor-pointer"
+                style={{ background: checked ? 'var(--leaf-soft)' : 'var(--bg-soft)', border: `1px solid ${checked ? 'var(--moss)' : 'var(--line)'}`, color: checked ? 'var(--moss)' : 'var(--ink-soft)' }}>
+                <input type="checkbox" checked={checked} className="accent-[--moss] w-3.5 h-3.5"
+                  onChange={e => {
+                    const next = e.target.checked
+                      ? [...(form.participants || []), d]
+                      : (form.participants || []).filter(x => x !== d)
+                    F('participants', next)
+                  }} />
+                {d}
+              </label>
+            )
+          })}
+        </div>
+      </div>
       <div className="mb-3"><FieldArea label="주요 안건" value={form.agenda} onChange={v => F('agenda', v)} rows={2} /></div>
+      <div className="mb-3"><FieldArea label="회의 내용 (실시 후 기록)" value={form.minutes} onChange={v => F('minutes', v)} rows={3} placeholder="실제 논의 내용, 결정사항, 후속조치 등을 기록하세요." /></div>
       <div className="mb-4"><FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} /></div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
