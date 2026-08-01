@@ -33,7 +33,7 @@ try { PreviewHub     = React.lazy(() => import(/* @vite-ignore */ './pages/Previ
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
 let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
-let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub
+let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub, InventoryHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
 let OrgResponsibilityHub, PurchaseVerificationHub, QualityManualHub, DeviceFileHub
 let ProductionControlHub, QualityPolicyHub, MeasurementPlanHub, CleanlinessHub, SterileControlHub
@@ -57,6 +57,7 @@ try { DesignHistoryHub      = React.lazy(() => import(/* @vite-ignore */ './page
 try { CompetencyHub         = React.lazy(() => import(/* @vite-ignore */ './pages/competency/CompetencyHub')) } catch {}
 try { ServiceHub            = React.lazy(() => import(/* @vite-ignore */ './pages/service/ServiceHub')) } catch {}
 try { PreservationHub       = React.lazy(() => import(/* @vite-ignore */ './pages/preservation/PreservationHub')) } catch {}
+try { InventoryHub          = React.lazy(() => import(/* @vite-ignore */ './pages/inventory/InventoryHub')) } catch {}
 try { QualityPlanHub        = React.lazy(() => import(/* @vite-ignore */ './pages/qplan/QualityPlanHub')) } catch {}
 try { CustomerReqHub        = React.lazy(() => import(/* @vite-ignore */ './pages/customer-req/CustomerReqHub')) } catch {}
 try { InfrastructureHub     = React.lazy(() => import(/* @vite-ignore */ './pages/infrastructure/InfrastructureHub')) } catch {}
@@ -150,6 +151,7 @@ export default function App() {
       <Route path="/competency"        element={<ProtectedRoute><LazyRoute Component={CompetencyHub} /></ProtectedRoute>} />
       <Route path="/service"           element={<ProtectedRoute><LazyRoute Component={ServiceHub} /></ProtectedRoute>} />
       <Route path="/preservation"      element={<ProtectedRoute><LazyRoute Component={PreservationHub} /></ProtectedRoute>} />
+      <Route path="/inventory"         element={<ProtectedRoute><LazyRoute Component={InventoryHub} /></ProtectedRoute>} />
       <Route path="/quality-plan"      element={<ProtectedRoute><LazyRoute Component={QualityPlanHub} /></ProtectedRoute>} />
       <Route path="/customer-req"      element={<ProtectedRoute><LazyRoute Component={CustomerReqHub} /></ProtectedRoute>} />
       <Route path="/infrastructure"    element={<ProtectedRoute><LazyRoute Component={InfrastructureHub} /></ProtectedRoute>} />
