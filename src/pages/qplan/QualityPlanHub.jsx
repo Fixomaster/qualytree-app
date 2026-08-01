@@ -22,7 +22,7 @@ const PLAN_STATUSES = {
   obsolete: { label: '폐기',    color: '#9CA3AF', bg: '#F3F4F6' },
 }
 
-const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', '미분류']
+const DEVICE_CLASSES = ['1등급', '2등급', '3등급', '4등급', '미분류']
 
 const ACTIVITY_GROUPS = [
   {
@@ -109,7 +109,7 @@ function todayStr(){ return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_PLAN = {
   productName: '', productCode: '', revision: '1.0',
-  deviceClass: 'Class II', intendedUse: '',
+  deviceClass: '2등급', intendedUse: '',
   projectManager: '', approver: '', approvedDate: '',
   startDate: todayStr(), targetDate: '',
   status: 'draft',
@@ -164,7 +164,7 @@ export default function QualityPlanHub() {
 
   function quickPlanStatus(id, status) {
     const update = { status }
-    if (status === 'approved') update.approvedDate = todayStr()
+    if (status === 'approved') { update.approvedDate = todayStr(); update.approver = user?.name || '' }
     save(plans.map(p => p.id === id ? { ...p, ...update } : p))
   }
 
@@ -427,6 +427,11 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
             <span className="font-bold">규제 제출 계획: </span>{plan.regulatorySubmission}
           </div>
         )}
+        {plan.notes && (
+          <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>비고: </span>{plan.notes}
+          </div>
+        )}
       </div>
 
       {/* 활동 필터 탭 */}
@@ -583,9 +588,6 @@ function PlanForm({ form, setForm, onSave, onCancel, isEdit }) {
         <Field label="시작일" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
         <Field label="목표 완료일" type="date" value={form.targetDate} onChange={v => F('targetDate', v)} />
         <Field label="프로젝트 책임자 (PM)" value={form.projectManager} onChange={v => F('projectManager', v)} />
-        <Field label="승인자" value={form.approver} onChange={v => F('approver', v)} />
-        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
-          options={Object.entries(PLAN_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <FieldArea label="사용 목적 (Intended Use)" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2} />
