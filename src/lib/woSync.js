@@ -24,6 +24,22 @@ export function readManufacturingWos() {
   return readLS('qms_mfg_wo')
 }
 
+/** 영업(수동 생산요청 등)에서 새 생산 작업지시(WO)를 직접 발행할 때 쓰는 헬퍼.
+ *  생산(Manufacturing)의 qms_mfg_wo 목록에 WO를 추가하고 생성된 WO를 반환한다.
+ *  이렇게 발행된 WO는 생산현황(WoView) 화면에 즉시 나타나고, 이후 진행 상태는
+ *  syncOrderStatusFromWo/WO_STATUS_TO_PR_STATUS 매핑을 통해 자동으로 되돌아온다. */
+export function createManufacturingWo({ so = '', product = '', qty = '' } = {}) {
+  const wos = readLS('qms_mfg_wo')
+  const id = `WO-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+  const wo = {
+    id, so, product, qty: String(qty || ''),
+    step: '대기', startDate: new Date().toISOString().slice(0,10), dueDate: '',
+    assignee: '미배정', progress: '0', status: '대기',
+  }
+  writeLS('qms_mfg_wo', [...wos, wo])
+  return wo
+}
+
 /** WO(woId)의 상태가 woStatus로 바뀌었을 때, 연결된 영업 수주의 상태를 자동 반영한다.
  *  - 이미 납품완료·취소된 수주는 되돌리지 않는다.
  *  - 매핑에 없는 상태는 무시한다. */

@@ -22,7 +22,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS } from '../../lib/woSync'
+import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS, createManufacturingWo } from '../../lib/woSync'
 import { fulfillOrderLineItems, deductFinStockForDelivery } from '../../lib/orderFulfillment'
 import { fileStore } from '../../lib/fileStore'
 import { productModels } from '../../lib/productLifecycleState'
@@ -528,7 +528,6 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdR
   )
 }
 function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
-  const [wos] = useState(() => readManufacturingWos())
   const [orderableModels] = useState(() => loadOrderableModels())
   const legacyLine = () => {
     if (!initial.items) return [{ name:'', qty:'', price:'' }]
@@ -541,7 +540,6 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
     ...initial,
     lineItems: (initial.lineItems && initial.lineItems.length ? initial.lineItems : legacyLine()),
   })
-  const [woManual, setWoManual] = useState(() => !!f.wo && !wos.some(w=>w.id===f.wo))
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
 
   const setLine = (i, k, v) => sf(p=>({ ...p, lineItems: p.lineItems.map((li,idx)=>idx===i?{...li,[k]:v}:li) }))
@@ -551,13 +549,6 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
   const lineAmount = (li) => (parseFloat(li.qty)||0) * (parseFloat(li.price)||0)
   const totalAmount = f.lineItems.reduce((s,li)=>s+lineAmount(li), 0)
   const totalQty = f.lineItems.reduce((s,li)=>s+(parseFloat(li.qty)||0), 0)
-
-  const pickWo = (wid) => {
-    if (wid === '__manual__') { setWoManual(true); sf(p=>({ ...p, wo:'' })); return }
-    setWoManual(false)
-    const w = wos.find(x=>x.id===wid)
-    sf(p=>({ ...p, wo: wid, status: w ? (WO_STATUS_TO_ORDER_STATUS[w.status] || p.status) : p.status }))
-  }
 
   const validItems = f.lineItems.filter(li=>li.name && li.name.trim())
   const ok = !!f.customer && validItems.length > 0
@@ -571,6 +562,14 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
 
   return (
     <div className="space-y-3">
+      {availableQuotes.length > 0 && !initial.customer && (
+        <FL label="견적에서 불러오기 (선택 시 자동입력)">
+          <select style={sel} defaultValue="" onChange={e=>e.target.value && applyQuote(e.target.value)}>
+            <option value="">받아둔 견적 선택...</option>
+            {availableQuotes.map(q=><option key={q.id} value={q.id}>{q.id} — {q.customer} · {q.items} ({q.amount ? Number(q.amount).toLocaleString()+'원' : ''})</option>)}
+          </select>
+        </FL>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <FL label="고객사 * (검색)">
           <input style={inp} list="order-customer-list" value={f.customer} onChange={set('customer')}
@@ -579,32 +578,15 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
             {customers.map(c=><option key={c.id} value={c.name}/>)}
           </datalist>
         </FL>
-        <FL label="상태 (작업 상태에 따라 자동 변경)">
+        <FL label="상태 (재고·작업 상태에 따라 자동 변경)">
           <div className="flex items-center gap-2 h-full">
             <Badge text={f.status} tone={statusTone(f.status)}/>
-            {!['취소','납품완료'].includes(f.status) ? (
-              <button type="button" onClick={()=>set('status')({target:{value:'취소'}})}
-                className="text-[11px] px-2 py-1 rounded font-medium"
-                style={{ background:'var(--rust-soft)', color:'var(--rust)' }}>수주 취소</button>
-            ) : f.status==='취소' && (
-              <button type="button" onClick={()=>set('status')({target:{value:'수주접수'}})}
-                className="text-[11px] px-2 py-1 rounded font-medium"
-                style={{ background:'var(--bg-soft)', color:'var(--ink-mute)' }}>취소 철회</button>
-            )}
+            {f.wo && <span className="font-mono text-[10.5px]" style={{color:'var(--ink-faint)'}}>WO {f.wo}</span>}
           </div>
         </FL>
         <FL label="접수일"><input style={inp} type="date" value={f.receivedDate} onChange={set('receivedDate')}/></FL>
-        <FL label="WO 번호 (생산 작업지시 연동)">
-          <select style={sel} value={woManual ? '__manual__' : (f.wo || '')} onChange={e=>pickWo(e.target.value)}>
-            <option value="">미지정</option>
-            {wos.map(w=><option key={w.id} value={w.id}>{w.id} — {w.product} ({w.status})</option>)}
-            <option value="__manual__">직접 입력...</option>
-          </select>
-          {woManual && (
-            <input style={{...inp, marginTop:6}} value={f.wo} onChange={set('wo')} placeholder="WO-XXXX-XXX"/>
-          )}
-        </FL>
       </div>
+      <div className="text-[11px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 작업지시(WO)는 재고 부족 시 자동으로 발행되며, 취소는 목록의 '취소' 작업 버튼으로만 처리합니다.</div>
 
       <div>
         <div className="flex items-center justify-between mb-1.5">
@@ -1125,9 +1107,14 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
     if (changed) setProdReqs(next)
   }, [prodReqs])
 
+  // 생산요청을 직접 등록하면(수주에서 자동 연계되지 않은 경우) 생산(Manufacturing) 쪽에
+  // 실제 작업지시(WO)를 즉시 발행해 연결한다 — 그래야 생산현황 화면에 바로 나타난다.
   const save = (f) => {
     if (edit) { setProdReqs(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setProdReqs(p=>[...p, { ...init, ...f, id:nid('PR') }]) }
+    else {
+      const wo = createManufacturingWo({ so: f.so, product: f.item, qty: f.qty })
+      setProdReqs(p=>[...p, { ...init, ...f, id:nid('PR'), wo: wo.id, status:'WO발행완료' }])
+    }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setProdReqs(p=>p.filter(x=>x.id!==id)) }
@@ -1236,7 +1223,7 @@ function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
           </select>
         </FL>
       </div>
-      <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 상태는 연계된 생산 작업지시(WO)의 진행 상황에 따라 자동으로 갱신됩니다.</div>
+      <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 등록 시 생산 작업지시(WO)가 자동 발행되어 생산현황 화면에 바로 나타나며, 이후 상태는 WO 진행 상황에 따라 자동으로 갱신됩니다.</div>
       <div className="flex gap-2 pt-2">
         <SBtn onClick={()=>f.item&&onSave(f)}>{initial.item?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
@@ -1248,8 +1235,23 @@ function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
 /* ─── 영업 실적 (읽기 전용 요약) ─── */
 function PerformanceView({ orders, deliveries }) {
   const complaints = realComplaintsList()
-  const months = ['1월','2월','3월','4월','5월','6월']
   const total = orders.reduce((a,o)=>a+(Number(o.amount)||0),0)
+  // 월별 수주금액 그래프 (최근 6개월, 접수일 기준)
+  const monthlyAmounts = (() => {
+    const now = new Date()
+    const buckets = []
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      buckets.push({ key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: `${d.getMonth()+1}월`, amount: 0 })
+    }
+    orders.forEach(o => {
+      const key = (o.receivedDate || '').slice(0,7)
+      const b = buckets.find(x => x.key === key)
+      if (b) b.amount += Number(o.amount) || 0
+    })
+    const max = Math.max(1, ...buckets.map(b=>b.amount))
+    return buckets.map(b => ({ ...b, pct: Math.round((b.amount/max)*100) }))
+  })()
   return (
     <div>
       <SectionTitle breadcrumb="영업 실적">영업 실적</SectionTitle>
@@ -1265,6 +1267,18 @@ function PerformanceView({ orders, deliveries }) {
             <div className="text-[24px] font-bold mt-0.5" style={{color:s.tone==='red'?'var(--rust)':s.tone==='blue'?'#1d4ed8':'var(--moss)'}}>{s.value}</div>
           </div>
         ))}
+      </div>
+      <div className="rounded-xl p-4 mb-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
+        <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{ color:'var(--ink-faint)' }}>월별 수주금액 (최근 6개월)</div>
+        <div className="flex items-end gap-3 h-32">
+          {monthlyAmounts.map(b=>(
+            <div key={b.key} className="flex-1 flex flex-col items-center justify-end h-full">
+              <div className="text-[10.5px] mb-1" style={{color:'var(--ink-mute)'}}>{b.amount>0?(b.amount/10000).toFixed(0)+'만':''}</div>
+              <div className="w-full rounded-t-md transition-all" style={{ height:`${Math.max(b.pct,2)}%`, background:'var(--moss)', minHeight:2 }}/>
+              <div className="text-[11px] mt-1.5" style={{color:'var(--ink-faint)'}}>{b.label}</div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="rounded-xl p-4" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
         <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{ color:'var(--ink-faint)' }}>수주 상태 분포</div>
@@ -1429,11 +1443,11 @@ function SalesHome({ customers, orders, deliveries, prodReqs, onNavigate }) {
   const [mktItems] = useLS('qms_sal_mktres', [])
   const openCmp = realComplaintsOpenCount()
   const CARDS = [
+    { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'customers', icon:Users, label:'고객사 관리', desc:'고객사 등록 · 등급 · 담당자 · 수주이력', count:`${customers.length}개사` },
     { id:'orders', icon:ClipboardList, label:'수주 관리', desc:'수주 목록 · WO 연동 · 상태 추적', count:`${active}건 진행중` },
     { id:'quotes', icon:FileText, label:'견적 관리', desc:'견적서 작성 · 발송 · 수주 전환', count:`${INIT_QUOTES.length}건` },
     { id:'delivery', icon:Truck, label:'납품 이력', desc:'납품 완료 · UDI·Lot 추적 · 증빙 관리', count:`${deliveries.length}건` },
-    { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'prod-req', icon:ShoppingCart, label:'생산 요청', desc:'수주 기반 생산 요청 발행 · WO 연동', count:`${prodReqs.length}건` },
     { id:'market', icon:Search, label:'고객요구', desc:'고객·시장 요구사항 수집 · 설계 입력 연동', count:`${mktItems.length}건` },
   ]

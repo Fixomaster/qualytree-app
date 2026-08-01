@@ -11,6 +11,8 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { productModels } from '../../lib/productLifecycleState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
 
 // ── localStorage ──────────────────────────────────────────────
 function salesCustomerNames() {
@@ -19,6 +21,23 @@ function salesCustomerNames() {
     if (!raw) return []
     const list = JSON.parse(raw)
     return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
+}
+// 등록된 허가 제품/모델명 — 고객불만의 '제품명'은 자유 입력이 아니라 허가 기준으로
+// 검색해서 선택하도록 한다 (실제 유통 제품과 불일치 방지).
+function licensedProductNames() {
+  try {
+    const ob = onboarding.load()
+    const products = (Array.isArray(ob.products) && ob.products.length)
+      ? ob.products
+      : (ob.product && ob.product.name ? [ob.product] : [])
+    const names = new Set()
+    productModels.getAll().forEach(m => {
+      const p = products.find(pp => productKeyOf(pp) === m.productKey)
+      if (p && p.name) names.add(p.name)
+    })
+    products.forEach(p => { if (p && p.name) names.add(p.name) })
+    return [...names]
   } catch { return [] }
 }
 
@@ -578,7 +597,10 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
             </F>
           </R2>
           <R2>
-            <F l="제품명"><input value={form.productName} onChange={e => fld('productName', e.target.value)} style={IS} className="w-full" /></F>
+            <F l="제품명 (허가 기준 검색)">
+              <input value={form.productName} onChange={e => fld('productName', e.target.value)} style={IS} className="w-full" list="complaint-product-list" placeholder="제품명 입력 또는 검색..." />
+              <datalist id="complaint-product-list">{licensedProductNames().map(n => <option key={n} value={n} />)}</datalist>
+            </F>
             <F l="LOT / 시리얼"><input value={form.lotNo} onChange={e => fld('lotNo', e.target.value)} placeholder="LOT 또는 시리얼 번호" style={IS} className="w-full" /></F>
           </R2>
 
