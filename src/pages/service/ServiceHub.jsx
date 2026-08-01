@@ -11,10 +11,12 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { onboarding } from '../../lib/onboardingState'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_INST = 'qualytree.installations'
 const LS_SVC  = 'qualytree.services'
+const LS_DIST = 'qualytree.distributions'   // 추적성관리 배포이력 (읽기 전용 참조 — S/N 자동조회)
 
 const INST_STATUSES = {
   scheduled:  { label: '예정',     color: '#6366F1', bg: '#EEF2FF' },
@@ -57,12 +59,44 @@ function genSvcId()  { return `SVC-${new Date().getFullYear()}-${String(Date.now
 function todayStr()  { return new Date().toISOString().slice(0, 10) }
 function daysDiff(d) { return Math.ceil((new Date(d) - new Date()) / 86400000) }
 
+// 추적성관리(TraceabilityHub)의 배포이력에서 시리얼 번호로 제품·고객 정보를 조회한다.
+// 별도 입력 없이 S/N 하나로 제품명/코드/고객명/연락처/주소가 자동으로 채워지도록 하는 SSoT 조회.
+function findDistBySerial(sn) {
+  if (!sn || !sn.trim()) return null
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_DIST) || '[]')
+    const s = sn.trim().toLowerCase()
+    return list.find(d => (d.serialNos || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean).includes(s)) || null
+  } catch { return null }
+}
+
+// 설치 기록에서도 S/N으로 고객·주소를 보완 조회할 수 있도록 (배포이력에 없는 레거시 건 대비)
+function findInstBySerial(sn) {
+  if (!sn || !sn.trim()) return null
+  try {
+    const list = JSON.parse(localStorage.getItem(LS_INST) || '[]')
+    const s = sn.trim().toLowerCase()
+    return list.find(i => (i.serialNo || '').trim().toLowerCase() === s) || null
+  } catch { return null }
+}
+
+// 제품 개발 화면(ProductsHub)에서 제품별로 지정한 설치 체크리스트가 있으면 그것을 쓰고,
+// 없으면 기본 체크리스트를 사용한다 (SSoT: 제품 레코드의 installCheckItems).
+function productInstallChecklist(productName) {
+  try {
+    const products = onboarding.load()?.products || []
+    const p = products.find(pr => (pr.name || pr.itemName || '') === productName)
+    const items = (p?.installCheckItems || []).map(i => i.name).filter(Boolean)
+    return items.length > 0 ? items : DEFAULT_INSTALL_CHECKS
+  } catch { return DEFAULT_INSTALL_CHECKS }
+}
+
 const EMPTY_INST = {
   productName: '', productCode: '', serialNo: '',
   customerName: '', customerCode: '',
   installAddress: '', installDate: todayStr(),
   status: 'scheduled',
-  checkItems: DEFAULT_INSTALL_CHECKS.map(name => ({ name, done: false })),
+  checkItems: [],
   verdict: 'pending',  // pending | pass | fail
   customerSignature: false, notes: '',
 }
@@ -72,6 +106,8 @@ const EMPTY_SVC = {
   customerName: '', customerContact: '', customerAddress: '',
   svcType: 'corrective', status: 'open',
   reportedDate: todayStr(), symptom: '',
+  assignedEngineer: '', causeAnalysis: '', actionTaken: '',
+  partsReplaced: '', customerFeedback: '', followUpNeeded: false,
   notes: '',
 }
 
@@ -96,6 +132,8 @@ export default function ServiceHub() {
   const [showSvcForm, setShowSvcForm] = useState(false)
   const [svcForm, setSvcForm]     = useState(EMPTY_SVC)
   const [editSvcId, setEditSvcId] = useState(null)
+  const [expandedSvc, setExpandedSvc] = useState(null)
+  const [svcOnsiteDraft, setSvcOnsiteDraft] = useState(null)
 
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterType, setFilterType]     = useState('all')
@@ -108,11 +146,15 @@ export default function ServiceHub() {
   // ── 설치 CRUD ─────────────────────────────────────────────
   function submitInst() {
     if (!instForm.productName.trim()) return alert('제품명을 입력하세요.')
-    const doneCount = instForm.checkItems.filter(c => c.done).length
-    const verdict = doneCount === instForm.checkItems.length ? 'pass' : doneCount === 0 ? 'pending' : 'partial'
-    // 상태는 체크리스트 완료 현황에 따라 자동으로 결정된다(수동 입력 폐지).
-    const status = verdict === 'pass' ? 'completed' : verdict === 'partial' ? 'in_progress' : 'scheduled'
-    const record = { ...instForm, verdict, status, updatedAt: todayStr() }
+    // 신규 등록 시에는 체크리스트를 입력받지 않고, 제품 개발 화면에서 지정한(또는 기본) 체크리스트를
+    // 자동으로 부여한 뒤 '예정' 상태로 등록한다 — 실제 점검은 등록 후 카드 클릭으로 진행한다.
+    const checkItems = editInstId
+      ? (instForm.checkItems || [])
+      : productInstallChecklist(instForm.productName).map(name => ({ name, done: false }))
+    const doneCount = checkItems.filter(c => c.done).length
+    const verdict = checkItems.length > 0 && doneCount === checkItems.length ? 'pass' : doneCount === 0 ? 'pending' : 'partial'
+    const status = editInstId ? (verdict === 'pass' ? 'completed' : verdict === 'partial' ? 'in_progress' : 'scheduled') : 'scheduled'
+    const record = { ...instForm, checkItems, verdict, status, updatedAt: todayStr() }
     let next
     if (editInstId) {
       next = installations.map(i => i.id === editInstId ? { ...i, ...record } : i)
@@ -128,12 +170,18 @@ export default function ServiceHub() {
     saveInst(installations.filter(i => i.id !== id))
   }
 
-  function toggleCheck(idx) {
-    setInstForm(f => {
-      const items = [...f.checkItems]
+  // 목록 카드에서 직접 체크리스트 항목을 체크/해제한다. 전체 항목이 체크되면 자동으로 '완료'로 전환된다.
+  function toggleInstCheckItem(instId, idx) {
+    const next = installations.map(i => {
+      if (i.id !== instId) return i
+      const items = [...(i.checkItems || [])]
       items[idx] = { ...items[idx], done: !items[idx].done }
-      return { ...f, checkItems: items }
+      const doneCount = items.filter(c => c.done).length
+      const verdict = items.length > 0 && doneCount === items.length ? 'pass' : doneCount === 0 ? 'pending' : 'partial'
+      const status = verdict === 'pass' ? 'completed' : verdict === 'partial' ? 'in_progress' : 'scheduled'
+      return { ...i, checkItems: items, verdict, status, updatedAt: todayStr() }
     })
+    saveInst(next)
   }
 
   function quickStatus(id, status) {
@@ -147,7 +195,8 @@ export default function ServiceHub() {
     if (editSvcId) {
       next = services.map(s => s.id === editSvcId ? { ...s, ...svcForm, updatedAt: todayStr() } : s)
     } else {
-      next = [{ id: genSvcId(), createdAt: todayStr(), ...svcForm }, ...services]
+      // 신규 접수는 항상 '접수' 상태로 시작한다 — 이후 상태는 출동/완료 버튼으로만 전환된다.
+      next = [{ id: genSvcId(), createdAt: todayStr(), ...svcForm, status: 'open' }, ...services]
     }
     saveSvc(next)
     setShowSvcForm(false); setSvcForm(EMPTY_SVC); setEditSvcId(null)
@@ -159,7 +208,17 @@ export default function ServiceHub() {
   }
 
   function quickSvcStatus(id, status) {
-    saveSvc(services.map(s => s.id === id ? { ...s, status, updatedAt: todayStr() } : s))
+    // 출동 처리 시 로그인한 담당자를 담당 엔지니어로 자동 등록한다.
+    saveSvc(services.map(s => s.id === id
+      ? { ...s, status, updatedAt: todayStr(), ...(status === 'dispatched' ? { assignedEngineer: user?.name || s.assignedEngineer || '' } : {}) }
+      : s))
+  }
+
+  // 목록 카드에서 현장 조치 내용을 입력·저장한다. complete가 true면 동시에 '완료'로 전환한다.
+  function saveSvcOnsite(id, fields, complete) {
+    saveSvc(services.map(s => s.id === id
+      ? { ...s, ...fields, updatedAt: todayStr(), ...(complete ? { status: 'completed' } : {}) }
+      : s))
   }
 
   // ── 필터 ─────────────────────────────────────────────────
@@ -302,7 +361,7 @@ export default function ServiceHub() {
             {showInstForm && (
               <InstallForm form={instForm} setForm={setInstForm} onSave={submitInst}
                 onCancel={() => { setShowInstForm(false); setInstForm(EMPTY_INST); setEditInstId(null) }}
-                isEdit={!!editInstId} toggleCheck={toggleCheck} />
+                isEdit={!!editInstId} />
             )}
 
             {filteredInst.length === 0 ? (
@@ -315,7 +374,8 @@ export default function ServiceHub() {
                   const totalCheck = (inst.checkItems || []).length
                   const isExpanded = expandedInst === inst.id
                   return (
-                    <div key={inst.id} className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                    <div key={inst.id} className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                      onClick={() => setExpandedInst(isExpanded ? null : inst.id)}>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
@@ -343,12 +403,9 @@ export default function ServiceHub() {
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-1 flex-shrink-0 flex-col items-end">
+                          <div className="flex gap-1 flex-shrink-0 flex-col items-end" onClick={e => e.stopPropagation()}>
                             {canEdit && (
                               <div className="flex gap-1">
-                                {inst.status === 'scheduled' && (
-                                  <QuickBtn label="완료" color="#059669" onClick={() => quickStatus(inst.id, 'completed')} />
-                                )}
                                 <button onClick={() => { setInstForm({ ...EMPTY_INST, ...inst }); setEditInstId(inst.id); setShowInstForm(true) }}
                                   className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                                   <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
@@ -367,11 +424,12 @@ export default function ServiceHub() {
                           </div>
                         </div>
 
-                        {/* 체크리스트 펼침 */}
+                        {/* 체크리스트 펼침 — 카드를 눌러 열고, 항목을 눌러 바로 체크한다 (전체 체크 시 자동 완료) */}
                         {isExpanded && (
-                          <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }}>
+                          <div className="mt-3 pt-3 space-y-1.5" style={{ borderTop: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
                             {(inst.checkItems || []).map((item, i) => (
-                              <div key={i} className="flex items-center gap-2">
+                              <div key={i} className="flex items-center gap-2" style={{ cursor: canEdit ? 'pointer' : 'default' }}
+                                onClick={() => canEdit && toggleInstCheckItem(inst.id, i)}>
                                 <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
                                   style={{ background: item.done ? '#D1FAE5' : 'var(--bg-soft)', border: `1.5px solid ${item.done ? '#059669' : 'var(--line)'}` }}>
                                   {item.done && <CheckCircle2 size={10} style={{ color: '#059669' }} />}
@@ -437,36 +495,80 @@ export default function ServiceHub() {
                 {filteredSvc.map(svc => {
                   const sm = SVC_STATUSES[svc.status] || SVC_STATUSES.open
                   const typeInfo = SVC_TYPES[svc.svcType] || SVC_TYPES.other
+                  const isExpanded = expandedSvc === svc.id
+                  const draft = isExpanded ? (svcOnsiteDraft || {}) : {}
+                  function openOnsite() {
+                    if (isExpanded) { setExpandedSvc(null); setSvcOnsiteDraft(null); return }
+                    setExpandedSvc(svc.id)
+                    setSvcOnsiteDraft({
+                      causeAnalysis: svc.causeAnalysis || '', actionTaken: svc.actionTaken || '',
+                      partsReplaced: svc.partsReplaced || '', customerFeedback: svc.customerFeedback || '',
+                      followUpNeeded: !!svc.followUpNeeded,
+                    })
+                  }
+                  const D = (k, v) => setSvcOnsiteDraft(d => ({ ...d, [k]: v }))
                   return (
-                    <div key={svc.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--line)' }}>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{svc.id}</span>
-                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
-                            <span className="text-[11px] font-semibold" style={{ color: typeInfo.color }}>{typeInfo.label}</span>
+                    <div key={svc.id} className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--line)', cursor: 'pointer' }}
+                      onClick={openOnsite}>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{svc.id}</span>
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
+                              <span className="text-[11px] font-semibold" style={{ color: typeInfo.color }}>{typeInfo.label}</span>
+                              {svc.followUpNeeded && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>⚠ 후속조치 필요</span>}
+                            </div>
+                            <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{svc.productName}</div>
+                            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                              {svc.productCode && `${svc.productCode} · `}S/N: {svc.serialNo || '-'} · 고객: {svc.customerName || '-'}
+                            </div>
+                            {svc.symptom && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-soft)' }}>증상: {svc.symptom}</div>}
+                            <div className="flex gap-3 mt-1 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+                              <span>접수: {svc.reportedDate}</span>
+                              {svc.assignedEngineer && <span>담당 엔지니어: {svc.assignedEngineer}</span>}
+                            </div>
                           </div>
-                          <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{svc.productName}</div>
-                          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-                            {svc.productCode && `${svc.productCode} · `}S/N: {svc.serialNo || '-'} · 고객: {svc.customerName || '-'}
-                          </div>
-                          {svc.symptom && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-soft)' }}>증상: {svc.symptom}</div>}
-                          <div className="flex gap-3 mt-1 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-                            <span>접수: {svc.reportedDate}</span>
-                          </div>
+                          {canEdit && (
+                            <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end" onClick={e => e.stopPropagation()}>
+                              {svc.status === 'open' && <QuickBtn label="출동" color="#D97706" onClick={() => quickSvcStatus(svc.id, 'dispatched')} />}
+                              {['open','dispatched','in_progress'].includes(svc.status) && <QuickBtn label="완료" color="#059669" onClick={() => quickSvcStatus(svc.id, 'completed')} />}
+                              <button onClick={() => { setSvcForm({ ...EMPTY_SVC, ...svc }); setEditSvcId(svc.id); setShowSvcForm(true) }}
+                                className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
+                                <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
+                              </button>
+                              <button onClick={() => deleteSvc(svc.id)}
+                                className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
+                                <Trash2 size={12} style={{ color: '#DC2626' }} />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        {canEdit && (
-                          <div className="flex gap-1 flex-shrink-0 flex-wrap justify-end">
-                            {svc.status === 'open' && <QuickBtn label="출동" color="#D97706" onClick={() => quickSvcStatus(svc.id, 'dispatched')} />}
-                            {['open','dispatched','in_progress'].includes(svc.status) && <QuickBtn label="완료" color="#059669" onClick={() => quickSvcStatus(svc.id, 'completed')} />}
-                            <button onClick={() => { setSvcForm({ ...EMPTY_SVC, ...svc }); setEditSvcId(svc.id); setShowSvcForm(true) }}
-                              className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                              <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
-                            </button>
-                            <button onClick={() => deleteSvc(svc.id)}
-                              className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
-                              <Trash2 size={12} style={{ color: '#DC2626' }} />
-                            </button>
+
+                        {/* 현장 입력 — 카드를 눌러 펼치고, 원인분석·조치내용·교체부품·고객피드백·후속조치필요를 입력한다 */}
+                        {isExpanded && (
+                          <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--line)' }} onClick={e => e.stopPropagation()}>
+                            <div className="text-[11px] font-bold" style={{ color: 'var(--ink-soft)' }}>현장 조치 입력</div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              <FieldArea label="원인 분석" value={draft.causeAnalysis} onChange={v => D('causeAnalysis', v)} rows={2} />
+                              <FieldArea label="조치 내용" value={draft.actionTaken} onChange={v => D('actionTaken', v)} rows={2} />
+                              <Field label="교체 부품" value={draft.partsReplaced} onChange={v => D('partsReplaced', v)} placeholder="교체한 부품이 있으면 입력" />
+                              <FieldArea label="고객 피드백" value={draft.customerFeedback} onChange={v => D('customerFeedback', v)} rows={2} />
+                            </div>
+                            <label className="flex items-center gap-2 text-[12px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                              <input type="checkbox" checked={!!draft.followUpNeeded} onChange={e => D('followUpNeeded', e.target.checked)} />
+                              후속 조치 필요
+                            </label>
+                            {canEdit && (
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => { saveSvcOnsite(svc.id, svcOnsiteDraft, false); setExpandedSvc(null); setSvcOnsiteDraft(null) }}
+                                  className="px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+                                  style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>저장</button>
+                                <button onClick={() => { saveSvcOnsite(svc.id, svcOnsiteDraft, true); setExpandedSvc(null); setSvcOnsiteDraft(null) }}
+                                  className="px-3 py-1.5 rounded-xl text-[12px] font-bold"
+                                  style={{ background: '#059669', color: '#fff', border: 'none', cursor: 'pointer' }}>저장 후 완료</button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -606,53 +708,41 @@ export default function ServiceHub() {
 }
 
 // ── 설치 폼 ──────────────────────────────────────────────────
-function InstallForm({ form, setForm, onSave, onCancel, isEdit, toggleCheck }) {
+function InstallForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const [newCheck, setNewCheck] = useState('')
 
-  function addCheck() {
-    if (!newCheck.trim()) return
-    setForm(f => ({ ...f, checkItems: [...(f.checkItems || []), { name: newCheck.trim(), done: false }] }))
-    setNewCheck('')
-  }
-  function removeCheck(i) {
-    setForm(f => ({ ...f, checkItems: f.checkItems.filter((_, idx) => idx !== i) }))
+  // 시리얼 번호 입력 후 포커스를 벗어나면 배포이력(추적성관리)에서 제품·고객 정보를 자동으로 채운다.
+  function fillBySerial() {
+    const sn = form.serialNo
+    const dist = findDistBySerial(sn)
+    const inst = !dist && findInstBySerial(sn)
+    const src2 = dist || inst
+    if (!src2) return
+    setForm(f => ({
+      ...f,
+      productName: src2.productName || f.productName,
+      productCode: src2.productCode || f.productCode,
+      customerName: src2.customerName || f.customerName,
+      installAddress: src2.customerAddress || src2.installAddress || f.installAddress,
+    }))
   }
 
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '설치 기록 수정' : '설치 기록 등록'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <Field label="시리얼 번호 (S/N)" value={form.serialNo} onChange={v => F('serialNo', v)} onBlur={fillBySerial} placeholder="S/N 입력 시 제품·고객 자동 조회" />
         <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
         <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
-        <Field label="시리얼 번호 (S/N)" value={form.serialNo} onChange={v => F('serialNo', v)} />
         <Field label="고객명" value={form.customerName} onChange={v => F('customerName', v)} list="inst-customer-list" listOptions={salesCustomerNames()} />
         <Field label="설치 주소" value={form.installAddress} onChange={v => F('installAddress', v)} />
         <Field label="설치일" type="date" value={form.installDate} onChange={v => F('installDate', v)} />
       </div>
-      <div className="mb-4 text-[11px] px-2.5 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>ℹ 상태는 아래 체크리스트 완료 현황에 따라 자동으로 결정됩니다 (전체 완료→완료, 일부 완료→진행중, 미착수→예정).</div>
-
-      {/* 체크리스트 */}
-      <div className="mb-4">
-        <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>설치 체크리스트</div>
-        <div className="space-y-1.5 mb-2">
-          {(form.checkItems || []).map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input type="checkbox" checked={item.done} onChange={() => toggleCheck(i)} className="w-4 h-4 rounded" />
-              <span className="text-[12px] flex-1" style={{ color: 'var(--ink)', textDecoration: item.done ? 'line-through' : 'none', opacity: item.done ? 0.5 : 1 }}>{item.name}</span>
-              <button onClick={() => removeCheck(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}><X size={12} /></button>
-            </div>
-          ))}
+      {!isEdit && (
+        <div className="mb-4 text-[11px] px-2.5 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+          ℹ 등록 시 상태는 '예정'으로 자동 설정되며, 설치 체크리스트는 제품 개발 화면에 지정된 항목(없으면 기본 항목)으로 자동 부여됩니다. 등록 후 목록에서 카드를 눌러 체크리스트를 진행하세요 — 전체 완료 시 자동으로 '완료' 상태가 됩니다.
         </div>
-        <div className="flex gap-2">
-          <input value={newCheck} onChange={e => setNewCheck(e.target.value)} placeholder="체크 항목 추가..."
-            className="flex-1 px-3 py-1.5 rounded-xl text-[12px]"
-            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}
-            onKeyDown={e => e.key === 'Enter' && addCheck()} />
-          <button onClick={addCheck} className="px-3 py-1.5 rounded-xl text-[12px] font-bold"
-            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>추가</button>
-        </div>
-      </div>
+      )}
 
       <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
       <div className="flex gap-2 mt-3">
@@ -670,22 +760,41 @@ function InstallForm({ form, setForm, onSave, onCancel, isEdit, toggleCheck }) {
 // ── 서비스 폼 ─────────────────────────────────────────────────
 function ServiceForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // 시리얼 번호 입력 후 포커스를 벗어나면 배포이력(추적성관리)에서 제품·고객 정보를 자동으로 채운다.
+  function fillBySerial() {
+    const sn = form.serialNo
+    const dist = findDistBySerial(sn)
+    if (!dist) return
+    setForm(f => ({
+      ...f,
+      productName: dist.productName || f.productName,
+      productCode: dist.productCode || f.productCode,
+      customerName: dist.customerName || f.customerName,
+      customerContact: dist.customerContact || f.customerContact,
+      customerAddress: dist.customerAddress || f.customerAddress,
+    }))
+  }
+
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '서비스 기록 수정' : '서비스 기록 등록'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <Field label="시리얼 번호" value={form.serialNo} onChange={v => F('serialNo', v)} onBlur={fillBySerial} placeholder="S/N 입력 시 제품·고객 자동 조회" />
         <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
         <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
-        <Field label="시리얼 번호" value={form.serialNo} onChange={v => F('serialNo', v)} />
         <Field label="고객명" value={form.customerName} onChange={v => F('customerName', v)} />
         <Field label="고객 연락처" value={form.customerContact} onChange={v => F('customerContact', v)} />
         <Field label="고객 주소" value={form.customerAddress} onChange={v => F('customerAddress', v)} />
         <FieldSelect label="서비스 유형" value={form.svcType} onChange={v => F('svcType', v)}
           options={Object.entries(SVC_TYPES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
-          options={Object.entries(SVC_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         <Field label="접수일" type="date" value={form.reportedDate} onChange={v => F('reportedDate', v)} />
       </div>
+      {!isEdit && (
+        <div className="mb-4 text-[11px] px-2.5 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+          ℹ 접수 시 상태는 '접수'로 자동 설정됩니다. 이후 상태는 목록의 출동/완료 버튼으로만 전환되며, 출동 처리 시 로그인 계정이 담당 엔지니어로 자동 등록됩니다.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
         <FieldArea label="증상 / 불만 내용" value={form.symptom} onChange={v => F('symptom', v)} rows={2} />
         <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
@@ -733,11 +842,11 @@ function Empty({ icon: Icon, text }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder, list, listOptions }) {
+function Field({ label, value, onChange, onBlur, type = 'text', placeholder, list, listOptions }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} list={list}
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} onBlur={onBlur} placeholder={placeholder} list={list}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
       {list && listOptions && <datalist id={list}>{listOptions.map(n => <option key={n} value={n} />)}</datalist>}

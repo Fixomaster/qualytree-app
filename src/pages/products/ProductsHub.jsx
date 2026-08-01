@@ -1041,6 +1041,18 @@ function ProductPanel({ product, company, onAction }) {
     return { ...d, pkgCheckItems: items }
   })
 
+  const addInstallItem = () => setDraft((d) => ({ ...d, installCheckItems: [...(d.installCheckItems || []), { name: '' }] }))
+  const updInstallItem = (i, v) => setDraft((d) => {
+    const items = [...(d.installCheckItems || [])]
+    items[i] = { ...items[i], name: v }
+    return { ...d, installCheckItems: items }
+  })
+  const delInstallItem = (i) => setDraft((d) => {
+    const items = [...(d.installCheckItems || [])]
+    items.splice(i, 1)
+    return { ...d, installCheckItems: items }
+  })
+
   return (
     <div className="grid lg:grid-cols-3 gap-4">
       {/* 좌: 제품 카드 */}
@@ -1224,6 +1236,22 @@ function ProductPanel({ product, company, onAction }) {
                       <Field label="비고" value={product.preserveNotes} />
                     </div>
                   )}
+                </div>
+              )}
+
+              {(product.installCheckItems || []).length > 0 && (
+                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
+                    설치 체크리스트 (ISO 13485 §7.5.3 — 설치·서비스 화면에서 사용)
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-1.5">
+                    {product.installCheckItems.map((ci, i) => (
+                      <div key={i} className="flex gap-2 text-[12px] p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                        <span style={{ color: 'var(--ink-faint)', minWidth: 16 }}>{i + 1}.</span>
+                        <span style={{ color: 'var(--ink)' }}>{ci.name}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -1524,6 +1552,29 @@ function ProductPanel({ product, company, onAction }) {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+                <div className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>
+                  설치 체크리스트 (ISO 13485 §7.5.3 — 설치·서비스 화면에서 사용)
+                </div>
+                <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>체크 항목</label>
+                    <button type="button" onClick={addInstallItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ 항목 추가</button>
+                  </div>
+                  <div className="space-y-2">
+                    {(draft.installCheckItems || []).map((ci, i) => (
+                      <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 32px' }}>
+                        <input value={ci.name} onChange={(e) => updInstallItem(i, e.target.value)} placeholder="설치 점검 항목명" className="input-base text-[12px]" />
+                        <button type="button" onClick={() => delInstallItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                      </div>
+                    ))}
+                    {(draft.installCheckItems || []).length === 0 && (
+                      <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ 버튼으로 항목을 추가하세요 (미입력 시 기본 설치 체크리스트 사용)</div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
