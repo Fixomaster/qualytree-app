@@ -38,6 +38,27 @@ const EMPTY_BATCH = {
   result: 'pass', notes: '',
 }
 
+// 멸균 방법에 따라 실측 사이클 파라미터 중 실제로 의미 있는 항목만 입력받는다. (#190)
+const CYCLE_PARAMS_BY_METHOD = {
+  'EO (에틸렌옥사이드)':            ['temp', 'time', 'pressure'],
+  '감마선 (Gamma Radiation)':      ['dose'],
+  'E-beam (전자빔)':                ['dose'],
+  '고압증기멸균 (Autoclave)':       ['temp', 'time', 'pressure'],
+  '건열 멸균 (Dry Heat)':           ['temp', 'time'],
+  '과산화수소 플라즈마 (H₂O₂ Plasma)': ['temp', 'time'],
+  'X선 방사선':                     ['dose'],
+}
+function cycleParamsFor(method) { return CYCLE_PARAMS_BY_METHOD[method] || ['temp', 'time', 'pressure', 'dose'] }
+
+// 배치/로트 번호로 생산중인 WO를 조회해 어떤 제품인지 자동 연결한다. (#188)
+function findWoByLot(lot) {
+  if (!lot || !lot.trim()) return null
+  try {
+    const wos = JSON.parse(localStorage.getItem('qms_mfg_wo') || '[]')
+    return (Array.isArray(wos) ? wos : []).find(w => w.lot && w.lot.trim().toLowerCase() === lot.trim().toLowerCase()) || null
+  } catch { return null }
+}
+
 const DEFAULT_POLICY = {
   revision: 'A', issueDate: '', approvedBy: '',
   scope: '',
@@ -265,8 +286,24 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
   const onSpecChange = e => {
     const s = specs.find(x => x.id === e.target.value)
     if (s) setDraft(d => ({ ...d, specId: s.id, productName: s.productName, sterileMethod: s.sterileMethod }))
-    else setDraft(d => ({ ...d, specId: '' }))
+    else setDraft(d => ({ ...d, specId: '', productName: '' }))
   }
+  // 배치/로트 번호 입력 시 생산중인 WO를 조회해 제품을 자동 특정한다. (#188)
+  const onBatchNoBlur = () => {
+    const wo = findWoByLot(draft.batchNo)
+    if (!wo) return
+    const s = specs.find(x => x.productName === wo.product)
+    setDraft(d => ({
+      ...d,
+      productName: wo.product || d.productName,
+      lotNo: wo.lot || d.lotNo,
+      ...(s ? { specId: s.id, sterileMethod: s.sterileMethod } : {}),
+    }))
+  }
+
+  const selectedSpec = specs.find(s => s.id === draft.specId)
+  const cycleParams = cycleParamsFor(draft.sterileMethod)
+  const validationSubstituted = !!(selectedSpec && selectedSpec.validationRef)
 
   const resultColor = v => BATCH_RESULTS.find(r => r.value === v)?.color || '#6B7280'
 
@@ -293,56 +330,74 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
             {editing ? '배치 기록 수정' : '새 멸균 배치 기록'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="멸균 사양 연결">
-              <select style={sel} value={draft.specId} onChange={onSpecChange}>
-                <option value="">— 직접 입력 —</option>
-                {specs.map(s => <option key={s.id} value={s.id}>{s.productName}</option>)}
-              </select>
-            </Field>
             <Field label="배치/로트 번호" required>
-              <input style={inp} value={draft.batchNo} onChange={upd('batchNo')} placeholder="예: LOT-2024-001" />
+              <input style={inp} value={draft.batchNo} onChange={upd('batchNo')} onBlur={onBatchNoBlur} placeholder="예: LOT-2024-001 (입력 시 생산중 WO에서 제품 자동조회)" />
             </Field>
             <Field label="멸균 일자">
               <input type="date" style={inp} value={draft.date} onChange={upd('date')} />
             </Field>
-            <Field label="제품명">
-              <input style={inp} value={draft.productName} onChange={upd('productName')} placeholder="제품명" />
-            </Field>
-            <Field label="로트 번호">
-              <input style={inp} value={draft.lotNo} onChange={upd('lotNo')} placeholder="생산 로트" />
-            </Field>
-            <Field label="멸균 방법">
-              <select style={sel} value={draft.sterileMethod} onChange={upd('sterileMethod')}>
-                {STERILE_METHODS.map(m => <option key={m}>{m}</option>)}
+            <Field label="멸균 사양 연결 (제품 특정)">
+              <select style={sel} value={draft.specId} onChange={onSpecChange}>
+                <option value="">— 선택 —</option>
+                {specs.map(s => <option key={s.id} value={s.id}>{s.productName}</option>)}
               </select>
+            </Field>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+            <Field label="제품 (자동 특정됨)">
+              <div style={{ ...inp, display: 'flex', alignItems: 'center', background: 'var(--bg-soft)', color: draft.productName ? 'var(--ink)' : 'var(--ink-faint)' }}>
+                {draft.productName || '배치번호 입력 또는 멸균 사양 선택 시 자동 표시'}
+              </div>
+            </Field>
+            <Field label="멸균 방법 (사양 연결 기준)">
+              <div style={{ ...inp, display: 'flex', alignItems: 'center', background: 'var(--bg-soft)', color: 'var(--ink)' }}>
+                {draft.sterileMethod}
+              </div>
             </Field>
           </div>
 
           <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--ink-soft)' }}>실측 사이클 파라미터</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
-              <Field label="온도 (℃)">
-                <input style={inp} value={draft.actualTemp} onChange={upd('actualTemp')} />
-              </Field>
-              <Field label="시간 (분)">
-                <input style={inp} value={draft.actualTime} onChange={upd('actualTime')} />
-              </Field>
-              <Field label="압력 (bar)">
-                <input style={inp} value={draft.actualPressure} onChange={upd('actualPressure')} />
-              </Field>
-              <Field label="선량 (kGy)">
-                <input style={inp} value={draft.actualDose} onChange={upd('actualDose')} />
-              </Field>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--ink-soft)' }}>실측 사이클 파라미터 (멸균 방법에 따라 입력 항목이 달라집니다)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cycleParams.length}, 1fr)`, gap: 10 }}>
+              {cycleParams.includes('temp') && (
+                <Field label="온도 (℃)">
+                  <input style={inp} value={draft.actualTemp} onChange={upd('actualTemp')} />
+                </Field>
+              )}
+              {cycleParams.includes('time') && (
+                <Field label="시간 (분)">
+                  <input style={inp} value={draft.actualTime} onChange={upd('actualTime')} />
+                </Field>
+              )}
+              {cycleParams.includes('pressure') && (
+                <Field label="압력 (bar)">
+                  <input style={inp} value={draft.actualPressure} onChange={upd('actualPressure')} />
+                </Field>
+              )}
+              {cycleParams.includes('dose') && (
+                <Field label="선량 (kGy)">
+                  <input style={inp} value={draft.actualDose} onChange={upd('actualDose')} />
+                </Field>
+              )}
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="바이오버든 결과 (CFU/개)">
-              <input style={inp} value={draft.bioburdenResult} onChange={upd('bioburdenResult')} placeholder="예: 12" />
-            </Field>
-            <Field label="달성 SAL">
-              <input style={inp} value={draft.salAchieved} onChange={upd('salAchieved')} placeholder="예: 10⁻⁶" />
-            </Field>
+          {!validationSubstituted && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <Field label="바이오버든 결과 (CFU/개)">
+                <input style={inp} value={draft.bioburdenResult} onChange={upd('bioburdenResult')} placeholder="예: 12" />
+              </Field>
+              <Field label="달성 SAL">
+                <input style={inp} value={draft.salAchieved} onChange={upd('salAchieved')} placeholder="예: 10⁻⁶" />
+              </Field>
+            </div>
+          )}
+          {validationSubstituted && (
+            <div style={{ fontSize: 11.5, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-soft)', color: 'var(--ink-faint)', marginBottom: 14 }}>
+              ℹ 이 제품은 밸리데이션 참조({selectedSpec.validationRef})가 등록되어 있어 바이오버든·SAL 결과는 밸리데이션 결과로 대체됩니다.
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginBottom: 14 }}>
             <Field label="합/불 판정" required>
               <select style={sel} value={draft.result} onChange={upd('result')}>
                 {BATCH_RESULTS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
