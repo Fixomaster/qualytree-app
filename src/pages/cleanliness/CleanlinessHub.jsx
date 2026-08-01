@@ -1,14 +1,17 @@
 // src/pages/cleanliness/CleanlinessHub.jsx
 // ISO 13485 §7.5.2 — 청결 및 오염 관리
 import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, AlertTriangle,
-  Wind, Shield, FlaskConical, ClipboardList, BarChart2, Printer, X,
+  Wind, Shield, FlaskConical, ClipboardList, BarChart2, Printer, X, ExternalLink,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { printCleanlinessCert } from '../../lib/pdfPrint'
+import { onboarding } from '../../lib/onboardingState'
+import { deriveCleanlinessSpecs } from '../../lib/cleanlinessSpecConstants'
 
 const LS_SPECS  = 'qualytree.cleanliness_specs'
 const LS_RECS   = 'qualytree.cleanliness_records'
@@ -129,10 +132,13 @@ const DEFAULT_PLAN = {
 export default function CleanlinessHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const nav = useNavigate()
 
-  const [specs, setSpecs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_SPECS) || '[]') } catch { return [] }
-  })
+  // 청결도 사양은 제품·공정 화면(제품 개발)에서 입력된 제품 레코드로부터 파생된다 (SSoT).
+  const specs = useMemo(() => deriveCleanlinessSpecs(onboarding.load()?.products || []), [])
+  const goToProduct = (productId) => nav('/products?tab=product&productId=' + encodeURIComponent(productId) + '&detailTab=info')
+  const goToProducts = () => nav('/products?tab=product')
+
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_RECS) || '[]') } catch { return [] }
   })
@@ -141,32 +147,14 @@ export default function CleanlinessHub() {
   })
 
   const [tab, setTab] = useState('specs')
-  const [showSpecForm, setShowSpecForm] = useState(false)
-  const [specForm, setSpecForm] = useState(EMPTY_SPEC)
-  const [editSpecId, setEditSpecId] = useState(null)
   const [showRecForm, setShowRecForm] = useState(false)
   const [recForm, setRecForm] = useState(EMPTY_RECORD)
   const [editRecId, setEditRecId] = useState(null)
   const [certRow, setCertRow] = useState(null)
   const [valRow, setValRow] = useState(null)
-  const [editingPlan, setEditingPlan] = useState(false)
-  const [planDraft, setPlanDraft] = useState(null)
 
-  function saveSpecs(list) { setSpecs(list); localStorage.setItem(LS_SPECS, JSON.stringify(list)) }
   function saveRecs(list)  { setRecords(list); localStorage.setItem(LS_RECS, JSON.stringify(list)) }
   function savePlan(p)     { setPlan(p); localStorage.setItem(LS_PLAN, JSON.stringify(p)) }
-
-  function submitSpec() {
-    if (!specForm.productName.trim()) return alert('제품명을 입력하세요.')
-    let updated
-    if (editSpecId) {
-      updated = specs.map(s => s.id === editSpecId ? { ...s, ...specForm } : s)
-    } else {
-      updated = [{ id: genId(), createdAt: today(), ...specForm }, ...specs]
-    }
-    saveSpecs(updated)
-    setShowSpecForm(false); setSpecForm(EMPTY_SPEC); setEditSpecId(null)
-  }
 
   function submitRecord() {
     if (!recForm.date) return alert('일자를 입력하세요.')
@@ -180,14 +168,7 @@ export default function CleanlinessHub() {
     setShowRecForm(false); setRecForm(EMPTY_RECORD); setEditRecId(null)
   }
 
-  const SF = (k, v) => setSpecForm(f => ({ ...f, [k]: v }))
   const RF = (k, v) => setRecForm(f => ({ ...f, [k]: v }))
-  const DP = (k, v) => setPlanDraft(d => ({ ...d, [k]: v }))
-
-  function toggleContamType(type) {
-    const cur = specForm.contaminationTypes || []
-    SF('contaminationTypes', cur.includes(type) ? cur.filter(t => t !== type) : [...cur, type])
-  }
 
   const analysis = useMemo(() => {
     const passCount = records.filter(r => r.result === 'pass').length
@@ -253,29 +234,27 @@ export default function CleanlinessHub() {
           )})}
         </div>
 
-        {/* ── 청결도 사양 탭 ── */}
+        {/* ── 청결도 사양 탭 (제품 개발 화면에서 파생, 읽기 전용) ── */}
         {tab === 'specs' && (
           <div>
-            <div className="flex gap-2 mb-4 items-center">
+            <div className="flex gap-2 mb-4 items-center justify-between flex-wrap">
+              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+                제품·공정 &gt; 제품 개발 화면에서 입력한 청결도 사양이 여기 자동 반영됩니다.
+              </span>
               {canEdit && (
-                <button onClick={function() { setSpecForm(EMPTY_SPEC); setEditSpecId(null); setShowSpecForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
+                <button onClick={goToProducts}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 사양 등록
+                  <ExternalLink size={14} /> 제품 개발에서 사양 입력
                 </button>
               )}
             </div>
 
-            {showSpecForm && (
-              <SpecForm form={specForm} SF={SF} onSave={submitSpec}
-                onCancel={function() { setShowSpecForm(false); setSpecForm(EMPTY_SPEC); setEditSpecId(null) }}
-                isEdit={!!editSpecId} toggleContamType={toggleContamType} />
-            )}
-
             <div className="space-y-3">
               {specs.length === 0 && (
                 <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-                  청결도 사양을 등록하세요.
+                  등록된 청결도 사양이 없습니다.
+                  <div className="text-[12px] mt-1.5">제품·공정 &gt; 제품 개발 화면에서 제품을 "청결도·오염 관리 대상"으로 설정하고 사양을 입력하세요.</div>
                 </div>
               )}
               {specs.map(function(spec) {
@@ -309,17 +288,12 @@ export default function CleanlinessHub() {
                           </div>
                         )}
                       </div>
-                      {canEdit && (
-                        <div className="flex gap-1 shrink-0">
-                          <button onClick={function() { setSpecForm({ ...EMPTY_SPEC, ...spec }); setEditSpecId(spec.id); setShowSpecForm(true) }}
-                            className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                            <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
-                          </button>
-                          <button onClick={function() { if(window.confirm('삭제하시겠습니까?')) saveSpecs(specs.filter(function(s) { return s.id !== spec.id })) }}
-                            className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
-                            <Trash2 size={12} style={{ color: '#DC2626' }} />
-                          </button>
-                        </div>
+                      {canEdit && spec.productId && (
+                        <button onClick={function() { goToProduct(spec.productId) }}
+                          className="flex items-center gap-1 shrink-0 text-[11.5px] px-2.5 py-1.5 rounded-lg"
+                          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+                          <ExternalLink size={12} /> 제품 개발에서 관리
+                        </button>
                       )}
                     </div>
                   </div>
@@ -416,61 +390,29 @@ export default function CleanlinessHub() {
           <div className="space-y-4">
             <div className="flex justify-between items-center gap-2 flex-wrap">
               <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-                청결도 사양(SSoT) 등록 내용을 기반으로 아래 항목을 자동 설정할 수 있습니다.
+                관리 계획 본문은 청결도 사양(SSoT) 등록 내용을 기반으로 자동 생성됩니다. 수기 편집은 지원하지 않습니다 — 제품·공정 화면에서 사양을 갱신한 뒤 아래 버튼으로 다시 생성하세요.
               </span>
-              <div className="flex gap-2">
-                {canEdit && (
-                  <button onClick={function() {
-                    const auto = buildAutoPlanContent(specs)
-                    setPlanDraft(function(d) { return { ...(d || plan), ...auto } })
-                    setEditingPlan(true)
-                  }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                    style={{ background: '#EDE9FE', color: '#7C3AED', border: '1px solid #DDD6FE', cursor: 'pointer' }}>
-                    <Wind size={13} /> 사양 기반 자동 설정
-                  </button>
-                )}
-                {!editingPlan && canEdit && (
-                  <button onClick={function() { setPlanDraft({ ...plan }); setEditingPlan(true) }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                    style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                    <Edit2 size={13} /> 편집
-                  </button>
-                )}
-                {editingPlan && (
-                  <div className="flex gap-2">
-                    <button onClick={function() { savePlan(planDraft); setEditingPlan(false); setPlanDraft(null) }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                      style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                      <Save size={13} /> 저장
-                    </button>
-                    <button onClick={function() { setEditingPlan(false); setPlanDraft(null) }}
-                      className="px-4 py-2 rounded-xl text-[13px]"
-                      style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
-                  </div>
-                )}
-              </div>
+              {canEdit && (
+                <button onClick={function() { savePlan({ ...plan, ...buildAutoPlanContent(specs) }) }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
+                  style={{ background: '#EDE9FE', color: '#7C3AED', border: '1px solid #DDD6FE', cursor: 'pointer' }}>
+                  <Wind size={13} /> 사양 기반 자동 생성
+                </button>
+              )}
             </div>
 
             {[
-              { key: 'scope', label: '§7.5.2 적용 범위', ph: '본 절차는 청결 상태로 공급되는 모든 의료기기에 적용됩니다...' },
-              { key: 'contaminationRiskAssessment', label: '오염 위험 평가', ph: '미립자, 미생물, 화학 오염물질에 대한 위험 평가 요약...' },
-              { key: 'environmentReqs', label: '환경 요구사항 (§6.4 연계)', ph: '클린룸 Class, 온도·습도, 환기 횟수, 복장 규정...' },
-              { key: 'monitoringPlan', label: '모니터링 계획', ph: '파티클 카운터 주기, 미생물 낙하균 측정, 표면 오염 검사...' },
-              { key: 'cleaningValidationSummary', label: '세척 밸리데이션 요약', ph: 'VAL-xxxx 참조, IQ/OQ/PQ 완료, 재밸리데이션 주기...' },
+              { key: 'scope', label: '§7.5.2 적용 범위', ph: '사양 기반 자동 생성 버튼을 눌러 청결도 사양(SSoT) 기반 내용을 생성하세요.' },
+              { key: 'contaminationRiskAssessment', label: '오염 위험 평가', ph: '사양 기반 자동 생성 버튼을 눌러 생성하세요.' },
+              { key: 'environmentReqs', label: '환경 요구사항 (§6.4 연계)', ph: '사양 기반 자동 생성 버튼을 눌러 생성하세요.' },
+              { key: 'monitoringPlan', label: '모니터링 계획', ph: '사양 기반 자동 생성 버튼을 눌러 생성하세요.' },
+              { key: 'cleaningValidationSummary', label: '세척 밸리데이션 요약', ph: '사양 기반 자동 생성 버튼을 눌러 생성하세요.' },
             ].map(function(field) { return (
               <div key={field.key} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <div className="text-[12.5px] font-bold mb-2" style={{ color: 'var(--ink)' }}>{field.label}</div>
-                {editingPlan ? (
-                  <textarea value={planDraft[field.key] || ''} onChange={function(e) { DP(field.key, e.target.value) }}
-                    rows={3} placeholder={field.ph}
-                    className="w-full px-3 py-2 rounded-xl text-[13px] resize-none"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
-                ) : (
-                  plan[field.key]
-                    ? <p className="text-[13px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{plan[field.key]}</p>
-                    : <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{field.ph}</p>
-                )}
+                {plan[field.key]
+                  ? <p className="text-[13px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{plan[field.key]}</p>
+                  : <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{field.ph}</p>}
               </div>
             )})}
 
@@ -482,8 +424,8 @@ export default function CleanlinessHub() {
               ].map(function(f) { return (
                 <div key={f.key} className="p-3 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                   <div className="text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{f.label}</div>
-                  {editingPlan ? (
-                    <input type={f.type} value={planDraft[f.key] || ''} onChange={function(e) { DP(f.key, e.target.value) }}
+                  {canEdit ? (
+                    <input type={f.type} value={plan[f.key] || ''} onChange={function(e) { savePlan({ ...plan, [f.key]: e.target.value }) }}
                       className="w-full px-2 py-1 rounded-lg text-[13px]"
                       style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                   ) : (
@@ -697,6 +639,9 @@ function SpecForm({ form, SF, onSave, onCancel, isEdit, toggleContamType }) {
 
 // ── 모니터링 기록 폼 ─────────────────────────────────────────
 function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }) {
+  const selectedSpec = specs.find(function(s) { return s.id === form.specId })
+  // 선택된 사양에 밸리데이션 참조가 있으면 미립자/미생물 측정값은 밸리데이션으로 대체되므로 입력칸을 숨긴다. (#173)
+  const validationSubstituted = !!(selectedSpec && selectedSpec.validationRef)
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
@@ -722,13 +667,22 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
             {Object.entries(RESULT_STYLES).map(function([k,v]) { return <option key={k} value={k}>{v.label}</option> })}
           </select>
         </div>
-        <F label="미립자 측정값" value={form.particleResult} onChange={function(v) { RF('particleResult', v) }} placeholder="12,500개/m³" />
-        <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
+        {!validationSubstituted && (
+          <>
+            <F label="미립자 측정값" value={form.particleResult} onChange={function(v) { RF('particleResult', v) }} placeholder="12,500개/m³" />
+            <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
+          </>
+        )}
         <F label="온도 (℃)" value={form.temperature} onChange={function(v) { RF('temperature', v) }} placeholder="22.5" />
         <F label="습도 (%RH)" value={form.humidity} onChange={function(v) { RF('humidity', v) }} placeholder="45" />
         <F label="차압 (Pa)" value={form.pressureDiff} onChange={function(v) { RF('pressureDiff', v) }} placeholder="15" />
         <F label="비고" value={form.notes} onChange={function(v) { RF('notes', v) }} />
       </div>
+      {validationSubstituted && (
+        <div className="mb-3 text-[11px] px-2.5 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+          ℹ 이 제품은 밸리데이션 참조({selectedSpec.validationRef})가 등록되어 있어 미립자·미생물 측정값이 밸리데이션 결과로 대체됩니다.
+        </div>
+      )}
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>

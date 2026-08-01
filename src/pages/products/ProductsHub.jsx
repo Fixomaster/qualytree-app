@@ -43,6 +43,7 @@ import {
 } from '../../lib/productLifecycleState'
 import { extractLicenseFromPdf } from '../../lib/licenseExtract'
 import { STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES } from '../../lib/sterileSpecConstants'
+import { CLEAN_CLASSES, CLEANING_METHODS, CONTAMINATION_TYPES, MONITOR_FREQS, CLEAN_STATUSES, CLEAN_APPLIES_WHEN } from '../../lib/cleanlinessSpecConstants'
 import { INSP_TYPES } from '../../lib/inspectionStandardConstants'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
@@ -1138,6 +1139,39 @@ function ProductPanel({ product, company, onAction }) {
                 </div>
               )}
 
+              {product.cleanEnabled && (
+                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+                  <div className="text-[11.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
+                    청결도 사양 (ISO 13485 §7.5.2)
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{
+                      background: (CLEAN_STATUSES.find(s => s.value === (product.cleanStatus || 'not_validated')) || {}).color + '22',
+                      color: (CLEAN_STATUSES.find(s => s.value === (product.cleanStatus || 'not_validated')) || {}).color,
+                    }}>
+                      {(CLEAN_STATUSES.find(s => s.value === (product.cleanStatus || 'not_validated')) || {}).label}
+                    </span>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="적용 조건" value={CLEAN_APPLIES_WHEN[product.cleanAppliesWhen] || '-'} />
+                    <Field label="청결도 등급" value={product.cleanClass || '-'} />
+                    <Field label="세척 방법" value={product.cleaningMethod || '-'} />
+                    <Field label="모니터링 빈도" value={product.cleanFrequency || '-'} />
+                    <Field label="오염 유형" value={(product.contaminationTypes || []).join(', ') || '-'} />
+                    <Field label="미립자 한도 / 미생물 한도" value={[product.particleLimit, product.microbialLimit].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="화학 잔류 한도" value={product.chemicalLimit || '-'} />
+                    <Field label="세척 SOP 참조" value={product.cleaningProcedureRef || '-'} />
+                    <Field label="밸리데이션 참조" value={product.cleanValidationRef || '-'} />
+                    <Field label="청결도 검사 방법" value={product.inspectionMethod || '-'} />
+                    <Field label="합격 기준" value={product.acceptanceCriteria || '-'} />
+                    <Field label="담당" value={product.cleanResponsible || '-'} />
+                  </div>
+                  {product.cleanNotes && (
+                    <div className="mt-3">
+                      <Field label="비고" value={product.cleanNotes} />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {product.inspStdName && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
@@ -1264,6 +1298,89 @@ function ProductPanel({ product, company, onAction }) {
                     </div>
 
                     <FieldEdit label="멸균 사양 비고" value={draft.sterileNotes} onChange={(v) => setDraft({ ...draft, sterileNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+                <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!draft.cleanEnabled}
+                    onChange={(e) => setDraft({ ...draft, cleanEnabled: e.target.checked })}
+                  />
+                  이 제품은 청결도·오염 관리 요구사항이 적용됩니다 (ISO 13485 §7.5.2 사양 입력)
+                </label>
+
+                {draft.cleanEnabled && (
+                  <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>적용 조건</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanAppliesWhen || 'supplied_clean'} onChange={(e) => setDraft({ ...draft, cleanAppliesWhen: e.target.value })}>
+                          {Object.entries(CLEAN_APPLIES_WHEN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>청결도 등급</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanClass || CLEAN_CLASSES[6]} onChange={(e) => setDraft({ ...draft, cleanClass: e.target.value })}>
+                          {CLEAN_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>세척 방법</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.cleaningMethod || CLEANING_METHODS[0]} onChange={(e) => setDraft({ ...draft, cleaningMethod: e.target.value })}>
+                          {CLEANING_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>모니터링 빈도</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanFrequency || MONITOR_FREQS[0]} onChange={(e) => setDraft({ ...draft, cleanFrequency: e.target.value })}>
+                          {MONITOR_FREQS.map((f) => <option key={f} value={f}>{f}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>오염 유형 (복수 선택)</label>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {CONTAMINATION_TYPES.map((t) => {
+                          const active = (draft.contaminationTypes || []).includes(t)
+                          return (
+                            <button key={t} type="button" onClick={() => {
+                              const cur = draft.contaminationTypes || []
+                              setDraft({ ...draft, contaminationTypes: active ? cur.filter((x) => x !== t) : [...cur, t] })
+                            }} className="px-2.5 py-1 rounded-full text-[11.5px]" style={{
+                              background: active ? 'var(--moss)' : 'var(--bg-card)',
+                              color: active ? '#fff' : 'var(--ink-soft)',
+                              border: '1px solid ' + (active ? 'var(--moss)' : 'var(--line)'), cursor: 'pointer',
+                            }}>{t}</button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <FieldEdit label="미립자 한도 (개/㎥)" value={draft.particleLimit} onChange={(v) => setDraft({ ...draft, particleLimit: v })} placeholder="12,500" />
+                      <FieldEdit label="미생물 한도 (CFU/㎥)" value={draft.microbialLimit} onChange={(v) => setDraft({ ...draft, microbialLimit: v })} placeholder="3" />
+                      <FieldEdit label="화학 잔류 한도" value={draft.chemicalLimit} onChange={(v) => setDraft({ ...draft, chemicalLimit: v })} placeholder="" />
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <FieldEdit label="세척 SOP 참조" value={draft.cleaningProcedureRef} onChange={(v) => setDraft({ ...draft, cleaningProcedureRef: v })} placeholder="SOP-CL-001" />
+                      <FieldEdit label="밸리데이션 참조 번호 (있으면 정기 측정값 대체)" value={draft.cleanValidationRef} onChange={(v) => setDraft({ ...draft, cleanValidationRef: v })} placeholder="VLD-2024-CL-001" />
+                      <FieldEdit label="청결도 검사 방법" value={draft.inspectionMethod} onChange={(v) => setDraft({ ...draft, inspectionMethod: v })} placeholder="파티클 카운터 측정" />
+                      <FieldEdit label="합격 기준" value={draft.acceptanceCriteria} onChange={(v) => setDraft({ ...draft, acceptanceCriteria: v })} placeholder="" />
+                      <FieldEdit label="담당" value={draft.cleanResponsible} onChange={(v) => setDraft({ ...draft, cleanResponsible: v })} placeholder="생산팀" />
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>상태</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanStatus || 'not_validated'} onChange={(e) => setDraft({ ...draft, cleanStatus: e.target.value })}>
+                          {CLEAN_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <FieldEdit label="청결도 사양 비고" value={draft.cleanNotes} onChange={(v) => setDraft({ ...draft, cleanNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
                   </div>
                 )}
               </div>
