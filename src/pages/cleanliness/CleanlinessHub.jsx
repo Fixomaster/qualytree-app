@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, AlertTriangle,
   Wind, Shield, FlaskConical, ClipboardList, BarChart2, Printer, X, ExternalLink,
+  ChevronDown, ChevronUp, Thermometer, Droplets, Activity,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -150,7 +151,7 @@ export default function CleanlinessHub() {
   const [showRecForm, setShowRecForm] = useState(false)
   const [recForm, setRecForm] = useState(EMPTY_RECORD)
   const [editRecId, setEditRecId] = useState(null)
-  const [certRow, setCertRow] = useState(null)
+  const [expandedRec, setExpandedRec] = useState(null)
   const [valRow, setValRow] = useState(null)
 
   function saveRecs(list)  { setRecords(list); localStorage.setItem(LS_RECS, JSON.stringify(list)) }
@@ -307,7 +308,7 @@ export default function CleanlinessHub() {
         {tab === 'records' && (
           <div>
             <div className="flex gap-2 mb-4 items-center">
-              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>행 클릭 시 성적서 보기</span>
+              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>카드 클릭 시 상세·성적서 확인</span>
               {canEdit && (
                 <button onClick={function() { setRecForm(EMPTY_RECORD); setEditRecId(null); setShowRecForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
@@ -323,64 +324,26 @@ export default function CleanlinessHub() {
                 isEdit={!!editRecId} RESULT_STYLES={RESULT_STYLES} />
             )}
 
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['일자', '제품/사양', '로트 번호', '결과', '미립자', '미생물', '온도', '습도', '차압', '비고', ''].map(function(h) { return (
-                      <th key={h} className="px-2 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
-                    )})}
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.length === 0 && (
-                    <tr><td colSpan={11} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>모니터링 기록이 없습니다.</td></tr>
-                  )}
-                  {records.map(function(rec, idx) {
-                    var rs = RESULT_STYLES[rec.result] || RESULT_STYLES.pass
-                    var specName = (specs.find(function(s) { return s.id === rec.specId }) || {}).productName || '—'
-                    return (
-                      <tr key={rec.id} onClick={function() { setCertRow(rec) }} className="cursor-pointer"
-                        style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)', transition: 'background 0.1s' }}
-                        onMouseEnter={function(e) { e.currentTarget.style.background = 'var(--bg-soft)' }}
-                        onMouseLeave={function(e) { e.currentTarget.style.background = idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)' }}>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink)' }}>{rec.date}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{specName}</td>
-                        <td className="px-2 py-2 font-mono text-[11px]" style={{ color: 'var(--ink-soft)' }}>{rec.lotNo || '—'}</td>
-                        <td className="px-2 py-2">
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: rs.bg, color: rs.color }}>{rs.label}</span>
-                        </td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.particleResult || '—'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.microbialResult || '—'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.temperature ? rec.temperature + '℃' : '—'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.humidity ? rec.humidity + '%' : '—'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{rec.pressureDiff ? rec.pressureDiff + 'Pa' : '—'}</td>
-                        <td className="px-2 py-2 text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{rec.notes || '—'}</td>
-                        <td className="px-2 py-2">
-                          {canEdit && (
-                            <div className="flex gap-1" onClick={function(e) { e.stopPropagation() }}>
-                              <button onClick={function() { setRecForm({ ...EMPTY_RECORD, ...rec }); setEditRecId(rec.id); setShowRecForm(true) }}
-                                className="p-1 rounded" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                                <Edit2 size={10} style={{ color: 'var(--ink-soft)' }} />
-                              </button>
-                              <button onClick={function() { if(window.confirm('삭제?')) saveRecs(records.filter(function(r) { return r.id !== rec.id })) }}
-                                className="p-1 rounded" style={{ background: '#FEE2E2', border: 'none', cursor: 'pointer' }}>
-                                <Trash2 size={10} style={{ color: '#DC2626' }} />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            {certRow && (
-              <CertModal onClose={function() { setCertRow(null) }}>
-                <CleanlinessCertificate rec={certRow} specs={specs} onClose={function() { setCertRow(null) }} />
-              </CertModal>
+            {records.length === 0 ? (
+              <div className="text-center py-16 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                <ClipboardList size={40} strokeWidth={1} className="mx-auto mb-3 opacity-30" />
+                <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>모니터링 기록이 없습니다.</div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {records.map(function(rec) {
+                  var spec = specs.find(function(s) { return s.id === rec.specId }) || {}
+                  return (
+                    <RecordCard key={rec.id} rec={rec} spec={spec} canEdit={canEdit}
+                      expanded={expandedRec === rec.id}
+                      onToggle={function() { setExpandedRec(expandedRec === rec.id ? null : rec.id) }}
+                      onEdit={function() { setRecForm({ ...EMPTY_RECORD, ...rec }); setEditRecId(rec.id); setShowRecForm(true) }}
+                      onDelete={function() { if (window.confirm('삭제?')) saveRecs(records.filter(function(r) { return r.id !== rec.id })) }}
+                      onPrint={function() { printCleanlinessCert(rec, spec) }}
+                      RESULT_STYLES={RESULT_STYLES} />
+                  )
+                })}
+              </div>
             )}
           </div>
         )}
@@ -691,6 +654,87 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
           style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
       </div>
+    </div>
+  )
+}
+
+// ── 모니터링 기록 카드 (작업환경관리 스타일) ───────────────────
+function RecordCard({ rec, spec, expanded, onToggle, onEdit, onDelete, onPrint, RESULT_STYLES, canEdit }) {
+  const rs = RESULT_STYLES[rec.result] || RESULT_STYLES.pass
+  const isFail = rec.result === 'fail'
+  const params = [
+    { label: '미립자', value: rec.particleResult, icon: Wind, color: '#8B5CF6' },
+    { label: '미생물', value: rec.microbialResult, icon: FlaskConical, color: '#7C3AED' },
+    { label: '온도', value: rec.temperature ? rec.temperature + '℃' : '', icon: Thermometer, color: '#EF4444' },
+    { label: '습도', value: rec.humidity ? rec.humidity + '%' : '', icon: Droplets, color: '#3B82F6' },
+    { label: '차압', value: rec.pressureDiff ? rec.pressureDiff + 'Pa' : '', icon: Activity, color: '#059669' },
+  ].filter(function(p) { return p.value })
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid ' + (isFail ? '#FECACA' : 'var(--line)') }}>
+      <div className="flex items-center gap-3 px-4 py-3 cursor-pointer" onClick={onToggle} style={{ borderBottom: expanded ? '1px solid var(--line)' : 'none' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: rs.bg }}>
+          {isFail ? <AlertTriangle size={16} style={{ color: rs.color }} /> : <CheckCircle2 size={16} style={{ color: rs.color }} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{rec.id}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: '#EDE9FE', color: '#7C3AED' }}>{spec.productName || '—'}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: rs.bg, color: rs.color }}>{rs.label}</span>
+          </div>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            {params.length === 0
+              ? <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>측정값 없음</span>
+              : params.map(function(p) {
+                  var PIcon = p.icon
+                  return (
+                    <span key={p.label} className="text-[12px] flex items-center gap-1" style={{ color: 'var(--ink)' }}>
+                      <PIcon size={11} style={{ color: p.color }} />{p.value}
+                    </span>
+                  )
+                })}
+          </div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>
+            {rec.date}{rec.lotNo ? ' · LOT ' + rec.lotNo : ''}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {canEdit && (
+            <>
+              <button onClick={function(e) { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit2 size={13} /></button>
+              <button onClick={function(e) { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
+            </>
+          )}
+          {expanded ? <ChevronUp size={16} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ink-faint)' }} />}
+        </div>
+      </div>
+
+      {expanded && (
+        <div className="px-4 py-4" onClick={function(e) { e.stopPropagation() }}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 mb-3">
+            {[
+              ['제품 코드', spec.productCode],
+              ['청결도 등급', spec.cleanClass],
+              ['미립자 측정값', rec.particleResult],
+              ['미생물 측정값', rec.microbialResult],
+              ['온도', rec.temperature ? rec.temperature + ' ℃' : ''],
+              ['습도', rec.humidity ? rec.humidity + ' %RH' : ''],
+              ['차압', rec.pressureDiff ? rec.pressureDiff + ' Pa' : ''],
+              ['비고', rec.notes],
+            ].map(function(pair) { return (
+              <div key={pair[0]} className="py-0.5">
+                <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{pair[0]}</div>
+                <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{pair[1] || '—'}</div>
+              </div>
+            )})}
+          </div>
+          <button onClick={onPrint}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-bold"
+            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <Printer size={12} /> 성적서 인쇄
+          </button>
+        </div>
+      )}
     </div>
   )
 }
