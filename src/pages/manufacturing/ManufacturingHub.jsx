@@ -576,9 +576,49 @@ function NcrView({wo,openId}){
 }
 
 /* ─── 생산 실적 ─── */
+const PERF_SORTERS = {
+  id:      (a,b)=>String(a.id).localeCompare(String(b.id)),
+  product: (a,b)=>String(a.product||'').localeCompare(String(b.product||'')),
+  qty:     (a,b)=>(Number(a.qty)||0)-(Number(b.qty)||0),
+  startDate:(a,b)=>String(a.startDate||'').localeCompare(String(b.startDate||'')),
+  dueDate: (a,b)=>String(a.dueDate||'').localeCompare(String(b.dueDate||'')),
+  progress:(a,b)=>(Number(a.progress)||0)-(Number(b.progress)||0),
+  status:  (a,b)=>String(a.status||'').localeCompare(String(b.status||'')),
+}
+function PerfSortTH({label,sortKey,active,dir,onSort}){
+  return(
+    <th onClick={()=>onSort(sortKey)} className="text-left px-3 py-2 text-[11px] font-bold uppercase tracking-wide cursor-pointer select-none" style={{color:active?'var(--moss)':'var(--ink-faint)'}}>
+      <span className="inline-flex items-center gap-1">{label}{active&&<ArrowUpDown size={10}/>}</span>
+    </th>
+  )
+}
 function PerfView({wo}){
   const done=wo.filter(w=>w.status==='완료')
   const inProg=wo.filter(w=>w.status==='진행중')
+  const [sortKey,setSortKey]=useState('startDate')
+  const [sortDir,setSortDir]=useState('desc')
+  const onSort=k=>{ if(sortKey===k) setSortDir(d=>d==='asc'?'desc':'asc'); else { setSortKey(k); setSortDir('asc') } }
+  const sorted=useMemo(()=>{
+    const fn=PERF_SORTERS[sortKey]||PERF_SORTERS.startDate
+    const list=[...wo].sort(fn)
+    return sortDir==='desc'?list.reverse():list
+  },[wo,sortKey,sortDir])
+
+  // 월별 생산 현황 — 착수월 기준 전체/완료 건수 (#139)
+  const monthly=useMemo(()=>{
+    const map={}
+    wo.forEach(w=>{
+      const m=(w.startDate||'').slice(0,7)
+      if(!m) return
+      if(!map[m]) map[m]={month:m,total:0,done:0,qty:0}
+      map[m].total+=1
+      map[m].qty+=Number(w.qty)||0
+      if(w.status==='완료') map[m].done+=1
+    })
+    return Object.values(map).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,12)
+  },[wo])
+  const maxTotal=Math.max(1,...monthly.map(m=>m.total))
+
   return(
     <div>
       <SectionTitle breadcrumb="생산 실적">생산 실적</SectionTitle>
@@ -589,12 +629,40 @@ function PerfView({wo}){
           {label:'전체 WO',value:wo.length+'건',color:'var(--ink)'},
         ].map(s=><div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}><div className="text-[12px]" style={{color:'var(--ink-mute)'}}>{s.label}</div><div className="text-[24px] font-bold mt-0.5" style={{color:s.color}}>{s.value}</div></div>)}
       </div>
+
+      <div className="mb-4"><Card>
+        <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{color:'var(--ink-faint)'}}>월별 생산 현황 (착수월 기준)</div>
+        {monthly.length===0?<div className="text-[12.5px] py-4 text-center" style={{color:'var(--ink-faint)'}}>WO를 발행하면 월별 현황이 표시됩니다.</div>:(
+          <div className="space-y-2">
+            {monthly.map(m=>(
+              <div key={m.month} className="flex items-center gap-3">
+                <span className="font-mono text-[12px] font-bold w-[64px]" style={{color:'var(--ink)'}}>{m.month}</span>
+                <div className="flex-1 h-4 rounded-full overflow-hidden flex" style={{background:'var(--bg-soft)'}}>
+                  <div style={{width:`${(m.done/maxTotal)*100}%`,background:'var(--moss)'}}/>
+                  <div style={{width:`${((m.total-m.done)/maxTotal)*100}%`,background:'#93c5fd'}}/>
+                </div>
+                <span className="text-[11.5px] whitespace-nowrap" style={{color:'var(--ink-soft)'}}>{m.total}건 (완료 {m.done} · 수량 {m.qty}EA)</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card></div>
+
       <Card>
-        <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{color:'var(--ink-faint)'}}>WO 현황</div>
+        <div className="font-mono text-[10px] tracking-widest uppercase mb-3" style={{color:'var(--ink-faint)'}}>WO 현황 (헤더 클릭 시 정렬)</div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['WO번호','제품','수량','시작일','납기일','담당','진행률','상태'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{wo.length===0?<EmptyRow/>:wo.map(w=>(
+            <thead><tr>
+              <PerfSortTH label="WO번호" sortKey="id" active={sortKey==='id'} dir={sortDir} onSort={onSort}/>
+              <PerfSortTH label="제품" sortKey="product" active={sortKey==='product'} dir={sortDir} onSort={onSort}/>
+              <PerfSortTH label="수량" sortKey="qty" active={sortKey==='qty'} dir={sortDir} onSort={onSort}/>
+              <PerfSortTH label="시작일" sortKey="startDate" active={sortKey==='startDate'} dir={sortDir} onSort={onSort}/>
+              <PerfSortTH label="완료예상일" sortKey="dueDate" active={sortKey==='dueDate'} dir={sortDir} onSort={onSort}/>
+              <TH>담당</TH>
+              <PerfSortTH label="진행률" sortKey="progress" active={sortKey==='progress'} dir={sortDir} onSort={onSort}/>
+              <PerfSortTH label="상태" sortKey="status" active={sortKey==='status'} dir={sortDir} onSort={onSort}/>
+            </tr></thead>
+            <tbody>{sorted.length===0?<EmptyRow/>:sorted.map(w=>(
       <tr key={w.id}>
                 <TD mono color="var(--moss)">{w.id}</TD>
                 <TD>{w.product}</TD>
