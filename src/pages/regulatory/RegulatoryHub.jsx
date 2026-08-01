@@ -41,6 +41,7 @@ import {
   DB_SYNC_STATUS,
   LABEL_FORMATS,
 } from '../../lib/udi'
+import { vigilance } from '../../lib/vigilance'
 
 /**
  * RegulatoryHub — 인허가 통합 (RA-001 + RA-002 + RA-003)
