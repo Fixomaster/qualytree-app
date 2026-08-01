@@ -74,6 +74,7 @@ export default function SupplierHub() {
   const [policy,    setPolicy]    = useState(() => loadPolicy())
   const [tab,       setTab]       = useState('asl')
   const [search,    setSearch]    = useState('')
+  const [approvedOnly, setApprovedOnly] = useState(false)
   const [catFilter, setCatFilter] = useState('all')
   const [modal,     setModal]     = useState(null) // 'supplier'|'iqc'|'eval'|'criteria'
   const [form,      setForm]      = useState({})
@@ -107,7 +108,7 @@ export default function SupplierHub() {
       setModal(null)
       return
     }
-    const rec = { ...form, id: genId('SUP'), createdAt: new Date().toISOString() }
+    const rec = { ...form, id: genId('SUP'), code: genId('SUP'), createdAt: new Date().toISOString() }
     saveSup([rec, ...suppliers])
     // 신규 등록 시 등급·상태는 아직 없음 — 바로 업체평가(최초 심사)로 넘어가서 등급을 매긴다
     setForm({ ...emptyEval(), supplierId: rec.id, supplierName: rec.name, evaluatedBy: user?.name || '', isInitial: true })
@@ -170,9 +171,10 @@ export default function SupplierHub() {
   const filteredSup = useMemo(() => {
     let list = suppliers
     if (catFilter !== 'all') list = list.filter(s => s.category === catFilter)
+    if (approvedOnly) list = list.filter(s => s.status === 'approved')
     if (search) { const q = search.toLowerCase(); list = list.filter(s => (s.name + s.code + s.items).toLowerCase().includes(q)) }
     return list.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
-  }, [suppliers, search, catFilter])
+  }, [suppliers, search, catFilter, approvedOnly])
 
   // 등급별 재평가 주기(policy.reevalYears)에 도달했거나 임박한(alertDaysBefore 이내) 공급업체 — 재평가 알림
   const todayStr = new Date().toISOString().slice(0, 10)
@@ -194,8 +196,8 @@ export default function SupplierHub() {
   }
 
   const TABS = [
-    { key: 'asl',  label: '승인 공급업체 목록 (ASL)', icon: Building2 },
-    { key: 'eval', label: '공급업체 평가',              icon: TrendingUp },
+    { key: 'asl',  label: '공급업체 목록', icon: Building2 },
+    { key: 'eval', label: '공급업체 평가',  icon: TrendingUp },
   ]
 
   return (
@@ -264,6 +266,10 @@ export default function SupplierHub() {
                 <option value="all">전체 분류</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
+              <label className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] cursor-pointer" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+                <input type="checkbox" checked={approvedOnly} onChange={e => setApprovedOnly(e.target.checked)} className="accent-green-600" />
+                승인된 업체만 보기
+              </label>
               <button onClick={openNewSup} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#059669', color: 'white', border: 'none', cursor: 'pointer' }}>
                 <Plus size={14} /> 공급업체 등록
               </button>
@@ -502,13 +508,10 @@ function CertPicker({ value, onChange }) {
 function SupForm({ form, fld, editId, onSubmit, onClose }) {
   return (
     <Modal title={editId ? '공급업체 수정' : '공급업체 등록'} onClose={onClose} onSubmit={onSubmit} submitColor="#059669" submitLabel={editId ? '수정 저장' : '공급업체 등록 → 최초 심사 진행'}>
-      <R2>
-        <F label="업체명 *">
-          <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: (주)한국부품" style={IS} className="w-full" list="sup-avl-name-list" />
-          <datalist id="sup-avl-name-list">{avlSupplierNames().map(n => <option key={n} value={n} />)}</datalist>
-        </F>
-        <F label="업체 코드"><input value={form.code} onChange={e => fld('code', e.target.value)} placeholder="예: SUP-001" style={IS} className="w-full" /></F>
-      </R2>
+      <F label="업체명 *">
+        <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: (주)한국부품" style={IS} className="w-full" list="sup-avl-name-list" />
+        <datalist id="sup-avl-name-list">{avlSupplierNames().map(n => <option key={n} value={n} />)}</datalist>
+      </F>
       <F label="분류">
         <select value={form.category} onChange={e => fld('category', e.target.value)} style={IS} className="w-full">
           <option value="">선택...</option>

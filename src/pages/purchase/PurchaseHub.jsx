@@ -263,11 +263,23 @@ function OrdersView({orders,setOrders,avl,inventory,setInventory,openId}) {
   )
 }
 function PoForm({initial,avl,inventory,onAddItem,onSave,onCancel}) {
-  const [f,sf]=useState({vendor:'',items:'',qty:'',date:new Date().toISOString().slice(0,10),dueDate:'',amount:'',status:'발주완료',...initial})
+  const [f,sf]=useState({vendor:'',items:'',qty:'',date:new Date().toISOString().slice(0,10),dueDate:'',unitPrice:'',amount:'',status:'발주완료',...initial})
   const [added,setAdded]=useState(false)
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   const itemExists = inventory.some(m=>m.name.trim().toLowerCase()===f.items.trim().toLowerCase())
   const registerItem = () => { if(!f.items.trim()) return; onAddItem(f.items.trim()); setAdded(true) }
+  // 수량(예: "500EA")에서 숫자만 뽑아 단가 × 수량으로 금액을 자동 계산한다.
+  const qtyNum = parseFloat(String(f.qty).replace(/,/g,'')) || 0
+  const unitPriceNum = parseFloat(f.unitPrice) || 0
+  const setUnitPrice = e => {
+    const v = e.target.value
+    sf(p => ({ ...p, unitPrice: v, amount: (qtyNum && parseFloat(v)) ? String(qtyNum * parseFloat(v)) : p.amount }))
+  }
+  const setQty = e => {
+    const v = e.target.value
+    const n = parseFloat(String(v).replace(/,/g,'')) || 0
+    sf(p => ({ ...p, qty: v, amount: (n && unitPriceNum) ? String(n * unitPriceNum) : p.amount }))
+  }
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
@@ -275,7 +287,7 @@ function PoForm({initial,avl,inventory,onAddItem,onSave,onCancel}) {
           <input style={inp} list="po-vendor-list" value={f.vendor} onChange={set('vendor')} placeholder="업체명 입력·검색..."/>
           <datalist id="po-vendor-list">{avl.map(v=><option key={v.id} value={v.name}/>)}</datalist>
         </FL>
-        <FL label="수량"><input style={inp} value={f.qty} onChange={set('qty')} placeholder="예) 500EA, 10kg"/></FL>
+        <FL label="수량"><input style={inp} value={f.qty} onChange={setQty} placeholder="예) 500EA, 10kg"/></FL>
         <FL label="품목 * (검색)">
           <input style={inp} list="po-item-list" value={f.items} onChange={e=>{set('items')(e);setAdded(false)}} placeholder="품목명 및 규격 입력·검색..."/>
           <datalist id="po-item-list">{inventory.map(m=><option key={m.id} value={m.name}/>)}</datalist>
@@ -288,7 +300,8 @@ function PoForm({initial,avl,inventory,onAddItem,onSave,onCancel}) {
         </FL>
         <FL label="발주일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
         <FL label="납기예정일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
-        <FL label="금액(원)"><input style={inp} type="number" value={f.amount} onChange={set('amount')}/></FL>
+        <FL label="단가(원)"><input style={inp} type="number" value={f.unitPrice} onChange={setUnitPrice} placeholder="개당 단가"/></FL>
+        <FL label="금액(원) — 단가×수량 자동계산"><input style={inp} type="number" value={f.amount} onChange={set('amount')}/></FL>
       </div>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.vendor&&f.items&&onSave(f)}>{initial.vendor?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
@@ -347,7 +360,7 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
   if(zeroOnly) shown=shown.filter(m=>parseFloat(m.stock)===0)
   return (
     <div>
-      <SectionTitle breadcrumb="자재 재고">자재 재고 관리</SectionTitle>
+      <SectionTitle breadcrumb="자재 등록">자재 등록</SectionTitle>
       {shortfall.length>0&&(
         <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{background:'var(--rust-soft)',border:'1px solid var(--rust)'}}>
           <AlertTriangle size={14} style={{color:'var(--rust)',marginTop:2,flexShrink:0}}/>
@@ -371,7 +384,7 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['코드','자재명','단위','재고','최소재고','위치','LOT','상태','재고조정','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['코드','자재명','단위','재고','최소재고','위치','LOT','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{shown.length===0?<EmptyRow msg={srch||zeroOnly?'검색 결과가 없습니다.':undefined}/>:shown.map(m=>{
               const below=parseFloat(m.stock)<parseFloat(m.min)
               return (
@@ -389,12 +402,6 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
                 <TD mono muted>{m.location}</TD>
                 <TD mono muted>{m.lot}</TD>
                 <TD><Badge text={m.status} tone={statusTone(m.status)}/></TD>
-                <TD>
-                  <div className="flex items-center gap-1">
-                    <ActBtn label="-" color="red" onClick={()=>{const v=Math.max(0,parseFloat(m.stock)-1);setInventory(p=>p.map(x=>x.id===m.id?{...x,stock:String(v),status:v<parseFloat(x.min)?'부족':'정상'}:x))}}/>
-                    <ActBtn label="+" color="green" onClick={()=>{const v=parseFloat(m.stock)+1;setInventory(p=>p.map(x=>x.id===m.id?{...x,stock:String(v),status:v<parseFloat(x.min)?'부족':'정상'}:x))}}/>
-                  </div>
-                </TD>
                 <TD><div className="flex gap-1"><ActBtn label="입고" color="green" onClick={()=>setReceiveTarget(m)}/><ActBtn label="출고" onClick={()=>setIssueTarget(m)}/><ActBtn label="수정" onClick={()=>{setEdit(m);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(m.id)}/></div></TD>
               </tr>
             )})}</tbody>
@@ -408,18 +415,21 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
   )
 }
 function MatForm({initial,onSave,onCancel}) {
-  const [f,sf]=useState({name:'',unit:'EA',stock:'',min:'',location:'',lot:'',...initial})
+  const isEdit = !!initial.name
+  const [f,sf]=useState({name:'',unit:'EA',stock:'0',min:'',location:'',lot:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <FL label="자재명 *"><input style={inp} value={f.name} onChange={set('name')}/></FL>
         <FL label="단위"><select style={sel} value={f.unit} onChange={set('unit')}>{['EA','kg','g','m','mm','매','본'].map(o=><option key={o}>{o}</option>)}</select></FL>
-        <FL label="현재 재고"><input style={inp} type="number" step="0.1" value={f.stock} onChange={set('stock')}/></FL>
         <FL label="최소 재고"><input style={inp} type="number" step="0.1" value={f.min} onChange={set('min')}/></FL>
         <FL label="보관 위치"><input style={inp} value={f.location} onChange={set('location')} placeholder="A-01-01"/></FL>
         <FL label="LOT 번호"><input style={inp} value={f.lot} onChange={set('lot')} placeholder="LOT-XXXX-XXX"/></FL>
       </div>
+      {!isEdit && (
+        <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 재고 수량은 여기서 입력하지 않습니다 — 신규 자재는 재고 0으로 등록되며, 이후 '입고' 처리로만 재고가 늘어납니다 (추적성 확보).</div>
+      )}
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.name&&onSave(f)}>{initial.name?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -760,7 +770,7 @@ export default function PurchaseHub() {
   const [iqc,setIqc]=useLS('qms_pur_iqc',INIT_IQC)
   const [fin,setFin]=useLS('qms_pur_fin',INIT_FIN)
 
-  const tabLabels={orders:'발주관리',inventory:'자재재고',iqc:'수입검사',fin:'완제품재고',analysis:'현황분석'}
+  const tabLabels={orders:'발주관리',inventory:'자재등록',iqc:'수입검사',fin:'완제품재고',analysis:'현황분석'}
   const viewMap={
     home:<PurchaseHome avl={avl} orders={orders} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView} onGoSupplier={()=>navigate('/supplier')}/>,
     orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} inventory={inventory} setInventory={setInventory} openId={editId}/>,
