@@ -661,6 +661,38 @@ function openPrint(html) {
   w.document.close()
 }
 
+// ── 출하 전 보존상태 점검 성적서 ─────────────────────────────
+export function printPreservationCheckCert(chk) {
+  const vm = { pass: ['badge-green', '적합'], fail: ['badge-red', '부적합'], pending: ['badge-orange', '점검 중'] }
+  const [cls, label] = vm[chk.verdict] || ['badge-gray', chk.verdict || '-']
+  const verdictBadge = `<span class="badge ${cls}">${label}</span>`
+  const items = (chk.checkItems || []).map(i => {
+    const r = i.result === 'pass' ? '적합' : i.result === 'fail' ? '부적합' : '미판정'
+    return `<tr><td>${i.name}</td><td>${r}</td></tr>`
+  }).join('')
+  const body = `
+    <div class="qt-subtitle">출하 전 보존상태 점검 성적서 (Pre-shipment Preservation Check Certificate)</div>
+    <div class="section-title">1. 기본 정보</div>
+    <table>
+      <tr><th>기록 ID</th><td>${chk.id || '-'}</td><th>점검일</th><td>${chk.checkedDate || '-'}</td></tr>
+      <tr><th>제품명</th><td>${chk.productName || '-'}</td><th>LOT 번호</th><td>${chk.lotNo || '-'}</td></tr>
+      <tr><th>출하 수량</th><td>${chk.qty || '-'}</td><th>출하처 고객</th><td>${chk.destinationCustomer || '-'}</td></tr>
+      <tr><th>점검자</th><td>${chk.checkedBy || '-'}</td><th>연결 추적성 ID</th><td>${chk.linkedDistId || '(없음)'}</td></tr>
+      <tr><th>종합 판정</th><td colspan="3">${verdictBadge}</td></tr>
+    </table>
+
+    <div class="section-title">2. 점검 항목</div>
+    <table>
+      <tr><th>항목</th><th>결과</th></tr>
+      ${items || '<tr><td colspan="2">(없음)</td></tr>'}
+    </table>
+
+    <div class="section-title">3. 비고</div>
+    <div class="text-area-box" style="min-height:60px;">${chk.notes || '(없음)'}</div>
+  `
+  openPrint(pageWrapper(chk.id || 'PCK-XXXX', '출하 전 보존상태 점검 성적서', 'ISO 13485 §7.5.11', body))
+}
+
 // ── 일괄 출력 (여러 레코드를 한 PDF에) ───────────────────────
 export function printBatch(records) {
   // 각 레코드를 구분선으로 이어 붙여 출력

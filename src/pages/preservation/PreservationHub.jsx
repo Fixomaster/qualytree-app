@@ -5,11 +5,12 @@ import {
   Plus, X, Save, Edit2, Trash2, Package, Thermometer,
   AlertTriangle, CheckCircle2, Clock, XCircle, Archive,
   Droplets, Sun, Wind, BarChart2, Link2, ClipboardList,
-  Package2,
+  Package2, Printer,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { printPreservationCheckCert } from '../../lib/pdfPrint'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_SPECS  = 'qualytree.preservation_specs'   // 제품별 보존 사양
@@ -107,6 +108,7 @@ export default function PreservationHub() {
   const [showChkForm, setShowChkForm] = useState(false)
   const [chkForm, setChkForm] = useState(EMPTY_CHECK)
   const [editChkId, setEditChkId] = useState(null)
+  const [certChk, setCertChk] = useState(null)
 
   function saveSpecs(l)  { setSpecs(l);  localStorage.setItem(LS_SPECS,  JSON.stringify(l)) }
   function saveLots(l)   { setLots(l);   localStorage.setItem(LS_LOTS,   JSON.stringify(l)) }
@@ -139,7 +141,7 @@ export default function PreservationHub() {
 
   // ── Check CRUD ────────────────────────────────────────────
   function submitChk() {
-    if (!chkForm.productName.trim()) return alert('제품명을 입력하세요.')
+    if (!chkForm.lotId) return alert('점검할 LOT을 선택하세요.')
     const passCount = chkForm.checkItems.filter(i => i.result === 'pass').length
     const failCount = chkForm.checkItems.filter(i => i.result === 'fail').length
     const verdict = failCount > 0 ? 'fail' : passCount === chkForm.checkItems.length ? 'pass' : 'pending'
@@ -326,7 +328,7 @@ export default function PreservationHub() {
             <div className="flex justify-between items-center mb-4">
               <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>출하·사용 전 보존 상태 점검 기록</div>
               {canEdit && (
-                <button onClick={() => { setChkForm(EMPTY_CHECK); setEditChkId(null); setShowChkForm(true) }}
+                <button onClick={() => { setChkForm({ ...EMPTY_CHECK, checkedBy: user?.name || '' }); setEditChkId(null); setShowChkForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> 점검 기록 등록
@@ -349,7 +351,7 @@ export default function PreservationHub() {
                   const passCount = chk.checkItems.filter(i => i.result === 'pass').length
                   const failCount = chk.checkItems.filter(i => i.result === 'fail').length
                   return (
-                    <div key={chk.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: `1.5px solid ${chk.verdict === 'fail' ? '#FECACA' : 'var(--line)'}` }}>
+                    <div key={chk.id} onClick={() => setCertChk(chk)} className="p-4 rounded-2xl cursor-pointer" style={{ background: 'var(--bg-card)', border: `1.5px solid ${chk.verdict === 'fail' ? '#FECACA' : 'var(--line)'}` }}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
@@ -369,7 +371,7 @@ export default function PreservationHub() {
                           </div>
                         </div>
                         {canEdit && (
-                          <div className="flex gap-1">
+                          <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                             <button onClick={() => { setChkForm({ ...EMPTY_CHECK, ...chk }); setEditChkId(chk.id); setShowChkForm(true) }}
                               className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                               <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
@@ -385,6 +387,12 @@ export default function PreservationHub() {
                   )
                 })}
               </div>
+            )}
+
+            {certChk && (
+              <CertModal title="출하 전 점검 성적서" onClose={() => setCertChk(null)}>
+                <PreservationCheckCertificate chk={certChk} onClose={() => setCertChk(null)} />
+              </CertModal>
             )}
           </div>
         )}
@@ -613,27 +621,42 @@ function LotForm({ form, setForm, specs, onSave, onCancel, isEdit }) {
 // ── 출하 전 점검 폼 ───────────────────────────────────────────
 function CheckForm({ form, setForm, lots, onSave, onCancel, isEdit, toggleItem }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const [newItem, setNewItem] = useState('')
 
-  function addItem() {
-    if (!newItem.trim()) return
-    setForm(f => ({ ...f, checkItems: [...f.checkItems, { name: newItem.trim(), result: null }] }))
-    setNewItem('')
-  }
   function removeItem(i) { setForm(f => ({ ...f, checkItems: f.checkItems.filter((_, idx) => idx !== i) })) }
+
+  const eligibleLots = lots.filter(l => l.status === 'in_stock' || l.status === 'quarantine')
+  function selectLot(id) {
+    const lot = lots.find(l => l.id === id)
+    if (!lot) { F('lotId', ''); return }
+    setForm(f => ({
+      ...f, lotId: id, productName: lot.productName, lotNo: lot.lotNo,
+      qty: f.qty || lot.qty, linkedDistId: lot.linkedDistId || '',
+    }))
+  }
 
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '점검 기록 수정' : '출하 전 점검 등록'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
-        <Field label="LOT 번호" value={form.lotNo} onChange={v => F('lotNo', v)} />
+        <div>
+          <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>점검 대상 LOT *</label>
+          <select value={form.lotId} onChange={e => selectLot(e.target.value)}
+            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+            <option value="">LOT 선택...</option>
+            {eligibleLots.map(l => <option key={l.id} value={l.id}>{l.productName} · {l.lotNo}</option>)}
+          </select>
+        </div>
         <Field label="출하 수량" value={form.qty} onChange={v => F('qty', v)} />
-        <Field label="출하처 고객" value={form.destinationCustomer} onChange={v => F('destinationCustomer', v)} />
+        <Field label="출하처 고객" value={form.destinationCustomer} onChange={v => F('destinationCustomer', v)}
+          list="chk-customer-list" listOptions={salesCustomerNames()} placeholder="검색 또는 입력" />
         <Field label="점검일" type="date" value={form.checkedDate} onChange={v => F('checkedDate', v)} />
-        <Field label="점검자" value={form.checkedBy} onChange={v => F('checkedBy', v)} />
-        <Field label="연결 추적성 ID" value={form.linkedDistId} onChange={v => F('linkedDistId', v)} placeholder="DST-xxxx" />
       </div>
+      {form.lotId && (
+        <div className="mb-4 text-[12px] px-3 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+          제품명: <b style={{ color: 'var(--ink)' }}>{form.productName}</b> · 연결 추적성 ID: {form.linkedDistId || '자동 연결 없음'} · 점검자: {form.checkedBy || '-'} (로그인 계정 자동 기록)
+        </div>
+      )}
 
       {/* 점검 항목 */}
       <div className="mb-3">
@@ -656,14 +679,6 @@ function CheckForm({ form, setForm, lots, onSave, onCancel, isEdit, toggleItem }
             </div>
           ))}
         </div>
-        <div className="flex gap-2">
-          <input value={newItem} onChange={e => setNewItem(e.target.value)} placeholder="점검 항목 추가..."
-            className="flex-1 px-3 py-1.5 rounded-xl text-[12px]"
-            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}
-            onKeyDown={e => e.key === 'Enter' && addItem()} />
-          <button onClick={addItem} className="px-3 py-1.5 rounded-xl text-[12px] font-bold"
-            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>추가</button>
-        </div>
       </div>
       <FieldArea label="비고 / 특이사항" value={form.notes} onChange={v => F('notes', v)} rows={2} />
       <div className="flex gap-2 mt-3">
@@ -671,6 +686,73 @@ function CheckForm({ form, setForm, lots, onSave, onCancel, isEdit, toggleItem }
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}><Save size={13} /> 저장</button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
           style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+      </div>
+    </div>
+  )
+}
+
+// ── 출하 전 점검 성적서 모달 ───────────────────────────────────
+function CertModal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto"
+        style={{ background: 'var(--bg-card)', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', border: '1px solid var(--line)' }}>
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>{title || '성적서'}</h3>
+          <button onClick={onClose} style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function PreservationCheckCertificate({ chk, onClose }) {
+  const vm = CHECK_VERDICTS[chk.verdict] || CHECK_VERDICTS.pending
+  const Row = ({ label, value }) => (
+    <div className="grid grid-cols-3 gap-2 py-1.5" style={{ borderBottom: '1px solid var(--line)' }}>
+      <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</span>
+      <span className="col-span-2 text-[12.5px]" style={{ color: 'var(--ink)' }}>{value || '—'}</span>
+    </div>
+  )
+  return (
+    <div className="space-y-1">
+      <div className="text-center mb-3">
+        <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>출하 전 보존상태 점검 성적서</div>
+        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>Pre-shipment Preservation Check Certificate · ISO 13485 §7.5.11</div>
+      </div>
+      <Row label="기록 ID" value={chk.id} />
+      <Row label="점검일" value={chk.checkedDate} />
+      <Row label="제품명" value={chk.productName} />
+      <Row label="LOT 번호" value={chk.lotNo} />
+      <Row label="출하 수량" value={chk.qty} />
+      <Row label="출하처 고객" value={chk.destinationCustomer} />
+      <Row label="점검자" value={chk.checkedBy} />
+      <Row label="연결 추적성 ID" value={chk.linkedDistId} />
+      <Row label="종합 판정" value={vm.label} />
+      <div className="pt-2">
+        <div className="text-[11.5px] mb-1.5" style={{ color: 'var(--ink-faint)' }}>점검 항목</div>
+        <div className="space-y-1">
+          {chk.checkItems.map((i, idx) => (
+            <div key={idx} className="flex items-center justify-between text-[12px] px-2 py-1 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+              <span style={{ color: 'var(--ink)' }}>{i.name}</span>
+              <span style={{ color: i.result === 'pass' ? '#059669' : i.result === 'fail' ? '#DC2626' : 'var(--ink-faint)' }}>
+                {i.result === 'pass' ? '적합' : i.result === 'fail' ? '부적합' : '미판정'}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <Row label="비고" value={chk.notes} />
+      <div className="flex gap-2 pt-4">
+        <button onClick={() => printPreservationCheckCert(chk)}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-bold"
+          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          <Printer size={13} /> 인쇄
+        </button>
+        <button onClick={onClose} className="px-4 py-2 rounded-xl text-[13px]"
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>닫기</button>
       </div>
     </div>
   )
@@ -726,15 +808,25 @@ function InfoRow({ icon, label, value }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder }) {
+function Field({ label, value, onChange, type = 'text', placeholder, list, listOptions }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} list={list}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+      {list && listOptions && <datalist id={list}>{listOptions.map(n => <option key={n} value={n} />)}</datalist>}
     </div>
   )
+}
+/* 영업(고객사 관리)에 등록된 고객명 — 다른 화면과 동일하게 검색·선택할 수 있도록 재사용 */
+function salesCustomerNames() {
+  try {
+    const raw = localStorage.getItem('qms_sal_customers')
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
 }
 function FieldSelect({ label, value, onChange, options }) {
   return (
