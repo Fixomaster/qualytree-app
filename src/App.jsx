@@ -155,7 +155,6 @@ export default function App() {
       <Route path="/infrastructure"    element={<ProtectedRoute><LazyRoute Component={InfrastructureHub} /></ProtectedRoute>} />
       <Route path="/document-control"       element={<ProtectedRoute><LazyRoute Component={DocControlHub} /></ProtectedRoute>} />
       <Route path="/quality-objectives" element={<ProtectedRoute><LazyRoute Component={QualityObjectivesHub} /></ProtectedRoute>} />
-      <Route path="/product-id"        element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
       <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />
       <Route path="/purchase-info" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
       <Route path="/quality-manual"    element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />

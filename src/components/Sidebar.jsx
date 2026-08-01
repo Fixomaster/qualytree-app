@@ -41,10 +41,8 @@ items: [
 label: '생산·제조', icon: Factory,
 items: [
 { to: '/manufacturing', label: '생산 현황' },
-{ to: '/production-control', label: '생산제어계획' },
 { to: '/process-validation', label: '공정유효성확인' },
 { to: '/traceability', label: '제품추적성관리' },
-{ to: '/product-id', label: '제품식별·상태' },
 { to: '/preservation', label: '제품보존·취급' },
 { to: '/cleanliness', label: '청결·오염 관리' },
 { to: '/sterile', label: '멸균 의료기기' },
@@ -70,6 +68,7 @@ items: [
 label: '설계·개발', icon: Code2,
 items: [
 { to: '/development', label: '개발 현황' },
+{ to: '/production-control', label: '생산제어계획(PCP)' },
 { to: '/design-history', label: '설계이력파일' },
 ],
 },
