@@ -32,6 +32,21 @@ const DEV_PHASES = [
 
 const PHASE_MAP = Object.fromEntries(DEV_PHASES.map(p => [p.key, p]))
 
+// 설계변경(change)은 설계이전 완료 후 상시 이어지는 변경관리 활동이므로 최초 개발 진행률(100%) 산정에서 제외한다.
+const PROGRESS_PHASE_KEYS = DEV_PHASES.filter(p => p.key !== 'change').map(p => p.key)
+// 기록 유형이 존재하는 단계 순서(기획 제외) — 승인된 기록이 있어야 다음 단계로 자동 진행된다.
+const RECORD_PHASE_ORDER = ['input', 'output', 'review', 'verification', 'validation', 'transfer']
+
+// 실제 승인된 기록을 기준으로 현재 단계를 자동 산출한다(수기 선택 대신 기록 입력에 따라 자동 진행 — #296).
+function derivePhase(dhf) {
+  const recs = dhf.records || []
+  for (const key of RECORD_PHASE_ORDER) {
+    const hasApproved = recs.some(r => r.type === key && r.status === 'approved')
+    if (!hasApproved) return key
+  }
+  return 'change'
+}
+
 const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', '미분류']
 const RECORD_STATUSES = ['open', 'in_review', 'approved', 'rejected']
 const STATUS_META = {
@@ -231,7 +246,9 @@ export default function DesignHistoryHub() {
       } else {
         recs.push({ id: recId(), createdAt: todayStr(), ...recForm })
       }
-      return { ...dhf, records: recs }
+      const updated = { ...dhf, records: recs }
+      // 기록 저장 시마다 승인된 기록을 기준으로 현재 단계를 자동 재계산한다(#296).
+      return { ...updated, currentPhase: derivePhase(updated) }
     })
     save(next)
     setShowRecForm(false); setRecForm(EMPTY_RECORD); setEditRecIdx(null)
@@ -243,7 +260,8 @@ export default function DesignHistoryHub() {
       if (dhf.id !== dhfId) return dhf
       const recs = [...(dhf.records || [])]
       recs.splice(idx, 1)
-      return { ...dhf, records: recs }
+      const updated = { ...dhf, records: recs }
+      return { ...updated, currentPhase: derivePhase(updated) }
     })
     save(next)
   }
@@ -296,10 +314,10 @@ export default function DesignHistoryHub() {
   }, [selected])
 
   // 단계 진행률
-  const PHASE_ORDER = DEV_PHASES.map(p => p.key)
   function phaseProgress(phase) {
-    const idx = PHASE_ORDER.indexOf(phase)
-    return idx >= 0 ? Math.round(((idx + 1) / PHASE_ORDER.length) * 100) : 0
+    if (phase === 'change') return 100
+    const idx = PROGRESS_PHASE_KEYS.indexOf(phase)
+    return idx >= 0 ? Math.round(((idx + 1) / PROGRESS_PHASE_KEYS.length) * 100) : 0
   }
 
   return (
@@ -477,8 +495,6 @@ function DhfForm({ form, setForm, onSave, onCancel, isEdit }) {
         <Field label="목표 완료일" type="date" value={form.targetDate} onChange={v => F('targetDate', v)} />
         <Field label="프로젝트 책임자" value={form.projectManager} onChange={v => F('projectManager', v)} />
         <Field label="팀원 (쉼표 구분)" value={form.teamMembers} onChange={v => F('teamMembers', v)} />
-        <FieldSelect label="현재 단계" value={form.currentPhase} onChange={v => F('currentPhase', v)}
-          options={DEV_PHASES.map(p => ({ value: p.key, label: p.label }))} />
         <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={RECORD_STATUSES.map(s => ({ value: s, label: STATUS_META[s].label }))} />
       </div>
@@ -537,18 +553,17 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
               const isActive = dhf.currentPhase === p.key
               const isPast = DEV_PHASES.findIndex(x => x.key === dhf.currentPhase) > i
               return (
-                <button key={p.key}
-                  onClick={() => canEdit && updatePhase(dhf.id, p.key)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition"
+                <div key={p.key}
+                  title="승인된 기록에 따라 자동으로 진행됩니다"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
                   style={{
                     background: isActive ? p.color : isPast ? `${p.color}20` : 'var(--bg-soft)',
                     color: isActive ? '#fff' : isPast ? p.color : 'var(--ink-faint)',
                     border: `1px solid ${isActive ? p.color : isPast ? `${p.color}50` : 'var(--line)'}`,
-                    cursor: canEdit ? 'pointer' : 'default',
                   }}>
                   {isPast && <CheckCircle2 size={10} />}
                   {p.label}
-                </button>
+                </div>
               )
             })}
           </div>
@@ -567,11 +582,55 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
         )}
       </div>
 
+      {/* 추적성 매트릭스 — 설계입력→출력→검토→검증→유효성확인→이전 단계별 기록 커버리지 (#301) */}
+      <div className="p-5 rounded-2xl mb-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+        <div className="text-[13px] font-bold mb-1" style={{ color: 'var(--ink)' }}>추적성 매트릭스</div>
+        <div className="text-[11.5px] mb-3" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §7.3 설계 단계별 기록 승인 현황 — 단계 진행은 이 표의 승인 여부에 따라 자동으로 판단됩니다.</div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px]">
+            <thead>
+              <tr style={{ background: 'var(--bg-soft)' }}>
+                {['단계', '기록 수', '승인 완료', '검토중/반려', '단계 상태'].map(h => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {RECORD_PHASE_ORDER.map((key, i) => {
+                const recs = (dhf.records || []).filter(r => r.type === key)
+                const approved = recs.filter(r => r.status === 'approved').length
+                const pending = recs.length - approved
+                const reached = RECORD_PHASE_ORDER.indexOf(dhf.currentPhase) > i || dhf.currentPhase === 'change'
+                const isCurrent = dhf.currentPhase === key
+                const meta = ITEM_TYPES[key]
+                return (
+                  <tr key={key} style={{ borderTop: '1px solid var(--line)' }}>
+                    <td className="px-3 py-2 font-semibold" style={{ color: 'var(--ink)' }}>{meta.label}</td>
+                    <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{recs.length}</td>
+                    <td className="px-3 py-2 font-bold" style={{ color: approved > 0 ? '#059669' : 'var(--ink-faint)' }}>{approved}</td>
+                    <td className="px-3 py-2" style={{ color: pending > 0 ? '#D97706' : 'var(--ink-faint)' }}>{pending}</td>
+                    <td className="px-3 py-2">
+                      {reached ? (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#D1FAE5', color: '#059669' }}>완료</span>
+                      ) : isCurrent ? (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>진행 중</span>
+                      ) : (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>대기</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* 기록 섹션 */}
       <div className="flex items-center justify-between mb-3">
         <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>설계 개발 기록 ({(dhf.records || []).length}건)</div>
         {canEdit && (
-          <button onClick={() => { setRecForm({ ...EMPTY_RECORD }); setEditRecIdx(null); setShowRecForm(true) }}
+          <button onClick={() => { setRecForm({ ...EMPTY_RECORD, type: dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase }); setEditRecIdx(null); setShowRecForm(true) }}
             className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
             <Plus size={12} /> 기록 추가
@@ -595,7 +654,12 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
         <RecordForm form={recForm} setForm={setRecForm}
           onSave={submitRec}
           onCancel={() => { setShowRecForm(false); setRecForm(EMPTY_RECORD); setEditRecIdx(null) }}
-          isEdit={editRecIdx !== null} />
+          isEdit={editRecIdx !== null}
+          allowedTypes={
+            dhf.currentPhase === 'change'
+              ? [...RECORD_PHASE_ORDER, 'change']
+              : RECORD_PHASE_ORDER.slice(0, RECORD_PHASE_ORDER.indexOf(dhf.currentPhase) + 1)
+          } />
       )}
 
       {/* 기록 목록 */}
@@ -677,14 +741,20 @@ function RecTabBtn({ active, onClick, label }) {
 }
 
 // ── 기록 폼 ──────────────────────────────────────────────────
-function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
+function RecordForm({ form, setForm, onSave, onCancel, isEdit, allowedTypes }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const typeEntries = Object.entries(ITEM_TYPES).filter(([k]) => !allowedTypes || allowedTypes.includes(k))
   return (
     <div className="mb-4 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>{isEdit ? '기록 수정' : '기록 추가'}</div>
+      {!isEdit && (
+        <div className="mb-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+          ℹ 현재 단계까지의 기록 유형만 선택할 수 있습니다 — 이전 단계 기록을 먼저 승인 처리해야 다음 단계가 열립니다.
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <FieldSelect label="기록 유형 *" value={form.type} onChange={v => F('type', v)}
-          options={Object.entries(ITEM_TYPES).map(([k, v]) => ({ value: k, label: v.label }))} />
+          options={typeEntries.map(([k, v]) => ({ value: k, label: v.label }))} />
         <Field label="제목 *" value={form.title} onChange={v => F('title', v)} />
         <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={RECORD_STATUSES.map(s => ({ value: s, label: STATUS_META[s].label }))} />
