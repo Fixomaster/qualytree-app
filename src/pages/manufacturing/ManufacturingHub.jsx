@@ -30,6 +30,7 @@ import { printInspectionCert } from '../../lib/pdfPrint'
 import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgress, deriveStepsFromRecords, deriveCurrentStep } from '../../lib/productionControl'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { ncr as ncrLib, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrState'
 
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
@@ -368,12 +369,29 @@ function StepEntryForm({woId,pcpStep,record,resultOpts,onSave,onCancel}){
     measured:'',
     result:'합격',
     note:'',
+    ncrDesc:'',
     fileId:null,fileName:'',
     ...record,
     editId:record?record.id:undefined,
   })
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   const canSave = f.step && f.operator
+  const isNc = f.result==='불합격'||f.result==='조건부합격'
+  // 공정기록에서 불합격/조건부합격으로 판정되면 부적합(NCR)이 자동 발행된다(품질 부적합관리와 동일 저장소). (#137)
+  const submit = () => {
+    if (!canSave) return
+    let next = { ...f }
+    if (isNc && !next.ncrId) {
+      const raised = ncrLib.raise({
+        title: `공정기록 부적합 — ${f.step} (WO ${woId})`,
+        description: f.ncrDesc || f.note || '(상세 내용 미입력)',
+        severity: f.result==='불합격' ? NCR_SEVERITY.MAJOR : NCR_SEVERITY.MINOR,
+        source: { type: 'process_record', woId, stepName: f.step },
+      })
+      next.ncrId = raised.id
+    }
+    onSave(next)
+  }
   return(
     <div className="space-y-3">
       {isPcp?(
@@ -401,8 +419,13 @@ function StepEntryForm({woId,pcpStep,record,resultOpts,onSave,onCancel}){
         <FL label="공정 파라미터"><textarea style={{...inp,minHeight:'50px',resize:'vertical'}} value={f.param} onChange={set('param')} placeholder="설정값, 조건, LOT번호 등"/></FL>
       )}
       <FL label="비고"><input style={inp} value={f.note} onChange={set('note')}/></FL>
+      {isNc && (
+        <FL label="부적합 상세 내용 (부적합관리(NCR)에 자동 등록됩니다)">
+          <textarea style={{...inp,minHeight:'60px',resize:'vertical'}} value={f.ncrDesc} onChange={set('ncrDesc')} placeholder="무엇이 어떻게 기준을 벗어났는지 기입하세요"/>
+        </FL>
+      )}
       <SingleAttach label="첨부 파일 (배치기록·LOT 서류 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>canSave&&onSave(f)}>{record?'수정 저장':'기록 저장'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+      <div className="flex gap-2 pt-2"><SBtn onClick={submit}>{record?'수정 저장':'기록 저장'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
@@ -496,72 +519,58 @@ function InspectView({proc,wo}){
   )
 }
 
-/* ─── 부적합 관리 (NCR) ─── */
-function NcrView({ncr,setNcr,wo,openId}){
-  const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null)
-  useEffect(() => {
-    if (openId) { const item = ncr.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
-  }, [openId])
-  const statusOpts=['접수','조치중','검토중','CAPA연동','종결']
-  const del=id=>{if(window.confirm('삭제하시겠습니까?'))setNcr(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setNcr(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setNcr(p=>[...p,{id:nid('NC'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
-  const open=ncr.filter(n=>n.status!=='종결')
+/* ─── 부적합 관리 (NCR) — 공정기록에서 발행된 부적합(품질 NCR 저장소)을 모아보는 조회 전용 화면 ─── */
+function loadProcessNcrs(){
+  try { return ncrLib.loadAll().filter(n=>n.source?.type==='process_record') } catch { return [] }
+}
+function NcrView({wo,openId}){
+  const[list,setList]=useState(()=>loadProcessNcrs())
+  const[expanded,setExpanded]=useState(openId||null)
+  useEffect(()=>{ setList(loadProcessNcrs()) },[])
+  const open=list.filter(n=>n.status!=='closed'&&n.status!=='corrected')
+  const woProduct = id => wo.find(w=>w.id===id)?.product || ''
   return(
     <div>
       <SectionTitle breadcrumb="부적합 관리 (NCR)">부적합 관리 (NCR)</SectionTitle>
-      {open.length>0&&<div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{background:'var(--rust-soft)',border:'1px solid var(--rust)'}}><AlertTriangle size={14} style={{color:'var(--rust)',marginTop:2}}/><span className="text-[12.5px]" style={{color:'var(--rust)'}}><b>미결 부적합 {open.length}건</b> — 조치 완료 후 종결 처리 요망 (ISO 13485 §8.3)</span></div>}
+      <div className="mb-4 p-3 rounded-lg text-[12px]" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>
+        ℹ 부적합은 공정기록에서 결과가 "불합격/조건부합격"으로 입력되면 자동으로 접수됩니다. 조사·조치·CAPA 연동·종결 처리는 품질·검사 화면에서 진행하며, 이 화면은 진행 상황을 확인하는 조회 전용입니다.
+      </div>
+      {open.length>0&&<div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{background:'var(--rust-soft)',border:'1px solid var(--rust)'}}><AlertTriangle size={14} style={{color:'var(--rust)',marginTop:2}}/><span className="text-[12.5px]" style={{color:'var(--rust)'}}><b>미결 부적합 {open.length}건</b> — 품질에서 조치 진행 중 (ISO 13485 §8.3)</span></div>}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>부적합 목록 — {ncr.length}건</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--rust)',color:'white'}}><Plus size={13}/> 부적합 발행</button>
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>부적합 목록 — {list.length}건</span>
+          <button onClick={()=>setList(loadProcessNcrs())} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink-soft)'}}>새로고침</button>
         </div>
         <div className="space-y-3">
-          {ncr.length===0?<EmptyCard/>:ncr.map(n=>(
-      <div key={n.id} className="p-3 rounded-xl" style={{border:`1px solid ${n.status!=='종결'?'var(--rust)':'var(--line)'}`,background:'var(--bg)'}}>
+          {list.length===0?<EmptyCard/>:list.map(n=>{
+            const sl = NCR_STATUS_LABEL[n.status]||{ko:n.status,tone:'gray'}
+            return(
+      <div key={n.id} className="p-3 rounded-xl cursor-pointer" onClick={()=>setExpanded(expanded===n.id?null:n.id)} style={{border:`1px solid ${n.status!=='closed'?'var(--rust)':'var(--line)'}`,background:'var(--bg)'}}>
               <div className="flex items-start justify-between gap-3 flex-wrap mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-mono text-[12px] font-bold" style={{color:'var(--rust)'}}>{n.id}</span>
-                  <span className="text-[11px]" style={{color:'var(--ink-faint)'}}>{n.date}</span>
-                  <Badge text={n.wo} tone="gray"/>
-                  <Badge text={n.severity} tone={n.severity==='심각'?'red':n.severity==='중요'?'amber':'gray'}/>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusSelect value={n.status} options={statusOpts} onChange={v=>setNcr(p=>p.map(x=>x.id===n.id?{...x,status:v}:x))}/>
-                  <ActBtn label="수정" onClick={()=>{setEdit(n);setModal('form')}}/>
-                  <ActBtn label="삭제" color="red" onClick={()=>del(n.id)}/>
+                  <span className="text-[11px]" style={{color:'var(--ink-faint)'}}>{(n.detectedAt||'').slice(0,10)}</span>
+                  <Badge text={n.source?.woId||'-'} tone="gray"/>
+                  <Badge text={n.severity} tone={n.severity==='Critical'?'red':n.severity==='Major'?'amber':'gray'}/>
+                  <Badge text={sl.ko} tone={n.status==='closed'?'gray':'amber'}/>
                 </div>
               </div>
-              <div className="text-[13px]" style={{color:'var(--ink)'}}>{n.desc}</div>
-              <div className="mt-1.5 flex gap-3 text-[11.5px]" style={{color:'var(--ink-mute)'}}>
-                <span>공정: {n.step}</span>
-                <span>처리: <b>{n.disposition}</b></span>
-                {n.capaNo&&n.capaNo!=='—'&&<span>CAPA: <span className="font-mono" style={{color:'var(--moss)'}}>{n.capaNo}</span></span>}
-                <AttachLink fileId={n.fileId} fileName={n.fileName}/>
-              </div>
+              <div className="text-[13px]" style={{color:'var(--ink)'}}>{n.title}</div>
+              {expanded===n.id && (
+                <div className="mt-2 pt-2 space-y-1" style={{borderTop:'1px solid var(--line)'}}>
+                  <div className="text-[12.5px]" style={{color:'var(--ink)'}}>{n.description}</div>
+                  <div className="mt-1.5 flex gap-3 flex-wrap text-[11.5px]" style={{color:'var(--ink-mute)'}}>
+                    <span>제품: {woProduct(n.source?.woId)}</span>
+                    <span>공정: {n.source?.stepName||'-'}</span>
+                    <span>발견자: {n.detectedBy}</span>
+                    {n.capaId&&<span>CAPA: <span className="font-mono" style={{color:'var(--moss)'}}>{n.capaId}</span></span>}
+                  </div>
+                </div>
+              )}
             </div>
-          ))}
+          )})}
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'NCR 수정':'부적합 발행'} onClose={()=>{setModal(null);setEdit(null)}}><NcrForm initial={edit||{}} wo={wo} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
-    </div>
-  )
-}
-function NcrForm({initial,wo,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({wo:'',step:'',desc:'',severity:'경미',disposition:'재처리',capaNo:'',status:'접수',fileId:null,fileName:'',...initial})
-  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
-  return(
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="연관 WO"><select style={sel} value={f.wo} onChange={set('wo')}><option value="">직접 입력</option>{wo.map(w=><option key={w.id} value={w.id}>{w.id} — {w.product}</option>)}</select></FL>
-        <FL label="발생 공정 단계"><input style={inp} value={f.step} onChange={set('step')} placeholder="예) 표면처리 후 외관"/></FL>
-        <FL label="심각도"><select style={sel} value={f.severity} onChange={set('severity')}>{['경미','중요','심각'].map(o=><option key={o}>{o}</option>)}</select></FL>
-        <FL label="처리 방법"><select style={sel} value={f.disposition} onChange={set('disposition')}>{['재처리','폐기','특채사용','반품'].map(o=><option key={o}>{o}</option>)}</select></FL>
-        <FL label="CAPA 번호"><input style={inp} value={f.capaNo} onChange={set('capaNo')} placeholder="CA-XXXX-XXX (없으면 공란)"/></FL>
-        <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
-      </div>
-      <FL label="부적합 내용 *"><textarea style={{...inp,minHeight:'72px',resize:'vertical'}} value={f.desc} onChange={set('desc')} placeholder="부적합 상세 내용을 기입하세요"/></FL>
-      <SingleAttach label="첨부 파일 (부적합 사진·보고서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.desc&&onSave(f)}>{initial.desc?'수정 저장':'발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
@@ -612,9 +621,9 @@ function PerfView({wo}){
 }
 
 /* ─── 생산 홈 ─── */
-function MfgHome({wo,ncr,proc,onNavigate}){
+function MfgHome({wo,proc,onNavigate}){
   const inProg=wo.filter(w=>w.status==='진행중').length
-  const openNcr=ncr.filter(n=>n.status!=='종결').length
+  const openNcr=useMemo(()=>loadProcessNcrs().filter(n=>n.status!=='closed'&&n.status!=='corrected').length,[proc])
   const attn=proc.filter(p=>p.result==='조건부합격'||p.result==='불합격').length
   const passCount=proc.filter(p=>p.result==='합격').length
   const CARDS=[
@@ -677,7 +686,6 @@ export default function ManufacturingHub(){
   const editId = searchParams.get('edit')
   const[wo,setWo]=useLS('qms_mfg_wo',INIT_WO)
   const[proc,setProc]=useLS('qms_mfg_proc',INIT_PROC)
-  const[ncr,setNcr]=useLS('qms_mfg_ncr',INIT_NCR)
   const[focusWo,setFocusWo]=useState(null)
   const pcps = useMemo(()=>loadPcps(), [view])
   const onOpenProc = (woId) => { setFocusWo(woId); setView('proc') }
@@ -714,11 +722,11 @@ export default function ManufacturingHub(){
 
   const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적'}
   const viewMap={
-    home:<MfgHome wo={wo} ncr={ncr} proc={proc} onNavigate={setView}/>,
+    home:<MfgHome wo={wo} proc={proc} onNavigate={setView}/>,
     wo:<WoView wo={wo} setWo={setWo} openId={editId} proc={proc} pcps={pcps} onOpenProc={onOpenProc}/>,
     proc:<ProcRecView proc={proc} setProc={setProc} wo={wo} pcps={pcps} focusWo={focusWo}/>,
     inspect:<InspectView proc={proc} wo={wo}/>,
-    ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo} openId={editId}/>,
+    ncr:<NcrView wo={wo} openId={editId}/>,
     perf:<PerfView wo={wo}/>,
   }
   return(
