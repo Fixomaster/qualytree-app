@@ -17,12 +17,15 @@ import {
   Sparkles,
   Globe,
   ChevronRight,
+  FileDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import HubBanner from '../../components/HubBanner'
 import { permissions, requirePermission } from '../../lib/permissions'
-import { onboarding } from '../../lib/onboardingState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { productDocs } from '../../lib/productDocsState'
+import { fileStore } from '../../lib/fileStore'
 import {
   submissions,
   JURISDICTIONS,
@@ -254,6 +257,7 @@ function TabButton({ active, onClick, icon: Icon, label, en, count, badge }) {
 function SubmissionsPanel({ product, certs, onAction }) {
   const [showCreate, setShowCreate] = useState(false)
   const [selectedSub, setSelectedSub] = useState(null)
+  const [editingSub, setEditingSub] = useState(null)
   const subs = submissions.loadAll()
   const upcoming = submissions.upcomingDeadlines(30)
   const canCreate = permissions.can('ra.submission.approve') && !!product
@@ -273,9 +277,22 @@ function SubmissionsPanel({ product, certs, onAction }) {
     }
   }
 
+  const handleUpdate = (subId, formData) => {
+    try {
+      submissions.update(subId, formData)
+      setEditingSub(null)
+      onAction('신청 내용이 수정되었습니다')
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
   const handlePrepare = (subId) => {
-    submissions.prepare(subId)
-    onAction('패키지 자동 생성 완료 — 외부 포털 제출 준비됨')
+    // 제품의 기술문서(개발·인허가 단계에서 등록된 실제 파일)를 제출 패키지에 연동해 첨부한다.
+    const techDocs = productDocs.getTechDocs(productKeyOf(product))
+    const docs = techDocs.filter(d => d.fileId).map(d => ({ id: d.id, title: d.title || d.fileName || '기술문서', fileId: d.fileId, fileName: d.fileName }))
+    submissions.prepare(subId, docs)
+    onAction(docs.length ? `패키지 자동 생성 완료 — 기술문서 ${docs.length}건 첨부됨` : '패키지 생성됨 — 개발(기술문서)에 첨부된 파일이 없어 문서 없이 준비되었습니다')
   }
 
   const handleSubmit = (subId) => {
@@ -364,6 +381,18 @@ function SubmissionsPanel({ product, certs, onAction }) {
         />
       )}
 
+      {/* 수정 폼 (드래프트 상태만) */}
+      {editingSub && (
+        <SubmissionCreateForm
+          product={product}
+          certs={certs}
+          initial={editingSub}
+          editing
+          onCancel={() => setEditingSub(null)}
+          onSubmit={(formData) => handleUpdate(editingSub.id, formData)}
+        />
+      )}
+
       {/* 신청 목록 */}
       {subs.length === 0 ? (
         <div
@@ -386,6 +415,7 @@ function SubmissionsPanel({ product, certs, onAction }) {
                 onAddDeficiency={() => handleAddDeficiency(sub.id)}
                 onRespond={(defId) => handleRespond(sub.id, defId)}
                 onApprove={() => handleApprove(sub.id)}
+                onEdit={() => setEditingSub(sub)}
               />
             ))}
         </div>
@@ -415,11 +445,12 @@ function availableJurisdictions(certs) {
   })
 }
 
-function SubmissionCreateForm({ product, certs, onCancel, onSubmit }) {
+function SubmissionCreateForm({ product, certs, initial, editing, onCancel, onSubmit }) {
   const avail = availableJurisdictions(certs)
-  const fallback = avail[0] || 'MFDS'
+  const fallback = (initial && initial.jurisdiction) || avail[0] || 'MFDS'
   const [jurisdiction, setJurisdiction] = useState(fallback)
   const [submissionType, setSubmissionType] = useState(
+    (initial && initial.submissionType) ||
     (Object.entries(SUBMISSION_TYPES).find(([, t]) => t.jurisdiction === fallback) || [])[0] || 'MFDS_NEWMD'
   )
 
@@ -449,7 +480,7 @@ function SubmissionCreateForm({ product, certs, onCancel, onSubmit }) {
       style={{ borderColor: 'var(--moss)' }}
     >
       <div className="font-mono text-[10.5px] tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--moss)' }}>
-        새 신청 작성
+        {editing ? '신청 내용 수정' : '새 신청 작성'}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3 mb-3">
@@ -509,7 +540,7 @@ function SubmissionCreateForm({ product, certs, onCancel, onSubmit }) {
           onClick={() => onSubmit({ jurisdiction, submissionType })}
           className="btn-primary text-[12.5px]"
         >
-          드래프트 생성
+          {editing ? '수정 저장' : '드래프트 생성'}
         </button>
       </div>
     </div>
@@ -523,6 +554,7 @@ function SubmissionRow({
   onAddDeficiency,
   onRespond,
   onApprove,
+  onEdit,
 }) {
   const [expanded, setExpanded] = useState(false)
   const meta = SUBMISSION_STATUS_META[sub.status]
@@ -594,9 +626,14 @@ function SubmissionRow({
           {/* 액션 버튼 */}
           <div className="flex gap-2 flex-wrap">
             {sub.status === 'draft' && (
-              <button onClick={onPrepare} className="btn-ghost text-[12px]">
-                <Sparkles size={12} /> 패키지 자동 생성
-              </button>
+              <>
+                <button onClick={onEdit} className="btn-ghost text-[12px]">
+                  <PenTool size={12} /> 내용 수정
+                </button>
+                <button onClick={onPrepare} className="btn-ghost text-[12px]">
+                  <Sparkles size={12} /> 패키지 자동 생성
+                </button>
+              </>
             )}
             {sub.status === 'preparing' && (
               <button
@@ -622,6 +659,23 @@ function SubmissionRow({
               </>
             )}
           </div>
+
+          {/* 제출서류(기술문서) 다운로드 */}
+          {sub.documents && sub.documents.length > 0 && (
+            <div className="rounded-lg p-3" style={{ background: 'var(--bg-soft)' }}>
+              <div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--ink-mute)' }}>
+                제출서류 ({sub.documents.length}건)
+              </div>
+              <div className="space-y-1">
+                {sub.documents.map((d) => (
+                  <a key={d.id} href={fileStore.getObjectURL(d.fileId)} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--moss)' }}>
+                    <FileDown size={12} /> {d.title || d.fileName}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 보완 요청 목록 */}
           {sub.deficiencies && sub.deficiencies.length > 0 && (

@@ -135,6 +135,25 @@ export const submissions = {
     return loadAll().find((s) => s.id === id) || null
   },
 
+  /** 드래프트 상태의 신청 내용(관할·유형 등)을 수정한다 — 제출 후에는 수정 불가. */
+  update(subId, patch) {
+    const all = loadAll()
+    const idx = all.findIndex((s) => s.id === subId)
+    if (idx === -1) return null
+    if (all[idx].status !== 'draft') throw new Error('드래프트 상태에서만 내용을 수정할 수 있습니다.')
+    const before = { ...all[idx] }
+    all[idx] = { ...all[idx], ...patch }
+    saveAll(all)
+    commitChange({
+      targetEid: eid('submission', subId),
+      action: CHANGE_ACTIONS.UPDATE,
+      before,
+      after: all[idx],
+      reason: '신청 내용 수정',
+    })
+    return all[idx]
+  },
+
   /**
    * 신청 발행 (드래프트 생성)
    */
@@ -186,8 +205,10 @@ export const submissions = {
 
   /**
    * 패키지 준비 완료 (Stage 1: 패키지 자동 생성)
+   * documents: 제품의 기술문서(techDocs) 등 실제 제출서류 목록 — 호출부(RegulatoryHub)에서
+   * productDocs.getTechDocs(productKey)로 조회해 전달한다. 여기서 첨부해 다운로드 가능하게 만든다.
    */
-  prepare(subId) {
+  prepare(subId, documents = []) {
     const all = loadAll()
     const idx = all.findIndex((s) => s.id === subId)
     if (idx === -1) return null
@@ -196,6 +217,7 @@ export const submissions = {
       ...all[idx],
       status: SUBMISSION_STATUS.PREPARING,
       packageReady: true,
+      documents: documents.length ? documents : (all[idx].documents || []),
     }
     saveAll(all)
     commitChange({
