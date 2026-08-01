@@ -69,6 +69,23 @@ export function deriveStepsFromRecords(woId, procRecords) {
  * - 매칭되는 PCP는 없지만 공정기록이 존재하면: 실제 기록된 단계들을 기준으로 자동 계산(임시 흐름).
  * - 공정기록도 전혀 없으면: 자동 계산이 불가능하므로 기존에 저장된 값을 그대로 사용한다(수동 입력 폐지 후 하위호환, 신규 WO는 0%로 시작).
  */
+/**
+ * WO의 "현재 공정 단계"와 "담당팀/자"를 PCP(생산 제어 계획)에서 자동으로 파생시킨다.
+ * - PCP가 있으면: 아직 합격 처리되지 않은 첫 단계를 현재 단계로 삼고, 그 단계의 담당자(responsible)를 사용.
+ *   모든 단계가 완료되었으면 마지막 단계를 유지하되 "완료"로 표시.
+ * - PCP가 없으면(제품이 아직 개발문서에 공정 정의가 안 된 경우): 기존 저장값을 그대로 사용(하위호환).
+ */
+export function deriveCurrentStep(wo, procRecords, pcps) {
+  const pcp = findPcpForProduct(wo.product, pcps)
+  const steps = orderedSteps(pcp)
+  if (pcp && steps.length > 0) {
+    const next = steps.find(s => stepStatus(wo.id, s.stepName, procRecords) !== 'done')
+    const target = next || steps[steps.length - 1]
+    return { stepName: target.stepName, responsible: target.responsible || '', done: !next, auto: true }
+  }
+  return { stepName: wo.step || '', responsible: wo.assignee || '', done: false, auto: false }
+}
+
 export function computeWoProgress(wo, procRecords, pcps) {
   const pcp = findPcpForProduct(wo.product, pcps)
   const steps = orderedSteps(pcp)

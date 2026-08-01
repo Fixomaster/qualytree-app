@@ -27,12 +27,40 @@ import { syncOrderStatusFromWo, syncWoCompletionEffects } from '../../lib/woSync
 import WorkOrderQueue from '../operations/WorkOrderQueue'
 import { fileStore } from '../../lib/fileStore'
 import { printInspectionCert } from '../../lib/pdfPrint'
-import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgress, deriveStepsFromRecords } from '../../lib/productionControl'
+import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgress, deriveStepsFromRecords, deriveCurrentStep } from '../../lib/productionControl'
+import { productModels } from '../../lib/productLifecycleState'
+import { onboarding, productKeyOf } from '../../lib/onboardingState'
 
 /* ─── util ─── */
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
 function loadMaterialLotOptions(){try{const inv=JSON.parse(localStorage.getItem('qms_pur_inventory')||'[]');const set=new Set();inv.forEach(m=>{if(m.lot)set.add(m.lot);(m.receipts||[]).forEach(r=>{if(r.lot)set.add(r.lot)})});return[...set]}catch{return[]}}
+/* 허가 모델(제품·공정 화면에서 등록) 검색용 목록 — 영업 화면과 동일한 소스 */
+function loadOrderableModels(){
+  try{
+    const ob=onboarding.load()
+    const products=(Array.isArray(ob.products)&&ob.products.length)?ob.products:(ob.product&&ob.product.name?[ob.product]:[])
+    const seen=new Set()
+    return productModels.getAll()
+      .map(m=>{const p=products.find(pp=>productKeyOf(pp)===m.productKey);return{...m,productName:(p&&p.name)||''}})
+      .filter(m=>(m.code||m.spec)&&(m.spec||m.code))
+      .filter(m=>{const v=m.spec||m.code;if(seen.has(v))return false;seen.add(v);return true})
+  }catch{return[]}
+}
+/* 영업/재고에서 등록된 미연계 생산요청(qms_sal_prodreqs) — WO 발행 시 클릭 한 번으로 불러오기용 */
+function loadPendingProdReqs(){
+  try{
+    const list=JSON.parse(localStorage.getItem('qms_sal_prodreqs')||'[]')
+    return Array.isArray(list)?list.filter(r=>!r.wo&&!['완료','취소'].includes(r.status)):[]
+  }catch{return[]}
+}
+function linkProdReqToWo(prId,woId){
+  try{
+    const list=JSON.parse(localStorage.getItem('qms_sal_prodreqs')||'[]')
+    const next=(Array.isArray(list)?list:[]).map(r=>r.id===prId?{...r,wo:woId,status:'WO발행완료'}:r)
+    localStorage.setItem('qms_sal_prodreqs',JSON.stringify(next))
+  }catch{}
+}
 const inp={width:'100%',padding:'7px 10px',borderRadius:'7px',border:'1px solid var(--line)',background:'var(--bg)',color:'var(--ink)',fontSize:'13px',outline:'none'}
 const sel={...inp,appearance:'none'}
 const Badge=({text,tone='gray'})=>{const c={red:{bg:'var(--rust-soft)',fg:'var(--rust)'},green:{bg:'var(--leaf-soft)',fg:'var(--moss)'},amber:{bg:'#fff7ed',fg:'#b45309'},blue:{bg:'#eff6ff',fg:'#1d4ed8'},gray:{bg:'var(--bg-soft)',fg:'var(--ink-mute)'}}[tone]??{bg:'var(--bg-soft)',fg:'var(--ink-mute)'};return <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{background:c.bg,color:c.fg,fontWeight:500}}>{text}</span>}
@@ -117,11 +145,15 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
     if (openId) { const item = wo.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
   const statusOpts=['대기','진행중','검사중','완료','취소']
+  const [pendingReqs]=useState(()=>loadPendingProdReqs())
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setWo(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
+    const {_linkedReqId, ...rest} = f
     const id = edit ? edit.id : nid('WO')
-    if(edit){setWo(p=>syncWoCompletionEffects(p.map(x=>x.id===edit.id?{...x,...f}:x)));setEdit(null)}else{setWo(p=>syncWoCompletionEffects([...p,{id,progress:'0',...f}]))}
-    syncOrderStatusFromWo(id, f.status)
+    if(edit){setWo(p=>syncWoCompletionEffects(p.map(x=>x.id===edit.id?{...x,...rest}:x)));setEdit(null)}
+    else{setWo(p=>syncWoCompletionEffects([...p,{id,progress:'0',status:'대기',...rest}]))}
+    if(!edit) syncOrderStatusFromWo(id, rest.status || '대기')
+    if(_linkedReqId) linkProdReqToWo(_linkedReqId, id)
     setModal(null)
   }
   const sorted = useMemo(()=>{
@@ -157,7 +189,12 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
                   {w.so&&<span className="font-mono text-[10px]" style={{color:'var(--ink-faint)'}}>{w.so}</span>}
                 </div>
                 <div className="flex items-center gap-2" onClick={e=>e.stopPropagation()}>
-                  <StatusSelect value={w.status} options={statusOpts} onChange={v=>{setWo(p=>syncWoCompletionEffects(p.map(x=>x.id===w.id?{...x,status:v}:x)));syncOrderStatusFromWo(w.id,v)}}/>
+                  <Badge text={w.status} tone={statusTone(w.status)}/>
+                  {!['취소','완료'].includes(w.status) ? (
+                    <ActBtn label="취소" color="red" onClick={()=>{if(window.confirm('이 작업지시를 취소하시겠습니까?')){setWo(p=>p.map(x=>x.id===w.id?{...x,status:'취소'}:x));syncOrderStatusFromWo(w.id,'취소')}}}/>
+                  ) : w.status==='취소' && (
+                    <ActBtn label="취소 철회" onClick={()=>setWo(p=>p.map(x=>x.id===w.id?{...x,status:'대기'}:x))}/>
+                  )}
                   <ActBtn label="수정" onClick={()=>{setEdit(w);setModal('form')}}/>
                   <ActBtn label="삭제" color="red" onClick={()=>del(w.id)}/>
                 </div>
@@ -165,7 +202,7 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
               <div className="flex items-center gap-4 text-[12px] mb-2 flex-wrap" style={{color:'var(--ink-mute)'}}>
                 <span>현공정: <b style={{color:'var(--ink)'}}>{w.step}</b></span>
                 <span>담당: {w.assignee}</span>
-                <span>납기: {w.dueDate}</span>
+                <span>완료예상일: {w.dueDate}</span>
                 {w.lot&&<span className="font-mono" style={{color:'#7C3AED'}}>완제품 LOT: {w.lot}</span>}
                 <span onClick={e=>e.stopPropagation()}><AttachLink fileId={w.fileId} fileName={w.fileName}/></span>
                 <span className="flex items-center gap-1" style={{color:'var(--moss)'}}>공정기록 보기 <ChevronRight size={12}/></span>
@@ -182,27 +219,40 @@ function WoView({wo,setWo,openId,proc,pcps,onOpenProc}){
           )})}
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'WO 수정':'작업지시 발행'} onClose={()=>{setModal(null);setEdit(null)}}><WoForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
+      {modal==='form'&&<Modal title={edit?'WO 수정':'작업지시 발행'} onClose={()=>{setModal(null);setEdit(null)}}><WoForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} pendingReqs={pendingReqs} isEdit={!!edit}/></Modal>}
     </div>
   )
 }
-function WoForm({initial,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({so:'',product:'',qty:'',step:'',dueDate:'',startDate:new Date().toISOString().slice(0,10),assignee:'',status:'대기',lot:'',materialLots:'',fileId:null,fileName:'',...initial})
+function WoForm({initial,onSave,onCancel,pendingReqs,isEdit}){
+  const[f,sf]=useState({so:'',product:'',qty:'',startDate:new Date().toISOString().slice(0,10),dueDate:'',lot:'',materialLots:'',_linkedReqId:null,...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   const matLotOpts=useMemo(()=>loadMaterialLotOptions(),[])
+  const orderableModels=useMemo(()=>loadOrderableModels(),[])
+  const applyReq=(reqId)=>{
+    const r=(pendingReqs||[]).find(x=>x.id===reqId)
+    if(!r)return
+    sf(p=>({...p,so:r.so||'',product:r.item||'',qty:r.qty||'',dueDate:r.dueDate||'',_linkedReqId:r.id}))
+  }
   return(
     <div className="space-y-3">
+      {!isEdit && (pendingReqs||[]).length>0 && (
+        <FL label="영업·재고 생산요청에서 불러오기 (선택 시 자동입력)">
+          <select style={sel} defaultValue="" onChange={e=>e.target.value&&applyReq(e.target.value)}>
+            <option value="">대기중인 생산요청 선택...</option>
+            {pendingReqs.map(r=><option key={r.id} value={r.id}>{r.id} — {r.item} ({r.qty}EA) {r.note?`· ${r.note}`:''}</option>)}
+          </select>
+        </FL>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <FL label="SO 번호"><input style={inp} value={f.so} onChange={set('so')} placeholder="SO-XXXX-XXX"/></FL>
-        <FL label="제품명 *"><input style={inp} value={f.product} onChange={set('product')} placeholder="예) SCS M3.5×22mm"/></FL>
+        <FL label="제품명 * (허가 모델 검색)">
+          <input style={inp} list="wo-model-list" value={f.product} onChange={set('product')} placeholder="허가 모델 검색..."/>
+          <datalist id="wo-model-list">{orderableModels.map(m=><option key={m.id} value={m.spec||m.code}>{m.productName?`${m.productName} · ${m.code}`:m.code}</option>)}</datalist>
+        </FL>
         <FL label="수량(EA)"><input style={inp} type="number" value={f.qty} onChange={set('qty')}/></FL>
-        <FL label="현 공정 단계"><input style={inp} value={f.step} onChange={set('step')} placeholder="예) CNC 선삭"/></FL>
         <FL label="시작일"><input style={inp} type="date" value={f.startDate} onChange={set('startDate')}/></FL>
-        <FL label="납기일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
-        <FL label="담당팀/자"><input style={inp} value={f.assignee} onChange={set('assignee')}/></FL>
-        <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
+        <FL label="완료예상일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
       </div>
-      <div className="text-[11px] px-2.5 py-2 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>진행률은 개발에서 정의한 공정 순서·공정기록 입력 현황에 따라 자동으로 계산됩니다.</div>
+      <div className="text-[11px] px-2.5 py-2 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>현 공정 단계·담당팀/자·진행률·상태는 개발(생산 제어 계획)에서 정의한 공정 순서와 공정기록 입력 현황에 따라 자동으로 계산됩니다. (취소만 목록에서 별도 처리)</div>
       <div className="pt-1" style={{borderTop:'1px solid var(--line)'}}>
         <div className="text-[11.5px] font-medium mt-2 mb-2" style={{color:'var(--ink-mute)'}}>LOT 추적 정보 (제품추적성관리 연동)</div>
         <div className="grid grid-cols-2 gap-3">
@@ -211,7 +261,6 @@ function WoForm({initial,onSave,onCancel,statusOpts}){
         </div>
         <datalist id="wo-mat-lot-list">{matLotOpts.map(l=><option key={l} value={l}/>)}</datalist>
       </div>
-      <SingleAttach label="첨부 파일 (도면·작업지시서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.product&&onSave(f)}>{initial.product?'수정 저장':'WO 발행'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
@@ -272,7 +321,7 @@ function WoProcCard({w,proc,pcps,setProc,focused}){
         </div>
       )}
       <div className="flex items-center gap-2 mt-2">
-        <ActBtn label="+ 추가 공정 입력" onClick={()=>setStepModal({pcpStep:null, record:null})}/>
+        {steps.length===0 && <ActBtn label="+ 첫 공정 기록 추가" onClick={()=>setStepModal({pcpStep:null, record:null})}/>}
         <ActBtn label={histOpen?'이력 숨기기':`이력 보기 (${records.length}건)`} onClick={()=>setHistOpen(v=>!v)}/>
       </div>
       {histOpen&&(
@@ -405,22 +454,27 @@ function InspectCertificate({insp,wo,onClose}){
     </div>
   )
 }
-function InspectView({inspect,setInspect,wo}){
-  const[modal,setModal]=useState(null);const[edit,setEdit]=useState(null);const[certRow,setCertRow]=useState(null)
-  const statusOpts=['검사중','합격','조건부','불합격']
-  const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInspect(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setInspect(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setInspect(p=>[...p,{id:nid('IPC'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
+/* 공정검사(IPC)는 더 이상 별도로 등록·입력하지 않는다 — 각 공정기록(StepEntryForm)의
+   작업자/결과/실측값 입력이 곧 공정검사 결과이므로, 이 화면은 공정기록에서 파생된
+   읽기 전용 뷰로만 동작한다 (§8.2.6 요구사항 충족은 공정기록 입력 시점에 이미 완료됨). */
+function InspectView({proc,wo}){
+  const[certRow,setCertRow]=useState(null)
+  const inspect = useMemo(()=>proc.map(p=>({
+    id:p.id, date:p.date, wo:p.wo, step:p.step, inspector:p.operator,
+    spec:p.param, measured:p.measured||p.param, status:p.result,
+    fileId:p.fileId, fileName:p.fileName, note:p.note,
+  })).sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))), [proc])
   return(
     <div>
       <SectionTitle breadcrumb="공정 검사 (IPC)">공정 검사</SectionTitle>
+      <div className="mb-3 text-[11.5px] px-1" style={{color:'var(--ink-faint)'}}>ℹ 공정검사 결과는 공정기록 입력 시 함께 기록됩니다 — 이 화면은 결과를 모아보는 조회 전용 화면입니다. 입력·수정은 공정기록에서 해주세요.</div>
       <Card>
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>공정검사 결과 (ISO 13485 §8.2.6) — {inspect.length}건 · 행 클릭 시 성적서 보기</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 검사 등록</button>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격','측정값','결과','첨부','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['검사ID','WO','검사단계','검사일','검사자','규격/파라미터','측정값','결과','첨부'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{inspect.length===0?<EmptyRow/>:inspect.map(i=>(
       <tr key={i.id} onClick={()=>setCertRow(i)} className="cursor-pointer" style={{transition:'background 0.1s'}} onMouseEnter={e=>e.currentTarget.style.background='var(--bg-soft)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                 <TD mono color="var(--moss)">{i.id}</TD>
@@ -430,34 +484,14 @@ function InspectView({inspect,setInspect,wo}){
                 <TD>{i.inspector}</TD>
                 <TD muted>{i.spec}</TD>
                 <TD mono muted>{i.measured}</TD>
-                <TD><span onClick={e=>e.stopPropagation()}><StatusSelect value={i.status} options={statusOpts} onChange={v=>setInspect(p=>p.map(x=>x.id===i.id?{...x,status:v,result:v}:x))}/></span></TD>
+                <TD><Badge text={i.status||'미입력'} tone={statusTone(i.status||'')}/></TD>
                 <TD>{i.fileId?<AttachLink fileId={i.fileId} fileName={i.fileName}/>:<span style={{color:'var(--ink-faint)'}}>—</span>}</TD>
-                <TD><div className="flex gap-1" onClick={e=>e.stopPropagation()}><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
               </tr>
             ))}</tbody>
           </table>
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'검사 수정':'공정 검사 등록'} onClose={()=>{setModal(null);setEdit(null)}}><InspectForm initial={edit||{}} wo={wo} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
       {certRow&&<Modal title="공정검사성적서" onClose={()=>setCertRow(null)}><InspectCertificate insp={certRow} wo={wo} onClose={()=>setCertRow(null)}/></Modal>}
-    </div>
-  )
-}
-function InspectForm({initial,wo,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({wo:'',step:'',inspector:'',spec:'',measured:'',status:'합격',fileId:null,fileName:'',...initial})
-  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
-  return(
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="WO 번호"><select style={sel} value={f.wo} onChange={set('wo')}><option value="">직접 입력</option>{wo.map(w=><option key={w.id} value={w.id}>{w.id}</option>)}</select></FL>
-        <FL label="검사 단계 *"><input style={inp} value={f.step} onChange={set('step')} placeholder="예) CNC 선삭 후 검사"/></FL>
-        <FL label="검사자 *"><input style={inp} value={f.inspector} onChange={set('inspector')}/></FL>
-        <FL label="결과"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
-      </div>
-      <FL label="검사 규격"><input style={inp} value={f.spec} onChange={set('spec')} placeholder="예) φ3.5mm ±0.02"/></FL>
-      <FL label="측정값"><input style={inp} value={f.measured} onChange={set('measured')} placeholder="실제 측정값 입력"/></FL>
-      <SingleAttach label="첨부 파일 (검사성적서 등)" fileId={f.fileId} fileName={f.fileName} onAttach={(id,name)=>sf(p=>({...p,fileId:id,fileName:name}))} onRemove={()=>sf(p=>({...p,fileId:null,fileName:''}))}/>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.step&&f.inspector&&onSave(f)}>{initial.step?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
 }
@@ -578,13 +612,15 @@ function PerfView({wo}){
 }
 
 /* ─── 생산 홈 ─── */
-function MfgHome({wo,ncr,inspect,proc,onNavigate}){
+function MfgHome({wo,ncr,proc,onNavigate}){
   const inProg=wo.filter(w=>w.status==='진행중').length
   const openNcr=ncr.filter(n=>n.status!=='종결').length
+  const attn=proc.filter(p=>p.result==='조건부합격'||p.result==='불합격').length
+  const passCount=proc.filter(p=>p.result==='합격').length
   const CARDS=[
     {id:'wo',icon:ClipboardList,label:'작업지시 (WO)',desc:'WO 발행 · 진행률 · 공정단계 관리',count:`${inProg}건 진행중`,warn:false},
     {id:'proc',icon:FileText,label:'공정 기록',desc:'배치 레코드 · 공정 파라미터 기록',count:`${proc.length}건`},
-    {id:'inspect',icon:Activity,label:'공정 검사 (IPC)',desc:'공정검사 규격 vs 측정값',count:`${inspect.filter(i=>i.status==='조건부'||i.status==='불합격').length}건 주의`,warn:inspect.filter(i=>i.status==='조건부'||i.status==='불합격').length>0},
+    {id:'inspect',icon:Activity,label:'공정 검사 (IPC)',desc:'공정검사 규격 vs 측정값 (공정기록 기반 조회)',count:`${attn}건 주의`,warn:attn>0},
     {id:'ncr',icon:AlertTriangle,label:'부적합 관리 (NCR)',desc:'발생 부적합 · 처리방법 · CAPA 연동',count:`${openNcr}건 미결`,warn:openNcr>0},
     {id:'perf',icon:Cog,label:'생산 실적',desc:'WO 현황 · 진행률 통계',count:`${wo.length}건`},
   ]
@@ -592,7 +628,7 @@ function MfgHome({wo,ncr,inspect,proc,onNavigate}){
     {label:'진행중 WO',value:`${inProg}건`,warn:false,sub:'현재 생산 중'},
     {label:'미결 NCR',value:`${openNcr}건`,warn:openNcr>0,sub:'조치 필요'},
     {label:'공정 기록',value:`${proc.length}건`,warn:false,sub:'배치 레코드'},
-    {label:'공정 검사',value:`${inspect.length}건`,warn:false,sub:`합격 ${inspect.filter(i=>i.status==='합격').length}건`},
+    {label:'공정 검사',value:`${proc.length}건`,warn:false,sub:`합격 ${passCount}건`},
   ]
   return(
     <div>
@@ -641,7 +677,6 @@ export default function ManufacturingHub(){
   const editId = searchParams.get('edit')
   const[wo,setWo]=useLS('qms_mfg_wo',INIT_WO)
   const[proc,setProc]=useLS('qms_mfg_proc',INIT_PROC)
-  const[inspect,setInspect]=useLS('qms_mfg_inspect',INIT_INSPECT)
   const[ncr,setNcr]=useLS('qms_mfg_ncr',INIT_NCR)
   const[focusWo,setFocusWo]=useState(null)
   const pcps = useMemo(()=>loadPcps(), [view])
@@ -654,15 +689,22 @@ export default function ManufacturingHub(){
     let changed = false
     const statusChanges = []
     const next = wo.map(w => {
-      if (w.status === '취소' || w.status === '완료') return w
+      if (w.status === '취소') return w
       const { pct, auto } = computeWoProgress(w, proc, curPcps)
-      if (!auto) return w
+      const cur = deriveCurrentStep(w, proc, curPcps)
+      const newStep = cur.stepName || w.step
+      const newAssignee = cur.responsible || w.assignee
+      if (!auto) {
+        if (newStep === w.step && newAssignee === w.assignee) return w
+        changed = true
+        return { ...w, step: newStep, assignee: newAssignee }
+      }
       const pctStr = String(pct)
-      const newStatus = pct === 100 ? '완료' : w.status
-      if (w.progress === pctStr && newStatus === w.status) return w
+      const newStatus = w.status === '완료' ? '완료' : (pct === 100 ? '완료' : pct === 0 ? '대기' : '진행중')
+      if (w.progress === pctStr && newStatus === w.status && newStep === w.step && newAssignee === w.assignee) return w
       changed = true
       if (newStatus !== w.status) statusChanges.push([w.id, newStatus])
-      return { ...w, progress: pctStr, status: newStatus }
+      return { ...w, progress: pctStr, status: newStatus, step: newStep, assignee: newAssignee }
     })
     if (changed) {
       setWo(syncWoCompletionEffects(next))
@@ -672,10 +714,10 @@ export default function ManufacturingHub(){
 
   const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적'}
   const viewMap={
-    home:<MfgHome wo={wo} ncr={ncr} inspect={inspect} proc={proc} onNavigate={setView}/>,
+    home:<MfgHome wo={wo} ncr={ncr} proc={proc} onNavigate={setView}/>,
     wo:<WoView wo={wo} setWo={setWo} openId={editId} proc={proc} pcps={pcps} onOpenProc={onOpenProc}/>,
     proc:<ProcRecView proc={proc} setProc={setProc} wo={wo} pcps={pcps} focusWo={focusWo}/>,
-    inspect:<InspectView inspect={inspect} setInspect={setInspect} wo={wo}/>,
+    inspect:<InspectView proc={proc} wo={wo}/>,
     ncr:<NcrView ncr={ncr} setNcr={setNcr} wo={wo} openId={editId}/>,
     perf:<PerfView wo={wo}/>,
   }

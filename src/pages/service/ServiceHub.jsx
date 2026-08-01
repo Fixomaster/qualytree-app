@@ -58,10 +58,10 @@ function todayStr()  { return new Date().toISOString().slice(0, 10) }
 function daysDiff(d) { return Math.ceil((new Date(d) - new Date()) / 86400000) }
 
 const EMPTY_INST = {
-  productName: '', productCode: '', serialNo: '', lotNo: '',
-  customerName: '', customerCode: '', customerContact: '',
-  installAddress: '', installDate: todayStr(), installedBy: '',
-  status: 'scheduled', linkedDistId: '', linkedComplaintId: '',
+  productName: '', productCode: '', serialNo: '',
+  customerName: '', customerCode: '',
+  installAddress: '', installDate: todayStr(),
+  status: 'scheduled',
   checkItems: DEFAULT_INSTALL_CHECKS.map(name => ({ name, done: false })),
   verdict: 'pending',  // pending | pass | fail
   customerSignature: false, notes: '',
@@ -110,7 +110,9 @@ export default function ServiceHub() {
     if (!instForm.productName.trim()) return alert('제품명을 입력하세요.')
     const doneCount = instForm.checkItems.filter(c => c.done).length
     const verdict = doneCount === instForm.checkItems.length ? 'pass' : doneCount === 0 ? 'pending' : 'partial'
-    const record = { ...instForm, verdict, updatedAt: todayStr() }
+    // 상태는 체크리스트 완료 현황에 따라 자동으로 결정된다(수동 입력 폐지).
+    const status = verdict === 'pass' ? 'completed' : verdict === 'partial' ? 'in_progress' : 'scheduled'
+    const record = { ...instForm, verdict, status, updatedAt: todayStr() }
     let next
     if (editInstId) {
       next = installations.map(i => i.id === editInstId ? { ...i, ...record } : i)
@@ -624,17 +626,11 @@ function InstallForm({ form, setForm, onSave, onCancel, isEdit, toggleCheck }) {
         <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
         <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
         <Field label="시리얼 번호 (S/N)" value={form.serialNo} onChange={v => F('serialNo', v)} />
-        <Field label="LOT 번호" value={form.lotNo} onChange={v => F('lotNo', v)} />
-        <Field label="고객명" value={form.customerName} onChange={v => F('customerName', v)} />
-        <Field label="고객 연락처" value={form.customerContact} onChange={v => F('customerContact', v)} />
+        <Field label="고객명" value={form.customerName} onChange={v => F('customerName', v)} list="inst-customer-list" listOptions={salesCustomerNames()} />
         <Field label="설치 주소" value={form.installAddress} onChange={v => F('installAddress', v)} />
         <Field label="설치일" type="date" value={form.installDate} onChange={v => F('installDate', v)} />
-        <Field label="설치 담당자" value={form.installedBy} onChange={v => F('installedBy', v)} />
-        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
-          options={Object.entries(INST_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <Field label="연결 배포 ID (추적성)" value={form.linkedDistId} onChange={v => F('linkedDistId', v)} placeholder="DST-xxxx" />
-        <Field label="연결 불만 ID" value={form.linkedComplaintId} onChange={v => F('linkedComplaintId', v)} placeholder="CMP-xxxx" />
       </div>
+      <div className="mb-4 text-[11px] px-2.5 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>ℹ 상태는 아래 체크리스트 완료 현황에 따라 자동으로 결정됩니다 (전체 완료→완료, 일부 완료→진행중, 미착수→예정).</div>
 
       {/* 체크리스트 */}
       <div className="mb-4">
@@ -737,15 +733,25 @@ function Empty({ icon: Icon, text }) {
   )
 }
 
-function Field({ label, value, onChange, type = 'text', placeholder }) {
+function Field({ label, value, onChange, type = 'text', placeholder, list, listOptions }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} list={list}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+      {list && listOptions && <datalist id={list}>{listOptions.map(n => <option key={n} value={n} />)}</datalist>}
     </div>
   )
+}
+/* 영업(고객사 관리)에 등록된 고객명 — 설치·서비스 화면에서도 동일하게 검색·선택할 수 있도록 재사용 */
+function salesCustomerNames() {
+  try {
+    const raw = localStorage.getItem('qms_sal_customers')
+    if (!raw) return []
+    const list = JSON.parse(raw)
+    return Array.isArray(list) ? list.map(c => c.name).filter(Boolean) : []
+  } catch { return [] }
 }
 function FieldSelect({ label, value, onChange, options }) {
   return (
