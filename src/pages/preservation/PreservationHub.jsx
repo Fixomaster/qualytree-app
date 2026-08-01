@@ -2,7 +2,7 @@
 // ISO 13485 §7.5.11 제품 보존·취급 + §7.5.2 제품 청결
 import React, { useState, useMemo } from 'react'
 import {
-  Plus, X, Save, Edit2, Trash2, Package, Thermometer,
+  X, Save, Edit2, Trash2, Package, Thermometer,
   AlertTriangle, CheckCircle2, Clock, XCircle, Archive,
   Droplets, Sun, Wind, BarChart2, Link2,
   Package2, ArrowUpRight,
@@ -11,37 +11,15 @@ import { useNavigate } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { onboarding } from '../../lib/onboardingState'
+import { STORAGE_CONDITIONS, derivePreservationSpecs } from '../../lib/preservationSpecConstants'
 
 // ── 상수 ─────────────────────────────────────────────────────
-const LS_SPECS  = 'qualytree.preservation_specs'   // 제품별 보존 사양
 const LS_LOTS   = 'qualytree.preservation_lots'    // LOT별 유효기간 재고
 
-const STORAGE_CONDITIONS = [
-  { key: 'room',   label: '실온 (1~30℃)',     icon: '??' },
-  { key: 'cool',   label: '냉장 (2~8℃)',      icon: '❄️' },
-  { key: 'frozen', label: '냉동 (-18℃ 이하)', icon: '??' },
-  { key: 'dry',    label: '건조 보관',          icon: '☁️' },
-  { key: 'dark',   label: '차광 보관',          icon: '??' },
-  { key: 'other',  label: '기타 조건',          icon: '??' },
-]
-
-const STERILITY = ['비멸균', '멸균 (EO)', '멸균 (감마선)', '멸균 (전자선)', '멸균 (증기)', '멸균 (기타)']
-const PACKAGING_TYPES = ['단위 포장', '내포장', '외포장', '운송 포장']
-
-function specId()  { return `PSP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function lotId()   { return `PLT-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function todayStr(){ return new Date().toISOString().slice(0, 10) }
 function daysDiff(d){ return d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null }
-
-const EMPTY_SPEC = {
-  productName: '', productCode: '', deviceClass: 'Class II',
-  storageCondition: 'room', tempMin: '', tempMax: '', humMin: '', humMax: '',
-  lightSensitive: false, shockSensitive: false, stackLimit: '',
-  shelfLifeMonths: 12, sterility: '비멸균',
-  packagingType: '단위 포장', packagingSpec: '',
-  cleanlinessReq: '', handlingInstructions: '',
-  linkedEnvZoneId: '', notes: '',
-}
 
 const EMPTY_LOT = {
   productName: '', productCode: '', lotNo: '', qty: '',
@@ -64,15 +42,11 @@ export default function PreservationHub() {
   const canEdit = user?.level >= 2
   const nav = useNavigate()
 
-  const [specs,  setSpecs]  = useState(() => { try { return JSON.parse(localStorage.getItem(LS_SPECS)  || '[]') } catch { return [] } })
+  // 보존 사양은 제품 개발 화면(ProductsHub)에서 입력하는 값을 읽기 전용으로 파생합니다 (SSoT).
+  const specs = useMemo(() => derivePreservationSpecs(onboarding.load()?.products || []), [])
   const [lots,   setLots]   = useState(() => { try { return JSON.parse(localStorage.getItem(LS_LOTS)   || '[]') } catch { return [] } })
 
   const [tab, setTab] = useState('lots')   // lots | specs | analysis
-
-  // Spec 상태
-  const [showSpecForm, setShowSpecForm] = useState(false)
-  const [specForm, setSpecForm] = useState(EMPTY_SPEC)
-  const [editSpecId, setEditSpecId] = useState(null)
 
   // LOT 상태
   const [showLotForm, setShowLotForm] = useState(false)
@@ -81,18 +55,7 @@ export default function PreservationHub() {
   const [lotFilter, setLotFilter] = useState('all')
   const [lotSearch, setLotSearch] = useState('')
 
-  function saveSpecs(l)  { setSpecs(l);  localStorage.setItem(LS_SPECS,  JSON.stringify(l)) }
   function saveLots(l)   { setLots(l);   localStorage.setItem(LS_LOTS,   JSON.stringify(l)) }
-
-  // ── Spec CRUD ─────────────────────────────────────────────
-  function submitSpec() {
-    if (!specForm.productName.trim()) return alert('제품명을 입력하세요.')
-    const next = editSpecId
-      ? specs.map(s => s.id === editSpecId ? { ...s, ...specForm } : s)
-      : [{ id: specId(), createdAt: todayStr(), ...specForm }, ...specs]
-    saveSpecs(next)
-    setShowSpecForm(false); setSpecForm(EMPTY_SPEC); setEditSpecId(null)
-  }
 
   // ── LOT CRUD ─────────────────────────────────────────────
   function submitLot() {
@@ -276,61 +239,43 @@ export default function PreservationHub() {
           </div>
         )}
 
-        {/* ── 보존 사양 탭 ── */}
+        {/* ── 보존 사양 탭 (제품 개발 화면 입력값을 읽기 전용으로 표시) ── */}
         {tab === 'specs' && (
           <div>
-            <div className="flex justify-between items-center mb-4">
-              <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>제품별 보존·취급 조건 및 포장 사양</div>
-              {canEdit && (
-                <button onClick={() => { setSpecForm(EMPTY_SPEC); setEditSpecId(null); setShowSpecForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 사양 등록
-                </button>
-              )}
+            <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+              <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>제품별 보존·취급 조건 및 포장 사양 — 제품 개발 화면에서 입력합니다.</div>
+              <button onClick={() => nav('/products?tab=product')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12.5px] font-bold"
+                style={{ background: '#fff', border: '1px solid #BFDBFE', color: '#2563EB', cursor: 'pointer' }}>
+                제품 개발에서 사양 입력 <ArrowUpRight size={13} />
+              </button>
             </div>
 
-            {showSpecForm && (
-              <SpecForm form={specForm} setForm={setSpecForm} onSave={submitSpec}
-                onCancel={() => { setShowSpecForm(false); setSpecForm(EMPTY_SPEC); setEditSpecId(null) }}
-                isEdit={!!editSpecId} />
-            )}
-
             {specs.length === 0 ? (
-              <Empty icon={Package} text="등록된 보존 사양이 없습니다." />
+              <Empty icon={Package} text="보존 사양이 활성화된 제품이 없습니다. 제품 개발 화면에서 입력하세요." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {specs.map(spec => {
                   const cond = STORAGE_CONDITIONS.find(c => c.key === spec.storageCondition)
                   return (
-                    <div key={spec.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                    <div key={spec.id} className="p-4 rounded-2xl cursor-pointer" onClick={() => nav('/products?tab=product' + (spec.productId ? '&productId=' + encodeURIComponent(spec.productId) : '') + '&detailTab=info')}
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{spec.productName}</div>
                           <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{spec.productCode} · {spec.deviceClass}</div>
                         </div>
-                        {canEdit && (
-                          <div className="flex gap-1">
-                            <button onClick={() => { setSpecForm({ ...EMPTY_SPEC, ...spec }); setEditSpecId(spec.id); setShowSpecForm(true) }}
-                              className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                              <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
-                            </button>
-                            <button onClick={() => saveSpecs(specs.filter(s => s.id !== spec.id))}
-                              className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
-                              <Trash2 size={12} style={{ color: '#DC2626' }} />
-                            </button>
-                          </div>
-                        )}
+                        <ArrowUpRight size={14} style={{ color: 'var(--ink-faint)' }} />
                       </div>
                       <div className="grid grid-cols-2 gap-1.5 text-[12px]">
-                        <InfoRow icon="??" label="보관 조건" value={`${cond?.icon || ''} ${cond?.label || spec.storageCondition}`} />
-                        {(spec.tempMin || spec.tempMax) && <InfoRow icon="??" label="온도" value={`${spec.tempMin || '-'}~${spec.tempMax || '-'}℃`} />}
-                        {(spec.humMin || spec.humMax) && <InfoRow icon="??" label="습도" value={`${spec.humMin || '-'}~${spec.humMax || '-'}%RH`} />}
+                        <InfoRow icon="🌡️" label="보관 조건" value={`${cond?.icon || ''} ${cond?.label || spec.storageCondition}`} />
+                        {(spec.tempMin || spec.tempMax) && <InfoRow icon="🌡️" label="온도" value={`${spec.tempMin || '-'}~${spec.tempMax || '-'}℃`} />}
+                        {(spec.humMin || spec.humMax) && <InfoRow icon="💧" label="습도" value={`${spec.humMin || '-'}~${spec.humMax || '-'}%RH`} />}
                         <InfoRow icon="⏱" label="유효기간" value={`${spec.shelfLifeMonths}개월`} />
-                        <InfoRow icon="??" label="멸균" value={spec.sterility} />
-                        {spec.lightSensitive && <InfoRow icon="??" label="차광" value="필요" />}
+                        <InfoRow icon="🧪" label="멸균" value={spec.sterility} />
+                        {spec.lightSensitive && <InfoRow icon="🌑" label="차광" value="필요" />}
                         {spec.shockSensitive && <InfoRow icon="⚠" label="충격" value="취약 — 주의" />}
-                        {spec.stackLimit && <InfoRow icon="??" label="적재 한계" value={spec.stackLimit} />}
+                        {spec.stackLimit && <InfoRow icon="📦" label="적재 한계" value={spec.stackLimit} />}
                       </div>
                       {spec.cleanlinessReq && (
                         <div className="mt-2 px-2 py-1 rounded-lg text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
@@ -340,6 +285,11 @@ export default function PreservationHub() {
                       {spec.handlingInstructions && (
                         <div className="mt-1 px-2 py-1 rounded-lg text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
                           취급 지침: {spec.handlingInstructions}
+                        </div>
+                      )}
+                      {(spec.pkgCheckItems || []).length > 0 && (
+                        <div className="mt-1 px-2 py-1 rounded-lg text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+                          출하 전 점검 항목 {spec.pkgCheckItems.length}건 지정됨
                         </div>
                       )}
                     </div>
@@ -398,57 +348,6 @@ export default function PreservationHub() {
   )
 }
 
-// ── 보존 사양 폼 ─────────────────────────────────────────────
-function SpecForm({ form, setForm, onSave, onCancel, isEdit }) {
-  const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  return (
-    <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '보존 사양 수정' : '보존 사양 등록'}</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
-        <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
-        <Field label="기기 등급" value={form.deviceClass} onChange={v => F('deviceClass', v)} />
-        <FieldSelect label="보관 조건" value={form.storageCondition} onChange={v => F('storageCondition', v)}
-          options={STORAGE_CONDITIONS.map(c => ({ value: c.key, label: `${c.icon} ${c.label}` }))} />
-        <Field label="온도 최소 (℃)" value={form.tempMin} onChange={v => F('tempMin', v)} />
-        <Field label="온도 최대 (℃)" value={form.tempMax} onChange={v => F('tempMax', v)} />
-        <Field label="습도 최소 (%RH)" value={form.humMin} onChange={v => F('humMin', v)} />
-        <Field label="습도 최대 (%RH)" value={form.humMax} onChange={v => F('humMax', v)} />
-        <Field label="유효기간 (개월)" value={form.shelfLifeMonths} onChange={v => F('shelfLifeMonths', v)} />
-        <FieldSelect label="멸균 방법" value={form.sterility} onChange={v => F('sterility', v)}
-          options={STERILITY.map(s => ({ value: s, label: s }))} />
-        <FieldSelect label="포장 유형" value={form.packagingType} onChange={v => F('packagingType', v)}
-          options={PACKAGING_TYPES.map(p => ({ value: p, label: p }))} />
-        <Field label="적재 한계" value={form.stackLimit} onChange={v => F('stackLimit', v)} placeholder="예: 5단 이하" />
-        <Field label="연결 환경 구역 ID" value={form.linkedEnvZoneId} onChange={v => F('linkedEnvZoneId', v)} placeholder="ZON-xxxx" />
-      </div>
-      <div className="flex gap-4 mb-3">
-        <label className="flex items-center gap-2 text-[12.5px] cursor-pointer">
-          <input type="checkbox" checked={form.lightSensitive} onChange={e => F('lightSensitive', e.target.checked)} />
-          <span style={{ color: 'var(--ink)' }}>차광 보관 필요</span>
-        </label>
-        <label className="flex items-center gap-2 text-[12.5px] cursor-pointer">
-          <input type="checkbox" checked={form.shockSensitive} onChange={e => F('shockSensitive', e.target.checked)} />
-          <span style={{ color: 'var(--ink)' }}>충격 취약</span>
-        </label>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <FieldArea label="포장 사양" value={form.packagingSpec} onChange={v => F('packagingSpec', v)} rows={2} />
-        <FieldArea label="청결 요구사항 (§7.5.2)" value={form.cleanlinessReq} onChange={v => F('cleanlinessReq', v)} rows={2} />
-        <FieldArea label="취급 지침" value={form.handlingInstructions} onChange={v => F('handlingInstructions', v)} rows={2} />
-        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
-      </div>
-      <div className="flex gap-2">
-        <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
-        </button>
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
-      </div>
-    </div>
-  )
-}
 
 // ── LOT 폼 ───────────────────────────────────────────────────
 function LotForm({ form, setForm, specs, onSave, onCancel, isEdit }) {

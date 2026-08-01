@@ -10,6 +10,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { printPreservationCheckCert } from '../../lib/pdfPrint'
+import { onboarding } from '../../lib/onboardingState'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_LOTS   = 'qualytree.preservation_lots'    // 제품보존·취급에서 관리하는 LOT 재고 (읽기 전용 참조)
@@ -430,9 +431,16 @@ function CheckForm({ form, setForm, lots, onSave, onCancel, isEdit, toggleItem }
   function selectLot(id) {
     const lot = lots.find(l => l.id === id)
     if (!lot) { F('lotId', ''); return }
+    // 제품 개발 화면(ProductsHub)에서 제품별로 지정한 출하 전 점검 항목이 있으면 그것을 사용하고,
+    // 없으면 기본 점검 항목을 사용한다 (SSoT: 제품 레코드의 pkgCheckItems).
+    const products = onboarding.load()?.products || []
+    const product = products.find(p => (p.name || p.itemName || '') === lot.productName)
+    const pkgItems = product?.pkgCheckItems || []
+    const items = (pkgItems.length > 0 ? pkgItems.map(i => i.name).filter(Boolean) : DEFAULT_CHECK_ITEMS)
+      .map(name => ({ name, result: null }))
     setForm(f => ({
       ...f, lotId: id, productName: lot.productName, lotNo: lot.lotNo,
-      qty: f.qty || lot.qty, linkedDistId: lot.linkedDistId || '',
+      qty: f.qty || lot.qty, linkedDistId: lot.linkedDistId || '', checkItems: items,
     }))
   }
 

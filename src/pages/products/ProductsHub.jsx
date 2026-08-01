@@ -44,6 +44,7 @@ import {
 import { extractLicenseFromPdf } from '../../lib/licenseExtract'
 import { STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES } from '../../lib/sterileSpecConstants'
 import { CLEAN_CLASSES, CLEANING_METHODS, CONTAMINATION_TYPES, MONITOR_FREQS, CLEAN_STATUSES, CLEAN_APPLIES_WHEN } from '../../lib/cleanlinessSpecConstants'
+import { STORAGE_CONDITIONS, STERILITY, PACKAGING_TYPES } from '../../lib/preservationSpecConstants'
 import { INSP_TYPES } from '../../lib/inspectionStandardConstants'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
@@ -1028,6 +1029,18 @@ function ProductPanel({ product, company, onAction }) {
     return { ...d, inspStdCheckItems: items }
   })
 
+  const addPkgItem = () => setDraft((d) => ({ ...d, pkgCheckItems: [...(d.pkgCheckItems || []), { name: '', spec: '' }] }))
+  const updPkgItem = (i, k, v) => setDraft((d) => {
+    const items = [...(d.pkgCheckItems || [])]
+    items[i] = { ...items[i], [k]: v }
+    return { ...d, pkgCheckItems: items }
+  })
+  const delPkgItem = (i) => setDraft((d) => {
+    const items = [...(d.pkgCheckItems || [])]
+    items.splice(i, 1)
+    return { ...d, pkgCheckItems: items }
+  })
+
   return (
     <div className="grid lg:grid-cols-3 gap-4">
       {/* 좌: 제품 카드 */}
@@ -1167,6 +1180,48 @@ function ProductPanel({ product, company, onAction }) {
                   {product.cleanNotes && (
                     <div className="mt-3">
                       <Field label="비고" value={product.cleanNotes} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {product.preserveEnabled && (
+                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
+                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
+                    보존 사양 (ISO 13485 §7.5.11)
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="보관 조건" value={(STORAGE_CONDITIONS.find(c => c.key === (product.storageCondition || 'room')) || {}).label || '-'} />
+                    <Field label="온도 / 습도 범위" value={[
+                      (product.tempMin || product.tempMax) && `${product.tempMin || '-'}~${product.tempMax || '-'}℃`,
+                      (product.humMin || product.humMax) && `${product.humMin || '-'}~${product.humMax || '-'}%RH`,
+                    ].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="유효기간" value={product.shelfLifeMonths ? product.shelfLifeMonths + '개월' : '-'} />
+                    <Field label="멸균 방법" value={product.preserveSterility || '-'} />
+                    <Field label="포장 유형 / 사양" value={[product.packagingType, product.packagingSpec].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="적재 한계" value={product.stackLimit || '-'} />
+                    <Field label="차광 / 충격 취약" value={[product.lightSensitive && '차광 필요', product.shockSensitive && '충격 취약'].filter(Boolean).join(' · ') || '해당 없음'} />
+                    <Field label="연결 환경 구역 ID" value={product.linkedEnvZoneId || '-'} />
+                    <Field label="청결 요구사항" value={product.cleanlinessReq || '-'} />
+                    <Field label="취급 지침" value={product.handlingInstructions || '-'} />
+                  </div>
+                  {(product.pkgCheckItems || []).length > 0 && (
+                    <div className="mt-3">
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>출하 전 포장·보존 점검 항목</label>
+                      <div className="mt-1 grid md:grid-cols-2 gap-1.5">
+                        {product.pkgCheckItems.map((ci, i) => (
+                          <div key={i} className="flex gap-2 text-[12px] p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                            <span style={{ color: 'var(--ink-faint)', minWidth: 16 }}>{i + 1}.</span>
+                            <span style={{ color: 'var(--ink)' }}>{ci.name}</span>
+                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>— {ci.spec}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {product.preserveNotes && (
+                    <div className="mt-3">
+                      <Field label="비고" value={product.preserveNotes} />
                     </div>
                   )}
                 </div>
@@ -1381,6 +1436,92 @@ function ProductPanel({ product, company, onAction }) {
                     </div>
 
                     <FieldEdit label="청결도 사양 비고" value={draft.cleanNotes} onChange={(v) => setDraft({ ...draft, cleanNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+                <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!draft.preserveEnabled}
+                    onChange={(e) => setDraft({ ...draft, preserveEnabled: e.target.checked })}
+                  />
+                  이 제품은 보존·취급 사양이 적용됩니다 (ISO 13485 §7.5.11 사양 입력)
+                </label>
+
+                {draft.preserveEnabled && (
+                  <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>보관 조건</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.storageCondition || 'room'} onChange={(e) => setDraft({ ...draft, storageCondition: e.target.value })}>
+                          {STORAGE_CONDITIONS.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>멸균 방법</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.preserveSterility || STERILITY[0]} onChange={(e) => setDraft({ ...draft, preserveSterility: e.target.value })}>
+                          {STERILITY.map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FieldEdit label="온도 최소 (℃)" value={draft.tempMin} onChange={(v) => setDraft({ ...draft, tempMin: v })} placeholder="1" />
+                      <FieldEdit label="온도 최대 (℃)" value={draft.tempMax} onChange={(v) => setDraft({ ...draft, tempMax: v })} placeholder="30" />
+                      <FieldEdit label="습도 최소 (%RH)" value={draft.humMin} onChange={(v) => setDraft({ ...draft, humMin: v })} placeholder="" />
+                      <FieldEdit label="습도 최대 (%RH)" value={draft.humMax} onChange={(v) => setDraft({ ...draft, humMax: v })} placeholder="" />
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <FieldEdit label="유효기간 (개월)" value={draft.shelfLifeMonths} onChange={(v) => setDraft({ ...draft, shelfLifeMonths: v })} placeholder="12" />
+                      <div>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>포장 유형</label>
+                        <select className="input-base mt-1 w-full text-[13px]" value={draft.packagingType || PACKAGING_TYPES[0]} onChange={(e) => setDraft({ ...draft, packagingType: e.target.value })}>
+                          {PACKAGING_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                      </div>
+                      <FieldEdit label="적재 한계" value={draft.stackLimit} onChange={(v) => setDraft({ ...draft, stackLimit: v })} placeholder="5단 이하" />
+                      <FieldEdit label="연결 환경 구역 ID" value={draft.linkedEnvZoneId} onChange={(v) => setDraft({ ...draft, linkedEnvZoneId: v })} placeholder="ZON-xxxx" />
+                    </div>
+
+                    <div className="flex gap-5">
+                      <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                        <input type="checkbox" checked={!!draft.lightSensitive} onChange={(e) => setDraft({ ...draft, lightSensitive: e.target.checked })} />
+                        차광 보관 필요
+                      </label>
+                      <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
+                        <input type="checkbox" checked={!!draft.shockSensitive} onChange={(e) => setDraft({ ...draft, shockSensitive: e.target.checked })} />
+                        충격 취약
+                      </label>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-3">
+                      <FieldEdit label="포장 사양" value={draft.packagingSpec} onChange={(v) => setDraft({ ...draft, packagingSpec: v })} multiline placeholder="예: PE 파우치 이중 밀봉" />
+                      <FieldEdit label="청결 요구사항" value={draft.cleanlinessReq} onChange={(v) => setDraft({ ...draft, cleanlinessReq: v })} multiline placeholder="§7.5.2 참조" />
+                      <FieldEdit label="취급 지침" value={draft.handlingInstructions} onChange={(v) => setDraft({ ...draft, handlingInstructions: v })} multiline placeholder="" />
+                      <FieldEdit label="보존 사양 비고" value={draft.preserveNotes} onChange={(v) => setDraft({ ...draft, preserveNotes: v })} multiline placeholder="추가 요구사항 또는 특이사항" />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>출하 전 포장·보존 점검 항목</label>
+                        <button type="button" onClick={addPkgItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ 항목 추가</button>
+                      </div>
+                      <div className="space-y-2">
+                        {(draft.pkgCheckItems || []).map((ci, i) => (
+                          <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 32px' }}>
+                            <input value={ci.name} onChange={(e) => updPkgItem(i, 'name', e.target.value)} placeholder="점검 항목명" className="input-base text-[12px]" />
+                            <input value={ci.spec} onChange={(e) => updPkgItem(i, 'spec', e.target.value)} placeholder="기준/허용 범위" className="input-base text-[12px]" />
+                            <button type="button" onClick={() => delPkgItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                          </div>
+                        ))}
+                        {(draft.pkgCheckItems || []).length === 0 && (
+                          <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ 버튼으로 점검 항목을 추가하세요 (미입력 시 기본 항목 사용)</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
