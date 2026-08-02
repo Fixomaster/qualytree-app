@@ -561,6 +561,7 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
 function ChecklistPopup({ audit, cars, onClose, onUpdateChecklist, onIssueCar }) {
   const [items, setItems] = useState(() => audit.checklist || [])
   const [aiLoading, setAiLoading] = useState({})
+  const [aiError, setAiError] = useState({})
   const [carDraft, setCarDraft] = useState({})
 
   const persist = (next) => {
@@ -584,6 +585,7 @@ function ChecklistPopup({ audit, cars, onClose, onUpdateChecklist, onIssueCar })
 
   const generateDetail = async (iso, itemLabel) => {
     setAiLoading((l) => ({ ...l, [iso]: true }))
+    setAiError((e) => ({ ...e, [iso]: '' }))
     try {
       const res = await fetch('/api/checklist-detail', {
         method: 'POST',
@@ -592,9 +594,9 @@ function ChecklistPopup({ audit, cars, onClose, onUpdateChecklist, onIssueCar })
       })
       const data = await res.json()
       if (data.ok) setDetail(iso, data.detail)
-      else alert(data.message || 'AI 생성에 실패했습니다.')
-    } catch {
-      alert('AI 생성 중 오류가 발생했습니다.')
+      else setAiError((e) => ({ ...e, [iso]: data.message || 'AI 생성에 실패했습니다.' }))
+    } catch (err) {
+      setAiError((e) => ({ ...e, [iso]: 'AI 생성 중 오류가 발생했습니다: ' + String((err && err.message) || err) }))
     } finally {
       setAiLoading((l) => ({ ...l, [iso]: false }))
     }
@@ -674,6 +676,10 @@ function ChecklistPopup({ audit, cars, onClose, onUpdateChecklist, onIssueCar })
                     AI 생성
                   </button>
                 </div>
+
+                {aiError[it.iso] && (
+                  <div className="text-[11px] mb-2 px-2 py-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#991B1B' }}>{aiError[it.iso]}</div>
+                )}
 
                 <input
                   value={it.note || ''}
