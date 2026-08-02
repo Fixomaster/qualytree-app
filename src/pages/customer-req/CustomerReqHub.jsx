@@ -85,12 +85,19 @@ const EMPTY_FORM = {
   productName: '', productCode: '', orderNo: '',
   inquiryDate: today(), reviewDate: '', acceptedDate: '',
   status: 'captured',
-  requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true })),
+  requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true, assignee: '', assigneeChecked: false })),
   reviewItems: REVIEW_ITEMS.map(text => ({ text, result: null, note: '' })),
+  reviewMisc: '',
   reviewedBy: '', approvedBy: '',
   linkedSalesId: '', linkedQualityPlanId: '', linkedDhfId: '',
   notes: '',
   communications: [],
+}
+
+// #46/#47/#48: 각 요구사항이 (해당없음으로 체크되었거나) 담당자가 내용을 입력하고 확인 체크까지
+// 완료되어야만 검토를 시작할 수 있다 — 요구자(영업)와 검토자(해당 부서 담당자)의 역할을 구분한다.
+function requirementsReady(rec) {
+  return (rec.requirements || []).every(r => r.applicable === false || ((r.content && r.content.trim()) && r.assigneeChecked))
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
@@ -130,6 +137,14 @@ export default function CustomerReqHub() {
   }
 
   function quickStatus(id, status) {
+    // #46: 요구사항 각 항목이 (해당없음 체크 또는) 담당자 입력+확인까지 완료되어야 검토를 시작할 수 있다.
+    if (status === 'reviewing') {
+      const rec = records.find(r => r.id === id)
+      if (rec && !requirementsReady(rec)) {
+        alert('모든 요구사항 항목의 내용을 입력(또는 해당없음 체크)하고 담당자 확인까지 완료해야 검토를 요청할 수 있습니다.')
+        return
+      }
+    }
     const upd = { status }
     if (status === 'accepted') upd.acceptedDate = today()
     if (status === 'reviewing') upd.reviewDate = today()
@@ -189,6 +204,11 @@ export default function CustomerReqHub() {
     save(next)
   }
 
+  // #49: 검토 체크리스트에 정형화되지 않은 기타 사항을 자유롭게 기록할 수 있게 한다.
+  function updateReviewMisc(recId, value) {
+    save(records.map(r => r.id === recId ? { ...r, reviewMisc: value } : r))
+  }
+
   function addCommunication(recId) {
     if (!commForm.summary.trim()) return alert('내용을 입력하세요.')
     const entry = { ...commForm, id: Date.now() }
@@ -238,9 +258,8 @@ export default function CustomerReqHub() {
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `요구사항 목록 (${records.length})` },
+            { key: 'list',     label: `현황 분석 (${records.length})` },
             { key: 'detail',   label: '상세 검토', disabled: !selectedId },
-            { key: 'analysis', label: '현황 분석' },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -258,7 +277,8 @@ export default function CustomerReqHub() {
         {/* ── 목록 탭 ── */}
         {tab === 'list' && (
           <div>
-            <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
+            <AnalysisView analysis={analysis} setSelectedId={setSelectedId} setTab={setTab} />
+            <div className="flex flex-wrap gap-3 mb-4 mt-5 items-center justify-between">
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
@@ -321,7 +341,9 @@ export default function CustomerReqHub() {
 
                       {canEdit && (
                         <div className="flex gap-1 mt-3 flex-wrap" onClick={e => e.stopPropagation()}>
-                          {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
+                          {rec.status === 'captured' && (requirementsReady(rec)
+                            ? <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />
+                            : <span className="text-[10.5px] px-2 py-1 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>요구사항 입력·담당자확인 필요</span>)}
                           {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
                           {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
                           {rec.status === 'accepted'  && <QuickBtn label="완료(승인)" color="#9CA3AF" onClick={() => completeReview(rec.id)} />}
@@ -347,7 +369,7 @@ export default function CustomerReqHub() {
         {tab === 'detail' && selected && (
           <DetailView
             rec={selected} canEdit={canEdit}
-            updateReviewItem={updateReviewItem} updateRequirement={updateRequirement}
+            updateReviewItem={updateReviewItem} updateRequirement={updateRequirement} updateReviewMisc={updateReviewMisc}
             commForm={commForm} setCommForm={setCommForm}
             showCommForm={showCommForm} setShowCommForm={setShowCommForm}
             addCommunication={addCommunication} deleteComm={deleteComm}
@@ -355,21 +377,18 @@ export default function CustomerReqHub() {
           />
         )}
 
-        {/* ── 분석 탭 ── */}
-        {tab === 'analysis' && (
-          <AnalysisView analysis={analysis} setSelectedId={setSelectedId} setTab={setTab} />
-        )}
       </div>
     </AppLayout>
   )
 }
 
 // ── 상세 뷰 ──────────────────────────────────────────────────
-function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
+function DetailView({ rec, canEdit, updateReviewItem, updateRequirement, updateReviewMisc,
   commForm, setCommForm, showCommForm, setShowCommForm, addCommunication, deleteComm,
   quickStatus, completeReview, reviewPassed }) {
   const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
   const passed = reviewPassed(rec)
+  const reviewReady = requirementsReady(rec)
   const [openSec, setOpenSec] = useState({ reqs: true, review: true, comms: true })
   const toggle = k => setOpenSec(s => ({ ...s, [k]: !s[k] }))
 
@@ -429,7 +448,9 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
         {/* 빠른 상태 변경 */}
         {canEdit && (
           <div className="flex gap-2 mt-3 flex-wrap">
-            {rec.status === 'captured'  && <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />}
+            {rec.status === 'captured' && (reviewReady
+              ? <QuickBtn label="검토 시작" color="#D97706" onClick={() => quickStatus(rec.id, 'reviewing')} />
+              : <span className="text-[11.5px] px-2 py-1.5 rounded-lg" style={{background:'var(--bg-soft)',color:'var(--ink-faint)'}}>모든 요구사항 입력·담당자확인 완료 시 검토 시작 가능</span>)}
             {rec.status === 'reviewing' && <QuickBtn label="수락" color="#059669" onClick={() => quickStatus(rec.id, 'accepted')} />}
             {rec.status === 'reviewing' && <QuickBtn label="반려" color="#DC2626" onClick={() => quickStatus(rec.id, 'rejected')} />}
             {rec.status === 'accepted'  && <QuickBtn label="완료(승인)" color="#9CA3AF" onClick={() => completeReview(rec.id)} />}
@@ -466,6 +487,24 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
                 )
               ) : (
                 <div className="text-[11.5px] italic" style={{ color: 'var(--ink-faint)' }}>해당 없음 (N/A)</div>
+              )}
+              {req.applicable !== false && (
+                <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px dashed var(--line)' }}>
+                  {canEdit ? (
+                    <input type="text" value={req.assignee || ''} placeholder="담당자명 (검토 책임자)"
+                      onChange={e => updateRequirement(rec.id, i, 'assignee', e.target.value)}
+                      className="flex-1 px-2 py-1 rounded-lg text-[11.5px]"
+                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+                  ) : (
+                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>담당자: {req.assignee || '미지정'}</span>
+                  )}
+                  <label className="flex items-center gap-1.5 shrink-0" style={{ cursor: canEdit ? 'pointer' : 'default' }}>
+                    <input type="checkbox" checked={!!req.assigneeChecked} disabled={!canEdit}
+                      onChange={e => updateRequirement(rec.id, i, 'assigneeChecked', e.target.checked)}
+                      className="accent-green-500" />
+                    <span className="text-[11px] font-medium" style={{ color: req.assigneeChecked ? '#059669' : 'var(--ink-faint)' }}>담당자 확인완료</span>
+                  </label>
+                </div>
               )}
             </div>
           ))}
@@ -523,6 +562,19 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement,
               </div>
             )
           })}
+        </div>
+        <div className="mt-3">
+          <div className="text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>기타 사항</div>
+          {canEdit ? (
+            <textarea value={rec.reviewMisc || ''} rows={2} placeholder="체크리스트에 없는 기타 검토 의견을 입력하세요"
+              onChange={e => updateReviewMisc(rec.id, e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg text-[12.5px] resize-none"
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+          ) : (
+            <div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: rec.reviewMisc ? 'var(--ink-soft)' : 'var(--ink-faint)' }}>
+              {rec.reviewMisc || '기타 사항 없음'}
+            </div>
+          )}
         </div>
         {(rec.reviewedBy || rec.approvedBy) && (
           <div className="mt-3 flex gap-4 flex-wrap text-[12px]" style={{ color: 'var(--ink-faint)' }}>

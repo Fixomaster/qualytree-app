@@ -2,8 +2,10 @@
 // src/components/HubBanner.jsx
 // Shared hub banner — gradient header matching DeptHome style
 // Props: title, subtitle, icon (lucide component), color, quickActions[], workflow[]
-import React from 'react'
-import { ChevronRight } from 'lucide-react'
+import React, { useState } from 'react'
+import { ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+
+const WORKFLOW_COLLAPSE_THRESHOLD = 6
 
 export default function HubBanner({
   title,
@@ -13,6 +15,10 @@ export default function HubBanner({
   quickActions = [],
   workflow = [],
 }) {
+  // #33: 업무 흐름 단계가 많아지면(6단계 초과) 기본적으로 일부만 보여주고 펼쳐볼 수 있게 한다.
+  const [expanded, setExpanded] = useState(false)
+  const isLong = workflow.length > WORKFLOW_COLLAPSE_THRESHOLD
+  const shownWorkflow = isLong && !expanded ? workflow.slice(0, WORKFLOW_COLLAPSE_THRESHOLD) : workflow
   return (
     <div
       className="mb-6 rounded-3xl overflow-hidden"
@@ -77,7 +83,7 @@ export default function HubBanner({
           >
             업무 흐름
           </span>
-          {workflow.map((step, i) => (
+          {shownWorkflow.map((step, i) => (
             <React.Fragment key={i}>
               <span
                 className="flex items-center gap-1.5 text-[11.5px] px-2.5 py-1 rounded-full flex-shrink-0"
@@ -91,11 +97,20 @@ export default function HubBanner({
                 </span>
                 {step}
               </span>
-              {i < workflow.length - 1 && (
+              {i < shownWorkflow.length - 1 && (
                 <ChevronRight size={11} style={{ color: `${color}50`, flexShrink: 0 }} />
               )}
             </React.Fragment>
           ))}
+          {isLong && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="flex items-center gap-1 text-[10.5px] font-bold px-2 py-1 rounded-full flex-shrink-0"
+              style={{ background: `${color}22`, color }}
+            >
+              {expanded ? <>접기 <ChevronUp size={11}/></> : <>펼치기 (+{workflow.length - WORKFLOW_COLLAPSE_THRESHOLD}) <ChevronDown size={11}/></>}
+            </button>
+          )}
         </div>
       )}
     </div>

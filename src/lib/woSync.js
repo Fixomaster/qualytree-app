@@ -28,9 +28,11 @@ export function readManufacturingWos() {
  *  생산(Manufacturing)의 qms_mfg_wo 목록에 WO를 추가하고 생성된 WO를 반환한다.
  *  이렇게 발행된 WO는 생산현황(WoView) 화면에 즉시 나타나고, 이후 진행 상태는
  *  syncOrderStatusFromWo/WO_STATUS_TO_PR_STATUS 매핑을 통해 자동으로 되돌아온다. */
+let _woSeq = 0
 export function createManufacturingWo({ so = '', product = '', qty = '' } = {}) {
   const wos = readLS('qms_mfg_wo')
-  const id = `WO-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
+  _woSeq = (_woSeq + 1) % 1000
+  const id = `WO-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now() + _woSeq).slice(-3)}`
   const wo = {
     id, so, product, qty: String(qty || ''),
     step: '대기', startDate: new Date().toISOString().slice(0,10), dueDate: '',

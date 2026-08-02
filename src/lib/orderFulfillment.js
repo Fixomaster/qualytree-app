@@ -75,7 +75,7 @@ export function fulfillOrderLineItems(order) {
  *
  * @returns {{ deducted: Array<{name:string, qty:number}> }}
  */
-export function deductFinStockForDelivery(order) {
+export function deductFinStockForDelivery(order, multiplier = 1) {
   if (!order || !Array.isArray(order.lineItems) || order.lineItems.length === 0) return { deducted: [] }
   const fin = readLS('qms_pur_fin')
   const nextFin = fin.map(f => ({ ...f }))
@@ -84,8 +84,10 @@ export function deductFinStockForDelivery(order) {
 
   for (const li of order.lineItems) {
     const name = (li.name || '').trim()
-    const qty = parseFloat(li.qty) || 0
-    if (!name || qty <= 0) continue
+    const rawQty = parseFloat(li.qty) || 0
+    if (!name || rawQty <= 0) continue
+    // multiplier=1: 정상 출하(차감) / multiplier=-1: 반품·교환(복원, 재고 증가)
+    const qty = rawQty * multiplier
     const idx = nextFin.findIndex(f => norm(f.name) === norm(name))
     if (idx < 0) continue
     const item = nextFin[idx]

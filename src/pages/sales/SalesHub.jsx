@@ -27,6 +27,7 @@ import { fulfillOrderLineItems, deductFinStockForDelivery } from '../../lib/orde
 import { fileStore } from '../../lib/fileStore'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { udi } from '../../lib/udi'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -365,7 +366,7 @@ function CustomersView({ customers, setCustomers }) {
 }
 
 /* ─── 수주 관리 ─── */
-function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdReqs, onNavigate }) {
+function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdReqs, onNavigate, setQuotes }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [fulfillMsg, setFulfillMsg] = useState(null)
@@ -400,6 +401,18 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdR
     if (edit) { setOrders(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
     else {
       let newOrder = { ...init, ...f, id: nid('SO') }
+      // #10: 견적 없이 수주가 직접 접수된 경우, 추적성 확보를 위해 연계 견적(QT)을 자동 생성한다.
+      // (견적→수주확정으로 전환된 경우는 quoteRef가 이미 채워져 있으므로 중복 생성하지 않음)
+      if (setQuotes && !newOrder.quoteRef) {
+        const li = (newOrder.lineItems && newOrder.lineItems.length) ? newOrder.lineItems : [{ name: newOrder.items || '', qty: newOrder.qty, price: '' }]
+        const newQuote = {
+          id: nid('QT'), customer: newOrder.customer, items: newOrder.items, date: newOrder.receivedDate,
+          validUntil: newOrder.receivedDate, amount: newOrder.amount, status: '수주확정', lineItems: li,
+          linkedOrderId: newOrder.id, autoFromOrder: true,
+        }
+        setQuotes(p => [...p, newQuote])
+        newOrder = { ...newOrder, quoteRef: newQuote.id }
+      }
       if (!newOrder.wo) {
         // 수주 등록 시점에는 재고를 차감하지 않고 확인만 한다 — 실제 차감은 납품(출하) 등록 시점에 이루어진다.
         const result = fulfillOrderLineItems(newOrder)
@@ -937,10 +950,41 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
 
 /* ─── 고객 불만 ─── */
 function fullUdiDisplay(d) {
-  if (!d.udi) return '-'
-  const parts = [`(01)${d.udi}`]
-  if (d.lot) parts.push(`(10)${d.lot}`)
-  return parts.join(' ')
+  const items = (d.lineItems && d.lineItems.length) ? d.lineItems : [{ udi: d.udi, lot: d.lot }]
+  const parts = items.filter(li => li.udi || li.lot).map(li => {
+    const seg = []
+    if (li.udi) seg.push(`(01)${li.udi}`)
+    if (li.lot) seg.push(`(10)${li.lot}`)
+    return seg.join(' ')
+  })
+  return parts.length ? parts.join(', ') : '-'
+}
+function deliveryItemsSummary(d) {
+  const items = (d.lineItems || []).filter(li => li.name && li.name.trim())
+  if (items.length) return items.length <= 1 ? items[0].name : `${items[0].name} 외 ${items.length - 1}건`
+  return d.items || ''
+}
+/* GS1 바코드(또는 순수 LOT 문자열)를 파싱해 UDI-DI/LOT을 추출한다. */
+function parseGs1(text) {
+  const t = (text || '').trim()
+  const out = { di: '', lot: '' }
+  const diM = t.match(/\(01\)(\d{8,14})/) || t.match(/^01(\d{14})/)
+  if (diM) out.di = diM[1]
+  const lotM = t.match(/\(10\)([^\s(]+)/) || t.match(/10([A-Za-z0-9\-]+)$/)
+  if (lotM) out.lot = lotM[1]
+  if (!out.di && !out.lot) out.lot = t // 바코드가 아니라 순수 LOT 문자열로 입력한 경우
+  return out
+}
+/* 스캔/입력된 바코드·LOT 문자열로 UDI 발급 이력(udi.js)에서 일치하는 품목·LOT을 찾는다. */
+function lookupUdiByBarcode(text) {
+  const { di, lot } = parseGs1(text)
+  if (!di && !lot) return null
+  const all = udi.loadAll()
+  let rec = di ? all.find(u => u.udiDi === di) : null
+  if (!rec && lot) rec = all.find(u => (u.piBatches || []).some(b => b.lot && b.lot.toLowerCase() === lot.toLowerCase()))
+  if (!rec) return null
+  const batch = lot ? (rec.piBatches || []).find(b => b.lot && b.lot.toLowerCase() === lot.toLowerCase()) : (rec.piBatches || [])[0]
+  return { productName: rec.productName || rec.modelName || '', udiDi: rec.udiDi, lot: (batch && batch.lot) || lot || '' }
 }
 
 /* ─── 납품 이력 ─── */
@@ -952,25 +996,33 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   useEffect(() => {
     if (openId) { const item = deliveries.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
-  const init = { id:'', so:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), lot:'', udi:'', status:'납품완료' }
+  const init = { id:'', so:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), status:'납품완료', lineItems:[{ name:'', qty:'', lot:'', udi:'' }] }
 
   const save = (f) => {
-    if (edit) { setDeliveries(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else {
-      const newDelivery = { ...init, ...f, id:nid('DL') }
-      setDeliveries(p=>[...p, newDelivery])
-      // 출하(납품) 등록 시점에 실제로 완제품재고를 차감한다 (수주 등록 시점에는 차감하지 않음)
-      const order = orders.find(o => o.id === newDelivery.so)
-      if (order) {
-        const { deducted } = deductFinStockForDelivery(order)
-        if (deducted.length > 0) setFulfillMsg(`완제품재고에서 ${deducted.map(d=>`${d.name} ${d.qty}개`).join(', ')} 출고 처리되었습니다.`)
-      }
+    const validItems = (f.lineItems || []).filter(li => li.name && li.name.trim())
+    const totalQty = validItems.reduce((s,li)=>s+(parseFloat(li.qty)||0),0)
+    const withItems = { ...f, lineItems: validItems, items: deliveryItemsSummary({ lineItems: validItems }), qty: `${totalQty}EA` }
+    if (edit) { setDeliveries(p=>p.map(x=>x.id===edit.id?{...x,...withItems}:x)); setEdit(null); setModal(null); return }
+
+    const isReturn = ['반품','교환'].includes(withItems.status)
+    if (isReturn && !window.confirm('반품/교환으로 등록하면 완제품재고가 해당 수량만큼 복원(입고) 처리됩니다. 계속하시겠습니까?')) return
+
+    const newDelivery = { ...init, ...withItems, id:nid('DL') }
+    setDeliveries(p=>[...p, newDelivery])
+    // 출하(납품) 등록 시점에 실제로 완제품재고를 차감(반품/교환이면 복원)한다
+    const order = orders.find(o => o.id === newDelivery.so)
+    const stockOrder = order ? { ...order, lineItems: newDelivery.lineItems } : { lineItems: newDelivery.lineItems }
+    const { deducted } = deductFinStockForDelivery(stockOrder, isReturn ? -1 : 1)
+    if (deducted.length > 0) {
+      setFulfillMsg(isReturn
+        ? `완제품재고에 ${deducted.map(d=>`${d.name} ${Math.abs(d.qty)}개`).join(', ')} 복원(입고) 처리되었습니다.`
+        : `완제품재고에서 ${deducted.map(d=>`${d.name} ${Math.abs(d.qty)}개`).join(', ')} 출고 처리되었습니다.`)
     }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setDeliveries(p=>p.filter(x=>x.id!==id)) }
   const shown = srch
-    ? deliveries.filter(d=>[d.id,d.so,d.customer,d.items,d.lot,d.udi].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    ? deliveries.filter(d=>[d.id,d.so,d.customer,deliveryItemsSummary(d),fullUdiDisplay(d)].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
     : deliveries
 
   return (
@@ -1004,21 +1056,20 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              {['납품번호','SO','고객사','품목','납품일','LOT','UDI (DI+PI)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
+              {['납품번호','SO','고객사','품목','납품일','UDI (DI+PI)','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
               {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(d=>(
-      <tr key={d.id}>
+      <tr key={d.id} onClick={()=>{setEdit(d);setModal('form')}} style={{ cursor:'pointer' }}>
                   <TD mono color="var(--moss)">{d.id}</TD>
                   <TD mono muted>{d.so}</TD>
                   <TD>{d.customer}</TD>
-                  <TD muted>{d.items}</TD>
+                  <TD muted>{deliveryItemsSummary(d)}</TD>
                   <TD mono muted>{d.date}</TD>
-                  <TD mono muted>{d.lot}</TD>
                   <TD mono muted>{fullUdiDisplay(d)}</TD>
-                  <TD><Badge text={d.status} tone="green"/></TD>
+                  <TD><Badge text={d.status} tone={d.status==='납품완료'?'green':'amber'}/></TD>
                   <TD>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e=>e.stopPropagation()}>
                       <ActBtn label="수정" onClick={()=>{setEdit(d);setModal('form')}}/>
                       <ActBtn label="삭제" color="red" onClick={()=>del(d.id)}/>
                     </div>
@@ -1030,7 +1081,7 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
         </div>
       </div>
       {modal==='form' && (
-        <Modal title={edit?'납품 수정':'납품 등록'} onClose={()=>{setModal(null);setEdit(null)}}>
+        <Modal title={edit?'납품 상세 · 수정':'납품 등록'} onClose={()=>{setModal(null);setEdit(null)}} wide>
           <DeliveryForm initial={edit||init} orders={orders} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/>
         </Modal>
       )}
@@ -1038,13 +1089,55 @@ function DeliveryView({ deliveries, setDeliveries, orders, openId }) {
   )
 }
 function DeliveryForm({ initial, orders, onSave, onCancel }) {
-  const [f, sf] = useState(initial)
+  const [orderableModels] = useState(() => loadOrderableModels())
+  const legacyLine = () => {
+    if (!initial.items) return [{ name:'', qty:'', lot:'', udi:'' }]
+    return [{ name: initial.items, qty: (initial.qty||'').replace('EA','') || '', lot: initial.lot||'', udi: initial.udi||'' }]
+  }
+  const [f, sf] = useState({
+    ...initial,
+    lineItems: (initial.lineItems && initial.lineItems.length ? initial.lineItems : legacyLine()),
+  })
+  const [scanText, setScanText] = useState('')
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
+
+  // #15: SO 선택 시 연계 수주의 품목 라인을 그대로 불러와 납품 라인으로 채운다.
   const selectSO = e => {
     const o = orders.find(x=>x.id===e.target.value)
-    if (o) sf(p=>({...p, so:o.id, customer:o.customer, items:o.items}))
-    else set('so')(e)
+    if (o) {
+      const li = (o.lineItems && o.lineItems.length)
+        ? o.lineItems.map(x=>({ name:x.name, qty:x.qty, lot:'', udi:'' }))
+        : [{ name:o.items||'', qty:(o.qty||'').replace('EA','')||'', lot:'', udi:'' }]
+      sf(p=>({ ...p, so:o.id, customer:o.customer, lineItems: li }))
+    } else set('so')(e)
   }
+
+  const setLine = (i, k, v) => sf(p=>({ ...p, lineItems: p.lineItems.map((li,idx)=>idx===i?{...li,[k]:v}:li) }))
+  const addLine = () => sf(p=>({ ...p, lineItems:[...p.lineItems, { name:'', qty:'', lot:'', udi:'' }] }))
+  const delLine = (i) => sf(p=>({ ...p, lineItems: p.lineItems.length>1 ? p.lineItems.filter((_,idx)=>idx!==i) : p.lineItems }))
+
+  // #20: 바코드(GS1 UDI) 또는 LOT 문자열을 스캔·입력하면 발급된 UDI 이력에서 자동 조회해 라인에 채운다.
+  const applyScan = () => {
+    if (!scanText.trim()) return
+    const found = lookupUdiByBarcode(scanText)
+    if (!found) { alert('일치하는 UDI 발급·LOT 이력을 찾을 수 없습니다. 품목/LOT/UDI를 직접 입력해 주세요.'); setScanText(''); return }
+    sf(p => {
+      const key = (found.productName||'').toLowerCase().slice(0,4)
+      let idx = p.lineItems.findIndex(li => !li.lot && li.name && key && li.name.toLowerCase().includes(key))
+      if (idx < 0) idx = p.lineItems.findIndex(li => !li.name && !li.lot)
+      if (idx >= 0) {
+        return { ...p, lineItems: p.lineItems.map((li,i)=> i===idx ? { ...li, name: li.name || found.productName, lot: found.lot, udi: found.udiDi } : li) }
+      }
+      return { ...p, lineItems: [...p.lineItems, { name: found.productName, qty:'', lot: found.lot, udi: found.udiDi }] }
+    })
+    setScanText('')
+  }
+
+  const validItems = f.lineItems.filter(li=>li.name && li.name.trim())
+  const totalQty = validItems.reduce((s,li)=>s+(parseFloat(li.qty)||0),0)
+  const ok = !!f.customer && validItems.length > 0
+  const isReturn = ['반품','교환'].includes(f.status)
+
   return (
     <div className="space-y-3">
       <FL label="수주번호 (SO) * (검색)">
@@ -1054,21 +1147,106 @@ function DeliveryForm({ initial, orders, onSave, onCancel }) {
           {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer} · {o.items}</option>)}
         </datalist>
       </FL>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <FL label="고객사"><input style={inp} value={f.customer} onChange={set('customer')} placeholder="고객사명"/></FL>
-        <FL label="품목"><input style={inp} value={f.items} onChange={set('items')} placeholder="품목·수량"/></FL>
         <FL label="납품일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
-        <FL label="LOT 번호 (UDI-PI)"><input style={inp} value={f.lot} onChange={set('lot')} placeholder="LOT-XXXX-XXX"/></FL>
-        <FL label="UDI-DI"><input style={inp} value={f.udi} onChange={set('udi')} placeholder="08806526XXXXXX"/></FL>
         <FL label="상태">
           <select style={sel} value={f.status} onChange={set('status')}>
             {['납품완료','반품','교환'].map(o=><option key={o}>{o}</option>)}
           </select>
         </FL>
       </div>
+      {isReturn && (
+        <div className="text-[11.5px] px-3 py-2 rounded-lg" style={{ background:'var(--amber-soft, #fff7e6)', color:'var(--amber, #b8860b)', border:'1px solid var(--line)' }}>
+          ⚠ 반품/교환으로 저장하면 아래 라인 수량만큼 완제품재고가 복원(입고) 처리됩니다.
+        </div>
+      )}
+
+      <FL label="바코드/LOT 스캔 (UDI 이력 자동 조회)">
+        <div className="flex gap-2">
+          <input style={inp} value={scanText} onChange={e=>setScanText(e.target.value)}
+            onKeyDown={e=>{ if(e.key==='Enter'){ e.preventDefault(); applyScan() } }}
+            placeholder="(01)08806526XXXXXX(10)LOT-XXXX 또는 LOT 문자열 스캔·입력 후 Enter"/>
+          <button onClick={applyScan} type="button" className="px-3 py-1.5 rounded-lg text-[12px] font-medium shrink-0"
+            style={{ background:'var(--bg-soft)', border:'1px solid var(--line)', color:'var(--ink-mute)' }}>조회·적용</button>
+        </div>
+      </FL>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[11.5px] font-medium" style={{ color:'var(--ink-mute)' }}>납품 품목 (전표) *</div>
+          <button onClick={addLine} className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg font-medium"
+            style={{ background:'var(--leaf-soft)', color:'var(--moss)' }}>
+            <Plus size={11}/> 품목 추가
+          </button>
+        </div>
+        <div className="rounded-lg overflow-hidden" style={{ border:'1px solid var(--line)' }}>
+          <table className="w-full">
+            <thead>
+              <tr style={{ background:'var(--bg-soft)' }}>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium" style={{color:'var(--ink-faint)'}}>품목명</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-16" style={{color:'var(--ink-faint)'}}>수량</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-32" style={{color:'var(--ink-faint)'}}>LOT (UDI-PI)</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-36" style={{color:'var(--ink-faint)'}}>UDI-DI</th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {f.lineItems.map((li,i)=>(
+                <tr key={i} style={{ borderTop:'1px solid var(--line)' }}>
+                  <td className="p-1">
+                    <input value={li.name} onChange={e=>setLine(i,'name',e.target.value)}
+                      list="delivery-model-list" placeholder="허가 모델 검색..."
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.qty} onChange={e=>setLine(i,'qty',e.target.value)}
+                      placeholder="100" type="number"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.lot} onChange={e=>setLine(i,'lot',e.target.value)}
+                      placeholder="LOT-XXXX-XXX"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none font-mono"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.udi} onChange={e=>setLine(i,'udi',e.target.value)}
+                      placeholder="08806526XXXXXX"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none font-mono"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1 text-center">
+                    <button onClick={()=>delLine(i)} disabled={f.lineItems.length===1}
+                      style={{ color: f.lineItems.length===1 ? 'var(--ink-faint)' : 'var(--rust)', opacity: f.lineItems.length===1?0.4:1 }}>
+                      <Trash2 size={13}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop:'1px solid var(--line)', background:'var(--bg-soft)' }}>
+                <td className="px-2 py-1.5 text-[11.5px] font-medium" style={{color:'var(--ink-mute)'}} colSpan={4}>합계 {totalQty}EA</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <datalist id="delivery-model-list">
+          {orderableModels.map(m=>(
+            <option key={m.id} value={m.spec || m.code}>
+              {m.productName ? `${m.productName} · ${m.code}` : m.code}
+            </option>
+          ))}
+        </datalist>
+      </div>
+
       <AttachmentsField files={f.attachments} onChange={(v)=>sf(p=>({...p,attachments:v}))}/>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={()=>f.customer&&onSave(f)}>{initial.customer?'수정 저장':'등록'}</SBtn>
+        <SBtn onClick={()=>ok&&onSave(f)} secondary={!ok}>{initial.customer?'수정 저장':'등록'}</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -1107,21 +1285,25 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
     if (changed) setProdReqs(next)
   }, [prodReqs])
 
-  // 생산요청을 직접 등록하면(수주에서 자동 연계되지 않은 경우) 생산(Manufacturing) 쪽에
-  // 실제 작업지시(WO)를 즉시 발행해 연결한다 — 그래야 생산현황 화면에 바로 나타난다.
+  // #24/#29: 생산요청을 신규 등록할 때는 여러 품목을 한 번에 전표(슬립) 형태로 등록한다.
+  // 각 라인은 개별 PR 레코드로 저장되지만 같은 slipId로 묶이고, 라인마다 생산(Manufacturing)
+  // 작업지시(WO)가 즉시 자동 발행되어 생산현황 화면에 바로 나타난다.
   const save = (f) => {
-    if (edit) { setProdReqs(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else {
-      const wo = createManufacturingWo({ so: f.so, product: f.item, qty: f.qty })
-      setProdReqs(p=>[...p, { ...init, ...f, id:nid('PR'), wo: wo.id, status:'WO발행완료' }])
-    }
+    if (edit) { setProdReqs(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null); setModal(null); return }
+    const lines = Array.isArray(f) ? f : [f]
+    const slipId = lines.length > 1 ? nid('PRS') : ''
+    const newRecs = lines.map((li, i) => {
+      const wo = createManufacturingWo({ so: li.so, product: li.item, qty: li.qty })
+      return { ...init, ...li, id: `${nid('PR')}-${i}`, slipId, wo: wo.id, status:'WO발행완료' }
+    })
+    setProdReqs(p=>[...p, ...newRecs])
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setProdReqs(p=>p.filter(x=>x.id!==id)) }
   const deliveredCount = prodReqs.filter(r=>r.so && (orders||[]).find(o=>o.id===r.so)?.status==='납품완료').length
   const activePR = prodReqs.filter(r=>!(r.so && (orders||[]).find(o=>o.id===r.so)?.status==='납품완료'))
   const shown = srch
-    ? activePR.filter(r=>[r.id,r.so,r.item,r.priority,r.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    ? activePR.filter(r=>[r.id,r.slipId,r.so,r.item,r.priority,r.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
     : activePR
 
   return (
@@ -1147,19 +1329,24 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
         <div className="flex items-center gap-2 mb-3">
           <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none"
             style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}
-            placeholder="요청ID · SO · 품목 · 우선순위 · 상태 검색..."
+            placeholder="요청ID · 슬립번호 · SO · 품목 · 우선순위 · 상태 검색..."
             value={srch} onChange={e=>setSrch(e.target.value)}/>
           {srch && <button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>
-              {['요청ID','SO','품목','수량','납기요청일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
+              {['요청ID','슬립','SO','품목','수량','납기요청일','우선순위','상태','작업'].map(h=><TH key={h}>{h}</TH>)}
             </tr></thead>
             <tbody>
               {shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(r=>(
-      <tr key={r.id}>
+      <tr key={r.id} onClick={()=>{setEdit(r);setModal('form')}} style={{ cursor:'pointer' }}>
                   <TD mono color="var(--moss)">{r.id}</TD>
+                  <TD mono muted>
+                    {r.slipId
+                      ? <button onClick={e=>{ e.stopPropagation(); setSrch(r.slipId) }} className="underline decoration-dotted">{r.slipId}</button>
+                      : '-'}
+                  </TD>
                   <TD mono muted>{r.so}</TD>
                   <TD>{r.item}</TD>
                   <TD right>{r.qty}EA</TD>
@@ -1167,7 +1354,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
                   <TD><Badge text={r.priority} tone={r.priority==='긴급'?'red':'gray'}/></TD>
                   <TD><Badge text={r.status} tone={r.status==='완료'?'green':r.status==='취소'?'gray':r.status==='생산중'?'blue':'amber'}/></TD>
                   <TD>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1" onClick={e=>e.stopPropagation()}>
                       <ActBtn label="수정" onClick={()=>{setEdit(r);setModal('form')}}/>
                       <ActBtn label="삭제" color="red" onClick={()=>del(r.id)}/>
                     </div>
@@ -1179,7 +1366,7 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
         </div>
       </div>
       {modal==='form' && (
-        <Modal title={edit?'생산요청 수정':'생산 요청 등록'} onClose={()=>{setModal(null);setEdit(null)}}>
+        <Modal title={edit?'생산요청 수정':'생산 요청 등록'} onClose={()=>{setModal(null);setEdit(null)}} wide={!edit}>
           <ProdReqForm initial={edit||init} orders={orders} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
         </Modal>
       )}
@@ -1188,44 +1375,156 @@ function ProdRequestView({ prodReqs, setProdReqs, orders, onNavigate }) {
 }
 function ProdReqForm({ initial, orders, onSave, onCancel, statusOpts }) {
   const [orderableModels] = useState(() => loadOrderableModels())
+  const isEdit = !!initial.item
+
+  // ── 수정 모드: 기존 단건 편집 폼 (슬립 구조를 건드리지 않음) ──
   const [f, sf] = useState(initial)
   const set = k => e => sf(p=>({...p,[k]:e.target.value}))
-  const selectSO = e => {
+  const selectSOEdit = e => {
     const o = orders.find(x=>x.id===e.target.value)
     if(o) sf(p=>({...p, so:o.id, item:o.items, qty:o.qty?.replace('EA','')}))
     else set('so')(e)
   }
+
+  // ── 등록 모드: 다중 품목 전표(슬립) 폼 ──
+  const [slip, setSlip] = useState({ so:'', dueDate:'', priority:'보통', lines:[{ item:'', qty:'' }] })
+  const selectSOSlip = e => {
+    const o = orders.find(x=>x.id===e.target.value)
+    if (o) {
+      const lines = (o.lineItems && o.lineItems.length)
+        ? o.lineItems.map(x=>({ item:x.name, qty:x.qty }))
+        : [{ item:o.items||'', qty:(o.qty||'').replace('EA','')||'' }]
+      setSlip(p=>({ ...p, so:o.id, lines }))
+    } else setSlip(p=>({ ...p, so:e.target.value }))
+  }
+  const setSlipLine = (i,k,v) => setSlip(p=>({ ...p, lines: p.lines.map((li,idx)=>idx===i?{...li,[k]:v}:li) }))
+  const addSlipLine = () => setSlip(p=>({ ...p, lines:[...p.lines, { item:'', qty:'' }] }))
+  const delSlipLine = (i) => setSlip(p=>({ ...p, lines: p.lines.length>1 ? p.lines.filter((_,idx)=>idx!==i) : p.lines }))
+  const validLines = slip.lines.filter(li=>li.item && li.item.trim())
+  const totalQty = validLines.reduce((s,li)=>s+(parseFloat(li.qty)||0),0)
+
+  const doSlipSave = () => {
+    const recs = validLines.map(li => ({ so: slip.so, item: li.item, qty: li.qty, dueDate: slip.dueDate, priority: slip.priority }))
+    onSave(recs)
+  }
+
+  if (isEdit) {
+    return (
+      <div className="space-y-3">
+        <FL label="연계 수주 (SO) (검색)">
+          <input style={inp} list="prodreq-so-list" value={f.so} onChange={selectSOEdit}
+            placeholder="SO번호 또는 고객사명 입력·검색... (미입력 시 직접 입력)"/>
+          <datalist id="prodreq-so-list">
+            {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer} · {o.items}</option>)}
+          </datalist>
+        </FL>
+        <div className="grid grid-cols-2 gap-3">
+          <FL label="품목 * (허가 모델 검색)">
+            <input style={inp} list="prodreq-model-list" value={f.item} onChange={set('item')} placeholder="허가 모델 검색..."/>
+            <datalist id="prodreq-model-list">
+              {orderableModels.map(m=>(
+                <option key={m.id} value={m.spec || m.code}>
+                  {m.productName ? `${m.productName} · ${m.code}` : m.code}
+                </option>
+              ))}
+            </datalist>
+          </FL>
+          <FL label="수량(EA)"><input style={inp} type="number" value={f.qty} onChange={set('qty')}/></FL>
+          <FL label="납기요청일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
+          <FL label="우선순위">
+            <select style={sel} value={f.priority} onChange={set('priority')}>
+              {['긴급','높음','보통','낮음'].map(o=><option key={o}>{o}</option>)}
+            </select>
+          </FL>
+        </div>
+        <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 상태는 연계된 WO 진행 상황에 따라 자동으로 갱신됩니다.</div>
+        <div className="flex gap-2 pt-2">
+          <SBtn onClick={()=>f.item&&onSave(f)}>수정 저장</SBtn>
+          <SBtn onClick={onCancel} secondary>취소</SBtn>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-3">
       <FL label="연계 수주 (SO) (검색)">
-        <input style={inp} list="prodreq-so-list" value={f.so} onChange={selectSO}
-          placeholder="SO번호 또는 고객사명 입력·검색... (미입력 시 직접 입력)"/>
+        <input style={inp} list="prodreq-so-list" value={slip.so} onChange={selectSOSlip}
+          placeholder="SO번호 또는 고객사명 입력·검색... (선택 시 수주 품목이 자동으로 채워집니다)"/>
         <datalist id="prodreq-so-list">
           {orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.customer} · {o.items}</option>)}
         </datalist>
       </FL>
       <div className="grid grid-cols-2 gap-3">
-        <FL label="품목 * (허가 모델 검색)">
-          <input style={inp} list="prodreq-model-list" value={f.item} onChange={set('item')} placeholder="허가 모델 검색..."/>
-          <datalist id="prodreq-model-list">
-            {orderableModels.map(m=>(
-              <option key={m.id} value={m.spec || m.code}>
-                {m.productName ? `${m.productName} · ${m.code}` : m.code}
-              </option>
-            ))}
-          </datalist>
-        </FL>
-        <FL label="수량(EA)"><input style={inp} type="number" value={f.qty} onChange={set('qty')}/></FL>
-        <FL label="납기요청일"><input style={inp} type="date" value={f.dueDate} onChange={set('dueDate')}/></FL>
+        <FL label="납기요청일"><input style={inp} type="date" value={slip.dueDate} onChange={e=>setSlip(p=>({...p,dueDate:e.target.value}))}/></FL>
         <FL label="우선순위">
-          <select style={sel} value={f.priority} onChange={set('priority')}>
+          <select style={sel} value={slip.priority} onChange={e=>setSlip(p=>({...p,priority:e.target.value}))}>
             {['긴급','높음','보통','낮음'].map(o=><option key={o}>{o}</option>)}
           </select>
         </FL>
       </div>
-      <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 등록 시 생산 작업지시(WO)가 자동 발행되어 생산현황 화면에 바로 나타나며, 이후 상태는 WO 진행 상황에 따라 자동으로 갱신됩니다.</div>
+
+      <div>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-[11.5px] font-medium" style={{ color:'var(--ink-mute)' }}>요청 품목 (전표) *</div>
+          <button onClick={addSlipLine} className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg font-medium"
+            style={{ background:'var(--leaf-soft)', color:'var(--moss)' }}>
+            <Plus size={11}/> 품목 추가
+          </button>
+        </div>
+        <div className="rounded-lg overflow-hidden" style={{ border:'1px solid var(--line)' }}>
+          <table className="w-full">
+            <thead>
+              <tr style={{ background:'var(--bg-soft)' }}>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium" style={{color:'var(--ink-faint)'}}>품목명</th>
+                <th className="text-left px-2 py-1.5 text-[10.5px] font-medium w-24" style={{color:'var(--ink-faint)'}}>수량(EA)</th>
+                <th className="w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {slip.lines.map((li,i)=>(
+                <tr key={i} style={{ borderTop:'1px solid var(--line)' }}>
+                  <td className="p-1">
+                    <input value={li.item} onChange={e=>setSlipLine(i,'item',e.target.value)}
+                      list="prodreq-model-list" placeholder="허가 모델 검색..."
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1">
+                    <input value={li.qty} onChange={e=>setSlipLine(i,'qty',e.target.value)}
+                      placeholder="100" type="number"
+                      className="w-full text-[12.5px] px-2 py-1 rounded outline-none"
+                      style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/>
+                  </td>
+                  <td className="p-1 text-center">
+                    <button onClick={()=>delSlipLine(i)} disabled={slip.lines.length===1}
+                      style={{ color: slip.lines.length===1 ? 'var(--ink-faint)' : 'var(--rust)', opacity: slip.lines.length===1?0.4:1 }}>
+                      <Trash2 size={13}/>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{ borderTop:'1px solid var(--line)', background:'var(--bg-soft)' }}>
+                <td className="px-2 py-1.5 text-[11.5px] font-medium" style={{color:'var(--ink-mute)'}} colSpan={2}>합계 {totalQty}EA · {validLines.length}품목</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <datalist id="prodreq-model-list">
+          {orderableModels.map(m=>(
+            <option key={m.id} value={m.spec || m.code}>
+              {m.productName ? `${m.productName} · ${m.code}` : m.code}
+            </option>
+          ))}
+        </datalist>
+      </div>
+
+      <div className="text-[11.5px] px-1" style={{ color:'var(--ink-faint)' }}>ℹ 등록 시 품목별로 생산 작업지시(WO)가 각각 자동 발행되어 생산현황 화면에 바로 나타나며, 이후 상태는 WO 진행 상황에 따라 자동으로 갱신됩니다.</div>
       <div className="flex gap-2 pt-2">
-        <SBtn onClick={()=>f.item&&onSave(f)}>{initial.item?'수정 저장':'등록'}</SBtn>
+        <SBtn onClick={()=>validLines.length>0&&doSlipSave()} secondary={validLines.length===0}>등록 ({validLines.length}품목)</SBtn>
         <SBtn onClick={onCancel} secondary>취소</SBtn>
       </div>
     </div>
@@ -1519,7 +1818,7 @@ export default function SalesHub() {
     home: <SalesHome customers={customers} orders={orders}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
-    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView}/>,
+    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView} setQuotes={setQuotes}/>,
     quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers} orders={orders} setOrders={setOrders} onNavigate={setView}/>,
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
     performance: <PerformanceView orders={orders} deliveries={deliveries}/>,

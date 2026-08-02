@@ -13,6 +13,7 @@ import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
+import { companyDocs } from '../../lib/companyState'
 
 // ── localStorage ──────────────────────────────────────────────
 function salesCustomerNames() {
@@ -82,6 +83,27 @@ const MDR_GUIDE = [
   '시정조치(Recall) 또는 현장 수정(FSC)이 필요한 경우',
 ]
 
+// #59: 처리 상태는 임의 선택이 아니라 작성된 내용(조사결과·근본원인·시정조치·MDR 등)에 따라
+// 자동으로 진행되어야 한다. 반려/종결(승인)만 사람이 직접 결정하는 종결 상태로 취급한다.
+function deriveComplaintStatus(f) {
+  if (f.status === 'closed' || f.status === 'rejected') return f.status // 종결 상태는 되돌리지 않음
+  const hasInvestigation = !!(f.investigation && f.investigation.trim())
+  const hasRootCause = !!(f.rootCause && f.rootCause.trim())
+  const hasCorrective = !!(f.corrective && f.corrective.trim())
+  if (f.mdrRequired && !f.mdrReportDate && (hasInvestigation || hasRootCause || hasCorrective)) return 'reporting'
+  if (hasCorrective) return 'resolving'
+  if (hasInvestigation || hasRootCause) return 'investigating'
+  return 'received'
+}
+// 종결 승인 가능 여부 — 조사·근본원인·시정조치가 모두 작성되고(MDR 필요 시 보고까지 완료) 아직 종결 전인 경우.
+function readyToClose(item) {
+  if (['closed', 'rejected'].includes(item.status)) return false
+  const ok = !!(item.investigation?.trim() && item.rootCause?.trim() && item.corrective?.trim())
+  if (!ok) return false
+  if (item.mdrRequired && !item.mdrReportDate) return false
+  return true
+}
+
 const emptyForm = () => ({
   customerName: '', customerContact: '', receivedDate: new Date().toISOString().slice(0, 10),
   category: '', severity: 'none', productName: '', lotNo: '', serialNo: '',
@@ -115,16 +137,44 @@ export default function ComplaintHub() {
   const submit = () => {
     if (!form.customerName || !form.description) return alert('고객명과 불만 내용은 필수입니다.')
     const now = new Date().toISOString()
+    const withStatus = { ...form, status: deriveComplaintStatus(form) }
     if (editId) {
-      save(items.map(i => i.id === editId ? { ...form, id: editId } : i))
+      save(items.map(i => i.id === editId ? { ...withStatus, id: editId } : i))
     } else {
-      save([{ ...form, id: genId(), createdAt: now, createdBy: user?.name || '-' }, ...items])
+      save([{ ...withStatus, id: genId(), createdAt: now, createdBy: user?.name || '-' }, ...items])
     }
     setShowForm(false)
   }
 
   const remove = id => { if (!confirm('삭제하시겠습니까?')) return; save(items.filter(i => i.id !== id)) }
   const fld = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  // #60: 종결은 상태값 하나 바꾸는 것으로 끝나지 않고, 기본정보에 등록된 품질책임자 또는
+  // 대표이사 본인만 승인자 성명을 입력해 검토·승인해야 종결 처리된다.
+  const approveClose = id => {
+    const item = items.find(i => i.id === id)
+    if (!item || !readyToClose(item)) return
+    const qmName = ((companyDocs.getQualityManager() || {}).name || '').trim()
+    const ceoName = ((onboarding.load().company || {}).ceo || '').trim()
+    if (!qmName && !ceoName) {
+      alert('기본정보에 품질책임자 또는 대표이사가 등록되어 있지 않습니다. 먼저 기본정보에서 등록하세요.')
+      return
+    }
+    const who = [qmName && `품질책임자(${qmName})`, ceoName && `대표이사(${ceoName})`].filter(Boolean).join(' 또는 ')
+    const input = window.prompt(`고객불만 종결 승인 — ${who} 본인만 승인할 수 있습니다.\n승인자 성명을 입력하세요:`, '')
+    if (input === null) return
+    const approver = input.trim()
+    if (!approver) { alert('승인자 성명을 입력해야 합니다.'); return }
+    if (approver !== qmName && approver !== ceoName) {
+      alert('입력한 이름이 등록된 품질책임자 또는 대표이사와 일치하지 않아 승인할 수 없습니다.')
+      return
+    }
+    save(items.map(i => i.id === id ? { ...i, status: 'closed', closedDate: new Date().toISOString().slice(0, 10), approvedBy: approver } : i))
+  }
+  const rejectComplaint = id => {
+    if (!confirm('이 고객불만을 반려 처리하시겠습니까?')) return
+    save(items.map(i => i.id === id ? { ...i, status: 'rejected' } : i))
+  }
 
   const filtered = useMemo(() => {
     let list = [...items]
@@ -236,6 +286,8 @@ export default function ComplaintHub() {
                       onToggle={() => setExpanded(expanded === item.id ? null : item.id)}
                       onEdit={() => openEdit(item)}
                       onDelete={() => remove(item.id)}
+                      onApproveClose={() => approveClose(item.id)}
+                      onReject={() => rejectComplaint(item.id)}
                     />
                   ))}
                 </div>
@@ -257,8 +309,10 @@ export default function ComplaintHub() {
 }
 
 // ── 불만 행 컴포넌트 ──────────────────────────────────────────
-function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete }) {
+function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose, onReject }) {
   const st  = STATUSES.find(s => s.value === item.status) || STATUSES[0]
+  const canClose = readyToClose(item)
+  const canReject = !['closed', 'rejected'].includes(item.status)
   const sev = SEVERITIES.find(s => s.value === item.severity) || SEVERITIES[3]
   const cat = CATEGORIES.find(c => c.value === item.category)
 
@@ -303,6 +357,12 @@ function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete }) {
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
+          {canClose && (
+            <button onClick={e => { e.stopPropagation(); onApproveClose() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', cursor: 'pointer' }}>종결 승인</button>
+          )}
+          {canReject && (
+            <button onClick={e => { e.stopPropagation(); onReject() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: '1px solid var(--line)', cursor: 'pointer' }}>반려</button>
+          )}
           <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
           {expanded ? <ChevronUp size={16} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ink-faint)' }} />}
@@ -362,7 +422,7 @@ function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete }) {
           )}
           <div className="md:col-span-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
             등록: {item.createdBy} · {item.createdAt?.slice(0,10) || '-'}
-            {item.closedDate && ` · 종결: ${item.closedDate}`}
+            {item.closedDate && ` · 종결: ${item.closedDate}${item.approvedBy ? ` (승인: ${item.approvedBy})` : ''}`}
           </div>
         </div>
       )}
@@ -658,15 +718,20 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
                 <F l="시정 조치"><textarea value={form.corrective} onChange={e => fld('corrective', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
               </R2>
 
-              {/* 상태 */}
-              <R2>
-                <F l="처리 상태">
-                  <select value={form.status} onChange={e => fld('status', e.target.value)} style={IS} className="w-full">
-                    {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </F>
-                <F l="종결일">{form.status === 'closed' && <input type="date" value={form.closedDate} onChange={e => fld('closedDate', e.target.value)} style={IS} className="w-full" />}</F>
-              </R2>
+              {/* #59: 처리 상태는 조사결과·근본원인·시정조치 작성 내용에 따라 자동으로 결정된다 (직접 선택 불가) */}
+              {(() => {
+                const computed = STATUSES.find(s => s.value === deriveComplaintStatus(form)) || STATUSES[0]
+                return (
+                  <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: computed.bg, border: `1px solid ${computed.color}40` }}>
+                    <span className="text-[12px]" style={{ color: computed.color }}>처리 상태 (작성 내용 기준 자동 산정)</span>
+                    <span className="text-[12.5px] font-bold" style={{ color: computed.color }}>{computed.label}</span>
+                  </div>
+                )
+              })()}
+              <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <input type="checkbox" checked={form.status === 'rejected'} onChange={e => fld('status', e.target.checked ? 'rejected' : 'received')} style={{ width: 15, height: 15 }} />
+                <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>이 불만을 반려 처리합니다 (근거 없음 등)</span>
+              </label>
             </>
           )}
           <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
