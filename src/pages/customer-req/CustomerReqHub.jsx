@@ -105,6 +105,9 @@ function requirementsReady(rec) {
 export default function CustomerReqHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
+  // #306: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 요구사항만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
