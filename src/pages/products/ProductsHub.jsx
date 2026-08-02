@@ -291,7 +291,7 @@ export default function ProductsHub() {
                           <DetailTabBtn active={detailTab === 'pcp'} onClick={() => setDetailTab('pcp')} label="생산제어계획" />
                         </div>
                       </div>
-                      {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />}
+                      {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} onDeleted={() => { setProductView('grid'); setTimeout(() => window.location.reload(), 400) }} />}
                       {detailTab === 'models' && <ModelListPanel key={'models-' + (product?.id || 'main')} product={product} onAction={showToast} />}
                       {detailTab === 'design' && productKind(product) === PRODUCT_KIND.NEW && (
                         <DesignStagePanel key={'design-' + (product?.id || 'main')} product={product} onAction={showToast} />
@@ -512,7 +512,7 @@ function ProductCard({ product, onOpen }) {
           모델 목록 <ArrowRight size={12} />
         </button>
         {isNew ? (
-          <button onClick={() => onOpen(product, 'design')} className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex-1 flex items-center justify-center gap-1" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
+          <button onClick={() => onOpen(product, 'dhf')} className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex-1 flex items-center justify-center gap-1" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
             설계 계속 <ArrowRight size={12} />
           </button>
         ) : (
@@ -986,11 +986,13 @@ function SelectEdit({ label, value, onChange, options, disabled }) {
   )
 }
 
-function ProductPanel({ product, company, onAction }) {
+function ProductPanel({ product, company, onAction, onDeleted }) {
   const canEdit = permissions.can('onb.product.edit')
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(null)
   const [reason, setReason] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteReason, setDeleteReason] = useState('')
 
   const productEid = eid(
     ENTITY_TYPES.PRODUCT,
@@ -1045,6 +1047,31 @@ function ProductPanel({ product, company, onAction }) {
     setReason('')
     onAction('제품 정보 수정 · CCR 자동 발의')
     setTimeout(() => window.location.reload(), 600)
+  }
+
+  const doDelete = () => {
+    if (!deleteReason.trim()) {
+      alert('삭제 사유는 필수입니다 (예: 허가취소, 잘못입력 등).')
+      return
+    }
+    const ob = onboarding.load()
+    const list = Array.isArray(ob.products) ? ob.products.slice() : []
+    const nextList = list.filter((p) => (p.id || 'main') !== (product.id || 'main'))
+    onboarding.save({ ...ob, products: nextList })
+
+    // CCR 자동 발의 (삭제 이력 보존)
+    commitChange({
+      targetEid: productEid,
+      action: CHANGE_ACTIONS.DELETE,
+      before: { ...product },
+      after: null,
+      reason: deleteReason.trim(),
+    })
+
+    setShowDeleteModal(false)
+    setDeleteReason('')
+    onAction('제품이 삭제되었습니다 · CCR 자동 발의')
+    if (onDeleted) onDeleted()
   }
 
   const addInspItem = () => setDraft((d) => ({ ...d, inspStdCheckItems: [...(d.inspStdCheckItems || []), { name: '', spec: '', method: '' }] }))
@@ -1110,9 +1137,14 @@ function ProductPanel({ product, company, onAction }) {
               </div>
             </div>
             {!editing && canEdit && (
-              <button onClick={startEdit} className="btn-ghost text-[12px]">
-                <Edit3 size={12} /> 수정
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={startEdit} className="btn-ghost text-[12px]">
+                  <Edit3 size={12} /> 수정
+                </button>
+                <button onClick={() => setShowDeleteModal(true)} className="btn-ghost text-[12px]" style={{ color: '#DC2626' }}>
+                  <Trash2 size={12} /> 삭제
+                </button>
+              </div>
             )}
           </div>
 
@@ -1681,6 +1713,36 @@ function ProductPanel({ product, company, onAction }) {
       <div className="lg:col-span-1">
         <ChangeHistoryPanel ccrs={ccrs} />
       </div>
+
+      {/* 삭제 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <div className="card-base p-5 w-full max-w-[420px]" style={{ background: 'var(--bg-card)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <Trash2 size={16} style={{ color: '#DC2626' }} />
+              <div className="font-display text-[16px]" style={{ color: 'var(--ink)' }}>제품 삭제</div>
+            </div>
+            <div className="text-[12.5px] mb-3" style={{ color: 'var(--ink-mute)' }}>
+              '{product.name}' 제품을 삭제합니다. 이 작업은 되돌릴 수 없으며, 삭제 사유는 CCR(변경관리)로 자동 발의되어 이력에 보존됩니다.
+            </div>
+            <FieldEdit
+              label="삭제 사유 (필수)"
+              value={deleteReason}
+              onChange={setDeleteReason}
+              placeholder="예: 허가취소, 잘못입력, 중복등록 등"
+              required
+            />
+            <div className="flex justify-end gap-2 pt-3">
+              <button onClick={() => { setShowDeleteModal(false); setDeleteReason('') }} className="btn-ghost">
+                취소
+              </button>
+              <button onClick={doDelete} className="btn-primary" style={{ background: '#DC2626' }}>
+                삭제 확정
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
