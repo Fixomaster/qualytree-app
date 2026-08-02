@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Package,
@@ -14,12 +14,18 @@ import {
   CheckCircle,
   ShoppingCart,
   ExternalLink,
+  Printer,
+  UserCheck,
+  ClipboardCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { suppliers } from '../../lib/supplierState'
 import { requestProductionForFinItem } from '../../lib/orderFulfillment'
+import { onboarding } from '../../lib/onboardingState'
+import { deriveInspectionStandards, evalAgainstSpec } from '../../lib/inspectionStandardConstants'
+import { printIqcCert } from '../../lib/pdfPrint'
 
 /* ─── util ─── */
 function useLS(key, init) {
@@ -71,10 +77,10 @@ const FL = ({label,children}) => <div><div className="text-[11.5px] font-medium 
 function EmptyRow({cols,msg}){return(<tr><td colSpan={cols||20} className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</td></tr>)}
 function EmptyCard({msg}){return(<div className="py-10 text-center text-sm" style={{color:"var(--ink-mute)"}}>{msg||"등록된 항목이 없습니다."}</div>)}
 
-function Modal({title,onClose,children}) {
+function Modal({title,onClose,children,wide}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{background:'rgba(0,0,0,0.45)'}} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="rounded-2xl p-6 w-full max-w-lg max-h-[92vh] overflow-y-auto" style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}>
+      <div className={`rounded-2xl p-6 w-full ${wide?'max-w-2xl':'max-w-lg'} max-h-[92vh] overflow-y-auto`} style={{background:'var(--bg-card)',boxShadow:'0 24px 64px rgba(0,0,0,0.18)',border:'1px solid var(--line)'}}>
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-[17px] font-semibold" style={{color:'var(--ink)'}}>{title}</h3>
           <button onClick={onClose} style={{color:'var(--ink-faint)'}}><X size={18}/></button>
@@ -315,7 +321,7 @@ function genLot() {
   const ymd = d.toISOString().slice(2,10).replace(/-/g,'')
   return `LOT-${ymd}-${String(Date.now()).slice(-3)}`
 }
-function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
+function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [receiveTarget,setReceiveTarget]=useState(null)
   const [issueTarget,setIssueTarget]=useState(null)
@@ -339,6 +345,14 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId}) {
       return {...m,stock:String(newStock),lot:f.lot,status,receipts}
     }))
     if(f.poId) setOrders(p=>p.map(o=>o.id===f.poId?{...o,status:'입고완료'}:o))
+    // 자재 입고 시 수입검사(IQC) 목록을 "검사대기" 상태로 자동 생성 (#88, #89)
+    if(setIqc){
+      setIqc(p=>[{
+        id:nid('IQC'), date:f.date, po:f.poId||'', vendor:f.poVendor||'', items:receiveTarget.name,
+        qty:f.qty, materialId:receiveTarget.id, lot:f.lot, certNo:f.certNo,
+        inspector:'', nc:'—', status:'검사대기', checkResults:[], overallResult:null, qcDecision:null,
+      }, ...p])
+    }
     setReceiveTarget(null)
   }
   const issue=f=>{
@@ -483,25 +497,63 @@ function IssueForm({material,onSave,onCancel}) {
 }
 
 /* ─── 수입검사 (IQC) ─── */
+// 자재명과 개발(제품) 단계에서 등록된 원자재 수입검사 기준서(inspStdType==='incoming')를 매칭한다.
+// 정확히 일치하지 않아도 자재명/기준서명 중 한쪽이 다른 한쪽을 포함하면 매칭으로 간주한다.
+function matchIqcStandard(materialName) {
+  const products = onboarding.load()?.products || []
+  const standards = deriveInspectionStandards(products).filter(s => s.inspType === 'incoming')
+  if (standards.length === 0) return null
+  const norm = s => String(s || '').toLowerCase().replace(/\s+/g, '')
+  const target = norm(materialName)
+  if (!target) return standards[0]
+  return standards.find(s => {
+    const n1 = norm(s.name), n2 = norm(s.productName)
+    return (n1 && (target.includes(n1) || n1.includes(target))) || (n2 && (target.includes(n2) || n2.includes(target)))
+  }) || null
+}
 function IqcView({iqc,setIqc,orders,openId}) {
-  const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [srch,setSrch]=useState('')
+  const [inspectTarget,setInspectTarget]=useState(null)
+  const [decisionTarget,setDecisionTarget]=useState(null)
+  const [detailTarget,setDetailTarget]=useState(null)
+  const canDecide = (auth.current()?.level || 1) >= 3 // 품질책임자(매니저) 이상만 조건부 결정 가능
   useEffect(() => {
-    if (openId) { const item = iqc.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
+    if (openId) {
+      const item = iqc.find(x => x.id === openId)
+      if (item) { item.status==='검사대기' ? setInspectTarget(item) : setDetailTarget(item) }
+    }
   }, [openId])
-  const statusOpts=['검사중','합격','조건부','불합격']
-  const del=id=>{if(window.confirm('삭제하시겠습니까?'))setIqc(p=>p.filter(x=>x.id!==id))}
-  const save=f=>{if(edit){setIqc(p=>p.map(x=>x.id===edit.id?{...x,...f}:x));setEdit(null)}else{setIqc(p=>[...p,{id:nid('IQC'),date:new Date().toISOString().slice(0,10),...f}])};setModal(null)}
+  const del=id=>{if(window.confirm('삭제하시겠습니까? (자재 입고 시 자동 생성된 검사 기록입니다)'))setIqc(p=>p.filter(x=>x.id!==id))}
+  const submitInspection=(rec, checkResults, overallResult)=>{
+    setIqc(p=>p.map(x=>x.id===rec.id?{
+      ...x, checkResults, overallResult,
+      inspector: auth.current()?.name || x.inspector || '-',
+      inspectedAt: new Date().toISOString(),
+      status: overallResult==='pass' ? '합격' : '불합격',
+      nc: overallResult==='fail' ? (x.nc && x.nc!=='—' ? x.nc : 'NC-'+rec.id) : '—',
+    }:x))
+    setInspectTarget(null)
+  }
+  const decide=(rec, decision, note)=>{
+    setIqc(p=>p.map(x=>x.id===rec.id?{
+      ...x, status: decision, qcDecision:{decidedBy:auth.current()?.name||'-', decidedAt:new Date().toISOString(), decision, note},
+    }:x))
+    setDecisionTarget(null)
+  }
   const shown=srch
     ? iqc.filter(i=>[i.id,i.po,i.vendor,i.items,i.inspector,i.nc,i.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
     : iqc
+  const waitCount = iqc.filter(i=>i.status==='검사대기').length
   return (
     <div>
       <SectionTitle breadcrumb="수입검사 (IQC)">수입검사 (IQC)</SectionTitle>
+      <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{background:'var(--bg-soft)',border:'1px solid var(--line)'}}>
+        <ClipboardCheck size={14} style={{color:'var(--ink-mute)',marginTop:2,flexShrink:0}}/>
+        <span className="text-[12.5px]" style={{color:'var(--ink-mute)'}}>자재 입고 시 검사 기록이 <b>자동 생성</b>됩니다 (검사대기). "검사 입력"을 눌러 측정값을 입력하면 개발 단계에 등록된 원자재 규격과 비교하여 합격·불합격이 자동 판정됩니다.{waitCount>0 && <b style={{color:'var(--rust)'}}> 검사대기 {waitCount}건</b>}</span>
+      </div>
       <Card>
         <div className="flex items-center justify-between mb-3">
           <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>수입검사 결과 (ISO 13485 §7.4.3)</span>
-          <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 검사 등록</button>
         </div>
         <div className="flex items-center gap-2 mb-3">
           <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}} placeholder="IQC번호 · PO · 협력업체 · 품목 · 검사자 · 부적합 · 결과 검색..." value={srch} onChange={e=>setSrch(e.target.value)}/>
@@ -510,47 +562,158 @@ function IqcView({iqc,setIqc,orders,openId}) {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr>{['IQC번호','검사일','PO','협력업체','품목','수량','검사자','부적합','결과','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
-            <tbody>{shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':undefined}/>:shown.map(i=>(
+            <tbody>{shown.length===0?<EmptyRow msg={srch?'검색 결과가 없습니다.':'입고된 자재가 없습니다 — 자재등록에서 입고 처리 시 자동 생성됩니다.'}/>:shown.map(i=>(
       <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
                 <TD mono muted>{i.date}</TD>
-                <TD mono muted>{i.po}</TD>
+                <TD mono muted>{i.po||'-'}</TD>
                 <TD>{i.vendor}</TD>
                 <TD muted>{i.items}</TD>
                 <TD right>{i.qty}</TD>
-                <TD>{i.inspector}</TD>
+                <TD>{i.inspector||<span style={{color:'var(--ink-faint)'}}>-</span>}</TD>
                 <TD mono muted color={i.nc!=='—'?'var(--rust)':undefined}>{i.nc}</TD>
-                <TD><StatusSelect value={i.status} options={statusOpts} onChange={v=>setIqc(p=>p.map(x=>x.id===i.id?{...x,status:v}:x))}/></TD>
-                <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(i);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/></div></TD>
+                <TD><Badge text={i.status} tone={i.status==='검사대기'?'amber':statusTone(i.status)}/></TD>
+                <TD><div className="flex gap-1 flex-wrap">
+                  {i.status==='검사대기' && <ActBtn label="검사 입력" color="green" onClick={()=>setInspectTarget(i)}/>}
+                  {i.status!=='검사대기' && i.checkResults?.length>0 && <ActBtn label="성적서" onClick={()=>setDetailTarget(i)}/>}
+                  {i.status==='불합격' && canDecide && <ActBtn label="품질책임자 결정" color="red" onClick={()=>setDecisionTarget(i)}/>}
+                  <ActBtn label="삭제" color="red" onClick={()=>del(i.id)}/>
+                </div></TD>
               </tr>
             ))}</tbody>
           </table>
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'IQC 수정':'수입검사 등록'} onClose={()=>{setModal(null);setEdit(null)}}><IqcForm initial={edit||{}} orders={orders} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/></Modal>}
+      {inspectTarget&&<Modal title={`검사 입력 — ${inspectTarget.items}`} onClose={()=>setInspectTarget(null)} wide><IqcInspectForm record={inspectTarget} onSubmit={submitInspection} onCancel={()=>setInspectTarget(null)}/></Modal>}
+      {decisionTarget&&<Modal title={`품질책임자 결정 — ${decisionTarget.id}`} onClose={()=>setDecisionTarget(null)}><IqcDecisionForm record={decisionTarget} onDecide={decide} onCancel={()=>setDecisionTarget(null)}/></Modal>}
+      {detailTarget&&<Modal title={`수입검사성적서 — ${detailTarget.id}`} onClose={()=>setDetailTarget(null)} wide><IqcCertView record={detailTarget} onClose={()=>setDetailTarget(null)}/></Modal>}
     </div>
   )
 }
-function IqcForm({initial,orders,onSave,onCancel,statusOpts}) {
-  const [f,sf]=useState({po:'',vendor:'',items:'',qty:'',inspector:'',nc:'—',status:'검사중',...initial})
-  const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
-  const selPO=e=>{const o=orders.find(x=>x.id===e.target.value);if(o)sf(p=>({...p,po:o.id,vendor:o.vendor,items:o.items,qty:o.qty}));else set('po')(e)}
+function IqcInspectForm({record,onSubmit,onCancel}) {
+  const standard = useMemo(()=>matchIqcStandard(record.items),[record.items])
+  const baseItems = standard?.checkItems?.length>0 ? standard.checkItems : [{name:'외관/수량 확인',spec:'PO 대비 이상 없음',method:'육안'}]
+  const [rows,setRows]=useState(baseItems.map(ci=>({name:ci.name,spec:ci.spec,method:ci.method,measured:'',auto:null,manualOverride:''})))
+  const setMeasured=(idx,v)=>{
+    setRows(p=>p.map((r,i)=>i===idx?{...r,measured:v,auto:evalAgainstSpec(r.spec,v)}:r))
+  }
+  const setManual=(idx,v)=>{
+    setRows(p=>p.map((r,i)=>i===idx?{...r,manualOverride:v}:r))
+  }
+  const resultOf=r=> r.manualOverride || r.auto || null
+  const allJudged = rows.every(r=>resultOf(r))
+  const overallResult = rows.some(r=>resultOf(r)==='fail') ? 'fail' : (allJudged ? 'pass' : null)
+  const submit=()=>{
+    if(!allJudged){ if(!window.confirm('일부 항목의 합격/불합격이 판정되지 않았습니다. 계속하시겠습니까? (미판정 항목은 불합격으로 처리됩니다)')) return }
+    const checkResults = rows.map(r=>({name:r.name,spec:r.spec,method:r.method,measured:r.measured,result:resultOf(r)||'fail'}))
+    const final = checkResults.some(r=>r.result==='fail') ? 'fail' : 'pass'
+    onSubmit(record, checkResults, final)
+  }
   return (
     <div className="space-y-3">
-      <FL label="발주번호 (PO)"><select style={sel} value={f.po} onChange={selPO}><option value="">직접 입력</option>{orders.map(o=><option key={o.id} value={o.id}>{o.id} — {o.vendor}</option>)}</select></FL>
-      <div className="grid grid-cols-2 gap-3">
-        <FL label="협력업체"><input style={inp} value={f.vendor} onChange={set('vendor')}/></FL>
-        <FL label="품목"><input style={inp} value={f.items} onChange={set('items')}/></FL>
-        <FL label="수량"><input style={inp} value={f.qty} onChange={set('qty')}/></FL>
-        <FL label="검사자"><input style={inp} value={f.inspector} onChange={set('inspector')}/></FL>
-        <FL label="부적합 내용"><input style={inp} value={f.nc} onChange={set('nc')} placeholder="없으면 —"/></FL>
-        <FL label="결과"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
+      <div className="p-3 rounded-lg grid grid-cols-2 gap-2 text-[12px]" style={{background:'var(--bg-soft)'}}>
+        <div><span style={{color:'var(--ink-mute)'}}>품목: </span><b>{record.items}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>수량: </span><b>{record.qty}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>협력업체: </span><b>{record.vendor}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>검사자: </span><b>{auth.current()?.name||'-'} (자동 배정)</b></div>
       </div>
-      <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.vendor&&onSave(f)}>{initial.vendor?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+      {!standard && (
+        <div className="p-3 rounded-lg flex items-start gap-2" style={{background:'#fff7ed',border:'1px solid #f59e0b'}}>
+          <AlertTriangle size={14} style={{color:'#b45309',marginTop:2,flexShrink:0}}/>
+          <span className="text-[12px]" style={{color:'#b45309'}}>이 자재에 대한 수입검사 기준서(규격)가 개발 단계에 등록되어 있지 않아 기본 확인 항목만 표시됩니다. <a href="/products" style={{textDecoration:'underline'}}>제품·공정 &gt; 제품 개발</a>에서 원자재 수입검사(IQC) 규격을 등록하면 이후 자동으로 연동됩니다.</span>
+        </div>
+      )}
+      {standard && (
+        <div className="text-[11.5px] px-1" style={{color:'var(--ink-faint)'}}>연동 기준서: <b style={{color:'var(--ink-mute)'}}>{standard.name}</b> ({standard.productName})</div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead><tr>{['검사항목','규격(기준)','측정값','판정'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+          <tbody>
+            {rows.map((r,idx)=>{
+              const res = resultOf(r)
+              return (
+                <tr key={idx}>
+                  <TD>{r.name||'-'}</TD>
+                  <TD muted>{r.spec||'(제한 없음)'}</TD>
+                  <TD><input style={{...inp,padding:'4px 8px',fontSize:'12px'}} value={r.measured} onChange={e=>setMeasured(idx,e.target.value)} placeholder="측정값 입력"/></TD>
+                  <TD>
+                    {r.auto ? <Badge text={r.auto==='pass'?'합격':'불합격'} tone={r.auto==='pass'?'green':'red'}/> :
+                      <select style={{...sel,padding:'3px 6px',fontSize:'11px',width:'auto'}} value={r.manualOverride} onChange={e=>setManual(idx,e.target.value)}>
+                        <option value="">판정 선택</option>
+                        <option value="pass">합격</option>
+                        <option value="fail">불합격</option>
+                      </select>}
+                  </TD>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="p-2.5 rounded-lg flex items-center justify-between" style={{background: overallResult==='fail' ? 'var(--rust-soft)' : overallResult==='pass' ? 'var(--leaf-soft)' : 'var(--bg-soft)'}}>
+        <span className="text-[12.5px] font-medium" style={{color: overallResult==='fail' ? 'var(--rust)' : overallResult==='pass' ? 'var(--moss)' : 'var(--ink-mute)'}}>종합 판정</span>
+        <span className="text-[13px] font-bold" style={{color: overallResult==='fail' ? 'var(--rust)' : overallResult==='pass' ? 'var(--moss)' : 'var(--ink-faint)'}}>{overallResult==='fail'?'불합격':overallResult==='pass'?'합격':'미판정'}</span>
+      </div>
+      <div className="flex gap-2 pt-2"><SBtn onClick={submit}>검사 결과 저장</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
+    </div>
+  )
+}
+function IqcDecisionForm({record,onDecide,onCancel}) {
+  const [note,setNote]=useState('')
+  return (
+    <div className="space-y-3">
+      <div className="p-3 rounded-lg" style={{background:'var(--rust-soft)'}}>
+        <div className="text-[12.5px]" style={{color:'var(--rust)'}}><b>{record.items}</b> ({record.vendor}) — 수입검사 <b>불합격</b></div>
+        <div className="text-[11.5px] mt-1" style={{color:'var(--rust)'}}>부적합: {record.nc}</div>
+      </div>
+      <div className="text-[12.5px]" style={{color:'var(--ink-mute)'}}>품질책임자로서 이 자재를 조건부 합격으로 특채(조건부 사용승인)할지, 불합격을 유지할지 결정해주세요.</div>
+      <FL label="결정 사유 / 비고"><textarea style={{...inp,minHeight:70}} value={note} onChange={e=>setNote(e.target.value)} placeholder="조건부 승인 사유 또는 불합격 유지 사유를 입력하세요"/></FL>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={()=>onDecide(record,'조건부',note)}>조건부 합격으로 결정</SBtn>
+        <SBtn onClick={()=>onDecide(record,'불합격',note)} secondary>불합격 유지</SBtn>
+      </div>
+      <div className="flex"><button onClick={onCancel} className="text-[11.5px]" style={{color:'var(--ink-faint)'}}>취소</button></div>
+    </div>
+  )
+}
+function IqcCertView({record,onClose}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 text-[12px] p-3 rounded-lg" style={{background:'var(--bg-soft)'}}>
+        <div><span style={{color:'var(--ink-mute)'}}>IQC번호: </span><b>{record.id}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>검사일: </span><b>{record.date}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>품목: </span><b>{record.items}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>협력업체: </span><b>{record.vendor}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>검사자: </span><b>{record.inspector||'-'}</b></div>
+        <div><span style={{color:'var(--ink-mute)'}}>결과: </span><Badge text={record.status} tone={statusTone(record.status)}/></div>
+      </div>
+      {record.qcDecision && (
+        <div className="p-3 rounded-lg text-[12px]" style={{background:'var(--bg-soft)'}}>
+          <b>품질책임자 결정</b>: {record.qcDecision.decision} ({record.qcDecision.decidedBy}, {record.qcDecision.decidedAt?.slice(0,10)})
+          {record.qcDecision.note && <div className="mt-1" style={{color:'var(--ink-mute)'}}>{record.qcDecision.note}</div>}
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead><tr>{['검사항목','규격(기준)','측정값','판정'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+          <tbody>{(record.checkResults||[]).map((r,idx)=>(
+            <tr key={idx}>
+              <TD>{r.name}</TD><TD muted>{r.spec||'-'}</TD><TD>{r.measured||'-'}</TD>
+              <TD><Badge text={r.result==='pass'?'합격':'불합격'} tone={r.result==='pass'?'green':'red'}/></TD>
+            </tr>
+          ))}</tbody>
+        </table>
+      </div>
+      <div className="flex gap-2 pt-2">
+        <SBtn onClick={()=>printIqcCert(record)}><span className="inline-flex items-center gap-1.5"><Printer size={13}/> 인쇄 / PDF 저장</span></SBtn>
+        <SBtn onClick={onClose} secondary>닫기</SBtn>
+      </div>
     </div>
   )
 }
 
+/* ─── 완제품 재고 ─── */
 /* ─── 완제품 재고 ─── */
 function FinStockView({fin,setFin}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
@@ -774,7 +937,7 @@ export default function PurchaseHub() {
   const viewMap={
     home:<PurchaseHome avl={avl} orders={orders} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView} onGoSupplier={()=>navigate('/supplier')}/>,
     orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} inventory={inventory} setInventory={setInventory} openId={editId}/>,
-    inventory:<InventoryView inventory={inventory} setInventory={setInventory} orders={orders} setOrders={setOrders} openId={editId}/>,
+    inventory:<InventoryView inventory={inventory} setInventory={setInventory} orders={orders} setOrders={setOrders} openId={editId} setIqc={setIqc}/>,
     iqc:<IqcView iqc={iqc} setIqc={setIqc} orders={orders} openId={editId}/>,
     fin:<FinStockView fin={fin} setFin={setFin}/>,
     analysis:<AnalysisView orders={orders} iqc={iqc} inventory={inventory} fin={fin}/>,

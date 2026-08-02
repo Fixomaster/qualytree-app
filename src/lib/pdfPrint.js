@@ -460,6 +460,49 @@ export function printInspectionCert(insp, wo) {
   openPrint(pageWrapper(insp.id || 'IPC-XXXX', '공정검사성적서', 'ISO 13485 §8.2.6', body))
 }
 
+// ── 수입검사성적서 ───────────────────────────────────────────
+export function printIqcCert(rec) {
+  const resultMap = { '합격': ['badge-green', '합격'], '조건부': ['badge-orange', '조건부합격'], '불합격': ['badge-red', '불합격'], '검사대기': ['badge-gray', '검사대기'] }
+  const [cls, label] = resultMap[rec.status] || ['badge-gray', rec.status || '-']
+  const resultBadge = `<span class="badge ${cls}">${label}</span>`
+  const rows = (rec.checkResults || []).map((r) => `
+    <tr>
+      <td>${r.name || '-'}</td>
+      <td>${r.spec || '(제한 없음)'}</td>
+      <td>${r.measured || '-'}</td>
+      <td>${r.result === 'pass' ? '<span class="badge badge-green">합격</span>' : '<span class="badge badge-red">불합격</span>'}</td>
+    </tr>`).join('')
+  const decisionBlock = rec.qcDecision ? `
+    <div class="section-title">4. 품질책임자 결정</div>
+    <table>
+      <tr><th>결정</th><td>${rec.qcDecision.decision || '-'}</td><th>결정자</th><td>${rec.qcDecision.decidedBy || '-'}</td></tr>
+      <tr><th>결정일</th><td colspan="3">${(rec.qcDecision.decidedAt || '').slice(0,10) || '-'}</td></tr>
+    </table>
+    <div class="text-area-box" style="min-height:40px;">${rec.qcDecision.note || '(비고 없음)'}</div>
+  ` : ''
+  const body = `
+    <div class="qt-subtitle">수입검사성적서 (Incoming Quality Inspection Certificate)</div>
+    <div class="section-title">1. 검사 기본 정보</div>
+    <table>
+      <tr><th>IQC번호</th><td>${rec.id || '-'}</td><th>검사일</th><td>${rec.date || '-'}</td></tr>
+      <tr><th>발주번호(PO)</th><td>${rec.po || '-'}</td><th>협력업체</th><td>${rec.vendor || '-'}</td></tr>
+      <tr><th>품목</th><td>${rec.items || '-'}</td><th>수량</th><td>${rec.qty || '-'}</td></tr>
+      <tr><th>검사자</th><td>${rec.inspector || '-'}</td><th>결과</th><td>${resultBadge}</td></tr>
+    </table>
+
+    <div class="section-title">2. 검사 항목 및 측정 결과</div>
+    <table>
+      <tr><th>검사항목</th><th>규격(기준)</th><th>측정값</th><th>판정</th></tr>
+      ${rows || '<tr><td colspan="4">(검사 항목 없음)</td></tr>'}
+    </table>
+
+    <div class="section-title">3. 부적합 사항</div>
+    <div class="text-area-box" style="min-height:40px;">${rec.nc && rec.nc !== '—' ? rec.nc : '(부적합 없음)'}</div>
+    ${decisionBlock}
+  `
+  openPrint(pageWrapper(rec.id || 'IQC-XXXX', '수입검사성적서', 'ISO 13485 §7.4.3', body))
+}
+
 // ── 청결·오염 모니터링 성적서 ───────────────────────────────
 export function printCleanlinessCert(rec, spec) {
   const resultMap = { pass: ['badge-green', '합격'], fail: ['badge-red', '불합격'], conditional: ['badge-orange', '조건부합격'] }

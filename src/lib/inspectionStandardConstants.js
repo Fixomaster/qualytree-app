@@ -33,3 +33,37 @@ export function deriveInspectionStandards(products) {
       notes: p.inspStdNotes || '',
     }))
 }
+
+// ── 수입검사 자동 합부판정 ──────────────────────────────────
+// 규격(spec) 문자열(예: "10~20", "10±0.5", "≥500", "20 이상")과 측정값을 비교하여
+// 'pass' | 'fail' | null(판정 불가 — 수동 판단 필요)을 반환한다.
+export function evalAgainstSpec(spec, measured) {
+  if (measured === '' || measured == null) return null
+  const v = parseFloat(String(measured).replace(/,/g, ''))
+  if (Number.isNaN(v)) return null
+  const s = String(spec || '').trim()
+  if (!s) return null
+
+  let m = s.match(/(-?\d+(?:\.\d+)?)\s*(?:~|-|부터|to)\s*(-?\d+(?:\.\d+)?)/)
+  if (m) {
+    const a = parseFloat(m[1]), b = parseFloat(m[2])
+    const lo = Math.min(a, b), hi = Math.max(a, b)
+    return v >= lo && v <= hi ? 'pass' : 'fail'
+  }
+  m = s.match(/(-?\d+(?:\.\d+)?)\s*±\s*(\d+(?:\.\d+)?)/)
+  if (m) {
+    const a = parseFloat(m[1]), t = parseFloat(m[2])
+    return v >= a - t && v <= a + t ? 'pass' : 'fail'
+  }
+  m = s.match(/(?:≥|>=)\s*(-?\d+(?:\.\d+)?)/) || s.match(/(-?\d+(?:\.\d+)?)\s*이상/)
+  if (m) return v >= parseFloat(m[1]) ? 'pass' : 'fail'
+  m = s.match(/(?:≤|<=)\s*(-?\d+(?:\.\d+)?)/) || s.match(/(-?\d+(?:\.\d+)?)\s*이하/)
+  if (m) return v <= parseFloat(m[1]) ? 'pass' : 'fail'
+  m = s.match(/(?:>)\s*(-?\d+(?:\.\d+)?)/) || s.match(/(-?\d+(?:\.\d+)?)\s*초과/)
+  if (m) return v > parseFloat(m[1]) ? 'pass' : 'fail'
+  m = s.match(/(?:<)\s*(-?\d+(?:\.\d+)?)/) || s.match(/(-?\d+(?:\.\d+)?)\s*미만/)
+  if (m) return v < parseFloat(m[1]) ? 'pass' : 'fail'
+  m = s.match(/^(-?\d+(?:\.\d+)?)$/)
+  if (m) return v === parseFloat(m[1]) ? 'pass' : 'fail'
+  return null
+}
