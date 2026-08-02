@@ -141,6 +141,8 @@ export const udi = {
     const {
       productId,
       productName,
+      modelName = '',            // #320: 허가증 내 모델목록에서 선택한 모델명
+      certificateNumber = '',    // #320: 연동된 허가증(신청·통지 승인) 번호
       issuingAgency = 'GS1',
       udiPi = {
         lot: true,
@@ -171,11 +173,14 @@ export const udi = {
       issuingAgency,
       productId,
       productName: productName || productId,
+      modelName,
+      certificateNumber,
       udiPi,
       labelFormat,
       externalDbStatus,
       lastSyncedAt: { GUDID: null, EUDAMED: null, MFDS: null },
       status: 'active',
+      piBatches: [],
       createdBy: cur?.name,
       createdAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
@@ -254,6 +259,43 @@ export const udi = {
       reason: `UDI-DI 단종 처리 — ${reason || '시판 중단'}`,
     })
     return all[idx]
+  },
+
+  /**
+   * #320: UDI-DI 발급 완료(status: 'active') 후에만 PI(로트·제조일자·유효기한 등) 배치를
+   * 대량 입력할 수 있도록 함. 엑셀에서 복사한 탭/쉼표 구분 텍스트를 그대로 붙여넣어 파싱한다.
+   * rows: [{ lot, manufactureDate, expiryDate, serial, qty }]
+   */
+  addPiBatch(udiId, rows) {
+    const all = loadAll()
+    const idx = all.findIndex((u) => u.id === udiId)
+    if (idx === -1) throw new Error('udi.addPiBatch: UDI-DI를 찾을 수 없습니다')
+    if (all[idx].status !== 'active') throw new Error('UDI-DI 발급이 완료(활성)된 이후에만 PI 배치를 입력할 수 있습니다')
+    const before = { ...all[idx] }
+    const batch = (all[idx].piBatches || [])
+    const stamped = rows.map((r, i) => ({
+      id: `${udiId}-PI-${batch.length + i + 1}`,
+      lot: r.lot || '',
+      manufactureDate: r.manufactureDate || '',
+      expiryDate: r.expiryDate || '',
+      serial: r.serial || '',
+      qty: r.qty || '',
+      addedAt: new Date().toISOString(),
+    }))
+    all[idx] = { ...all[idx], piBatches: [...batch, ...stamped], lastUpdated: new Date().toISOString() }
+    saveAll(all)
+    commitChange({
+      targetEid: eid('udiRecord', udiId),
+      action: CHANGE_ACTIONS.UPDATE,
+      before,
+      after: all[idx],
+      reason: `PI 배치 ${stamped.length}건 일괄 입력 (엑셀 붙여넣기)`,
+    })
+    return all[idx]
+  },
+
+  getPiBatch(udiId) {
+    return this.findById(udiId)?.piBatches || []
   },
 
   /**

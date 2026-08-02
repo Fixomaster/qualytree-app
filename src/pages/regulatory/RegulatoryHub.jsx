@@ -42,6 +42,7 @@ import {
   LABEL_FORMATS,
 } from '../../lib/udi'
 import { vigilance } from '../../lib/vigilance'
+import { productKind, PRODUCT_KIND, designProgressOf, productModels } from '../../lib/productLifecycleState'
 
 /**
  * RegulatoryHub — 인허가 통합 (RA-001 + RA-002 + RA-003)
@@ -261,7 +262,14 @@ function SubmissionsPanel({ product, certs, onAction }) {
   const [editingSub, setEditingSub] = useState(null)
   const subs = submissions.loadAll()
   const upcoming = submissions.upcomingDeadlines(30)
-  const canCreate = permissions.can('ra.submission.approve') && !!product
+
+  // #316: 신규(설계 진행 중) 제품은 설계이력파일(DHF)의 설계 이관 단계까지 완료된 후에만
+  // 인허가 신청을 생성할 수 있도록 함. 기허가 제품이나 기존 신청은 영향받지 않는다.
+  const dp = product ? designProgressOf(product) : null
+  const isNewProduct = product && productKind(product) === PRODUCT_KIND.NEW
+  const DESIGN_TRANSFER_IDX = 7 // '설계 이관' 단계까지(7개) 완료되어야 신청 가능
+  const designReady = !isNewProduct || (dp && dp.done >= DESIGN_TRANSFER_IDX)
+  const canCreate = permissions.can('ra.submission.approve') && !!product && designReady
 
   const handleCreate = (formData) => {
     if (!requirePermission('ra.submission.approve')) return
@@ -351,6 +359,21 @@ function SubmissionsPanel({ product, certs, onAction }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* #316: 설계이력파일(DHF) 미완료 시 신청 생성 잠금 안내 */}
+      {isNewProduct && !designReady && (
+        <div className="card-base p-4 mb-4 flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
+          <div className="text-[12.5px]" style={{ color: '#92400E' }}>
+            <strong>설계이력파일(DHF)이 아직 완료되지 않았습니다</strong> — 설계 이관 단계까지 완료해야 인허가 신청을 생성할 수 있습니다.
+            (현재 {dp.done}/{DESIGN_TRANSFER_IDX}단계 완료 · 다음: {dp.currentLabel})
+          </div>
+          <a href="/products" className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold"
+            style={{ background: '#D97706', color: '#fff', border: 'none', cursor: 'pointer', textDecoration: 'none' }}>
+            설계 단계 이어서 진행 →
+          </a>
         </div>
       )}
 
@@ -867,6 +890,13 @@ function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
     softwareVersion: false,
   })
 
+  // #320: 허가증(승인된 신청) 표시 + 모델목록에서 UDI 발급 대상 모델 선택
+  const productKey = productKeyOf(product)
+  const models = productModels.getForProduct(productKey)
+  const approvedSub = submissions.loadAll().find((s) => s.status === 'approved' && s.certificateNumber)
+  const [modelId, setModelId] = useState(models[0]?.id || '')
+  const selectedModel = models.find((m) => m.id === modelId)
+
   return (
     <div
       className="card-base p-4"
@@ -874,6 +904,27 @@ function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
     >
       <div className="font-mono text-[10.5px] tracking-[0.16em] uppercase mb-3" style={{ color: 'var(--moss)' }}>
         UDI-DI 발급
+      </div>
+
+      {/* 허가증 · 모델 선택 */}
+      <div className="mb-3 p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>
+          {approvedSub
+            ? <>연동 허가증: <strong style={{ color: 'var(--ink)' }}>{approvedSub.certificateNumber}</strong> ({JURISDICTIONS[approvedSub.jurisdiction]?.ko})</>
+            : '승인된 인허가 신청(허가증)이 아직 없습니다 — 신청·통지 탭에서 승인 처리 후 연동됩니다.'}
+        </div>
+        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>
+          모델 선택 (허가증 내 모델목록)
+        </label>
+        {models.length === 0 ? (
+          <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>등록된 모델이 없습니다. 제품·공정 화면에서 모델을 먼저 등록하세요.</div>
+        ) : (
+          <select value={modelId} onChange={(e) => setModelId(e.target.value)} className="input-base mt-1 w-full text-[13px]">
+            {models.map((m) => (
+              <option key={m.id} value={m.id}>{m.code}{m.spec ? ` — ${m.spec}` : ''}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-3 mb-3">
@@ -969,6 +1020,8 @@ function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
               labelFormat,
               udiPi: pi,
               applicableMarkets: Object.keys(markets).filter((k) => markets[k]),
+              modelName: selectedModel ? (selectedModel.code + (selectedModel.spec ? ` — ${selectedModel.spec}` : '')) : '',
+              certificateNumber: approvedSub?.certificateNumber || '',
             })
           }
           className="btn-primary text-[12.5px]"
@@ -983,6 +1036,28 @@ function UdiIssueForm({ product, certs, onCancel, onSubmit }) {
 function UdiRow({ record, onSync }) {
   const [expanded, setExpanded] = useState(false)
   const preview = expanded ? udi.getLabelPreview(record.id) : null
+  const [pasteText, setPasteText] = useState('')
+  const [tick, setTick] = useState(0)
+  const piBatches = udi.getPiBatch(record.id)
+
+  // #320: 엑셀에서 복사한 탭/쉼표 구분 텍스트(로트,제조일자,유효기한,시리얼,수량)를 붙여넣어 일괄 입력.
+  // UDI-DI 발급이 완료(활성 상태)된 이후에만 가능.
+  const importPiBatch = () => {
+    const lines = pasteText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    if (lines.length === 0) return
+    const rows = lines.map((line) => {
+      const cells = line.split(/\t|,/).map((c) => c.trim())
+      const [lot, manufactureDate, expiryDate, serial, qty] = cells
+      return { lot, manufactureDate, expiryDate, serial, qty }
+    })
+    try {
+      udi.addPiBatch(record.id, rows)
+      setPasteText('')
+      setTick((t) => t + 1)
+    } catch (err) {
+      alert(err.message)
+    }
+  }
 
   return (
     <div className="card-base p-3.5">
@@ -1014,6 +1089,8 @@ function UdiRow({ record, onSync }) {
           </div>
           <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
             {record.productName} ({record.productId})
+            {record.modelName && ` · 모델: ${record.modelName}`}
+            {record.certificateNumber && ` · 허가증: ${record.certificateNumber}`}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -1136,6 +1213,51 @@ function UdiRow({ record, onSync }) {
               )
             })}
           </div>
+
+          {/* #320: UDI 발급 완료(활성) 후 PI 배치 엑셀 붙여넣기 일괄 입력 */}
+          {record.status === 'active' && (
+            <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+              <div className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2" style={{ color: 'var(--ink-mute)' }}>
+                PI 배치 일괄 입력 · 엑셀 붙여넣기 ({piBatches.length}건)
+              </div>
+              <textarea
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                placeholder={`엑셀에서 복사한 행을 그대로 붙여넣으세요.\n열 순서: 로트번호 [탭] 제조일자 [탭] 유효기한 [탭] 시리얼(선택) [탭] 수량(선택)`}
+                rows={3}
+                className="input-base w-full text-[12px] font-mono"
+              />
+              <div className="flex justify-end mt-1.5">
+                <button onClick={importPiBatch} disabled={!pasteText.trim()} className="btn-primary text-[12px]">
+                  일괄 입력
+                </button>
+              </div>
+              {piBatches.length > 0 && (
+                <div className="mt-2 rounded-lg overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+                  <table className="w-full text-[11.5px]">
+                    <thead>
+                      <tr style={{ background: 'var(--bg-soft)' }}>
+                        {['로트', '제조일', '유효기한', '시리얼', '수량'].map((h) => (
+                          <th key={h} className="px-2 py-1 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {piBatches.map((p) => (
+                        <tr key={p.id} style={{ borderTop: '1px solid var(--line)' }}>
+                          <td className="px-2 py-1 font-mono">{p.lot || '-'}</td>
+                          <td className="px-2 py-1">{p.manufactureDate || '-'}</td>
+                          <td className="px-2 py-1">{p.expiryDate || '-'}</td>
+                          <td className="px-2 py-1">{p.serial || '-'}</td>
+                          <td className="px-2 py-1">{p.qty || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

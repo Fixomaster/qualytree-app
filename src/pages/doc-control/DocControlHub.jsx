@@ -293,6 +293,20 @@ export default function DocControlHub() {
         {/* ── 문서 대장 ── */}
         {tab === 'docs' && !detailDoc && (
           <div>
+            {/* #309: 절차서·매뉴얼 등 정식 QMS 문서는 AI 자동생성 방식의 품질문서(Documents.jsx)에서
+                작성·수정합니다. 이 문서대장은 그 외 인증서·외부문서 등의 등록·이력 관리용입니다. */}
+            <div className="mb-4 p-3.5 rounded-xl flex items-center justify-between gap-3 flex-wrap"
+              style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+              <div className="text-[12.5px]" style={{ color: '#1E40AF' }}>
+                <strong>절차서·매뉴얼 등 정식 QMS 문서</strong>는 AI가 자동으로 작성·수정하는 <strong>품질문서</strong>에서 관리됩니다.
+                이 문서대장은 인증서·외부문서 등 그 외 문서의 등록·이력 관리용입니다.
+              </div>
+              <button onClick={() => navigate('/documents')}
+                className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold"
+                style={{ background: '#2563EB', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                품질문서(AI 자동생성)로 이동 →
+              </button>
+            </div>
             {/* 검색·필터 */}
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
