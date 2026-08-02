@@ -6,6 +6,7 @@ import {
   XCircle, Clock, BarChart2, FileText, RefreshCw,
   Shield, Thermometer, Package, Microscope, FlaskConical,
   Users, Activity, ChevronRight, ExternalLink,
+  ShoppingCart, Factory, TrendingUp as TrendingUpIcon,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
@@ -32,7 +33,22 @@ function loadAllData() {
     distributions:lsR('qualytree.distributions'),
     improvements: lsR('qualytree.improvements'),
     audits:       lsR('qualytree.audits'),
+    // 수주·고객 / 구매·자재 / 생산·제조 도메인 (#280 — 품질 외 도메인도 이 대시보드에서 함께 확인)
+    salesOrders:  lsR('qms_sal_orders'),
+    purchaseOrders: lsR('qms_pur_orders'),
+    materialInventory: lsR('qms_pur_inventory'),
+    workOrders:   lsR('qms_mfg_wo'),
   }
+}
+
+// 항목별(상태별) 분포 — #281 "월별, 항목별 상세히" 요구사항의 항목별 부분을 위한 공용 집계 함수
+function groupByField(list, field) {
+  const map = {}
+  list.forEach(item => {
+    const key = item[field] || '(미분류)'
+    map[key] = (map[key] || 0) + 1
+  })
+  return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count }))
 }
 
 // 날짜 유틸
@@ -59,6 +75,8 @@ export default function QualityDashboard() {
   const user = auth.current()
   const navigate = useNavigate()
   const [refreshKey, setRefreshKey] = useState(0)
+  const [expandedCard, setExpandedCard] = useState(null) // #281 — '상세' 클릭 시 페이지 이동 대신 항목별 분포를 인라인으로 펼쳐 보여줌
+  const toggleDetail = id => setExpandedCard(c => c === id ? null : id)
   const data = useMemo(() => loadAllData(), [refreshKey])
 
   // ── KPI 계산 ─────────────────────────────────────────────
@@ -134,6 +152,39 @@ export default function QualityDashboard() {
     // 개선활동
     const openImprovements = d.improvements.filter(i => !['closed','cancelled'].includes(i.status)).length
 
+    // 수주·고객 (#280)
+    const openOrders = d.salesOrders.filter(o => !['납품완료','발송완료','취소'].includes(o.status)).length
+
+    // 구매·자재 (#280)
+    const openPOs = d.purchaseOrders.filter(p => p.status !== '입고완료').length
+    const shortMaterials = d.materialInventory.filter(i => i.status === '부족').length
+
+    // 생산·제조 (#280)
+    const openWOs = d.workOrders.filter(w => !['완료','취소'].includes(w.status)).length
+    const doneWOs = d.workOrders.filter(w => w.status === '완료').length
+
+    // 항목별(상태) 분포 — #281
+    const breakdowns = {
+      ncr:         groupByField(d.ncrs, 'status'),
+      capa:        groupByField(d.capas, 'status'),
+      complaint:   groupByField(d.complaints, 'status'),
+      inspection:  groupByField(d.inspections, 'verdict'),
+      calibration: groupByField(d.calibrations, 'status'),
+      change:      groupByField(d.changes, 'status'),
+      validation:  groupByField(d.validations, 'status'),
+      order:       groupByField(d.salesOrders, 'status'),
+      po:          groupByField(d.purchaseOrders, 'status'),
+      wo:          groupByField(d.workOrders, 'status'),
+      risk: [
+        { label: '조치 완료', count: d.risks.filter(r => r.verified).length },
+        { label: '미조치',    count: d.risks.filter(r => !r.verified).length },
+      ],
+      env: [
+        { label: '정상', count: d.envLogs.length - d.envLogs.filter(l => (l.deviations || []).length > 0).length },
+        { label: '이탈', count: d.envLogs.filter(l => (l.deviations || []).length > 0).length },
+      ],
+    }
+
     return {
       openNcrs, overdueNcrs, ncrThisMonth,
       openCapas, overdueCapas, capaCloseRate,
@@ -147,6 +198,8 @@ export default function QualityDashboard() {
       pendingChanges, regChanges,
       ncrByMonth, inspByMonth,
       openImprovements,
+      openOrders, openPOs, shortMaterials, openWOs, doneWOs,
+      breakdowns,
     }
   }, [data])
 
@@ -198,7 +251,7 @@ export default function QualityDashboard() {
             title="공급업체 평균등급" value={kpis.avgGrade || '-'}
             sub={`D등급 ${kpis.dRatedSup.length}개사`}
             status={!kpis.avgGrade ? 'neutral' : kpis.dRatedSup.length === 0 && kpis.avgGrade !== 'C' ? 'good' : kpis.dRatedSup.length > 0 ? 'bad' : 'warn'}
-            icon={Users} href="/suppliers" navigate={navigate}
+            icon={Users} href="/supplier" navigate={navigate}
           />
         </div>
 
@@ -235,12 +288,12 @@ export default function QualityDashboard() {
               {kpis.envDevNoNcr.length > 0 && (
                 <AlertCard icon={Thermometer} color="#D97706" title={`환경 이탈 NCR 미등록 ${kpis.envDevNoNcr.length}건`}
                   items={kpis.envDevNoNcr.slice(0,3).map(l => `${l.id}`)}
-                  href="/work-env" navigate={navigate} />
+                  href="/workenv" navigate={navigate} />
               )}
               {kpis.dRatedSup.length > 0 && (
                 <AlertCard icon={Users} color="#D97706" title={`D등급 공급업체 ${kpis.dRatedSup.length}개사`}
                   items={kpis.dRatedSup.slice(0,3).map(s => `${s.name} (${s.category || '-'})`)}
-                  href="/suppliers" navigate={navigate} />
+                  href="/supplier" navigate={navigate} />
               )}
               {kpis.inspFails.length > 0 && (
                 <AlertCard icon={Microscope} color="#D97706" title={`불합격 NCR 미등록 ${kpis.inspFails.length}건`}
@@ -256,7 +309,8 @@ export default function QualityDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
 
           {/* NCR */}
-          <HubCard title="NCR · 부적합" icon={XCircle} color="#DC2626" href="/quality" navigate={navigate}>
+          <HubCard id="ncr" title="NCR · 부적합" icon={XCircle} color="#DC2626" href="/quality" navigate={navigate}
+            breakdown={kpis.breakdowns.ncr} expanded={expandedCard === 'ncr'} onToggleDetail={toggleDetail}>
             <StatRow label="이번 달 발생"    value={kpis.ncrThisMonth}        warn={kpis.ncrThisMonth > 5} />
             <StatRow label="미결 NCR"        value={kpis.openNcrs.length}     warn={kpis.openNcrs.length > 0} />
             <StatRow label="기한 초과"        value={kpis.overdueNcrs.length}  bad={kpis.overdueNcrs.length > 0} />
@@ -264,7 +318,8 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* CAPA */}
-          <HubCard title="CAPA" icon={CheckCircle2} color="#059669" href="/quality" navigate={navigate}>
+          <HubCard id="capa" title="CAPA" icon={CheckCircle2} color="#059669" href="/quality" navigate={navigate}
+            breakdown={kpis.breakdowns.capa} expanded={expandedCard === 'capa'} onToggleDetail={toggleDetail}>
             <StatRow label="완료율"          value={kpis.capaCloseRate !== null ? `${kpis.capaCloseRate}%` : '-'}
               good={kpis.capaCloseRate !== null && kpis.capaCloseRate >= 80} warn={kpis.capaCloseRate !== null && kpis.capaCloseRate < 60} />
             <StatRow label="미결"            value={kpis.openCapas.length}    warn={kpis.openCapas.length > 3} />
@@ -273,7 +328,8 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* 고객불만 */}
-          <HubCard title="고객불만" icon={Users} color="#F97316" href="/complaints" navigate={navigate}>
+          <HubCard id="complaint" title="고객불만" icon={Users} color="#F97316" href="/complaints" navigate={navigate}
+            breakdown={kpis.breakdowns.complaint} expanded={expandedCard === 'complaint'} onToggleDetail={toggleDetail}>
             <StatRow label="미결"            value={kpis.openComplaints.length} warn={kpis.openComplaints.length > 2} />
             <StatRow label="중대 미결"        value={kpis.criticalComplaints.length} bad={kpis.criticalComplaints.length > 0} />
             <StatRow label="MDR 미보고"       value={kpis.mdrUnreported.length} bad={kpis.mdrUnreported.length > 0} />
@@ -281,7 +337,8 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* 검사 */}
-          <HubCard title="검사 관리" icon={Microscope} color="#2563EB" href="/inspection" navigate={navigate}>
+          <HubCard id="inspection" title="검사 관리" icon={Microscope} color="#2563EB" href="/inspection" navigate={navigate}
+            breakdown={kpis.breakdowns.inspection} expanded={expandedCard === 'inspection'} onToggleDetail={toggleDetail}>
             <StatRow label="합격률"          value={kpis.inspPassRate !== null ? `${kpis.inspPassRate}%` : '-'}
               good={kpis.inspPassRate !== null && kpis.inspPassRate >= 95} bad={kpis.inspPassRate !== null && kpis.inspPassRate < 80} />
             <StatRow label="불합격 NCR 미등록" value={kpis.inspFails.length} bad={kpis.inspFails.length > 0} />
@@ -290,14 +347,16 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* 교정 */}
-          <HubCard title="교정 관리" icon={Activity} color="#7C3AED" href="/calibration" navigate={navigate}>
+          <HubCard id="calibration" title="교정 관리" icon={Activity} color="#7C3AED" href="/calibration" navigate={navigate}
+            breakdown={kpis.breakdowns.calibration} expanded={expandedCard === 'calibration'} onToggleDetail={toggleDetail}>
             <StatRow label="기한 초과"        value={kpis.calOverdue.length}  bad={kpis.calOverdue.length > 0} />
             <StatRow label="30일 내 예정"     value={kpis.calDue30.length}    warn={kpis.calDue30.length > 0} />
             <StatRow label="관리 장비"        value={data.calibrations.length} />
           </HubCard>
 
           {/* 위험관리 */}
-          <HubCard title="위험 관리 (FMEA)" icon={Shield} color="#EF4444" href="/risk" navigate={navigate}>
+          <HubCard id="risk" title="위험 관리 (FMEA)" icon={Shield} color="#EF4444" href="/risk" navigate={navigate}
+            breakdown={kpis.breakdowns.risk} expanded={expandedCard === 'risk'} onToggleDetail={toggleDetail}>
             <StatRow label="저감률"          value={kpis.riskMitigated !== null ? `${kpis.riskMitigated}%` : '-'}
               good={kpis.riskMitigated !== null && kpis.riskMitigated >= 80} />
             <StatRow label="미조치 고위험"    value={kpis.highRisks.length} bad={kpis.highRisks.length > 0} />
@@ -305,7 +364,8 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* 환경 모니터링 */}
-          <HubCard title="작업환경" icon={Thermometer} color="#06B6D4" href="/work-env" navigate={navigate}>
+          <HubCard id="env" title="작업환경" icon={Thermometer} color="#06B6D4" href="/workenv" navigate={navigate}
+            breakdown={kpis.breakdowns.env} expanded={expandedCard === 'env'} onToggleDetail={toggleDetail}>
             <StatRow label="이탈률"          value={kpis.envDeviRate !== null ? `${kpis.envDeviRate}%` : '-'}
               good={kpis.envDeviRate !== null && kpis.envDeviRate === 0} bad={kpis.envDeviRate !== null && kpis.envDeviRate > 10} />
             <StatRow label="이탈 NCR 미등록" value={kpis.envDevNoNcr.length} bad={kpis.envDevNoNcr.length > 0} />
@@ -313,17 +373,42 @@ export default function QualityDashboard() {
           </HubCard>
 
           {/* 변경 관리 */}
-          <HubCard title="변경 관리" icon={RefreshCw} color="#8B5CF6" href="/change-control" navigate={navigate}>
+          <HubCard id="change" title="변경 관리" icon={RefreshCw} color="#8B5CF6" href="/change-control" navigate={navigate}
+            breakdown={kpis.breakdowns.change} expanded={expandedCard === 'change'} onToggleDetail={toggleDetail}>
             <StatRow label="승인 대기"       value={kpis.pendingChanges}    warn={kpis.pendingChanges > 0} />
             <StatRow label="규제 신고 미처리" value={kpis.regChanges.length} bad={kpis.regChanges.length > 0} />
             <StatRow label="전체"           value={data.changes.length} />
           </HubCard>
 
           {/* 밸리데이션 */}
-          <HubCard title="공정 밸리데이션" icon={FlaskConical} color="#059669" href="/validation" navigate={navigate}>
+          <HubCard id="validation" title="공정 밸리데이션" icon={FlaskConical} color="#059669" href="/validation" navigate={navigate}
+            breakdown={kpis.breakdowns.validation} expanded={expandedCard === 'validation'} onToggleDetail={toggleDetail}>
             <StatRow label="재밸리 기한 초과" value={kpis.revalOverdue.length} bad={kpis.revalOverdue.length > 0} />
             <StatRow label="90일 내 예정"    value={kpis.revalDue90.length}  warn={kpis.revalDue90.length > 0} />
             <StatRow label="유효성 확인 완료" value={data.validations.filter(v => v.status === 'validated').length} />
+          </HubCard>
+
+          {/* 수주·고객 (#280) */}
+          <HubCard id="order" title="수주·고객" icon={TrendingUpIcon} color="#0EA5E9" href="/sales" navigate={navigate}
+            breakdown={kpis.breakdowns.order} expanded={expandedCard === 'order'} onToggleDetail={toggleDetail}>
+            <StatRow label="진행중 수주"      value={kpis.openOrders} warn={kpis.openOrders > 0} />
+            <StatRow label="전체 수주"        value={data.salesOrders.length} />
+          </HubCard>
+
+          {/* 구매·자재 (#280) */}
+          <HubCard id="po" title="구매·자재" icon={ShoppingCart} color="#D97706" href="/purchase" navigate={navigate}
+            breakdown={kpis.breakdowns.po} expanded={expandedCard === 'po'} onToggleDetail={toggleDetail}>
+            <StatRow label="진행중 발주"      value={kpis.openPOs}         warn={kpis.openPOs > 0} />
+            <StatRow label="자재 재고 부족"    value={kpis.shortMaterials}  bad={kpis.shortMaterials > 0} />
+            <StatRow label="전체 발주"        value={data.purchaseOrders.length} />
+          </HubCard>
+
+          {/* 생산·제조 (#280) */}
+          <HubCard id="wo" title="생산·제조" icon={Factory} color="#4F46E5" href="/manufacturing" navigate={navigate}
+            breakdown={kpis.breakdowns.wo} expanded={expandedCard === 'wo'} onToggleDetail={toggleDetail}>
+            <StatRow label="진행중 작업지시"   value={kpis.openWOs} warn={kpis.openWOs > 0} />
+            <StatRow label="완료"            value={kpis.doneWOs} />
+            <StatRow label="전체 작업지시"     value={data.workOrders.length} />
           </HubCard>
         </div>
 
@@ -359,16 +444,19 @@ export default function QualityDashboard() {
             {[
               { label: 'NCR·CAPA', href: '/quality' },
               { label: '고객불만', href: '/complaints' },
-              { label: '공급업체', href: '/suppliers' },
+              { label: '공급업체', href: '/supplier' },
               { label: '검사 기록', href: '/inspection' },
               { label: '교정 관리', href: '/calibration' },
               { label: '위험관리', href: '/risk' },
-              { label: '작업환경', href: '/work-env' },
+              { label: '작업환경', href: '/workenv' },
               { label: '변경 관리', href: '/change-control' },
               { label: '밸리데이션', href: '/validation' },
               { label: '추적성', href: '/traceability' },
               { label: '내부감사', href: '/audit' },
               { label: '개선활동', href: '/improvement' },
+              { label: '수주·고객', href: '/sales' },
+              { label: '구매·자재', href: '/purchase' },
+              { label: '생산·제조', href: '/manufacturing' },
               { label: '기록 내보내기', href: '/export' },
             ].map(l => (
               <button key={l.href} onClick={() => navigate(l.href)}
@@ -415,7 +503,7 @@ function KpiCard({ title, value, sub, status, icon: Icon, href, navigate }) {
   )
 }
 
-function HubCard({ title, icon: Icon, color, href, navigate, children }) {
+function HubCard({ id, title, icon: Icon, color, href, navigate, breakdown, expanded, onToggleDetail, children }) {
   return (
     <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
       <div className="flex items-center justify-between mb-3">
@@ -425,12 +513,35 @@ function HubCard({ title, icon: Icon, color, href, navigate, children }) {
           </div>
           <span className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>{title}</span>
         </div>
-        <button onClick={() => navigate(href)} className="flex items-center gap-0.5 text-[11px]"
-          style={{ color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}>
-          상세 <ChevronRight size={11} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => onToggleDetail(id)} className="flex items-center gap-0.5 text-[11px]"
+            style={{ color: '#2563EB', background: 'none', border: 'none', cursor: 'pointer' }}>
+            항목별 상세 <ChevronRight size={11} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
+          </button>
+          <button onClick={() => navigate(href)} title="허브로 이동" className="p-1 rounded"
+            style={{ background: 'var(--bg-soft)', border: 'none', cursor: 'pointer' }}>
+            <ExternalLink size={11} style={{ color: 'var(--ink-faint)' }} />
+          </button>
+        </div>
       </div>
       <div className="space-y-1.5">{children}</div>
+      {expanded && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="text-[10.5px] font-bold mb-1.5" style={{ color: 'var(--ink-faint)' }}>항목별 분포</div>
+          {(!breakdown || breakdown.length === 0) ? (
+            <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>데이터 없음</div>
+          ) : (
+            <div className="space-y-1">
+              {breakdown.map(b => (
+                <div key={b.label} className="flex items-center justify-between text-[11.5px]">
+                  <span style={{ color: 'var(--ink-soft)' }}>{b.label}</span>
+                  <span className="font-bold" style={{ color: 'var(--ink)' }}>{b.count}건</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

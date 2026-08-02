@@ -1,92 +1,65 @@
 // src/pages/measurement-plan/MeasurementPlanHub.jsx
 // ISO 13485 §8.1 — 측정, 분석 및 개선의 계획
+//
+// 개편 사유(#277-279): 기존에는 "측정 항목"을 이 화면에서 수기로 별도 등록했으나,
+// 실제로는 카테고리별 측정 데이터가 이미 각 전담 허브(NCR·CAPA, 고객불만, 내부감사,
+// 공급업체평가, 설비교정, 리스크관리, CAPA개선, 검사 등)에 실기록으로 존재해 중복
+// 입력이 되고 있었다. 이에 "측정 항목"은 수기 등록을 없애고, §8.1이 요구하는 9개
+// 측정 영역이 실제 어느 화면에서 다뤄지고 있는지 실시간 건수와 함께 보여주는
+// 읽기 전용 안내 색인으로 전환한다. §8.1 계획 문서는 그대로 유지하되(회사 고유의
+// 서술형 절차 내용이라 다른 화면에서 파생할 SSoT가 없음), 일반 사용자에게는 항상
+// 열람 전용으로 보이고 편집은 관리자만 가능하도록 명확히 한다.
 import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  Edit2, Save, X, Plus, Trash2, CheckCircle2, AlertTriangle,
-  BarChart2, Target, Cpu, TrendingUp, ClipboardList, ChevronUp, ChevronDown,
-  BarChart3,
+  Edit2, Save, X, Trash2, CheckCircle2, AlertTriangle,
+  Target, TrendingUp, ClipboardList, ExternalLink, Eye,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
-import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
-const LS_KEY_PLAN  = 'qualytree.measurement_plan'
-const LS_KEY_ITEMS = 'qualytree.measurement_items'
+const LS_KEY_PLAN = 'qualytree.measurement_plan'
 
-// 측정 카테고리 (§8.1 요구사항 기반)
-const MEASURE_CATEGORIES = {
-  product:    { label: '제품 적합성',    color: '#2563EB', bg: '#DBEAFE', clause: '§8.2.3/8.2.4' },
-  process:    { label: '공정 모니터링',  color: '#7C3AED', bg: '#EDE9FE', clause: '§8.2.3' },
-  customer:   { label: '고객 만족',      color: '#059669', bg: '#D1FAE5', clause: '§8.2.1' },
-  audit:      { label: '내부 감사',      color: '#D97706', bg: '#FEF3C7', clause: '§8.2.2' },
-  qms:        { label: 'QMS 성과',       color: '#DC2626', bg: '#FEE2E2', clause: '§8.2/8.4' },
-  supplier:   { label: '공급업체 성과',  color: '#0891B2', bg: '#CFFAFE', clause: '§7.4' },
-  equipment:  { label: '설비·교정',      color: '#6366F1', bg: '#E0E7FF', clause: '§7.6' },
-  risk:       { label: '위험 관리',      color: '#EA580C', bg: '#FFEDD5', clause: 'ISO14971' },
-  improvement:{ label: '개선 활동',      color: '#16A34A', bg: '#DCFCE7', clause: '§8.5' },
-}
+function lsCount(k) { try { return (JSON.parse(localStorage.getItem(k) || '[]') || []).length } catch { return 0 } }
 
-// 통계적 기법
-const STAT_METHODS = [
-  'SPC (통계적 공정 관리)', 'AQL 샘플링', '관리도 (Control Chart)',
-  '산점도 (Scatter Diagram)', '파레토 분석', '히스토그램', 'Cpk/Ppk 공정 능력',
-  '트렌드 분석', '기초 통계 (평균·표준편차)', 'N/A (해당 없음)',
+// §8.1이 요구하는 9개 측정 영역 — 각 영역은 이미 전담 허브에서 실제 데이터로 관리되므로
+// 여기서는 수기 중복 등록 없이 해당 허브로 안내하고 실시간 건수만 보여준다.
+const MEASURE_AREAS = [
+  { key: 'product',     label: '제품 적합성',    clause: '§8.2.3/8.2.4', color: '#2563EB', bg: '#DBEAFE', path: '/inspection',      pathLabel: '공정·최종 검사', countKey: 'qualytree.inspections' },
+  { key: 'process',     label: '공정 모니터링',  clause: '§8.2.3',       color: '#7C3AED', bg: '#EDE9FE', path: '/manufacturing',   pathLabel: '생산 현황' },
+  { key: 'customer',    label: '고객 만족',      clause: '§8.2.1',       color: '#059669', bg: '#D1FAE5', path: '/complaints',      pathLabel: '고객불만 관리', countKey: 'qualytree.complaints' },
+  { key: 'audit',       label: '내부 감사',      clause: '§8.2.2',       color: '#D97706', bg: '#FEF3C7', path: '/audit',           pathLabel: '내부감사', countKey: 'qualytree.audits' },
+  { key: 'qms',         label: 'QMS 성과',       clause: '§8.2/8.4',     color: '#DC2626', bg: '#FEE2E2', path: '/kpi-dashboard',   pathLabel: '품질 KPI', countKeys: ['qualytree.ncrs', 'qualytree.capas'] },
+  { key: 'supplier',    label: '공급업체 성과',  clause: '§7.4',         color: '#0891B2', bg: '#CFFAFE', path: '/supplier',        pathLabel: '공급업체 관리', countKey: 'qualytree.supplier_evals' },
+  { key: 'equipment',   label: '설비·교정',      clause: '§7.6',         color: '#6366F1', bg: '#E0E7FF', path: '/calibration',     pathLabel: '교정관리', countKey: 'qualytree.calibrations' },
+  { key: 'risk',        label: '위험 관리',      clause: 'ISO 14971',    color: '#EA580C', bg: '#FFEDD5', path: '/risk',            pathLabel: '리스크관리', countKey: 'qualytree.risks' },
+  { key: 'improvement', label: '개선 활동',      clause: '§8.5',         color: '#16A34A', bg: '#DCFCE7', path: '/improvement',     pathLabel: 'CAPA·개선', countKey: 'qualytree.improvements' },
 ]
 
-// 빈도
-const FREQUENCIES = ['매일', '매주', '매월', '분기별', '반기별', '연 1회', '배치별', '수시', '기타']
-
 function today() { return new Date().toISOString().slice(0, 10) }
-function genId()  { return `MP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 // §8.1 계획 문서 기본값
 const DEFAULT_PLAN = {
   revision: 'Rev.0', issueDate: '', approvedBy: '', reviewDate: '',
-  scope: '',          // 계획 적용 범위
-  objectives: '',     // 측정·분석·개선의 목적
-  improvementApproach: '', // 개선 접근 방법 (§8.5.1)
-  statisticalRationale: '', // 통계적 기법 선택 근거
+  scope: '',
+  objectives: '',
+  improvementApproach: '',
+  statisticalRationale: '',
   revisionHistory: [],
-}
-
-const EMPTY_ITEM = {
-  seq: 1,
-  category: 'product',
-  measurementObject: '',   // 측정 대상
-  indicator: '',           // 측정 지표/KPI
-  method: '',              // 측정 방법
-  statisticalMethod: 'N/A (해당 없음)',
-  frequency: '매월',
-  responsible: '',
-  recordLocation: '',      // 기록 위치 (어떤 허브)
-  isoClause: '',           // ISO 13485 조항
-  linkedHubPath: '',       // 연결 허브 경로
-  acceptanceCriteria: '',  // 합격/목표 기준
-  notes: '',
 }
 
 export default function MeasurementPlanHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const nav = useNavigate()
 
-  // 계획 문서 (단일)
   const [plan, setPlan] = useState(() => {
     try { return { ...DEFAULT_PLAN, ...JSON.parse(localStorage.getItem(LS_KEY_PLAN) || '{}') } } catch { return DEFAULT_PLAN }
   })
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
-
-  // 측정 항목 목록
-  const [items, setItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_KEY_ITEMS) || '[]') } catch { return [] }
-  })
-  const [showItemForm, setShowItemForm] = useState(false)
-  const [itemForm, setItemForm] = useState(EMPTY_ITEM)
-  const [editItemId, setEditItemId] = useState(null)
-  const [filterCat, setFilterCat] = useState('all')
-
-  const [tab, setTab] = useState('plan') // plan | items | analysis
+  const [tab, setTab] = useState('plan') // plan | areas
 
   function savePlan() {
     const updated = { ...draft }
@@ -98,69 +71,30 @@ export default function MeasurementPlanHub() {
   function cancelEdit() { setEditing(false); setDraft(null) }
   const D = (k, v) => setDraft(d => ({ ...d, [k]: v }))
 
-  function saveItems(list) { setItems(list); localStorage.setItem(LS_KEY_ITEMS, JSON.stringify(list)) }
+  // 실제 각 영역 허브에 기록이 존재하는지 실시간 카운트
+  const areaCounts = useMemo(() => MEASURE_AREAS.map(a => {
+    let count = null
+    if (a.countKey) count = lsCount(a.countKey)
+    else if (a.countKeys) count = a.countKeys.reduce((s, k) => s + lsCount(k), 0)
+    return { ...a, count }
+  }), [])
 
-  function submitItem() {
-    if (!itemForm.measurementObject.trim()) return alert('측정 대상을 입력하세요.')
-    let updated
-    if (editItemId) {
-      updated = items.map(it => it.id === editItemId ? { ...it, ...itemForm } : it)
-    } else {
-      const seq = items.length + 1
-      updated = [...items, { id: genId(), createdAt: today(), ...itemForm, seq }]
-    }
-    saveItems(updated)
-    setShowItemForm(false); setItemForm(EMPTY_ITEM); setEditItemId(null)
-  }
-
-  function deleteItem(id) {
-    if (!confirm('삭제하시겠습니까?')) return
-    saveItems(items.filter(it => it.id !== id).map((it, i) => ({ ...it, seq: i + 1 })))
-  }
-
-  function moveItem(id, dir) {
-    const arr = [...items]
-    const idx = arr.findIndex(it => it.id === id)
-    if (dir === 'up' && idx > 0) [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]
-    if (dir === 'down' && idx < arr.length - 1) [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]]
-    saveItems(arr.map((it, i) => ({ ...it, seq: i + 1 })))
-  }
-
-  const IF = (k, v) => setItemForm(f => ({ ...f, [k]: v }))
-
-  const filteredItems = useMemo(() =>
-    items.filter(it => filterCat === 'all' || it.category === filterCat),
-    [items, filterCat])
-
-  // 완성도
+  // 완성도 — 계획 문서 서술 항목 + 실제 데이터가 존재하는 측정 영역 비율
   const completeness = useMemo(() => {
-    const coveredCats = new Set(items.map(it => it.category))
+    const areasWithData = areaCounts.filter(a => a.count === null || a.count > 0).length
     const checks = [
       { label: '계획 범위 기술', ok: !!plan.scope },
       { label: '측정 목적 기술', ok: !!plan.objectives },
       { label: '개선 접근 방법', ok: !!plan.improvementApproach },
-      { label: '제품 적합성 측정 항목', ok: coveredCats.has('product') },
-      { label: '고객 만족 측정 항목', ok: coveredCats.has('customer') },
-      { label: '내부 감사 항목', ok: coveredCats.has('audit') },
-      { label: 'QMS 성과 측정 항목', ok: coveredCats.has('qms') },
-      { label: '총 측정 항목 ≥ 5개', ok: items.length >= 5 },
+      { label: `측정 영역 ${areaCounts.length}개 중 데이터 존재`, ok: areasWithData === areaCounts.length, detail: `${areasWithData}/${areaCounts.length}` },
     ]
     const done = checks.filter(c => c.ok).length
     return { checks, done, total: checks.length, pct: Math.round((done / checks.length) * 100) }
-  }, [plan, items])
-
-  const analysis = useMemo(() => {
-    const byCat = {}
-    Object.keys(MEASURE_CATEGORIES).forEach(k => { byCat[k] = items.filter(it => it.category === k).length })
-    const byFreq = {}
-    FREQUENCIES.forEach(f => { byFreq[f] = items.filter(it => it.frequency === f).length })
-    const missingCriteria = items.filter(it => !it.acceptanceCriteria)
-    return { byCat, byFreq, missingCriteria }
-  }, [items])
+  }, [plan, areaCounts])
 
   return (
     <AppLayout user={user} title="측정·분석·개선 계획" subtitle="ISO 13485 §8.1 — 측정·모니터링·분석·개선 활동의 계획">
-      <div className="px-6 lg:px-8 py-6 max-w-[1600px] mx-auto">
+      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
         {/* 완성도 배지 */}
         <div className="flex items-center gap-2 mb-4 flex-wrap">
@@ -169,17 +103,13 @@ export default function MeasurementPlanHub() {
             {completeness.pct >= 80 ? <CheckCircle2 size={13} /> : <AlertTriangle size={13} />}
             §8.1 이행 {completeness.pct}% ({completeness.done}/{completeness.total})
           </div>
-          {completeness.checks.filter(c => !c.ok).slice(0, 2).map(c => (
-            <span key={c.label} className="px-2 py-1 rounded-lg text-[11px]" style={{ background: '#FEE2E2', color: '#DC2626' }}>미완: {c.label}</span>
-          ))}
         </div>
 
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'plan',     label: '§8.1 계획 문서' },
-            { key: 'items',    label: `측정 항목 (${items.length})` },
-            { key: 'analysis', label: '현황 분석' },
+            { key: 'plan',  label: '§8.1 계획 문서' },
+            { key: 'areas', label: `측정 영역 (${MEASURE_AREAS.length})` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -197,6 +127,17 @@ export default function MeasurementPlanHub() {
         {/* ── 계획 문서 탭 ── */}
         {tab === 'plan' && (
           <div className="space-y-4">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+              <Eye size={14} style={{ color: '#1E40AF' }} />
+              <span className="text-[12.5px] font-semibold" style={{ color: '#1E40AF' }}>
+                본 계획 문서는 열람 전용이며, 관리자만 수정할 수 있습니다. 배포용 공식 절차서는 문서관리에서 관리하세요.
+              </span>
+              <button onClick={() => nav('/document-control')} className="flex items-center gap-1 ml-auto text-[12px] font-bold px-2.5 py-1 rounded-lg"
+                style={{ background: '#1E40AF', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                <ExternalLink size={12} /> 문서관리로 이동
+              </button>
+            </div>
+
             {canEdit && !editing && (
               <div className="flex justify-end">
                 <button onClick={startEdit} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
@@ -267,221 +208,39 @@ export default function MeasurementPlanHub() {
           </div>
         )}
 
-        {/* ── 측정 항목 탭 ── */}
-        {tab === 'items' && (
+        {/* ── 측정 영역 탭 (읽기 전용 색인) ── */}
+        {tab === 'areas' && (
           <div>
-            <div className="flex gap-2 mb-4 flex-wrap items-center">
-              <select value={filterCat} onChange={e => setFilterCat(e.target.value)}
-                className="px-3 py-1.5 rounded-xl text-[13px]"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">전체 카테고리</option>
-                {Object.entries(MEASURE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-              {canEdit && (
-                <button onClick={() => { setItemForm({ ...EMPTY_ITEM, seq: items.length + 1 }); setEditItemId(null); setShowItemForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
-                  style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 측정 항목 추가
-                </button>
-              )}
+            <div className="mb-4 p-3 rounded-xl text-[12.5px]" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+              <span style={{ color: '#1E40AF' }}>
+                §8.1이 요구하는 9개 측정 영역은 각각 전담 허브에서 실제 데이터로 관리됩니다. 이 화면에서 별도로 등록하지 않고, 아래에서 해당 허브로 바로 이동해 확인·기록하세요.
+              </span>
             </div>
-
-            {showItemForm && (
-              <ItemForm form={itemForm} IF={IF} onSave={submitItem}
-                onCancel={() => { setShowItemForm(false); setItemForm(EMPTY_ITEM); setEditItemId(null) }}
-                isEdit={!!editItemId} />
-            )}
-
-            {/* 테이블 */}
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
-              <table className="w-full text-[12px]">
-                <thead>
-                  <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['#', '카테고리', '측정 대상', '지표/KPI', '방법', '통계 기법', '빈도', '담당', '기준', ''].map(h => (
-                      <th key={h} className="px-2 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.length === 0 && (
-                    <tr><td colSpan={10} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>측정 항목을 추가하세요.</td></tr>
-                  )}
-                  {filteredItems.map((it, idx) => {
-                    const cat = MEASURE_CATEGORIES[it.category] || MEASURE_CATEGORIES.product
-                    const missingCrit = !it.acceptanceCriteria
-                    return (
-                      <tr key={it.id} style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
-                        <td className="px-2 py-2 font-bold text-center" style={{ color: 'var(--ink-soft)' }}>{it.seq}</td>
-                        <td className="px-2 py-2">
-                          <span className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ background: cat.bg, color: cat.color }}>{cat.label}</span>
-                          {it.isoClause && <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{it.isoClause}</div>}
-                        </td>
-                        <td className="px-2 py-2">
-                          <div className="font-semibold" style={{ color: 'var(--ink)' }}>{it.measurementObject}</div>
-                          {it.recordLocation && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>기록: {it.recordLocation}</div>}
-                        </td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{it.indicator || '-'}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{it.method || '-'}</td>
-                        <td className="px-2 py-2 text-[10.5px]" style={{ color: 'var(--ink-soft)' }}>{it.statisticalMethod}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{it.frequency}</td>
-                        <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{it.responsible || '-'}</td>
-                        <td className="px-2 py-2">
-                          {missingCrit
-                            ? <span className="text-[10.5px] text-red-500">⚠ 미설정</span>
-                            : <span className="text-[11px]" style={{ color: 'var(--ink)' }}>{it.acceptanceCriteria}</span>}
-                        </td>
-                        <td className="px-2 py-2">
-                          {canEdit && (
-                            <div className="flex gap-1">
-                              <button onClick={() => moveItem(it.id, 'up')} disabled={idx === 0} className="p-0.5 rounded"
-                                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer', opacity: idx === 0 ? 0.3 : 1 }}>
-                                <ChevronUp size={10} />
-                              </button>
-                              <button onClick={() => moveItem(it.id, 'down')} disabled={idx === filteredItems.length - 1} className="p-0.5 rounded"
-                                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer', opacity: idx === filteredItems.length - 1 ? 0.3 : 1 }}>
-                                <ChevronDown size={10} />
-                              </button>
-                              <button onClick={() => { setItemForm({ ...EMPTY_ITEM, ...it }); setEditItemId(it.id); setShowItemForm(true) }}
-                                className="p-1 rounded" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-                                <Edit2 size={10} style={{ color: 'var(--ink-soft)' }} />
-                              </button>
-                              <button onClick={() => deleteItem(it.id)} className="p-1 rounded"
-                                style={{ background: '#FEE2E2', border: 'none', cursor: 'pointer' }}>
-                                <Trash2 size={10} style={{ color: '#DC2626' }} />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── 분석 탭 ── */}
-        {tab === 'analysis' && (
-          <div className="space-y-5">
-            {/* 완성도 */}
-            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>§8.1 이행 완성도</div>
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-1 h-2.5 rounded-full" style={{ background: 'var(--bg-soft)' }}>
-                  <div className="h-2.5 rounded-full" style={{ width: `${completeness.pct}%`, background: completeness.pct >= 80 ? 'var(--moss)' : '#F59E0B' }} />
-                </div>
-                <span className="font-bold" style={{ color: 'var(--moss)' }}>{completeness.pct}%</span>
-              </div>
-              {completeness.checks.map(c => (
-                <div key={c.label} className="flex items-center gap-2 py-0.5">
-                  <span style={{ color: c.ok ? '#059669' : '#DC2626', fontSize: 13 }}>{c.ok ? '✓' : '✗'}</span>
-                  <span className="text-[12.5px]" style={{ color: 'var(--ink)' }}>{c.label}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* 카테고리별 */}
-            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>카테고리별 측정 항목 ({items.length}개 총)</div>
-              {Object.entries(MEASURE_CATEGORIES).map(([k, v]) => (
-                <div key={k} className="flex items-center gap-3 mb-2">
-                  <span className="text-[11.5px] w-24 shrink-0" style={{ color: 'var(--ink-soft)' }}>{v.label}</span>
-                  <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
-                    <div className="h-2 rounded-full" style={{
-                      width: items.length ? `${((analysis.byCat[k] || 0) / items.length) * 100}%` : '0%',
-                      background: v.color,
-                    }} />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {areaCounts.map(a => (
+                <div key={a.key} onClick={() => nav(a.path)} className="p-4 rounded-2xl cursor-pointer transition"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = a.color }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--line)' }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: a.bg, color: a.color }}>{a.clause}</span>
+                    {a.count !== null && (
+                      <span className="text-[11px] font-bold" style={{ color: a.count > 0 ? '#059669' : '#DC2626' }}>
+                        {a.count > 0 ? `${a.count}건 기록됨` : '기록 없음'}
+                      </span>
+                    )}
                   </div>
-                  <span className="text-[11.5px] font-bold w-5 text-right" style={{ color: 'var(--ink)' }}>{analysis.byCat[k] || 0}</span>
-                  <span className="text-[10.5px] w-16" style={{ color: 'var(--ink-faint)' }}>{v.clause}</span>
+                  <div className="text-[14px] font-bold mb-1" style={{ color: 'var(--ink)' }}>{a.label}</div>
+                  <div className="flex items-center gap-1 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
+                    <ExternalLink size={11} /> {a.pathLabel}로 이동
+                  </div>
                 </div>
               ))}
-            </div>
-
-            {/* 미설정 목표 기준 경고 */}
-            {analysis.missingCriteria.length > 0 && (
-              <div className="p-4 rounded-2xl" style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
-                <div className="text-[13px] font-bold mb-1" style={{ color: '#92400E' }}>⚠ 합격/목표 기준 미설정 항목 ({analysis.missingCriteria.length}개)</div>
-                {analysis.missingCriteria.map(it => {
-                  const cat = MEASURE_CATEGORIES[it.category] || {}
-                  return (
-                    <div key={it.id} className="text-[12px]" style={{ color: '#92400E' }}>
-                      {it.seq}. {it.measurementObject} ({cat.label})
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* 빈도별 분포 */}
-            <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>측정 빈도 분포</div>
-              <div className="flex flex-wrap gap-2">
-                {FREQUENCIES.filter(f => analysis.byFreq[f] > 0).map(f => (
-                  <span key={f} className="px-3 py-1.5 rounded-xl text-[12px] font-semibold"
-                    style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>
-                    {f}: <strong>{analysis.byFreq[f]}</strong>건
-                  </span>
-                ))}
-              </div>
             </div>
           </div>
         )}
       </div>
     </AppLayout>
-  )
-}
-
-// ── 측정 항목 등록 폼 ─────────────────────────────────────────
-function ItemForm({ form, IF, onSave, onCancel, isEdit }) {
-  return (
-    <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '측정 항목 수정' : '측정 항목 추가'}</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>카테고리</label>
-          <select value={form.category} onChange={e => IF('category', e.target.value)}
-            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-            {Object.entries(MEASURE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-        </div>
-        <SF label="측정 대상 *" value={form.measurementObject} onChange={v => IF('measurementObject', v)} placeholder="제품 치수, 고객 만족도..." />
-        <SF label="측정 지표/KPI" value={form.indicator} onChange={v => IF('indicator', v)} placeholder="불합격률, 점수, 건수..." />
-        <SF label="측정 방법" value={form.method} onChange={v => IF('method', v)} placeholder="육안 검사, 설문, 기록 검토..." />
-        <div>
-          <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>통계적 기법</label>
-          <select value={form.statisticalMethod} onChange={e => IF('statisticalMethod', e.target.value)}
-            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-            {STAT_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>빈도</label>
-          <select value={form.frequency} onChange={e => IF('frequency', e.target.value)}
-            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-            {FREQUENCIES.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
-        <SF label="담당자" value={form.responsible} onChange={v => IF('responsible', v)} />
-        <SF label="기록 위치 (허브명)" value={form.recordLocation} onChange={v => IF('recordLocation', v)} placeholder="검사 관리 허브, KPI 대시보드..." />
-        <SF label="ISO 13485 조항" value={form.isoClause} onChange={v => IF('isoClause', v)} placeholder="§8.2.3, §7.4.3..." />
-        <SF label="목표/합격 기준" value={form.acceptanceCriteria} onChange={v => IF('acceptanceCriteria', v)} placeholder="불합격률 ≤ 1%, 점수 ≥ 85점..." />
-        <SF label="연결 허브 경로" value={form.linkedHubPath} onChange={v => IF('linkedHubPath', v)} placeholder="/inspection, /quality-dashboard..." />
-      </div>
-      <div className="flex gap-2">
-        <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
-          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
-        </button>
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
-      </div>
-    </div>
   )
 }
 
@@ -515,17 +274,6 @@ function PF({ label, value, onChange, editing, type = 'text', multiline, rows = 
           ? <p className="text-[13px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{value}</p>
           : <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{placeholder || '—'}</p>
       )}
-    </div>
-  )
-}
-
-function SF({ label, value, onChange, placeholder }) {
-  return (
-    <div>
-      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
     </div>
   )
 }
