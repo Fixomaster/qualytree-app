@@ -366,7 +366,7 @@ function CustomersView({ customers, setCustomers }) {
 }
 
 /* ─── 수주 관리 ─── */
-function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdReqs, onNavigate, setQuotes }) {
+function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdReqs, onNavigate, setQuotes, quotes }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [fulfillMsg, setFulfillMsg] = useState(null)
@@ -534,14 +534,29 @@ function OrdersView({ orders, setOrders, customers, openId, deliveries, setProdR
       </div>
       {modal==='form' && (
         <Modal title={edit?'수주 수정':'수주 등록'} onClose={()=>{setModal(null);setEdit(null)}} wide>
-          <OrderForm initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
+          <OrderForm initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts} quotes={quotes}/>
         </Modal>
       )}
     </div>
   )
 }
-function OrderForm({ initial, customers, onSave, onCancel, statusOpts }) {
+function OrderForm({ initial, customers, onSave, onCancel, statusOpts, quotes }) {
   const [orderableModels] = useState(() => loadOrderableModels())
+  // 받아둔 견적(아직 수주로 전환되지 않은 것)에서 불러와 자동 입력 — 수주를 견적 전환이 아니라
+  // 직접 등록하면서도, 이미 작성해둔 견적 내용을 재사용하고 싶을 때 사용한다.
+  const availableQuotes = (quotes || []).filter(q => !q.linkedOrderId)
+  const applyQuote = (quoteId) => {
+    const q = (quotes || []).find(x => x.id === quoteId)
+    if (!q) return
+    sf(p => ({
+      ...p,
+      customer: q.customer,
+      quoteRef: q.id,
+      lineItems: (q.lineItems && q.lineItems.length)
+        ? q.lineItems.map(li => ({ ...li }))
+        : [{ name: q.items || '', qty: (q.qty || '').replace('EA','') || '', price: '' }],
+    }))
+  }
   const legacyLine = () => {
     if (!initial.items) return [{ name:'', qty:'', price:'' }]
     const qty = parseFloat(initial.qty) || ''
@@ -1818,7 +1833,7 @@ export default function SalesHub() {
     home: <SalesHome customers={customers} orders={orders}
                      deliveries={deliveries} prodReqs={prodReqs} onNavigate={setView}/>,
     customers: <CustomersView customers={customers} setCustomers={setCustomers}/>,
-    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView} setQuotes={setQuotes}/>,
+    orders: <OrdersView orders={orders} setOrders={setOrders} customers={customers} openId={editId} deliveries={deliveries} setProdReqs={setProdReqs} onNavigate={setView} setQuotes={setQuotes} quotes={quotes}/>,
     quotes: <QuotesView quotes={quotes} setQuotes={setQuotes} customers={customers} orders={orders} setOrders={setOrders} onNavigate={setView}/>,
     delivery: <DeliveryView deliveries={deliveries} setDeliveries={setDeliveries} orders={orders} openId={editId}/>,
     performance: <PerformanceView orders={orders} deliveries={deliveries}/>,
