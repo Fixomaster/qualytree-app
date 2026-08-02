@@ -4,7 +4,7 @@
 // 구역 허용범위 기준으로 이탈 판정·분석해 보여주는 품질 열람 화면이다. (구역 자체의 허용범위 설정은
 // 품질에서 계속 관리한다.)
 import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Trash2, X, Edit3, ChevronDown, ChevronUp,
   Thermometer, Droplets, Wind, Activity, AlertTriangle,
@@ -50,9 +50,11 @@ const emptyZone = () => ({
 export default function WorkEnvHub() {
   const user = auth.current()
   const nav = useNavigate()
+  const [searchParams] = useSearchParams()
+  const initialTab = ['logs','zones','analysis'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'logs'
   const [logs, setLogs]   = useState(() => getMergedEnvLogs())
   const [zones, setZones] = useState(() => lsR(LS_ZONE))
-  const [tab, setTab]     = useState('logs')
+  const [tab, setTab]     = useState(initialTab)
   const [search, setSearch]         = useState('')
   const [zoneFilter, setZoneFilter] = useState('all')
   const [deviOnly, setDeviOnly]     = useState(false)

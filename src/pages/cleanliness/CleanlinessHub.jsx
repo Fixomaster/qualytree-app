@@ -1,7 +1,7 @@
 // src/pages/cleanliness/CleanlinessHub.jsx
 // ISO 13485 §7.5.2 — 청결 및 오염 관리
 import React, { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, AlertTriangle,
   Wind, Shield, FlaskConical, ClipboardList, BarChart2, Printer, X, ExternalLink,
@@ -152,7 +152,9 @@ export default function CleanlinessHub() {
     try { return { ...DEFAULT_PLAN, ...JSON.parse(localStorage.getItem(LS_PLAN) || '{}') } } catch { return DEFAULT_PLAN }
   })
 
-  const [tab, setTab] = useState('specs')
+  const [searchParams] = useSearchParams()
+  const initialTab = ['specs','records','plan','analysis'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'specs'
+  const [tab, setTab] = useState(initialTab)
   const [showRecForm, setShowRecForm] = useState(false)
   const [recForm, setRecForm] = useState(EMPTY_RECORD)
   const [editRecId, setEditRecId] = useState(null)
