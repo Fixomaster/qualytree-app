@@ -88,7 +88,7 @@ function getMyTasks(dept) {
       tasks.push({
         id: c.id, type: 'car', urgent: c.severity === 'major',
         label: `CAR · ${c.finding?.slice(0, 40) || c.id}...`,
-        sub: `감사: ${c.auditId || '-'} · 담당: ${c.assignee || '-'}`,
+        sub: `감사: ${c.auditId || '-'} · 요건: §${c.requirement || '-'}`,
         link: `/audit?tab=cars&carId=${c.id}`, color: '#EF4444',
         createdAt: c.createdAt,
       })

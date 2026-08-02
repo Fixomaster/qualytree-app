@@ -1,12 +1,18 @@
 // src/pages/audit/AuditHub.jsx
 // ISO 13485:2016 §8.2.2 내부감사 허브
+//
+// v2 재설계: 체크리스트를 감사 전체에서 공유하는 전역 탭이 아니라, 감사 1건마다 독립적으로
+// 소유하는 데이터로 전환. 감사 등록 시 체크리스트 항목을 선택해 붙이고(감사등록↔체크리스트
+// 연동), "감사 시작" 클릭 시 그 체크리스트를 점검하는 팝업이 뜨며, 항목을 "부적합"으로 표시하면
+// 그 자리에서 바로 CAR(시정조치요청)을 발행한다(관련감사ID·관련요건은 자동 연결 — 수기 입력 없음).
+// 모든 CAR이 종결되어야 감사를 종결할 수 있도록 게이팅한다.
 import React, { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Search, Plus, ChevronRight, CheckCircle2,
   Clock, AlertTriangle, Calendar, Users,
   FileText, BarChart2, ClipboardList, XCircle,
-  ChevronDown, Download, Filter,
+  ChevronDown, Download, Filter, X, Sparkles, Loader2, Lock,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -95,15 +101,9 @@ export default function AuditHub() {
   const [audits, setAudits] = useState(() => loadAudits())
   const [cars, setCARs] = useState(() => loadCARs())
   const [showForm, setShowForm] = useState(false)
-  const [showCARForm, setShowCARForm] = useState(false)
   const [selectedAudit, setSelectedAudit] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
-  const [, forceRefresh] = useState(0)
-
-  const reload = () => {
-    setAudits(loadAudits())
-    setCARs(loadCARs())
-  }
+  const [checklistAuditId, setChecklistAuditId] = useState(highlightAuditId || null)
 
   const stats = useMemo(() => ({
     total: audits.length,
@@ -120,6 +120,31 @@ export default function AuditHub() {
     return arr
   }, [audits, filterStatus])
 
+  const updateAuditChecklist = (auditId, newChecklist) => {
+    const updated = audits.map(a => a.id === auditId ? { ...a, checklist: newChecklist } : a)
+    saveAudits(updated)
+    setAudits(updated)
+  }
+
+  const issueCarFromChecklist = ({ auditId, iso, itemLabel, severity, finding }) => {
+    const car = {
+      id: genId('CAR'),
+      auditId,
+      requirement: iso,
+      finding: finding || `${itemLabel} — 체크리스트 부적합`,
+      severity: severity || 'major',
+      status: CAR_STATUS.OPEN,
+      createdAt: new Date().toISOString(),
+      createdBy: user?.name || 'Unknown',
+    }
+    const updated = [...cars, car]
+    saveCARs(updated)
+    setCARs(updated)
+    return car.id
+  }
+
+  const checklistAudit = audits.find(a => a.id === checklistAuditId) || null
+
   return (
     <AppLayout user={user} title="내부감사" subtitle="ISO 13485 §8.2.2 · 내부감사 계획·실시·시정조치">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
@@ -127,14 +152,13 @@ export default function AuditHub() {
         {/* 배너 */}
         <HubBanner
           title="내부감사"
-          subtitle="ISO 13485 §8.2.2 · 내부감사 계획 · 실시 · 시정조치"
+          subtitle="감사 등록 시 체크리스트가 함께 생성되고, 감사 시작 시 점검 팝업이 뜹니다 · 부적합 항목은 그 자리에서 CAR이 자동 발행됩니다"
           icon={ClipboardList}
           color="#6366F1"
           quickActions={[
             { label: '감사 등록', icon: Plus, onClick: () => { setTab('audits'); setShowForm(true) }, primary: true },
-            { label: 'CAR 발행', icon: AlertTriangle, onClick: () => { setTab('cars'); setShowCARForm(true) } },
           ]}
-          workflow={['감사 계획수립', '감사팀 구성', '감사 실시', 'CAR 발행', '시정조치', '종결']}
+          workflow={['감사 계획수립(체크리스트 선택)', '감사 시작(체크리스트 점검)', '부적합→CAR 자동발행', '시정조치 완료', '감사 종결']}
         />
 
         {/* KPI 카드 */}
@@ -165,12 +189,11 @@ export default function AuditHub() {
           ))}
         </div>
 
-        {/* 탭 */}
+        {/* 탭 (체크리스트 탭 삭제 — 감사별로 통합됨) */}
         <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
           {[
             { key: 'audits', label: '감사 계획·실시', icon: Search },
-            { key: 'cars', label: '시정조치 요청 (CAR)', icon: AlertTriangle },
-            { key: 'checklist', label: '체크리스트', icon: ClipboardList },
+            { key: 'cars', label: 'CAR 현황', icon: AlertTriangle },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -197,6 +220,7 @@ export default function AuditHub() {
         {tab === 'audits' && (
           <AuditsTab
             audits={filteredAudits}
+            cars={cars}
             filterStatus={filterStatus}
             setFilterStatus={setFilterStatus}
             showForm={showForm}
@@ -205,15 +229,20 @@ export default function AuditHub() {
             setSelectedAudit={setSelectedAudit}
             highlightAuditId={highlightAuditId}
             onSave={(form) => {
+              const { checklistIso, ...rest } = form
               const updated = selectedAudit
-                ? audits.map(a => a.id === selectedAudit.id ? { ...a, ...form, updatedAt: new Date().toISOString() } : a)
+                ? audits.map(a => a.id === selectedAudit.id ? { ...a, ...rest, updatedAt: new Date().toISOString() } : a)
                 : [...audits, {
-                    ...form,
+                    ...rest,
                     id: genId('AUD'),
                     status: AUDIT_STATUS.PLANNED,
                     createdAt: new Date().toISOString(),
                     createdBy: user?.name || 'Unknown',
                     findings: [],
+                    checklist: (checklistIso || []).map((iso) => {
+                      const tpl = AUDIT_CHECKLIST.find((c) => c.iso === iso)
+                      return { iso, item: tpl?.item || iso, detail: '', result: 'pending', note: '', carId: null }
+                    }),
                   }]
               saveAudits(updated)
               setAudits(updated)
@@ -225,27 +254,14 @@ export default function AuditHub() {
               saveAudits(updated)
               setAudits(updated)
             }}
+            onOpenChecklist={(id) => setChecklistAuditId(id)}
           />
         )}
 
         {tab === 'cars' && (
           <CARsTab
             cars={cars}
-            showCARForm={showCARForm}
-            setShowCARForm={setShowCARForm}
             highlightCarId={highlightCarId}
-            onSave={(form) => {
-              const updated = [...cars, {
-                ...form,
-                id: genId('CAR'),
-                status: CAR_STATUS.OPEN,
-                createdAt: new Date().toISOString(),
-                createdBy: user?.name || 'Unknown',
-              }]
-              saveCARs(updated)
-              setCARs(updated)
-              setShowCARForm(false)
-            }}
             onStatusChange={(id, status) => {
               const updated = cars.map(c => c.id === id ? { ...c, status, updatedAt: new Date().toISOString() } : c)
               saveCARs(updated)
@@ -253,29 +269,46 @@ export default function AuditHub() {
             }}
           />
         )}
-
-        {tab === 'checklist' && <ChecklistTab />}
       </div>
+
+      {checklistAudit && (
+        <ChecklistPopup
+          audit={checklistAudit}
+          cars={cars}
+          onClose={() => setChecklistAuditId(null)}
+          onUpdateChecklist={updateAuditChecklist}
+          onIssueCar={issueCarFromChecklist}
+        />
+      )}
     </AppLayout>
   )
 }
 
 /* ── 감사 목록 탭 ── */
-function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, highlightAuditId, onSave, onStatusChange }) {
+function AuditsTab({ audits, cars, filterStatus, setFilterStatus, showForm, setShowForm, selectedAudit, setSelectedAudit, highlightAuditId, onSave, onStatusChange, onOpenChecklist }) {
   const [form, setForm] = useState({
     title: '', scope: '', auditDate: '', auditor: '', auditee: '',
     type: 'internal', standard: 'ISO 13485', auditType: '정기', auditYear: String(new Date().getFullYear()),
+    checklistIso: AUDIT_CHECKLIST.map((c) => c.iso),
   })
 
   const startEdit = (audit) => {
     setSelectedAudit(audit)
-    setForm({ title: audit.title, scope: audit.scope || '', auditDate: audit.auditDate || '', auditor: audit.auditor || '', auditee: audit.auditee || '', type: audit.type || 'internal', standard: audit.standard || 'ISO 13485', auditType: audit.auditType || '정기', auditYear: audit.auditYear || String(new Date().getFullYear()) })
+    setForm({
+      title: audit.title, scope: audit.scope || '', auditDate: audit.auditDate || '', auditor: audit.auditor || '',
+      auditee: audit.auditee || '', type: audit.type || 'internal', standard: audit.standard || 'ISO 13485',
+      auditType: audit.auditType || '정기', auditYear: audit.auditYear || String(new Date().getFullYear()),
+      checklistIso: AUDIT_CHECKLIST.map((c) => c.iso),
+    })
     setShowForm(true)
   }
 
   const resetForm = () => {
     setSelectedAudit(null)
-    setForm({ title: '', scope: '', auditDate: '', auditor: '', auditee: '', type: 'internal', standard: 'ISO 13485', auditType: '정기', auditYear: String(new Date().getFullYear()) })
+    setForm({
+      title: '', scope: '', auditDate: '', auditor: '', auditee: '', type: 'internal', standard: 'ISO 13485',
+      auditType: '정기', auditYear: String(new Date().getFullYear()), checklistIso: AUDIT_CHECKLIST.map((c) => c.iso),
+    })
   }
 
   return (
@@ -329,9 +362,12 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
             <AuditCard
               key={audit.id}
               audit={audit}
+              cars={cars}
               highlight={highlightAuditId === audit.id}
               onEdit={() => startEdit(audit)}
               onStatusChange={(status) => onStatusChange(audit.id, status)}
+              onOpenChecklist={() => onOpenChecklist(audit.id)}
+              onStartAudit={() => { onStatusChange(audit.id, AUDIT_STATUS.IN_PROGRESS); onOpenChecklist(audit.id) }}
             />
           ))}
         </div>
@@ -340,10 +376,14 @@ function AuditsTab({ audits, filterStatus, setFilterStatus, showForm, setShowFor
   )
 }
 
-function AuditCard({ audit, highlight, onEdit, onStatusChange }) {
+function AuditCard({ audit, cars, highlight, onEdit, onStatusChange, onOpenChecklist, onStartAudit }) {
   const [open, setOpen] = useState(() => !!highlight)
   const cardRef = React.useRef(null)
   const statusColor = AUDIT_STATUS_COLOR[audit.status] || '#6B7280'
+  const relatedCars = cars.filter((c) => c.auditId === audit.id)
+  const openCars = relatedCars.filter((c) => c.status !== CAR_STATUS.CLOSED)
+  const checklist = audit.checklist || []
+  const checklistDone = checklist.filter((it) => it.result && it.result !== 'pending').length
 
   React.useEffect(() => {
     if (highlight && cardRef.current) {
@@ -368,6 +408,7 @@ function AuditCard({ audit, highlight, onEdit, onStatusChange }) {
               {audit.auditDate && <span>📅 {audit.auditDate}</span>}
               {audit.auditor && <span>👤 {audit.auditor}</span>}
               {audit.scope && <span className="truncate max-w-[200px]">📋 {audit.scope}</span>}
+              {checklist.length > 0 && <span>✅ 체크리스트 {checklistDone}/{checklist.length}</span>}
             </div>
           </div>
         </div>
@@ -386,24 +427,38 @@ function AuditCard({ audit, highlight, onEdit, onStatusChange }) {
         <div className="px-4 pb-4 border-t" style={{ borderColor: 'var(--line)' }}>
           <div className="pt-4 flex flex-wrap gap-2">
             {audit.status === AUDIT_STATUS.PLANNED && (
-              <ActionBtn color="#F59E0B" onClick={() => onStatusChange(AUDIT_STATUS.IN_PROGRESS)}>감사 시작</ActionBtn>
+              <ActionBtn color="#F59E0B" onClick={onStartAudit}>감사 시작 (체크리스트 열기)</ActionBtn>
             )}
             {audit.status === AUDIT_STATUS.IN_PROGRESS && (
-              <ActionBtn color="#3B82F6" onClick={() => onStatusChange(AUDIT_STATUS.COMPLETED)}>감사 완료</ActionBtn>
+              <>
+                <ActionBtn color="#6366F1" onClick={onOpenChecklist}>체크리스트 보기</ActionBtn>
+                <ActionBtn color="#3B82F6" onClick={() => onStatusChange(AUDIT_STATUS.COMPLETED)}>감사 완료</ActionBtn>
+              </>
             )}
             {audit.status === AUDIT_STATUS.COMPLETED && (
-              <ActionBtn color="#10B981" onClick={() => onStatusChange(AUDIT_STATUS.CLOSED)}>감사 종결</ActionBtn>
+              openCars.length > 0 ? (
+                <span
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+                  style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}
+                >
+                  <Lock size={12} /> 시정조치 대기 중 ({openCars.length}건) — 모두 종결해야 감사 종결 가능
+                </span>
+              ) : (
+                <ActionBtn color="#10B981" onClick={() => onStatusChange(AUDIT_STATUS.CLOSED)}>감사 종결</ActionBtn>
+              )
             )}
             <ActionBtn color="#6B7280" onClick={onEdit}>수정</ActionBtn>
           </div>
-          {audit.findings && audit.findings.length > 0 && (
+          {relatedCars.length > 0 && (
             <div className="mt-3">
-              <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>부적합 사항</div>
-              {audit.findings.map((f, i) => (
-                <div key={i} className="text-[12px] p-2 rounded-lg mb-1" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-                  {f}
-                </div>
-              ))}
+              <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>발행된 CAR ({relatedCars.length}건)</div>
+              <div className="flex flex-wrap gap-1.5">
+                {relatedCars.map((c) => (
+                  <span key={c.id} className="text-[11px] px-2 py-1 rounded-lg" style={{ background: `${CAR_STATUS_COLOR[c.status]}18`, color: CAR_STATUS_COLOR[c.status] }}>
+                    {c.id} · {CAR_STATUS_LABEL[c.status]}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -416,6 +471,12 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
   const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
   const depts = React.useMemo(() => loadOrgDepts(), [])
   const canSubmit = !!form.auditType && !!form.auditee
+  const toggleChecklistIso = (iso) => {
+    setForm((p) => {
+      const has = (p.checklistIso || []).includes(iso)
+      return { ...p, checklistIso: has ? p.checklistIso.filter((x) => x !== iso) : [...(p.checklistIso || []), iso] }
+    })
+  }
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
@@ -457,6 +518,30 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
           </select>
         </FormField>
       </div>
+
+      {!isEdit && (
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <div className="text-[12px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>
+            감사 체크리스트 ({(form.checklistIso || []).length}/{AUDIT_CHECKLIST.length}개 선택됨)
+          </div>
+          <div className="text-[11px] mb-2" style={{ color: 'var(--ink-faint)' }}>
+            이번 감사 범위에 해당하지 않는 항목은 체크 해제하세요. 등록 후 이 체크리스트로 감사를 진행합니다.
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[220px] overflow-y-auto p-1">
+            {AUDIT_CHECKLIST.map((c) => {
+              const checked = (form.checklistIso || []).includes(c.iso)
+              return (
+                <label key={c.iso} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg cursor-pointer text-[12px]" style={{ background: checked ? 'var(--bg-card)' : 'transparent', border: '1px solid ' + (checked ? 'var(--line)' : 'transparent') }}>
+                  <input type="checkbox" checked={checked} onChange={() => toggleChecklistIso(c.iso)} />
+                  <span className="font-mono" style={{ color: 'var(--ink-faint)' }}>§{c.iso}</span>
+                  <span style={{ color: 'var(--ink)' }}>{c.item}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end gap-3 mt-4">
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
         <button
@@ -472,11 +557,183 @@ function AuditForm({ form, setForm, isEdit, onSubmit, onCancel }) {
   )
 }
 
-/* ── CAR 탭 ── */
-function CARsTab({ cars, showCARForm, setShowCARForm, highlightCarId, onSave, onStatusChange }) {
-  const [form, setForm] = useState({ auditId: '', finding: '', requirement: '', assignee: '', dueDate: '', severity: 'major' })
-  const f = (k) => ({ value: form[k], onChange: (e) => setForm(p => ({ ...p, [k]: e.target.value })) })
+/* ── 체크리스트 점검 팝업 (감사별 소유, 감사 시작 시 자동으로 뜸) ── */
+function ChecklistPopup({ audit, cars, onClose, onUpdateChecklist, onIssueCar }) {
+  const [items, setItems] = useState(() => audit.checklist || [])
+  const [aiLoading, setAiLoading] = useState({})
+  const [carDraft, setCarDraft] = useState({})
 
+  const persist = (next) => {
+    setItems(next)
+    onUpdateChecklist(audit.id, next)
+  }
+
+  const setResult = (iso, result) => {
+    const target = items.find((it) => it.iso === iso)
+    const next = items.map((it) => it.iso === iso ? { ...it, result } : it)
+    persist(next)
+    if (result === 'nc' && target && !target.carId) {
+      setCarDraft((d) => ({ ...d, [iso]: { severity: 'major', finding: `${target.item} — 부적합 확인` } }))
+    } else {
+      setCarDraft((d) => { const c = { ...d }; delete c[iso]; return c })
+    }
+  }
+
+  const setDetail = (iso, detail) => persist(items.map((it) => it.iso === iso ? { ...it, detail } : it))
+  const setNote = (iso, note) => persist(items.map((it) => it.iso === iso ? { ...it, note } : it))
+
+  const generateDetail = async (iso, itemLabel) => {
+    setAiLoading((l) => ({ ...l, [iso]: true }))
+    try {
+      const res = await fetch('/api/checklist-detail', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ iso, item: itemLabel, standard: audit.standard }),
+      })
+      const data = await res.json()
+      if (data.ok) setDetail(iso, data.detail)
+      else alert(data.message || 'AI 생성에 실패했습니다.')
+    } catch {
+      alert('AI 생성 중 오류가 발생했습니다.')
+    } finally {
+      setAiLoading((l) => ({ ...l, [iso]: false }))
+    }
+  }
+
+  const issueCar = (iso) => {
+    const it = items.find((x) => x.iso === iso)
+    const draft = carDraft[iso] || {}
+    const carId = onIssueCar({ auditId: audit.id, iso, itemLabel: it.item, severity: draft.severity || 'major', finding: draft.finding || it.item })
+    persist(items.map((x) => x.iso === iso ? { ...x, carId } : x))
+  }
+
+  const doneCount = items.filter((it) => it.result && it.result !== 'pending').length
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }} onClick={onClose}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 800, boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--line)' }}>
+          <div>
+            <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>체크리스트 점검 — {audit.title}</div>
+            <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{doneCount}/{items.length} 항목 점검 완료</div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><X size={20} /></button>
+        </div>
+
+        <div className="px-6 py-4 space-y-3" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+          {items.length === 0 && (
+            <div className="text-[13px] text-center py-8" style={{ color: 'var(--ink-faint)' }}>이 감사에 연결된 체크리스트 항목이 없습니다.</div>
+          )}
+          {items.map((it) => {
+            const linkedCar = it.carId ? cars.find((c) => c.id === it.carId) : null
+            const draft = carDraft[it.iso] || {}
+            return (
+              <div key={it.iso} className="p-3.5 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--ink-faint)' }}>§{it.iso}</span>
+                  <span className="text-[13px] font-medium flex-1" style={{ color: 'var(--ink)' }}>{it.item}</span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { val: 'ok', label: '적합', color: '#10B981' },
+                      { val: 'nc', label: '부적합', color: '#EF4444' },
+                      { val: 'na', label: 'N/A', color: '#6B7280' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        onClick={() => setResult(it.iso, it.result === opt.val ? 'pending' : opt.val)}
+                        className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition"
+                        style={{
+                          background: it.result === opt.val ? opt.color : 'var(--bg-card)',
+                          color: it.result === opt.val ? '#fff' : 'var(--ink-faint)',
+                          border: '1px solid ' + (it.result === opt.val ? opt.color : 'var(--line)'),
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex gap-2 mb-2">
+                  <textarea
+                    value={it.detail || ''}
+                    onChange={(e) => setDetail(it.iso, e.target.value)}
+                    rows={2}
+                    placeholder="상세내용 — 이 조항에서 확인할 절차·기록·인터뷰 포인트를 입력하거나 AI 생성을 사용하세요"
+                    className="flex-1 text-[12px] p-2 rounded-lg"
+                    style={{ border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', resize: 'vertical' }}
+                  />
+                  <button
+                    onClick={() => generateDetail(it.iso, it.item)}
+                    disabled={!!aiLoading[it.iso]}
+                    className="flex items-center gap-1 px-3 rounded-lg text-[11px] font-semibold flex-shrink-0"
+                    style={{ background: '#7C3AED18', color: '#7C3AED', border: '1px solid #7C3AED30', cursor: aiLoading[it.iso] ? 'default' : 'pointer' }}
+                  >
+                    {aiLoading[it.iso] ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    AI 생성
+                  </button>
+                </div>
+
+                <input
+                  value={it.note || ''}
+                  onChange={(e) => setNote(it.iso, e.target.value)}
+                  placeholder="점검 비고 (선택)"
+                  className="w-full text-[12px] p-2 rounded-lg"
+                  style={{ border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)' }}
+                />
+
+                {it.result === 'nc' && (
+                  linkedCar ? (
+                    <div className="mt-2 flex items-center gap-2 text-[12px] px-2.5 py-1.5 rounded-lg" style={{ background: `${CAR_STATUS_COLOR[linkedCar.status]}15`, color: CAR_STATUS_COLOR[linkedCar.status] }}>
+                      <AlertTriangle size={13} /> CAR 발행됨: {linkedCar.id} · {CAR_STATUS_LABEL[linkedCar.status]}
+                    </div>
+                  ) : (
+                    <div className="mt-2 p-2.5 rounded-lg space-y-2" style={{ background: '#FEE2E2', border: '1px solid #FECACA' }}>
+                      <div className="text-[11px] font-semibold" style={{ color: '#991B1B' }}>부적합 — CAR 발행</div>
+                      <select
+                        value={draft.severity || 'major'}
+                        onChange={(e) => setCarDraft((d) => ({ ...d, [it.iso]: { ...d[it.iso], severity: e.target.value } }))}
+                        className="w-full text-[12px] p-1.5 rounded-lg"
+                        style={{ border: '1px solid #FECACA', background: 'var(--bg-card)', color: 'var(--ink)' }}
+                      >
+                        <option value="major">중요 부적합 (Major)</option>
+                        <option value="minor">경미한 부적합 (Minor)</option>
+                        <option value="observation">관찰 사항 (Observation)</option>
+                      </select>
+                      <textarea
+                        value={draft.finding ?? `${it.item} — 부적합 확인`}
+                        onChange={(e) => setCarDraft((d) => ({ ...d, [it.iso]: { ...d[it.iso], finding: e.target.value } }))}
+                        rows={2}
+                        placeholder="부적합 내용을 구체적으로 기술하세요"
+                        className="w-full text-[12px] p-2 rounded-lg"
+                        style={{ border: '1px solid #FECACA', background: 'var(--bg-card)', color: 'var(--ink)', resize: 'vertical' }}
+                      />
+                      <button
+                        onClick={() => issueCar(it.iso)}
+                        className="px-3 py-1.5 rounded-lg text-[11.5px] font-semibold"
+                        style={{ background: '#DC2626', color: '#fff', border: 'none', cursor: 'pointer' }}
+                      >
+                        CAR 발행 (관련감사·관련요건 자동 연결)
+                      </button>
+                    </div>
+                  )
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex justify-end px-6 py-4" style={{ borderTop: '1px solid var(--line)' }}>
+          <button onClick={onClose} className="px-5 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#6366F1', color: '#fff', border: 'none', cursor: 'pointer' }}>닫기</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── CAR 탭 (읽기·상태추적 전용 — 발행은 체크리스트 부적합에서만) ── */
+function CARsTab({ cars, highlightCarId, onStatusChange }) {
   React.useEffect(() => {
     if (!highlightCarId) return
     const el = document.getElementById(`car-${highlightCarId}`)
@@ -485,62 +742,17 @@ function CARsTab({ cars, showCARForm, setShowCARForm, highlightCarId, onSave, on
 
   return (
     <>
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4">
         <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>
-          시정조치 요청 (CAR) — Corrective Action Request
+          시정조치 요청 (CAR) 현황 — Corrective Action Request
         </div>
-        <button
-          onClick={() => setShowCARForm(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
-          style={{ background: '#EF4444', color: '#fff', border: 'none', cursor: 'pointer' }}
-        >
-          <Plus size={15} /> CAR 발행
-        </button>
+        <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>
+          CAR은 감사 체크리스트에서 항목을 "부적합"으로 표시할 때 자동 발행됩니다. 여기서는 진행 상태만 추적합니다.
+        </div>
       </div>
 
-      {showCARForm && (
-        <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>CAR 발행</div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="관련 감사 ID">
-              <input {...f('auditId')} placeholder="예: AUD-2026-12345" className="qt-input" />
-            </FormField>
-            <FormField label="부적합 심각도">
-              <select {...f('severity')} className="qt-input">
-                <option value="major">중요 부적합 (Major)</option>
-                <option value="minor">경미한 부적합 (Minor)</option>
-                <option value="observation">관찰 사항 (Observation)</option>
-              </select>
-            </FormField>
-            <FormField label="부적합 내용 *" colSpan>
-              <textarea {...f('finding')} rows={3} placeholder="부적합 사항을 구체적으로 기술하세요" className="qt-input" style={{ resize: 'vertical' }} />
-            </FormField>
-            <FormField label="관련 요건 (ISO 조항)">
-              <input {...f('requirement')} placeholder="예: ISO 13485 §7.4.1" className="qt-input" />
-            </FormField>
-            <FormField label="담당자">
-              <input {...f('assignee')} placeholder="조치 담당자" className="qt-input" />
-            </FormField>
-            <FormField label="완료 목표일">
-              <input type="date" {...f('dueDate')} className="qt-input" />
-            </FormField>
-          </div>
-          <div className="flex justify-end gap-3 mt-4">
-            <button onClick={() => setShowCARForm(false)} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
-            <button
-              onClick={() => { if (form.finding) onSave(form) }}
-              disabled={!form.finding}
-              className="px-5 py-2 rounded-xl text-[13px] font-semibold"
-              style={{ background: form.finding ? '#EF4444' : 'var(--bg-soft)', color: form.finding ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.finding ? 'pointer' : 'not-allowed' }}
-            >
-              CAR 발행
-            </button>
-          </div>
-        </div>
-      )}
-
       {cars.length === 0 ? (
-        <EmptyState icon={CheckCircle2} title="발행된 CAR 없음" desc="감사에서 부적합 사항 발견 시 CAR을 발행하세요." />
+        <EmptyState icon={CheckCircle2} title="발행된 CAR 없음" desc="감사 체크리스트에서 부적합 항목을 표시하면 CAR이 자동으로 발행됩니다." />
       ) : (
         <div className="space-y-3">
           {[...cars].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map((car) => {
@@ -557,10 +769,9 @@ function CARsTab({ cars, showCARForm, setShowCARForm, highlightCarId, onSave, on
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: `${severityColor}20`, color: severityColor }}>{severityLabel}</span>
                     </div>
                     <div className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{car.finding}</div>
-                    {car.requirement && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>요건: {car.requirement}</div>}
                     <div className="flex gap-4 mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-                      {car.assignee && <span>👤 {car.assignee}</span>}
-                      {car.dueDate && <span>📅 목표: {car.dueDate}</span>}
+                      {car.auditId && <span>🔗 감사: {car.auditId}</span>}
+                      {car.requirement && <span>📋 요건: §{car.requirement}</span>}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2">
@@ -584,66 +795,6 @@ function CARsTab({ cars, showCARForm, setShowCARForm, highlightCarId, onSave, on
           })}
         </div>
       )}
-    </>
-  )
-}
-
-/* ── 체크리스트 탭 ── */
-function ChecklistTab() {
-  const [checks, setChecks] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('qualytree.audit_checklist') || '{}') } catch { return {} }
-  })
-  const toggle = (iso, val) => {
-    const updated = { ...checks, [iso]: val }
-    setChecks(updated)
-    localStorage.setItem('qualytree.audit_checklist', JSON.stringify(updated))
-  }
-  const done = AUDIT_CHECKLIST.filter(c => checks[c.iso] === 'ok').length
-
-  return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>ISO 13485 감사 체크리스트</div>
-          <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>
-            적합: {done}/{AUDIT_CHECKLIST.length} 항목
-          </div>
-        </div>
-        <div className="w-32 h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
-          <div className="h-2 rounded-full transition-all" style={{ width: `${(done / AUDIT_CHECKLIST.length) * 100}%`, background: '#10B981' }} />
-        </div>
-      </div>
-      <div className="space-y-2">
-        {AUDIT_CHECKLIST.map((c) => {
-          const val = checks[c.iso] || 'pending'
-          return (
-            <div key={c.iso} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <span className="font-mono text-[11px] font-bold w-14 flex-shrink-0" style={{ color: 'var(--ink-faint)' }}>§{c.iso}</span>
-              <span className="flex-1 text-[13px]" style={{ color: 'var(--ink)' }}>{c.item}</span>
-              <div className="flex gap-2">
-                {[
-                  { val: 'ok', label: '적합', color: '#10B981' },
-                  { val: 'nc', label: '부적합', color: '#EF4444' },
-                  { val: 'na', label: 'N/A', color: '#6B7280' },
-                ].map((opt) => (
-                  <button
-                    key={opt.val}
-                    onClick={() => toggle(c.iso, val === opt.val ? 'pending' : opt.val)}
-                    className="text-[11px] px-2.5 py-1 rounded-lg font-medium transition"
-                    style={{
-                      background: val === opt.val ? opt.color : 'var(--bg-soft)',
-                      color: val === opt.val ? '#fff' : 'var(--ink-faint)',
-                      border: 'none', cursor: 'pointer',
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </div>
     </>
   )
 }
