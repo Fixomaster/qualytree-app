@@ -15,6 +15,8 @@ import {
   newCriterion, newLevel, maxTotal, gradeFromPct, statusFromPct,
   nextReevalDate, scoreFromSelections, syncCriteriaToProcedureDoc,
 } from '../../lib/supplierEvalCriteria'
+import { commitChange, CHANGE_ACTIONS } from '../../lib/changeControl'
+import { eid, ENTITY_TYPES } from '../../lib/entityRegistry'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_SUP  = 'qualytree.suppliers'
@@ -104,12 +106,26 @@ export default function SupplierHub() {
   const submitSup = () => {
     if (!form.name) return alert('공급업체명 필수')
     if (editId) {
-      saveSup(suppliers.map(s => s.id === editId ? { ...form, id: editId } : s))
+      const before = suppliers.find(s => s.id === editId) || null
+      const after = { ...form, id: editId }
+      saveSup(suppliers.map(s => s.id === editId ? after : s))
+      commitChange({
+        targetEid: eid(ENTITY_TYPES.SUPPLIER, editId),
+        action: CHANGE_ACTIONS.UPDATE,
+        before, after,
+        reason: '공급업체 정보 수정',
+      })
       setModal(null)
       return
     }
     const rec = { ...form, id: genId('SUP'), code: genId('SUP'), createdAt: new Date().toISOString() }
     saveSup([rec, ...suppliers])
+    commitChange({
+      targetEid: eid(ENTITY_TYPES.SUPPLIER, rec.id),
+      action: CHANGE_ACTIONS.CREATE,
+      before: null, after: rec,
+      reason: '신규 공급업체 등록',
+    })
     // 신규 등록 시 등급·상태는 아직 없음 — 바로 업체평가(최초 심사)로 넘어가서 등급을 매긴다
     setForm({ ...emptyEval(), supplierId: rec.id, supplierName: rec.name, evaluatedBy: user?.name || '', isInitial: true })
     setEditId(null)

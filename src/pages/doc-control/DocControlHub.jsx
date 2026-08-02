@@ -14,6 +14,8 @@ import { auth } from '../../lib/auth'
 import { companyDocs, DOC_CATEGORY } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
+import { commitChange, CHANGE_ACTIONS } from '../../lib/changeControl'
+import { eid, ENTITY_TYPES } from '../../lib/entityRegistry'
 import { Paperclip, X, Building2 } from 'lucide-react'
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -169,10 +171,26 @@ export default function DocControlHub() {
     if (!form.title.trim()) return alert('문서 제목을 입력하세요.')
     if (!form.docNo.trim()) return alert('문서 번호를 입력하세요.')
     const isEdit = !!editId
-    const next = isEdit
-      ? docs.map(d => d.id === editId ? { ...d, ...form } : d)
-      : [{ id: genDocId(), createdAt: today(), revisionHistory: [], ...form }, ...docs]
-    saveDocs(next)
+    if (isEdit) {
+      const before = docs.find(d => d.id === editId) || null
+      const after = { ...before, ...form }
+      saveDocs(docs.map(d => d.id === editId ? after : d))
+      commitChange({
+        targetEid: eid(ENTITY_TYPES.DOCUMENT, editId),
+        action: CHANGE_ACTIONS.UPDATE,
+        before, after,
+        reason: '문서 정보 수정',
+      })
+    } else {
+      const rec = { id: genDocId(), createdAt: today(), revisionHistory: [], ...form }
+      saveDocs([rec, ...docs])
+      commitChange({
+        targetEid: eid(ENTITY_TYPES.DOCUMENT, rec.id),
+        action: CHANGE_ACTIONS.CREATE,
+        before: null, after: rec,
+        reason: '신규 문서 등록',
+      })
+    }
     setShowForm(false); setForm(EMPTY_DOC); setEditId(null)
   }
 
@@ -183,10 +201,20 @@ export default function DocControlHub() {
   }
 
   function quickDocStatus(id, status) {
+    const before = docs.find(d => d.id === id) || null
     const upd = { status }
     if (status === 'approved') upd.approvedDate = today()
     if (status === 'distributed') upd.issueDate = today()
+    const after = before ? { ...before, ...upd } : null
     saveDocs(docs.map(d => d.id === id ? { ...d, ...upd } : d))
+    if (before) {
+      commitChange({
+        targetEid: eid(ENTITY_TYPES.DOCUMENT, id),
+        action: CHANGE_ACTIONS.UPDATE,
+        before, after,
+        reason: `문서 상태 변경 (${DOC_STATUSES[status]?.label || status})`,
+      })
+    }
   }
 
   function addRevision(docId, revNote) {

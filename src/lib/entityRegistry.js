@@ -48,6 +48,8 @@ export const ENTITY_TYPES = {
   NCR: 'ncr',
   CAPA: 'capa',
   CHANGE_RECORD: 'changeRecord',
+  SUPPLIER: 'supplier',
+  DOCUMENT: 'document',
   // 향후 추가
   SOP_DOCUMENT: 'sopDocument',
   TECHNICAL_DOCUMENT: 'technicalDocument',
@@ -248,9 +250,37 @@ const adapters = {
     },
   },
 
-  /* ---------- NCR / CAPA / Change Record / 향후 엔티티 ---------- */
-  // 일반 placeholder — localStorage 기반 단순 어댑터
-  ...['ncr', 'capa', 'changeRecord', 'sopDocument', 'technicalDocument', 'dhf', 'dmr', 'riskFile', 'udiRecord'].reduce(
+  /* ---------- 문서 (문서·규정 > 문서관리 DocControlHub) ---------- */
+  [ENTITY_TYPES.DOCUMENT]: {
+    _key: 'qualytree.doc_register',
+    load() {
+      try {
+        const raw = localStorage.getItem(this._key)
+        return raw ? JSON.parse(raw) : []
+      } catch {
+        return []
+      }
+    },
+    findById(id) {
+      return this.load().find((d) => d.id === id) || null
+    },
+    findAll() {
+      return this.load()
+    },
+    exists(id) {
+      return !!this.findById(id)
+    },
+    getDisplayName(entity) {
+      return entity ? `${entity.docNo || ''} ${entity.title || ''}`.trim() : ''
+    },
+    getOwnerKey(entity) {
+      return entity?.ownerDept || null
+    },
+  },
+
+  /* ---------- NCR / CAPA / Change Record / 공급업체 / 향후 엔티티 ---------- */
+  // 일반 placeholder — localStorage 기반 단순 어댑터 (key = qualytree.<type>s)
+  ...['ncr', 'capa', 'changeRecord', 'supplier', 'sopDocument', 'technicalDocument', 'dhf', 'dmr', 'riskFile', 'udiRecord'].reduce(
     (acc, type) => {
       const KEY = `qualytree.${type}s`
       acc[type] = {

@@ -94,6 +94,8 @@ export const PERMISSIONS = {
   'qms.quarantine.dispose': LEVELS.INSPECTOR, // 격리 항목 처분 (재검사 진행/폐기/특채/출하가능)
   'qms.quarantine.reworkApprove': LEVELS.MANAGER, // 격리 항목을 '재작업'으로 처분 — 매니저 승인 필요
   'qms.ccr.impactAssessment.edit': LEVELS.INSPECTOR, // CCR 영향평가서 작성·수정
+  'qms.ccr.approve': LEVELS.MANAGER, // CCR 변경 승인/반려
+  'qms.ccr.implement': LEVELS.INSPECTOR, // CCR 이행완료 처리
   'ra.submission.approve': LEVELS.MANAGER,
 }
 
