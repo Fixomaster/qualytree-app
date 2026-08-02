@@ -1,7 +1,7 @@
 // src/pages/improvement/ImprovementHub.jsx
 // ISO 13485:2016 §8.5 개선활동 허브
 import React, { useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import {
   TrendingUp, Plus, BarChart2, CheckCircle2,
   Clock, AlertTriangle, Target, Lightbulb,
@@ -54,17 +54,6 @@ const IMP_TYPE = {
 
 const IMP_PRIORITY = { high: '높음', medium: '보통', low: '낮음' }
 const IMP_PRIORITY_COLOR = { high: '#EF4444', medium: '#F59E0B', low: '#6B7280' }
-
-const DEPT_KPIS = [
-  { id: 'kpi1', dept: 'QUA', metric: '부적합 발생률', target: '월 ≤ 3건', unit: '건/월' },
-  { id: 'kpi2', dept: 'MFG', metric: '불량률 (PPM)', target: '≤ 500 PPM', unit: 'PPM' },
-  { id: 'kpi3', dept: 'SAL', metric: '고객 만족도', target: '≥ 90%', unit: '%' },
-  { id: 'kpi4', dept: 'PUR', metric: '납기 준수율', target: '≥ 95%', unit: '%' },
-  { id: 'kpi5', dept: 'EQP', metric: '설비 가동률', target: '≥ 90%', unit: '%' },
-  { id: 'kpi6', dept: 'ALL', metric: '교육 이수율', target: '100%', unit: '%' },
-  { id: 'kpi7', dept: 'QUA', metric: '시정조치 적기 완료율', target: '≥ 95%', unit: '%' },
-  { id: 'kpi8', dept: 'AUD', metric: '내부감사 완료율', target: '100%', unit: '%' },
-]
 
 function load() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
@@ -137,7 +126,6 @@ export default function ImprovementHub() {
           color="#10B981"
           quickActions={[
             { label: '과제 등록', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
-            { label: 'KPI 목표', icon: BarChart2, onClick: () => setTab('kpi') },
           ]}
           workflow={['아이디어 제안', '과제 승인', '실행 계획', '개선 실시', '효과 검증', '완료 공유']}
         />
@@ -175,8 +163,7 @@ export default function ImprovementHub() {
           {[
             { key: 'list', label: '개선 과제', icon: TrendingUp },
             { key: 'capa', label: 'CAPA (NCR연계)', icon: ShieldCheck },
-            { key: 'kpi', label: 'KPI 목표', icon: BarChart2 },
-            { key: 'trend', label: '트렌드', icon: ArrowUpRight },
+            { key: 'trend', label: '현황분석', icon: ArrowUpRight },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -199,7 +186,7 @@ export default function ImprovementHub() {
           <>
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div className="flex flex-wrap gap-2">
-                {['all', ...Object.keys(IMP_STATUS)].map((s) => (
+                {['all', ...Object.values(IMP_STATUS)].map((s) => (
                   <button
                     key={s}
                     onClick={() => setFilterStatus(s)}
@@ -281,7 +268,6 @@ export default function ImprovementHub() {
             onChanged={() => setCapaRefresh((t) => t + 1)}
           />
         )}
-        {tab === 'kpi' && <KpiTab kpis={DEPT_KPIS} />}
         {tab === 'trend' && <TrendTab items={items} />}
       </div>
     </AppLayout>
@@ -423,66 +409,18 @@ function ImprovementForm({ initial, onSave, onCancel }) {
   )
 }
 
-/* ── KPI 탭 ── */
-function KpiTab({ kpis }) {
-  const [kpiData, setKpiData] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('qualytree.kpi_values') || '{}') } catch { return {} }
-  })
-  const updateKpi = (id, val) => {
-    const updated = { ...kpiData, [id]: val }
-    setKpiData(updated)
-    localStorage.setItem('qualytree.kpi_values', JSON.stringify(updated))
-  }
-
-  return (
-    <div>
-      <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>
-        부서별 품질 목표 KPI
-      </div>
-      <div className="space-y-3">
-        {kpis.map((kpi) => {
-          const current = kpiData[kpi.id] || ''
-          return (
-            <div key={kpi.id} className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                      {kpi.dept}
-                    </span>
-                    <span className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{kpi.metric}</span>
-                  </div>
-                  <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>목표: {kpi.target}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={current}
-                    onChange={(e) => updateKpi(kpi.id, e.target.value)}
-                    placeholder={`실적 (${kpi.unit})`}
-                    className="qt-input text-right"
-                    style={{ width: 120 }}
-                  />
-                  <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{kpi.unit}</span>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="mt-4 p-3 rounded-xl text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-        💡 KPI 실적 입력 후 경영검토 보고서에 자동 반영됩니다.
-      </div>
-    </div>
-  )
-}
-
-/* ── 트렌드 탭 ── */
+/* ── 현황분석 탭 ── */
 function TrendTab({ items }) {
   const byType = useMemo(() => {
     const counts = {}
     items.forEach(i => { counts[i.type] = (counts[i.type] || 0) + 1 })
     return Object.entries(counts).sort((a, b) => b[1] - a[1])
+  }, [items])
+
+  const byStatus = useMemo(() => {
+    const counts = {}
+    items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1 })
+    return Object.keys(IMP_STATUS_LABEL).map(s => [s, counts[s] || 0]).filter(([, c]) => c > 0)
   }, [items])
 
   const byMonth = useMemo(() => {
@@ -498,11 +436,14 @@ function TrendTab({ items }) {
   const completionRate = items.length > 0 ? Math.round((completed.length / items.length) * 100) : 0
 
   if (items.length === 0) {
-    return <EmptyState icon={BarChart2} title="데이터 없음" desc="개선 과제를 등록하면 트렌드를 확인할 수 있습니다." />
+    return <EmptyState icon={BarChart2} title="데이터 없음" desc="개선 과제를 등록하면 현황을 확인할 수 있습니다." />
   }
 
   return (
     <div className="space-y-6">
+      <div className="p-3.5 rounded-xl text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+        부서별 품질목표 KPI 설정·실적 추적은 <Link to="/quality-objectives" className="underline" style={{ color: 'var(--moss, #10B981)' }}>품질목표</Link> 메뉴(경영·전략)에서 관리하세요.
+      </div>
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
           <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>전체 완료율</div>
@@ -516,6 +457,23 @@ function TrendTab({ items }) {
           <span>전체: {items.length}건</span>
         </div>
       </div>
+
+      {byStatus.length > 0 && (
+        <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>상태별 현황</div>
+          <div className="flex flex-wrap gap-2">
+            {byStatus.map(([status, count]) => (
+              <span
+                key={status}
+                className="text-[12px] px-3 py-1.5 rounded-lg font-medium"
+                style={{ background: `${IMP_STATUS_COLOR[status] || '#6B7280'}18`, color: IMP_STATUS_COLOR[status] || '#6B7280' }}
+              >
+                {IMP_STATUS_LABEL[status] || status} {count}건
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {byType.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
