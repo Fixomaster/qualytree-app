@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react'
 import {
   AlertTriangle, Plus, Trash2, Search, ShieldAlert,
   ChevronDown, ChevronUp, CheckCircle2, Info,
-  TrendingDown, Grid, List, Edit3, X,
+  TrendingDown, Grid, List, Edit3, X, Sparkles, Loader2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -90,12 +90,20 @@ export default function RiskHub() {
   const [editId, setEditId] = useState(null)
   const [expandedId, setExpandedId] = useState(null)
   const [catFilter, setCatFilter] = useState('all')
+  const [showAiModal, setShowAiModal] = useState(false)
 
   const save = (data) => { setRisks(data); lsWrite(data) }
 
   const openNew = () => {
     setForm(emptyForm())
     setEditId(null)
+    setShowForm(true)
+  }
+
+  const openFromAi = (item) => {
+    setForm({ ...emptyForm(), ...item, title: item.hazard })
+    setEditId(null)
+    setShowAiModal(false)
     setShowForm(true)
   }
 
@@ -170,6 +178,7 @@ export default function RiskHub() {
           color="#EF4444"
           quickActions={[
             { label: '위험 항목 추가', icon: Plus, onClick: openNew, primary: true },
+            { label: 'AI 초안 생성', icon: Sparkles, onClick: () => setShowAiModal(true) },
           ]}
           workflow={['위험 식별', '위험 추정 (S×P)', '위험 평가', '위험 통제', '잔여위험 평가', '보고서 작성']}
         />
@@ -233,6 +242,13 @@ export default function RiskHub() {
                 {RISK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <button
+                onClick={() => setShowAiModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
+                style={{ background: 'var(--bg-card)', color: '#7C3AED', border: '1px solid #7C3AED40', cursor: 'pointer' }}
+              >
+                <Sparkles size={14} /> AI 초안 생성
+              </button>
+              <button
                 onClick={openNew}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer' }}
@@ -277,6 +293,11 @@ export default function RiskHub() {
           onSubmit={submit}
           onClose={() => setShowForm(false)}
         />
+      )}
+
+      {/* AI 초안 생성 모달 */}
+      {showAiModal && (
+        <AiDraftModal onClose={() => setShowAiModal(false)} onUse={openFromAi} />
       )}
     </AppLayout>
   )
@@ -631,6 +652,135 @@ function ControlStatus({ risks, onEdit }) {
           <div>위험 등록부에 항목을 추가하면 저감 조치 현황이 표시됩니다</div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── AI 초안 생성 모달 ────────────────────────────────────────
+function AiDraftModal({ onClose, onUse }) {
+  const [productName, setProductName] = useState('')
+  const [description, setDescription] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [items, setItems] = useState(null)
+
+  const generate = async () => {
+    if (!productName.trim() && !description.trim()) {
+      setError('제품명 또는 제품/기능 설명을 입력하세요.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    setItems(null)
+    try {
+      const r = await fetch('/api/risk-draft', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ productName: productName.trim(), description: description.trim() }),
+      })
+      const j = await r.json()
+      if (!j.ok) {
+        setError(j.message || 'AI 초안 생성에 실패했습니다.')
+      } else {
+        setItems(j.items)
+      }
+    } catch (e) {
+      setError('AI 초안 생성 중 오류가 발생했습니다: ' + String((e && e.message) || e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '32px 16px', overflowY: 'auto',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          borderRadius: 20,
+          border: '1px solid var(--line)',
+          width: '100%', maxWidth: 680,
+          boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+          padding: 28,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-[16px] font-bold" style={{ color: 'var(--ink)' }}>
+            <Sparkles size={18} style={{ color: '#7C3AED' }} /> 위험 항목 AI 초안 생성
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="text-[12px] mb-5" style={{ color: 'var(--ink-faint)' }}>
+          제품/기능을 설명하면 ISO 14971 관점의 위험 항목 초안을 여러 건 제안합니다. 반드시 내용을 검토·수정한 뒤 등록하세요 — AI 초안은 참고용이며 최종 판단은 사용자 책임입니다.
+        </div>
+
+        <div className="space-y-3">
+          <Field label="제품명">
+            <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="예: 휴대용 혈당측정기" className="w-full" style={inputStyle} />
+          </Field>
+          <Field label="제품/기능 설명">
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              placeholder="예: 환자가 직접 채혈 후 스트립을 삽입해 혈당 수치를 측정하는 휴대용 전자기기. 블루투스로 앱에 결과 전송."
+              className="w-full"
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+          </Field>
+          {error && (
+            <div className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEE2E2', color: '#991B1B' }}>{error}</div>
+          )}
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[13px] font-semibold"
+            style={{ background: '#7C3AED', color: 'white', border: 'none', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+            {loading ? '생성 중...' : '초안 생성'}
+          </button>
+        </div>
+
+        {items && items.length > 0 && (
+          <div className="mt-5 space-y-2.5">
+            <div className="text-[11px] font-mono tracking-wider" style={{ color: 'var(--ink-faint)' }}>
+              제안된 위험 항목 {items.length}건 — 하나를 선택하면 등록 폼에 채워집니다
+            </div>
+            {items.map((it, i) => {
+              const rpn = it.severity * it.probability
+              return (
+                <button
+                  key={i}
+                  onClick={() => onUse(it)}
+                  className="w-full text-left p-3.5 rounded-xl transition"
+                  style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}
+                >
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-card)', color: 'var(--ink-faint)' }}>{it.category}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: rpnColor(rpn).bg, color: rpnColor(rpn).text }}>RPN {rpn} ({rpnColor(rpn).label})</span>
+                  </div>
+                  <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{it.hazard}</div>
+                  <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-soft)' }}>{it.harm}</div>
+                  {it.controlMeasure && (
+                    <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>저감 조치(안): {it.controlMeasure}</div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

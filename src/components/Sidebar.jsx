@@ -56,7 +56,6 @@ items: [
 { to: '/inspection', label: '공정·최종 검사' },
 { to: '/quality', label: 'NCR·부적합' },
 { to: '/improvement', label: 'CAPA·개선' },
-{ to: '/risk', label: '리스크관리' },
 { to: '/change-control',label: '변경관리' },
 { to: '/audit', label: '내부감사' },
 { to: '/workenv', label: '작업환경관리' },
@@ -69,6 +68,7 @@ items: [
 label: '설계·개발', icon: Code2,
 items: [
 { to: '/development', label: '개발 현황' },
+{ to: '/risk', label: '리스크관리' },
 { to: '/production-control', label: '생산제어계획(PCP)' },
 { to: '/design-history', label: '설계이력파일' },
 ],
