@@ -128,29 +128,33 @@ const adapters = {
     },
   },
 
-  /* ---------- 제품 (ONB-002에서 정의 — 단일 product 객체) ---------- */
+  /* ---------- 제품 (ProductsHub — 다중 제품 지원: onboarding.products[] 배열) ---------- */
   [ENTITY_TYPES.PRODUCT]: {
-    findById(id) {
-      const data = onboarding.load()
-      const p = data?.product
-      if (!p || !p.name) return null
-      // id가 명시되지 않으면 'main' 또는 modelNumber/name으로 매치
-      if (id === 'main' || id === p.modelNumber || id === p.name) {
-        return { id: p.modelNumber || 'main', ...p }
+    _allProducts(data) {
+      const d = data || onboarding.load() || {}
+      if (Array.isArray(d.products) && d.products.length) {
+        return d.products.map((p) => ({ id: p.id || p.modelNumber || 'main', ...p }))
       }
-      return null
+      if (d.product && d.product.name) {
+        return [{ id: d.product.modelNumber || 'main', ...d.product }]
+      }
+      return []
+    },
+    findById(id) {
+      const all = this._allProducts()
+      return (
+        all.find((p) => p.id === id || p.modelNumber === id || p.name === id || p.classNo === id) ||
+        null
+      )
     },
     findAll() {
-      const data = onboarding.load()
-      const p = data?.product
-      if (!p || !p.name) return []
-      return [{ id: p.modelNumber || 'main', ...p }]
+      return this._allProducts()
     },
     exists(id) {
       return !!this.findById(id)
     },
     getDisplayName(entity) {
-      return entity?.name || `제품 ${entity?.id}`
+      return entity?.name || (entity?.id ? `제품 ${entity.id}` : '제품 (알수없음)')
     },
     getOwnerKey() {
       return null
