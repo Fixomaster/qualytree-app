@@ -11,6 +11,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.device_files'
@@ -41,7 +42,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_FILE = {
   // §4.2.3(a) 기기 일반 정보
-  productName: '', productCode: '', modelNo: '', revision: 'Rev.0',
+  productKey: '', productName: '', productCode: '', modelNo: '', revision: 'Rev.0',
   deviceClass: 'Class II', intendedUse: '', indications: '',
   contraindications: '', patientPopulation: '',
   sterility: '비멸균', singleUse: false, implantable: false, activeDevice: false,
@@ -87,9 +88,12 @@ const EMPTY_FILE = {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function DeviceFileHub() {
+export default function DeviceFileHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
+  // #283,303: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 DMR만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [files, setFiles] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
@@ -101,6 +105,13 @@ export default function DeviceFileHub() {
   const [activeSection, setActiveSection] = useState('general')
   const [filterStatus, setFilterStatus] = useState('all')
   const [tab, setTab] = useState('list')   // list | detail | analysis
+
+  React.useEffect(() => {
+    if (!scopeKey) return
+    const mine = files.filter(f => f.productKey === scopeKey)
+    if (mine.length === 1) { setSelectedId(mine[0].id); setTab('detail') }
+    else if (mine.length === 0) { setTab('list') }
+  }, [scopeKey, files])
 
   function save(list) { setFiles(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
 
@@ -137,7 +148,7 @@ export default function DeviceFileHub() {
     return { checks, done, total: Object.keys(checks).length, pct: Math.round((done / Object.keys(checks).length) * 100) }
   }
 
-  const filtered = useMemo(() => files.filter(f => filterStatus === 'all' || f.status === filterStatus), [files, filterStatus])
+  const filtered = useMemo(() => files.filter(f => (!scopeKey || f.productKey === scopeKey) && (filterStatus === 'all' || f.status === filterStatus)), [files, scopeKey, filterStatus])
 
   const analysis = useMemo(() => {
     const byStatus = {}
@@ -151,9 +162,8 @@ export default function DeviceFileHub() {
 
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  return (
-    <AppLayout user={user} title="의료기기 파일" subtitle="ISO 13485 §4.2.3 — Device Master Record / Technical File">
-      <div className="px-6 lg:px-8 py-6 max-w-[1600px] mx-auto">
+  const body = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1600px] mx-auto'}>
 
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
@@ -186,7 +196,7 @@ export default function DeviceFileHub() {
                 {Object.entries(FILE_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
-                <button onClick={() => { setForm(EMPTY_FILE); setEditId(null); setShowForm(true) }}
+                <button onClick={() => { setForm({ ...EMPTY_FILE, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> 의료기기 파일 등록
@@ -280,7 +290,14 @@ export default function DeviceFileHub() {
 
         {/* ── 분석 탭 ── */}
         {tab === 'analysis' && <AnalysisView analysis={analysis} files={files} calcCompleteness={calcCompleteness} />}
-      </div>
+    </div>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="의료기기 파일" subtitle="ISO 13485 §4.2.3 — Device Master Record / Technical File">
+      {body}
     </AppLayout>
   )
 }

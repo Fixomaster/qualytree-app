@@ -46,6 +46,12 @@ import { STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES } from '.
 import { CLEAN_CLASSES, CLEANING_METHODS, CONTAMINATION_TYPES, MONITOR_FREQS, CLEAN_STATUSES, CLEAN_APPLIES_WHEN } from '../../lib/cleanlinessSpecConstants'
 import { STORAGE_CONDITIONS, STERILITY, PACKAGING_TYPES } from '../../lib/preservationSpecConstants'
 import { INSP_TYPES } from '../../lib/inspectionStandardConstants'
+import CustomerReqHub from '../customer-req/CustomerReqHub'
+import DesignHistoryHub from '../dhf/DesignHistoryHub'
+import DeviceFileHub from '../device-file/DeviceFileHub'
+import RiskHub from '../risk/RiskHub'
+import ValidationHub from '../validation/ValidationHub'
+import ProductionControlHub from '../production-control/ProductionControlHub'
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -271,18 +277,42 @@ export default function ProductsHub() {
                         <button onClick={() => setProductView('grid')} className="btn-ghost text-[12px]">
                           <ChevronLeft size={13} /> 제품 목록으로
                         </button>
-                        <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--bg-soft)' }}>
+                        <div className="flex gap-1 rounded-lg p-1 flex-wrap" style={{ background: 'var(--bg-soft)' }}>
                           <DetailTabBtn active={detailTab === 'info'} onClick={() => setDetailTab('info')} label="기본정보" />
                           <DetailTabBtn active={detailTab === 'models'} onClick={() => setDetailTab('models')} label="모델 목록" count={productModels.getForProduct(productKeyOf(product)).length} />
                           {productKind(product) === PRODUCT_KIND.NEW && (
                             <DetailTabBtn active={detailTab === 'design'} onClick={() => setDetailTab('design')} label="설계 계획" />
                           )}
+                          <DetailTabBtn active={detailTab === 'customer-req'} onClick={() => setDetailTab('customer-req')} label="고객요구사항" />
+                          <DetailTabBtn active={detailTab === 'dhf'} onClick={() => setDetailTab('dhf')} label="DHF" />
+                          <DetailTabBtn active={detailTab === 'dmr'} onClick={() => setDetailTab('dmr')} label="DMR" />
+                          <DetailTabBtn active={detailTab === 'risk'} onClick={() => setDetailTab('risk')} label="위험관리" />
+                          <DetailTabBtn active={detailTab === 'validation'} onClick={() => setDetailTab('validation')} label="밸리데이션" />
+                          <DetailTabBtn active={detailTab === 'pcp'} onClick={() => setDetailTab('pcp')} label="생산제어계획" />
                         </div>
                       </div>
                       {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} />}
                       {detailTab === 'models' && <ModelListPanel key={'models-' + (product?.id || 'main')} product={product} onAction={showToast} />}
                       {detailTab === 'design' && productKind(product) === PRODUCT_KIND.NEW && (
                         <DesignStagePanel key={'design-' + (product?.id || 'main')} product={product} onAction={showToast} />
+                      )}
+                      {detailTab === 'customer-req' && (
+                        <CustomerReqHub key={'creq-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'dhf' && (
+                        <DesignHistoryHub key={'dhf-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'dmr' && (
+                        <DeviceFileHub key={'dmr-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'risk' && (
+                        <RiskHub key={'risk-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'validation' && (
+                        <ValidationHub key={'val-' + productKeyOf(product)} embedded role="quality" productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'pcp' && (
+                        <ProductionControlHub key={'pcp-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
                       )}
                     </div>
                   ) : (

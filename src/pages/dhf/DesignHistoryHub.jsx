@@ -82,7 +82,7 @@ const EMPTY_RECORD = {
 }
 
 const EMPTY_DHF = {
-  productName: '', productCode: '', revision: 'A', deviceClass: 'Class II',
+  productKey: '', productName: '', productCode: '', revision: 'A', deviceClass: 'Class II',
   intendedUse: '', targetPopulation: '', contraindications: '',
   projectManager: '', teamMembers: '', startDate: todayStr(), targetDate: '',
   currentPhase: 'planning', status: 'open', notes: '',
@@ -187,16 +187,26 @@ function TechDocsPanel({ canEdit }) {
   )
 }
 
-export default function DesignHistoryHub() {
+export default function DesignHistoryHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
+  // #282-286,302: 제품공정(ProductsHub) 상세뷰에 임베드될 때는 해당 제품(productKey)의 DHF만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [items, setItems] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
   })
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'list')         // list | detail | techdocs | analysis
   const [selectedId, setSelectedId] = useState(null)
+
+  // 특정 제품으로 스코프된 경우, 해당 제품의 DHF가 있으면 자동으로 상세보기로 진입한다.
+  useEffect(() => {
+    if (!scopeKey) return
+    const mine = items.filter(d => d.productKey === scopeKey)
+    if (mine.length === 1) { setSelectedId(mine[0].id); setTab('detail') }
+    else if (mine.length === 0) { setTab('list') }
+  }, [scopeKey, items])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_DHF)
   const [editId, setEditId] = useState(null)
@@ -289,13 +299,14 @@ export default function DesignHistoryHub() {
 
   // 필터
   const filtered = useMemo(() => items.filter(d => {
+    if (scopeKey && d.productKey !== scopeKey) return false
     if (filterPhase !== 'all' && d.currentPhase !== filterPhase) return false
     if (filterStatus !== 'all' && d.status !== filterStatus) return false
     if (search && !d.productName.toLowerCase().includes(search.toLowerCase())
       && !d.productCode?.toLowerCase().includes(search.toLowerCase())
       && !d.id.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }), [items, filterPhase, filterStatus, search])
+  }), [items, scopeKey, filterPhase, filterStatus, search])
 
   // 선택된 DHF의 records 필터
   const filteredRecs = useMemo(() => {
@@ -320,9 +331,8 @@ export default function DesignHistoryHub() {
     return idx >= 0 ? Math.round(((idx + 1) / PROGRESS_PHASE_KEYS.length) * 100) : 0
   }
 
-  return (
-    <AppLayout user={user} title="설계 이력 파일 (DHF)" subtitle="ISO 13485 §7.3 설계 및 개발">
-      <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+  const body = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1400px] mx-auto'}>
 
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
@@ -374,7 +384,7 @@ export default function DesignHistoryHub() {
                 </select>
               </div>
               {canEdit && (
-                <button onClick={() => { setForm(EMPTY_DHF); setEditId(null); setShowForm(true) }}
+                <button onClick={() => { setForm({ ...EMPTY_DHF, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> DHF 신규 등록
@@ -475,7 +485,14 @@ export default function DesignHistoryHub() {
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} items={items} setSelectedId={setSelectedId} setTab={setTab} />
         )}
-      </div>
+    </div>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="설계 이력 파일 (DHF)" subtitle="ISO 13485 §7.3 설계 및 개발">
+      {body}
     </AppLayout>
   )
 }

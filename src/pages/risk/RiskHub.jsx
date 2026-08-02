@@ -9,6 +9,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.risks'
@@ -70,7 +71,7 @@ function matrixColor(s, p) {
 
 // ── 빈 폼 ─────────────────────────────────────────────────────
 const emptyForm = () => ({
-  id: '', title: '', category: '',
+  id: '', productKey: '', title: '', category: '',
   hazard: '', hazardousSituation: '', harm: '',
   severity: 3, probability: 3,
   controlType: 'protective', controlMeasure: '',
@@ -80,8 +81,11 @@ const emptyForm = () => ({
 })
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────
-export default function RiskHub() {
+export default function RiskHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
+  const [searchParams] = useSearchParams()
+  // #284: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 위험만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
   const [risks, setRisks] = useState(() => lsRead())
   const [tab, setTab] = useState('register')
   const [search, setSearch] = useState('')
@@ -95,7 +99,7 @@ export default function RiskHub() {
   const save = (data) => { setRisks(data); lsWrite(data) }
 
   const openNew = () => {
-    setForm(emptyForm())
+    setForm({ ...emptyForm(), productKey: scopeKey || '' })
     setEditId(null)
     setShowForm(true)
   }
@@ -144,6 +148,7 @@ export default function RiskHub() {
 
   const filtered = useMemo(() => {
     let list = risks
+    if (scopeKey) list = list.filter(r => r.productKey === scopeKey)
     if (catFilter !== 'all') list = list.filter(r => r.category === catFilter)
     if (search) {
       const q = search.toLowerCase()
@@ -152,12 +157,13 @@ export default function RiskHub() {
     return list.sort((a, b) => (b.severity * b.probability) - (a.severity * a.probability))
   }, [risks, search, catFilter])
 
+  const scopedRisks = scopeKey ? risks.filter(r => r.productKey === scopeKey) : risks
   const stats = {
-    total: risks.length,
-    high: risks.filter(r => r.severity * r.probability >= 15).length,
-    med: risks.filter(r => { const n = r.severity * r.probability; return n >= 8 && n < 15 }).length,
-    low: risks.filter(r => r.severity * r.probability < 8).length,
-    verified: risks.filter(r => r.verified).length,
+    total: scopedRisks.length,
+    high: scopedRisks.filter(r => r.severity * r.probability >= 15).length,
+    med: scopedRisks.filter(r => { const n = r.severity * r.probability; return n >= 8 && n < 15 }).length,
+    low: scopedRisks.filter(r => r.severity * r.probability < 8).length,
+    verified: scopedRisks.filter(r => r.verified).length,
   }
 
   const TABS = [
@@ -166,11 +172,12 @@ export default function RiskHub() {
     { key: 'control',  label: '저감 조치 현황', icon: TrendingDown },
   ]
 
-  return (
-    <AppLayout user={user} title="위험관리" subtitle="ISO 14971 위험분석 · FMEA · 위험 등록부">
-      <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
+  const body = (
+    <>
+      <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
 
-        {/* 배너 */}
+        {/* 배너 (임베드 시 숨김 — 상위 ProductsHub 헤더 사용) */}
+        {!embedded && (
         <HubBanner
           title="위험관리"
           subtitle="ISO 14971:2019 · FMEA · 위험 분석 · 허용기준 평가"
@@ -182,6 +189,7 @@ export default function RiskHub() {
           ]}
           workflow={['위험 식별', '위험 추정 (S×P)', '위험 평가', '위험 통제', '잔여위험 평가', '보고서 작성']}
         />
+        )}
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
@@ -278,10 +286,10 @@ export default function RiskHub() {
         )}
 
         {/* ── 위험 매트릭스 탭 ── */}
-        {tab === 'matrix' && <RiskMatrix risks={risks} />}
+        {tab === 'matrix' && <RiskMatrix risks={scopedRisks} />}
 
         {/* ── 저감 조치 현황 탭 ── */}
-        {tab === 'control' && <ControlStatus risks={risks} onEdit={openEdit} />}
+        {tab === 'control' && <ControlStatus risks={scopedRisks} onEdit={openEdit} />}
       </div>
 
       {/* 위험 추가/수정 모달 */}
@@ -299,6 +307,14 @@ export default function RiskHub() {
       {showAiModal && (
         <AiDraftModal onClose={() => setShowAiModal(false)} onUse={openFromAi} />
       )}
+    </>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="위험관리" subtitle="ISO 14971 위험분석 · FMEA · 위험 등록부">
+      {body}
     </AppLayout>
   )
 }

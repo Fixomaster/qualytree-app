@@ -10,6 +10,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.production_control'
@@ -63,7 +64,7 @@ const EMPTY_STEP = {
 
 const EMPTY_PCP = {
   pcpNo: '', revision: 'Rev.0', status: 'draft',
-  productName: '', productCode: '', deviceClass: 'Class II',
+  productKey: '', productName: '', productCode: '', deviceClass: 'Class II',
   preparedBy: '', reviewedBy: '', approvedBy: '',
   issueDate: today(), reviewDate: '',
   scope: '',            // 적용 범위
@@ -76,9 +77,12 @@ const EMPTY_PCP = {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ProductionControlHub() {
+export default function ProductionControlHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
+  const [searchParams] = useSearchParams()
+  // #305: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 PCP만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [pcps, setPcps] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
@@ -110,16 +114,18 @@ export default function ProductionControlHub() {
 
   const selectedPcp = pcps.find(p => p.id === selectedId)
 
-  const filtered = useMemo(() => pcps.filter(p => filterStatus === 'all' || p.status === filterStatus), [pcps, filterStatus])
+  const scopedPcps = scopeKey ? pcps.filter(p => p.productKey === scopeKey) : pcps
+
+  const filtered = useMemo(() => scopedPcps.filter(p => filterStatus === 'all' || p.status === filterStatus), [scopedPcps, filterStatus])
 
   const analysis = useMemo(() => {
     const byStatus = {}
-    Object.keys(PCP_STATUSES).forEach(k => { byStatus[k] = pcps.filter(p => p.status === k).length })
-    const totalSteps = pcps.reduce((acc, p) => acc + (p.steps?.length || 0), 0)
-    const specialSteps = pcps.reduce((acc, p) => acc + (p.steps?.filter(s => s.specialProcess)?.length || 0), 0)
-    const missingCriteria = pcps.filter(p => (p.steps || []).some(s => !s.acceptanceCriteria))
+    Object.keys(PCP_STATUSES).forEach(k => { byStatus[k] = scopedPcps.filter(p => p.status === k).length })
+    const totalSteps = scopedPcps.reduce((acc, p) => acc + (p.steps?.length || 0), 0)
+    const specialSteps = scopedPcps.reduce((acc, p) => acc + (p.steps?.filter(s => s.specialProcess)?.length || 0), 0)
+    const missingCriteria = scopedPcps.filter(p => (p.steps || []).some(s => !s.acceptanceCriteria))
     return { byStatus, totalSteps, specialSteps, missingCriteria }
-  }, [pcps])
+  }, [scopedPcps])
 
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -152,14 +158,13 @@ export default function ProductionControlHub() {
     setEditingStepId(null); setStepDraft(null)
   }
 
-  return (
-    <AppLayout user={user} title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 공정 단계별 관리 항목·합격 기준·출하 기준">
-      <div className="px-6 lg:px-8 py-6 max-w-[1600px] mx-auto">
+  const body = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1600px] mx-auto'}>
 
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `PCP 목록 (${pcps.length})` },
+            { key: 'list',     label: `PCP 목록 (${scopedPcps.length})` },
             { key: 'detail',   label: selectedPcp ? `공정표: ${selectedPcp.productName}` : '공정 상세' },
             { key: 'analysis', label: '현황 분석' },
           ].map(t => (
@@ -187,7 +192,7 @@ export default function ProductionControlHub() {
                 {Object.entries(PCP_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
-                <button onClick={() => { setForm(EMPTY_PCP); setEditId(null); setShowForm(true) }}
+                <button onClick={() => { setForm({ ...EMPTY_PCP, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> PCP 등록
@@ -271,8 +276,15 @@ export default function ProductionControlHub() {
         )}
 
         {/* ── 분석 탭 ── */}
-        {tab === 'analysis' && <AnalysisView analysis={analysis} pcps={pcps} />}
-      </div>
+        {tab === 'analysis' && <AnalysisView analysis={analysis} pcps={scopedPcps} />}
+    </div>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 공정 단계별 관리 항목·합격 기준·출하 기준">
+      {body}
     </AppLayout>
   )
 }

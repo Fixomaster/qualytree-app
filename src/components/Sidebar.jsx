@@ -67,10 +67,7 @@ items: [
 {
 label: '설계·개발', icon: Code2,
 items: [
-{ to: '/development', label: '개발 현황' },
-{ to: '/risk', label: '리스크관리' },
-{ to: '/production-control', label: '생산제어계획(PCP)' },
-{ to: '/design-history', label: '설계이력파일' },
+{ to: '/products', label: '제품·설계개발' },
 ],
 },
 {

@@ -11,6 +11,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { productModels } from '../../lib/productLifecycleState'
 import { companyDocs } from '../../lib/companyState'
@@ -82,7 +83,7 @@ function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_FORM = {
   customerName: '', customerCode: '', contactPerson: '', contactPhone: '', contactEmail: '',
-  productName: '', productCode: '', orderNo: '',
+  productKey: '', productName: '', productCode: '', orderNo: '',
   inquiryDate: today(), reviewDate: '', acceptedDate: '',
   status: 'captured',
   requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true, assignee: '', assigneeChecked: false })),
@@ -101,7 +102,7 @@ function requirementsReady(rec) {
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function CustomerReqHub() {
+export default function CustomerReqHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
 
@@ -231,10 +232,12 @@ export default function CustomerReqHub() {
 
   const selected = records.find(r => r.id === selectedId)
 
-  const filteredRecords = useMemo(() => records.filter(r => {
+  const scopedRecords = scopeKey ? records.filter(r => r.productKey === scopeKey) : records
+
+  const filteredRecords = useMemo(() => scopedRecords.filter(r => {
     if (filterStatus !== 'all' && r.status !== filterStatus) return false
     return true
-  }), [records, filterStatus])
+  }), [scopedRecords, filterStatus])
 
   function reviewPassed(rec) {
     return (rec.reviewItems || []).every(i => i.result === 'pass' || i.result === 'na')
@@ -243,22 +246,21 @@ export default function CustomerReqHub() {
   // 분석
   const analysis = useMemo(() => {
     const byStatus = {}
-    Object.keys(REQ_STATUSES).forEach(k => { byStatus[k] = records.filter(r => r.status === k).length })
-    const pendingReview = records.filter(r => r.status === 'captured' || r.status === 'reviewing')
-    const recentComms = records.flatMap(r =>
+    Object.keys(REQ_STATUSES).forEach(k => { byStatus[k] = scopedRecords.filter(r => r.status === k).length })
+    const pendingReview = scopedRecords.filter(r => r.status === 'captured' || r.status === 'reviewing')
+    const recentComms = scopedRecords.flatMap(r =>
       (r.communications || []).map(c => ({ ...c, recId: r.id, customerName: r.customerName, productName: r.productName }))
     ).sort((a, b) => (b.date > a.date ? 1 : -1)).slice(0, 5)
     return { byStatus, pendingReview, recentComms }
-  }, [records])
+  }, [scopedRecords])
 
-  return (
-    <AppLayout user={user} title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 요구사항 결정·검토·커뮤니케이션">
-      <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
+  const body = (
+    <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1400px] mx-auto'}>
 
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `현황 분석 (${records.length})` },
+            { key: 'list',     label: `현황 분석 (${scopedRecords.length})` },
             { key: 'detail',   label: '상세 검토', disabled: !selectedId },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
@@ -286,7 +288,7 @@ export default function CustomerReqHub() {
                 {Object.entries(REQ_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
-                <button onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }}
+                <button onClick={() => { setForm({ ...EMPTY_FORM, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> 신규 요구사항 등록
@@ -377,7 +379,14 @@ export default function CustomerReqHub() {
           />
         )}
 
-      </div>
+    </div>
+  )
+
+  if (embedded) return body
+
+  return (
+    <AppLayout user={user} title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 요구사항 결정·검토·커뮤니케이션">
+      {body}
     </AppLayout>
   )
 }

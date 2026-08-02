@@ -10,6 +10,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { useSearchParams } from 'react-router-dom'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.validations'
@@ -69,7 +70,7 @@ const PQ_DEFAULTS = ['정상 조건 성능 시험', '최악 조건(Worst-Case) �
 const emptyPhase = (defaults) => defaults.map(name => ({ name, acceptance: '', result: '', pass: null }))
 
 const emptyForm = () => ({
-  title: '', valType: 'process', processName: '', equipment: '',
+  productKey: '', title: '', valType: 'process', processName: '', equipment: '',
   planDate: new Date().toISOString().slice(0, 10),
   responsiblePerson: '', status: 'planned',
   revalIntervalMonths: 24,
@@ -88,9 +89,12 @@ const emptyForm = () => ({
 })
 
 // ── 메인 ─────────────────────────────────────────────────────
-export default function ValidationHub({ embedded = false, role = 'production' } = {}) {
+export default function ValidationHub({ embedded = false, role = 'production', productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canRequest = role === 'quality'
+  const [searchParams] = useSearchParams()
+  // #211(ValidationHub): 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 밸리데이션만 노출한다.
+  const scopeKey = scopeProductKey || searchParams.get('productId') || null
   const [records, setRecords] = useState(() => lsR())
   const [tab, setTab]     = useState('list')
   const [search, setSearch]       = useState('')
@@ -104,7 +108,7 @@ export default function ValidationHub({ embedded = false, role = 'production' } 
 
   const save = d => { setRecords(d); lsW(d) }
 
-  const openNew  = () => { setForm(emptyForm()); setEditId(null); setShowForm(true) }
+  const openNew  = () => { setForm({ ...emptyForm(), productKey: scopeKey || '' }); setEditId(null); setShowForm(true) }
   const openEdit = r  => { setForm({ ...r }); setEditId(r.id); setShowForm(true) }
   const remove   = id => { if (!confirm('삭제?')) return; save(records.filter(r => r.id !== id)) }
   const fld  = (k, v) => setForm(f => ({ ...f, [k]: v }))
@@ -138,6 +142,7 @@ export default function ValidationHub({ embedded = false, role = 'production' } 
   // 필터
   const filtered = useMemo(() => {
     let list = [...records]
+    if (scopeKey) list = list.filter(r => r.productKey === scopeKey)
     if (typeFilter !== 'all')   list = list.filter(r => r.valType === typeFilter)
     if (statusFilter !== 'all') list = list.filter(r => r.status === statusFilter)
     if (search) {
@@ -145,17 +150,18 @@ export default function ValidationHub({ embedded = false, role = 'production' } 
       list = list.filter(r => (r.id + r.title + r.processName + r.responsiblePerson).toLowerCase().includes(q))
     }
     return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-  }, [records, typeFilter, statusFilter, search])
+  }, [records, scopeKey, typeFilter, statusFilter, search])
 
   // 집계
-  const validated     = records.filter(r => r.status === 'validated').length
-  const revalDue      = records.filter(r => {
+  const scopedRecords = scopeKey ? records.filter(r => r.productKey === scopeKey) : records
+  const validated     = scopedRecords.filter(r => r.status === 'validated').length
+  const revalDue      = scopedRecords.filter(r => {
     if (!r.nextRevalDate) return false
     const d = daysDiff(r.nextRevalDate)
     return d !== null && d <= 90
   })
   const overdue       = revalDue.filter(r => daysDiff(r.nextRevalDate) < 0)
-  const inProgress    = records.filter(r => ['iq','oq','pq'].includes(r.status)).length
+  const inProgress    = scopedRecords.filter(r => ['iq','oq','pq'].includes(r.status)).length
 
   const TABS = canRequest ? [
     { key: 'list',     label: '밸리데이션 목록', icon: FlaskConical },
