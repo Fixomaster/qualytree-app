@@ -60,7 +60,7 @@ function getMyTasks(dept) {
         id: c.id, type: 'capa', urgent: overdue,
         label: `CAPA · ${c.title || c.id}`,
         sub: overdue ? `⚠️ 기한 초과 (${c.targetDate})` : `📅 D-${Math.ceil((due - now) / 86400000)} (${c.targetDate})`,
-        link: `/quality?tab=capa&capaId=${c.id}`, color: overdue ? '#EF4444' : '#F59E0B',
+        link: `/improvement?capaId=${c.id}`, color: overdue ? '#EF4444' : '#F59E0B',
         createdAt: c.createdAt,
       })
     }

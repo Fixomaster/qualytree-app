@@ -1,30 +1,18 @@
 import React, { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   AlertTriangle,
-  ShieldCheck,
   Clock,
   CheckCircle2,
-  Workflow,
-  Plus,
-  Filter,
   Package,
-  ChevronRight,
-  XCircle,
   HelpCircle,
-  GitCommit,
-  FileSearch,
-  Wrench,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
-import HubBanner from '../../components/HubBanner'
 import { ncr, NCR_STATUS, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrState'
 import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
 import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
-import { getAllRecords as getCcrRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/changeControl'
 import { permissions, requirePermission } from '../../lib/permissions'
-import EquipmentHub from '../equipment/EquipmentHub'
 import ValidationHub from '../validation/ValidationHub'
 import { FlaskConical } from 'lucide-react'
 
@@ -33,20 +21,20 @@ export default function QualityHub() {
   const user = auth.current()
 
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'ncr') // ncr | capa | quarantine | ccr
+  const KNOWN_TABS = ['ncr', 'quarantine', 'validation']
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get('tab')
+    return KNOWN_TABS.includes(t) ? t : 'ncr'
+  }) // ncr | quarantine | validation
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(() => searchParams.get('ncrId') || null)
-  const [selectedCapaId, setSelectedCapaId] = useState(() => searchParams.get('capaId') || null)
   const [selectedQId, setSelectedQId] = useState(() => searchParams.get('qId') || null)
-  const [selectedCcrId, setSelectedCcrId] = useState(() => searchParams.get('ccrId') || null)
   const [showHelp, setShowHelp] = useState(false)
   const [, setRefresh] = useState(0)
   const refresh = () => setRefresh((t) => t + 1)
 
   const allNcrs = ncr.loadAll()
-  const allCapas = capa.loadAll()
   const allQuarantine = quarantine.loadAll()
-  const allCcrs = useMemo(() => getCcrRecords().slice().sort((a, b) => (b.performedAt || '').localeCompare(a.performedAt || '')), [tab, selectedCcrId])
 
   const filteredNcrs = useMemo(() => {
     let arr = [...allNcrs].sort((a, b) => b.detectedAt.localeCompare(a.detectedAt))
@@ -58,15 +46,7 @@ export default function QualityHub() {
 
   const counts = {
     ncrOpen: ncr.getOpenCount(),
-    capaOpen: capa.getOpenCount(),
     quarantineActive: quarantine.getActiveCount(),
-    equipCalibDue: (() => {
-      try {
-        const raw = localStorage.getItem('qms_eqp_instruments')
-        const list = raw ? JSON.parse(raw) : []
-        return list.filter((i) => i.status === '교정임박').length
-      } catch { return 0 }
-    })(),
   }
 
   return (
@@ -98,7 +78,7 @@ export default function QualityHub() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid md:grid-cols-5 gap-3 mb-5">
+        <div className="grid md:grid-cols-3 gap-3 mb-5">
           <StatCard
             icon={AlertTriangle}
             label="진행 중 NCR"
@@ -106,14 +86,6 @@ export default function QualityHub() {
             tone="rust"
             onClick={() => setTab('ncr')}
             active={tab === 'ncr'}
-          />
-          <StatCard
-            icon={ShieldCheck}
-            label="진행 중 CAPA"
-            value={counts.capaOpen}
-            tone="amber"
-            onClick={() => setTab('capa')}
-            active={tab === 'capa'}
           />
           <StatCard
             icon={Package}
@@ -124,22 +96,6 @@ export default function QualityHub() {
             active={tab === 'quarantine'}
           />
           <StatCard
-            icon={GitCommit}
-            label="변경 이력 (CCR)"
-            value={allCcrs.length}
-            tone="moss"
-            onClick={() => setTab('ccr')}
-            active={tab === 'ccr'}
-          />
-          <StatCard
-            icon={Wrench}
-            label="설비·교정 임박"
-            value={counts.equipCalibDue}
-            tone="amber"
-            onClick={() => setTab('equipment')}
-            active={tab === 'equipment'}
-          />
-          <StatCard
             icon={FlaskConical}
             label="밸리데이션 관리"
             value="IQ/OQ/PQ"
@@ -147,6 +103,9 @@ export default function QualityHub() {
             onClick={() => setTab('validation')}
             active={tab === 'validation'}
           />
+        </div>
+        <div className="mb-5 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+          CAPA(시정·예방조치)는 <Link to="/improvement?tab=capa" className="underline" style={{ color: 'var(--moss)' }}>CAPA·개선</Link> 메뉴에서, 변경 이력(CCR)은 <Link to="/change-control" className="underline" style={{ color: 'var(--moss)' }}>변경 관리</Link> 메뉴에서, 설비·교정 현황은 <Link to="/equipment" className="underline" style={{ color: 'var(--moss)' }}>설비·교정</Link> 메뉴에서 확인하세요.
         </div>
 
         {/* 용어 안내 */}
@@ -186,10 +145,7 @@ export default function QualityHub() {
             onSelect={setSelectedNcrId}
           />
         )}
-        {tab === 'capa' && <CapaList capas={allCapas} selectedId={selectedCapaId} onSelect={setSelectedCapaId} onChanged={refresh} />}
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} selectedId={selectedQId} onSelect={setSelectedQId} onChanged={refresh} />}
-        {tab === 'ccr' && <CcrList records={allCcrs} selectedId={selectedCcrId} onSelect={setSelectedCcrId} onChanged={refresh} />}
-        {tab === 'equipment' && <EquipmentHub embedded />}
         {tab === 'validation' && <ValidationHub embedded role="quality" />}
       </div>
     </AppLayout>
@@ -202,32 +158,31 @@ function CreateForm({ tab, onCreated }) {
   const [title, setTitle] = useState('')
   const [desc, setDesc] = useState('')
   const [sev, setSev] = useState(NCR_SEVERITY.MAJOR)
-  if (tab !== 'ncr' && tab !== 'capa') return null
-  const isNcr = tab === 'ncr'
+  if (tab !== 'ncr') return null
   const submit = () => {
     if (!title.trim()) return
-    if (isNcr) ncr.raise({ title: title.trim(), description: desc.trim(), severity: sev, source: { type: 'manual' } })
-    else capa.raise({ title: title.trim(), description: desc.trim(), trigger: 'manual', triggerReason: '수동 발의' })
+    ncr.raise({ title: title.trim(), description: desc.trim(), severity: sev, source: { type: 'manual' } })
     setTitle(''); setDesc(''); setSev(NCR_SEVERITY.MAJOR); setOpen(false); onCreated && onCreated()
   }
   return (
     <div className="mb-4">
+      <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-faint)' }}>
+        대부분의 NCR은 생산(eBR)에서 부적합 측정값으로 서명할 때 자동으로 발의되어 아래 목록에 나타납니다. 생산 공정과 무관하게 발견된 부적합(예: 감사·고객불만 등)만 아래에서 수동으로 등록하세요.
+      </div>
       {!open ? (
-        <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-[13px] font-medium px-3 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-900">
-          + 새 {isNcr ? '부적합 보고서(NCR)' : '시정·예방 조치(CAPA)'} 작성
+        <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 text-[13px] font-medium px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--line)', color: 'var(--ink-mute)' }}>
+          + 수동으로 NCR 작성
         </button>
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-3 grid gap-2 max-w-2xl">
-          <div className="text-[13px] font-semibold text-slate-800">새 {isNcr ? '부적합 보고서(NCR)' : '시정·예방 조치(CAPA)'} 작성</div>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={isNcr ? '제목 (예: 멸균 공정 온도 이탈)' : '제목 (예: 멸균 온도 이탈 재발 방지)'} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" />
-          {isNcr && (
-            <select value={sev} onChange={(e) => setSev(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-emerald-500">
-              <option value={NCR_SEVERITY.CRITICAL}>심각도: Critical (중대)</option>
-              <option value={NCR_SEVERITY.MAJOR}>심각도: Major (주요)</option>
-              <option value={NCR_SEVERITY.MINOR}>심각도: Minor (경미)</option>
-            </select>
-          )}
-          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder={isNcr ? '무엇이 / 어디서 / 왜 기준을 벗어났는지 기술 (ISO 13485 §8.3)' : '근본원인·조치 사유를 기술 (ISO 13485 §8.5.2/§8.5.3)'} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] leading-relaxed resize-y focus:outline-none focus:border-emerald-500" />
+          <div className="text-[13px] font-semibold text-slate-800">새 부적합 보고서(NCR) 작성</div>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목 (예: 멸균 공정 온도 이탈)" className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] focus:outline-none focus:border-emerald-500" />
+          <select value={sev} onChange={(e) => setSev(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] bg-white focus:outline-none focus:border-emerald-500">
+            <option value={NCR_SEVERITY.CRITICAL}>심각도: Critical (중대)</option>
+            <option value={NCR_SEVERITY.MAJOR}>심각도: Major (주요)</option>
+            <option value={NCR_SEVERITY.MINOR}>심각도: Minor (경미)</option>
+          </select>
+          <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} placeholder="무엇이 / 어디서 / 왜 기준을 벗어났는지 기술 (ISO 13485 §8.3)" className="rounded-lg border border-slate-200 px-3 py-2 text-[13px] leading-relaxed resize-y focus:outline-none focus:border-emerald-500" />
           <div className="flex gap-2 justify-end">
             <button onClick={() => { setOpen(false); setTitle(''); setDesc('') }} className="text-[12.5px] px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 hover:bg-slate-50">취소</button>
             <button onClick={submit} disabled={!title.trim()} className="text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40">발의</button>
@@ -846,224 +801,6 @@ function NcrInvestigationReport({ ncrRecord }) {
   )
 }
 
-function CapaList({ capas, selectedId, onSelect, onChanged }) {
-  const selected = selectedId ? capas.find((c) => c.id === selectedId) : null
-
-  if (capas.length === 0) {
-    return (
-      <div
-        className="card-base p-10 text-center text-[13px]"
-        style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}
-      >
-        <ShieldCheck
-          size={28}
-          style={{ color: 'var(--ink-faint)', margin: '0 auto' }}
-          strokeWidth={1.4}
-        />
-        <div className="mt-3">발의된 CAPA가 없습니다.</div>
-        <div className="mt-1 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-          Critical NCR 발의 시 또는 같은 항목 Major NCR 3건 누적 시 자동 후보로 등록됩니다.
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="grid lg:grid-cols-12 gap-4">
-      <div className="lg:col-span-5">
-        <div className="card-base p-3">
-          <div className="font-mono text-[10px] tracking-[0.16em] uppercase px-2 mb-2" style={{ color: 'var(--ink-mute)' }}>
-            CAPA · {capas.length}건
-          </div>
-          <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
-            {capas.map((c) => {
-              const status = CAPA_STATUS_LABEL[c.status]
-              const sel = c.id === selectedId
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => onSelect(c.id)}
-                  className="w-full text-left p-3 rounded-lg border transition"
-                  style={{ borderColor: sel ? 'var(--moss)' : 'var(--line)', background: sel ? 'var(--leaf-soft)' : 'var(--bg-card)' }}
-                >
-                  <div className="flex items-center justify-between flex-wrap gap-1.5">
-                    <span className="font-mono text-[11px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{c.id}</span>
-                    <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
-                  </div>
-                  <div className="text-[13px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>{c.title}</div>
-                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} · {c.raisedBy}</div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </div>
-      <div className="lg:col-span-7">
-        {selected ? (
-          <CapaDetail capaRecord={selected} onChanged={onChanged} />
-        ) : (
-          <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
-            좌측에서 CAPA를 선택하세요
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-/* ================================================================
-   CAPA 상세 — 근본원인분석 → 시정조치 → 예방조치 → 효과성검증 → 승인·종결
-   ================================================================ */
-const CAPA_STAGE_ORDER = ['open', 'rca', 'corrective', 'preventive', 'verification', 'closed']
-
-function CapaDetail({ capaRecord, onChanged }) {
-  const canEdit = permissions.can('qms.capa.edit')
-  const canApprove = permissions.can('qms.capa.approve')
-  const stageIdx = CAPA_STAGE_ORDER.indexOf(capaRecord.status)
-
-  const [rca, setRca] = useState(capaRecord.rootCause || { method: '', cause: '', evidence: '' })
-  const [corrective, setCorrective] = useState(capaRecord.correctiveAction || { action: '', owner: '', dueDate: '', completedDate: '' })
-  const [preventive, setPreventive] = useState(capaRecord.preventiveAction || { action: '', owner: '', dueDate: '' })
-  const [verification, setVerification] = useState(capaRecord.verification || { method: '', result: '효과있음', verifiedBy: '', verifiedDate: '' })
-
-  const saveStage = (stageKey, data, nextStatus) => {
-    if (!canEdit) { alert('CAPA 기록은 검사관(Level 2) 이상 권한이 필요합니다.'); return }
-    capa.updateStage(capaRecord.id, { [stageKey]: data }, nextStatus)
-    onChanged()
-  }
-
-  const closeCapa = () => {
-    if (!canApprove) { alert('CAPA 승인·종결은 매니저(Level 3) 권한이 필요합니다.'); return }
-    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 — 종결 승인')
-    if (reason == null) return
-    capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || '종결' })
-    onChanged()
-  }
-
-  const status = CAPA_STATUS_LABEL[capaRecord.status]
-
-  return (
-    <div className="card-base p-5 fade-in space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>{capaRecord.id}</span>
-          <div className="font-display text-[20px] mt-1 leading-tight" style={{ color: 'var(--ink)', fontWeight: 500 }}>{capaRecord.title}</div>
-        </div>
-        <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
-      </div>
-      <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>{capaRecord.description || capaRecord.triggerReason}</div>
-
-      {/* 근본원인분석 */}
-      <CapaStageCard title="① 근본원인분석 (RCA)" citation="ISO 13485 §8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
-        <SelectFieldQ label="분석 기법" value={rca.method} onChange={(v) => setRca((r) => ({ ...r, method: v }))} options={['', '5-Why', '피쉬본(어골도)', 'FMEA', '기타']} disabled={!canEdit || stageIdx > 1} />
-        <TextAreaFieldQ label="근본원인" value={rca.cause} onChange={(v) => setRca((r) => ({ ...r, cause: v }))} disabled={!canEdit || stageIdx > 1} />
-        <TextAreaFieldQ label="근거·증거" value={rca.evidence} onChange={(v) => setRca((r) => ({ ...r, evidence: v }))} disabled={!canEdit || stageIdx > 1} />
-        {canEdit && stageIdx <= 1 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
-        )}
-      </CapaStageCard>
-
-      {/* 시정조치 */}
-      <CapaStageCard title="② 시정조치" citation="ISO 13485 §8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
-        <TextAreaFieldQ label="시정조치 내용" value={corrective.action} onChange={(v) => setCorrective((c) => ({ ...c, action: v }))} disabled={!canEdit || stageIdx > 2} />
-        <div className="grid sm:grid-cols-3 gap-2">
-          <FieldQ label="담당자" value={corrective.owner} onChange={(v) => setCorrective((c) => ({ ...c, owner: v }))} disabled={!canEdit || stageIdx > 2} />
-          <FieldQ label="완료 기한" type="date" value={corrective.dueDate} onChange={(v) => setCorrective((c) => ({ ...c, dueDate: v }))} disabled={!canEdit || stageIdx > 2} />
-          <FieldQ label="완료일" type="date" value={corrective.completedDate} onChange={(v) => setCorrective((c) => ({ ...c, completedDate: v }))} disabled={!canEdit || stageIdx > 2} />
-        </div>
-        {canEdit && stageIdx >= 1 && stageIdx <= 2 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
-        )}
-      </CapaStageCard>
-
-      {/* 예방조치 */}
-      <CapaStageCard title="③ 예방조치" citation="ISO 13485 §8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
-        <TextAreaFieldQ label="예방조치 내용" value={preventive.action} onChange={(v) => setPreventive((p) => ({ ...p, action: v }))} disabled={!canEdit || stageIdx > 3} />
-        <div className="grid sm:grid-cols-2 gap-2">
-          <FieldQ label="담당자" value={preventive.owner} onChange={(v) => setPreventive((p) => ({ ...p, owner: v }))} disabled={!canEdit || stageIdx > 3} />
-          <FieldQ label="완료 기한" type="date" value={preventive.dueDate} onChange={(v) => setPreventive((p) => ({ ...p, dueDate: v }))} disabled={!canEdit || stageIdx > 3} />
-        </div>
-        {canEdit && stageIdx >= 2 && stageIdx <= 3 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
-        )}
-      </CapaStageCard>
-
-      {/* 효과성검증 */}
-      <CapaStageCard title="④ 효과성검증" citation="ISO 13485 §8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
-        <TextAreaFieldQ label="검증 방법" value={verification.method} onChange={(v) => setVerification((x) => ({ ...x, method: v }))} disabled={!canEdit || stageIdx > 4} />
-        <div className="grid sm:grid-cols-3 gap-2">
-          <SelectFieldQ label="검증 결과" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['효과있음', '불충분 · 재조치 필요']} disabled={!canEdit || stageIdx > 4} />
-          <FieldQ label="검증자" value={verification.verifiedBy} onChange={(v) => setVerification((x) => ({ ...x, verifiedBy: v }))} disabled={!canEdit || stageIdx > 4} />
-          <FieldQ label="검증일" type="date" value={verification.verifiedDate} onChange={(v) => setVerification((x) => ({ ...x, verifiedDate: v }))} disabled={!canEdit || stageIdx > 4} />
-        </div>
-        {canEdit && stageIdx >= 3 && stageIdx <= 4 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 승인 대기로</button></div>
-        )}
-      </CapaStageCard>
-
-      {/* 승인·종결 */}
-      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
-        {stageIdx === 5 ? (
-          <div className="text-[12.5px]" style={{ color: 'var(--moss)' }}>
-            <CheckCircle2 size={14} className="inline mr-1" />
-            {capaRecord.closure?.by} 승인 · {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} — {capaRecord.closure?.reason}
-          </div>
-        ) : stageIdx === 4 ? (
-          canApprove ? (
-            <div className="flex justify-end"><button onClick={closeCapa} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><CheckCircle2 size={13} /> 승인 및 종결</button></div>
-          ) : (
-            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>효과성검증까지 완료되었습니다. 매니저(Level 3) 승인을 기다리는 중입니다.</div>
-          )
-        ) : (
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>이전 단계를 먼저 완료하세요.</div>
-        )}
-      </CapaStageCard>
-    </div>
-  )
-}
-
-function CapaStageCard({ title, citation, active, done, locked, children }) {
-  return (
-    <div className="rounded-lg p-3.5" style={{ background: locked ? 'var(--bg-soft)' : active ? 'var(--leaf-soft)' : 'var(--bg-card)', border: '1px solid var(--line)', opacity: locked ? 0.55 : 1 }}>
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{title}</div>
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[9.5px]" style={{ color: 'var(--ink-faint)' }}>{citation}</span>
-          {done && <CheckCircle2 size={14} style={{ color: 'var(--moss)' }} />}
-        </div>
-      </div>
-      <div className="space-y-2">{children}</div>
-    </div>
-  )
-}
-
-function FieldQ({ label, value, onChange, placeholder, type = 'text', disabled }) {
-  return (
-    <label className="block">
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <input type={type} className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} placeholder={placeholder} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  )
-}
-function SelectFieldQ({ label, value, onChange, options, disabled }) {
-  return (
-    <label className="block">
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => <option key={o} value={o}>{o || '(선택)'}</option>)}
-      </select>
-    </label>
-  )
-}
-function TextAreaFieldQ({ label, value, onChange, disabled }) {
-  return (
-    <label className="block">
-      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
-      <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight: 60 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
-    </label>
-  )
-}
-
 /* ================================================================
    격리 큐 목록
    ================================================================ */
@@ -1080,8 +817,8 @@ function QuarantineList({ items, selectedId, onSelect, onChanged }) {
           strokeWidth={1.4}
         />
         <div className="mt-3">격리된 항목이 없습니다.</div>
-        <div className="mt-1 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-          NCR 발의 → "위험 구간 격리" 액션으로 자동 등록됩니다.
+        <div className="mt-1 text-[11.5px] leading-relaxed max-w-sm mx-auto" style={{ color: 'var(--ink-faint)' }}>
+          자동으로 채워지지 않습니다 — NCR 상세 화면에서 위험 구간(영향받은 작업 지시)이 있는 <b>OPEN 상태</b>의 NCR을 열고 <b>"위험 구간 격리"</b> 버튼을 눌러야 등록됩니다. 이 버튼은 매니저(Level 3) 권한 사용자에게만 보입니다.
         </div>
       </div>
     )
@@ -1195,132 +932,6 @@ function QuarantineDetail({ item, onChanged }) {
           </div>
         </div>
       )}
-    </div>
-  )
-}
-
-/* ================================================================
-   변경관리 (CCR) — 모든 엔티티 변경의 자동 기록 + 사람이 쓰는 영향평가서
-   ================================================================ */
-function CcrList({ records, selectedId, onSelect, onChanged }) {
-  if (records.length === 0) {
-    return (
-      <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
-        <GitCommit size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-        <div className="mt-3">아직 변경 이력(CCR)이 없습니다.</div>
-      </div>
-    )
-  }
-  const sel = records.find((r) => r.id === selectedId) || null
-  const actionTone = (a) => (a === 'CREATE' ? 'leaf' : a === 'DELETE' ? 'rust' : 'amber')
-
-  return (
-    <div className="grid md:grid-cols-5 gap-3">
-      <div className="md:col-span-2 space-y-2 max-h-[640px] overflow-y-auto pr-1">
-        {records.map((r) => {
-          const active = r.id === selectedId
-          const ia = impactAssessments.get(r.id)
-          return (
-            <button
-              key={r.id}
-              onClick={() => onSelect(r.id)}
-              className="card-base p-3 w-full text-left block"
-              style={active ? { borderColor: 'var(--moss)', background: 'var(--leaf-soft)' } : undefined}
-            >
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: `var(--${actionTone(r.action)}-soft)`, color: `var(--${actionTone(r.action)})` }}>{r.action}</span>
-                <span className="font-mono text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{r.id}</span>
-                {ia && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--moss)' }}>영향평가 작성됨</span>}
-              </div>
-              <div className="text-[12px] mt-1 line-clamp-2" style={{ color: 'var(--ink)' }}>{r.reason}</div>
-              <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>
-                {new Date(r.performedAt).toLocaleString('ko-KR')} · {r.performedBy?.name}
-              </div>
-            </button>
-          )
-        })}
-      </div>
-      <div className="md:col-span-3">
-        {sel ? <CcrDetail record={sel} onChanged={onChanged} /> : (
-          <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)' }}>왼쪽에서 변경 이력(CCR)을 선택하세요.</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function CcrDetail({ record, onChanged }) {
-  const canEdit = permissions.can('qms.ccr.impactAssessment.edit')
-  const existing = impactAssessments.get(record.id)
-  const [editing, setEditing] = useState(!existing)
-  const [form, setForm] = useState(() => existing || { riskLevel: IMPACT_RISK_LEVEL.LOW, affectedAreas: '', content: '', conclusion: '' })
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const save = () => {
-    if (!requirePermission('qms.ccr.impactAssessment.edit')) return
-    if (!form.content.trim()) { alert('영향평가 내용을 입력하세요.'); return }
-    impactAssessments.upsert(record.id, form)
-    setEditing(false)
-    onChanged && onChanged()
-  }
-
-  return (
-    <div className="card-base p-5 fade-in">
-      <div className="flex items-center gap-2 flex-wrap mb-2">
-        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{record.action}</span>
-        <span className="font-mono text-[11px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{record.id}</span>
-        <span className="font-mono text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{record.targetType} · {record.targetEid}</span>
-      </div>
-      <div className="text-[13.5px]" style={{ color: 'var(--ink)' }}>{record.reason}</div>
-      <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
-        {new Date(record.performedAt).toLocaleString('ko-KR')} · {record.performedBy?.name} ({record.performedBy?.levelLabel})
-      </div>
-
-      {record.impacts?.length > 0 && (
-        <div className="mt-3 rounded-lg p-2.5" style={{ background: 'var(--bg-soft)' }}>
-          <div className="text-[11px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>자동 추적된 영향 범위 ({record.impacts.length}건)</div>
-          <div className="text-[11.5px]" style={{ color: 'var(--ink)' }}>
-            {record.impacts.slice(0, 6).map((im) => im.kindLabel || im.kind).join(', ')}
-            {record.impacts.length > 6 && ` 외 ${record.impacts.length - 6}건`}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="font-mono text-[10px] tracking-[0.16em] uppercase flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
-            <FileSearch size={12} /> 영향평가서 (사람 작성)
-          </div>
-          {!editing && canEdit && (
-            <button onClick={() => setEditing(true)} className="text-[11.5px]" style={{ color: 'var(--moss)' }}>{existing ? '수정' : '작성'}</button>
-          )}
-        </div>
-
-        {editing ? (
-          <div className="space-y-2.5">
-            <SelectFieldQ label="위험도" value={form.riskLevel} onChange={(v) => setF('riskLevel', v)} options={Object.values(IMPACT_RISK_LEVEL)} />
-            <FieldQ label="영향 범위 (부서·공정·제품 등)" value={form.affectedAreas} onChange={(v) => setF('affectedAreas', v)} placeholder="예: 생산1팀 공정 3·4, A제품 생산라인" />
-            <TextAreaFieldQ label="평가 내용" value={form.content} onChange={(v) => setF('content', v)} placeholder="변경이 품질·안전·규제에 미치는 영향을 서술하세요." />
-            <TextAreaFieldQ label="결론·후속조치" value={form.conclusion} onChange={(v) => setF('conclusion', v)} placeholder="선택 입력" />
-            <div className="flex gap-2">
-              <button onClick={save} className="btn-primary text-[12.5px]" style={{ padding: '0.5rem 1rem' }}>저장</button>
-              {existing && <button onClick={() => { setEditing(false); setForm(existing) }} className="btn-ghost text-[12.5px]">취소</button>}
-            </div>
-          </div>
-        ) : existing ? (
-          <div className="text-[12.5px] space-y-1.5">
-            <div><span style={{ color: 'var(--ink-mute)' }}>위험도: </span><span style={{ color: 'var(--ink)', fontWeight: 500 }}>{existing.riskLevel}</span></div>
-            {existing.affectedAreas && <div><span style={{ color: 'var(--ink-mute)' }}>영향 범위: </span>{existing.affectedAreas}</div>}
-            <div className="mt-1.5 leading-relaxed" style={{ color: 'var(--ink)' }}>{existing.content}</div>
-            {existing.conclusion && <div className="mt-1.5" style={{ color: 'var(--ink-mute)' }}>결론: {existing.conclusion}</div>}
-            <div className="font-mono text-[10.5px] mt-2" style={{ color: 'var(--ink-faint)' }}>
-              {existing.assessedBy} · {new Date(existing.updatedAt || existing.assessedAt).toLocaleString('ko-KR')}
-            </div>
-          </div>
-        ) : (
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>아직 작성된 영향평가서가 없습니다.</div>
-        )}
-      </div>
     </div>
   )
 }
