@@ -23,7 +23,6 @@ import {
 
 export default function ManagementReviewHub() {
   const user = auth.current()
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'review') // review | objective
   const [tick, setTick] = useState(0)
   const refresh = () => setTick((x) => x + 1)
   const [toast, setToast] = useState(null)
@@ -51,7 +50,7 @@ export default function ManagementReviewHub() {
 
         
         
-        {tab === 'review' && <ReviewTab key={tick} reviewList={allReviews} onAction={showToast} refresh={refresh} />}
+        <ReviewTab key={tick} reviewList={allReviews} onAction={showToast} refresh={refresh} />
       </div>
     </AppLayout>
   )
@@ -266,9 +265,12 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
         <div className="card-base p-4">
           <div className="text-[13px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>품질목표 스냅샷</div>
           <div className="space-y-1">
-            {review.snapshot.qualityObjectivesSnapshot.map((o) => (
-              <div key={o.id} className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>{o.objective} — 목표 {o.target}{o.unit} · 실적 {o.actual || '—'}{o.unit} · <Badge text={o.status} tone={o.status === OBJECTIVE_STATUS.MET ? 'emerald' : o.status === OBJECTIVE_STATUS.MISSED ? 'rose' : 'slate'} /></div>
-            ))}
+            {review.snapshot.qualityObjectivesSnapshot.map((o) => {
+              const tone = o.statusKey === 'achieved' || o.statusKey === 'on_track' ? 'emerald' : o.statusKey === 'missed' ? 'rose' : o.statusKey === 'at_risk' ? 'amber' : 'slate'
+              return (
+                <div key={o.id} className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>{o.objective} — 목표 {o.target}{o.unit} · 실적 {o.actual || '—'}{o.unit} · <Badge text={o.status} tone={tone} /></div>
+              )
+            })}
           </div>
         </div>
       )}

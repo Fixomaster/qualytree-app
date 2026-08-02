@@ -99,9 +99,8 @@ items: [
 label: '경영·전략', icon: BarChart3,
 items: [
 { to: '/management-review', label: '경영검토' },
-{ to: '/quality-objectives', label: '품질목표' },
 { to: '/quality-plan', label: '품질계획' },
-{ to: '/management-commitment', label: '경영의지·방침' },
+{ to: '/management-commitment', label: '경영의지·품질방침·목표' },
 ],
 },
 ]

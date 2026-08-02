@@ -11,18 +11,11 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { LS_KEY, OBJ_STATUSES, calcRate, autoStatus, LINKED_KPI_OPTIONS, computeLinkedActual } from '../../lib/qualityObjectivesState'
+import { buildSnapshot } from '../../lib/managementReviewState'
 
 // ── 상수 ─────────────────────────────────────────────────────
-const LS_KEY = 'qualytree.quality_objectives'
 const LS_KEY_POLICY = 'qualytree.quality_policy'
-
-const OBJ_STATUSES = {
-  on_track:  { label: '달성 중',   color: '#059669', bg: '#D1FAE5' },
-  at_risk:   { label: '위험',      color: '#D97706', bg: '#FEF3C7' },
-  missed:    { label: '미달성',    color: '#DC2626', bg: '#FEE2E2' },
-  achieved:  { label: '달성',      color: '#2563EB', bg: '#DBEAFE' },
-  not_started: { label: '미시작', color: '#9CA3AF', bg: '#F3F4F6' },
-}
 
 const PERIODS = ['월간', '분기', '반기', '연간']
 const YEARS = ['2023', '2024', '2025', '2026', '2027']
@@ -45,35 +38,6 @@ const CATEGORIES = [
 function genId() { return `QO-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
 
-// 달성률 계산
-function calcRate(obj) {
-  const actual = parseFloat(obj.actualValue)
-  const target = parseFloat(obj.targetValue)
-  const baseline = parseFloat(obj.baselineValue)
-  if (isNaN(actual) || isNaN(target)) return null
-  if (obj.direction === 'lower') {
-    // 낮을수록 좋음: target < baseline
-    if (!isNaN(baseline) && baseline !== target) {
-      return Math.max(0, Math.min(100, Math.round(((baseline - actual) / (baseline - target)) * 100)))
-    }
-    return actual <= target ? 100 : Math.max(0, Math.round((target / actual) * 100))
-  } else {
-    // 높을수록 좋음
-    if (target === 0) return actual >= 0 ? 100 : 0
-    return Math.max(0, Math.min(150, Math.round((actual / target) * 100)))
-  }
-}
-
-// 자동 상태 결정
-function autoStatus(obj) {
-  const rate = calcRate(obj)
-  if (rate === null) return obj.status || 'not_started'
-  if (rate >= 100) return 'achieved'
-  if (rate >= 80) return 'on_track'
-  if (rate >= 60) return 'at_risk'
-  return 'missed'
-}
-
 const EMPTY_FORM = {
   title: '', category: '제품 품질', dept: '품질부(QUA)',
   period: '연간', year: String(new Date().getFullYear()),
@@ -82,6 +46,7 @@ const EMPTY_FORM = {
   baselineValue: '', targetValue: '', actualValue: '',
   status: 'not_started', autoCalc: true,
   linkedKpiId: '',
+  linkedKpi: 'other',   // #364: 연동 KPI 선택 — 'other'가 아니면 실적값을 실제 데이터에서 자동으로 불러옴
   description: '', actions: '',
   notes: '',
   actuals: [],   // monthly/quarterly actuals [{date, value, note}]
@@ -90,7 +55,17 @@ const EMPTY_FORM = {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function QualityObjectivesHub() {
   const user = auth.current()
-  const canEdit = user?.level >= 2
+  return (
+    <AppLayout user={user} title="품질 목표 관리" subtitle="ISO 13485 §5.4.1 품질 목표 / §5.4.2 QMS 기획">
+      <QualityObjectivesPanel />
+    </AppLayout>
+  )
+}
+
+// #360: 품질방침과 메뉴 통합 — QualityPolicyHub(경영의지·품질방침) 탭 안에서도 렌더링되도록
+// AppLayout 없이 내용만 export. /quality-objectives 라우트(딥링크 하위호환)는 위 래퍼가 담당.
+export function QualityObjectivesPanel() {
+  const canEdit = auth.current()?.level >= 2
 
   const [objectives, setObjectives] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
@@ -171,7 +146,6 @@ export default function QualityObjectivesHub() {
   }, [objectives, filterYear])
 
   return (
-    <AppLayout user={user} title="품질 목표 관리" subtitle="ISO 13485 §5.4.1 품질 목표 / §5.4.2 QMS 기획">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 탭 */}
@@ -351,7 +325,6 @@ export default function QualityObjectivesHub() {
             autoStatus={autoStatus} calcRate={calcRate} />
         )}
       </div>
-    </AppLayout>
   )
 }
 
@@ -609,6 +582,29 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const policy = useMemo(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_POLICY) || '{}') } catch { return {} }
   }, [])
+  const kpiSnapshot = useMemo(() => { try { return buildSnapshot().kpi } catch { return null } }, [])
+  const isLinked = form.linkedKpi && form.linkedKpi !== 'other'
+
+  // #364: 연동 KPI 선택 시 KPI명·단위·방향을 자동 지정하고 실적값을 실제 데이터에서 불러온다.
+  // '기타'를 선택하면 기존과 동일하게 전부 직접 입력.
+  function onLinkedKpiChange(id) {
+    F('linkedKpi', id)
+    if (id === 'other') return
+    const opt = LINKED_KPI_OPTIONS.find(o => o.id === id)
+    if (!opt) return
+    setForm(f => ({
+      ...f,
+      linkedKpi: id,
+      kpiName: opt.label,
+      unit: opt.unit,
+      direction: opt.direction,
+      actualValue: String(computeLinkedActual(id, kpiSnapshot)),
+    }))
+  }
+  function refreshLinkedActual() {
+    if (!isLinked) return
+    F('actualValue', String(computeLinkedActual(form.linkedKpi, kpiSnapshot)))
+  }
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '품질 목표 수정' : '품질 목표 등록'}</div>
@@ -640,14 +636,25 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
           options={YEARS.map(y => ({ value: y, label: `${y}년` }))} />
         <FieldSelect label="주기" value={form.period} onChange={v => F('period', v)}
           options={PERIODS.map(p => ({ value: p, label: p }))} />
-        <Field label="KPI 명칭" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="검사 합격률" />
+        <FieldSelect label="연동 KPI" value={form.linkedKpi || 'other'} onChange={onLinkedKpiChange}
+          options={LINKED_KPI_OPTIONS.map(o => ({ value: o.id, label: o.label }))} />
+        <Field label="KPI 명칭" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="검사 합격률" disabled={isLinked} />
         <FieldSelect label="단위" value={form.unit} onChange={v => F('unit', v)}
-          options={KPI_UNIT_PRESETS.map(u => ({ value: u, label: u }))} />
+          options={KPI_UNIT_PRESETS.map(u => ({ value: u, label: u }))} disabled={isLinked} />
         <FieldSelect label="방향" value={form.direction} onChange={v => F('direction', v)}
-          options={[{ value: 'higher', label: '↑ 높을수록 좋음' }, { value: 'lower', label: '↓ 낮을수록 좋음' }]} />
+          options={[{ value: 'higher', label: '↑ 높을수록 좋음' }, { value: 'lower', label: '↓ 낮을수록 좋음' }]} disabled={isLinked} />
         <Field label="기준값 (Baseline)" value={form.baselineValue} onChange={v => F('baselineValue', v)} type="number" />
         <Field label="목표값 *" value={form.targetValue} onChange={v => F('targetValue', v)} type="number" />
-        <Field label="현재 실적값" value={form.actualValue} onChange={v => F('actualValue', v)} type="number" />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>현재 실적값</label>
+            {isLinked && <button type="button" onClick={refreshLinkedActual} className="text-[10.5px] font-semibold" style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>실적 자동 불러오기</button>}
+          </div>
+          <input type="number" value={form.actualValue || ''} onChange={e => F('actualValue', e.target.value)}
+            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+          {isLinked && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>실제 데이터(경영검토 KPI 자동집계)에서 불러온 값입니다. 필요 시 수정 가능합니다.</div>}
+        </div>
         <div className="flex items-center gap-3 pt-5">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.autoCalc !== false}
@@ -686,23 +693,23 @@ function LinkChip({ label, color }) {
     </span>
   )
 }
-function Field({ label, value, onChange, type = 'text', placeholder }) {
+function Field({ label, value, onChange, type = 'text', placeholder, disabled = false }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} disabled={disabled}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+        style={{ background: disabled ? 'var(--bg-soft)' : 'var(--bg)', border: '1px solid var(--line)', color: disabled ? 'var(--ink-faint)' : 'var(--ink)' }} />
     </div>
   )
 }
-function FieldSelect({ label, value, onChange, options }) {
+function FieldSelect({ label, value, onChange, options, disabled = false }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <select value={value || ''} onChange={e => onChange(e.target.value)}
+      <select value={value || ''} onChange={e => onChange(e.target.value)} disabled={disabled}
         className="w-full px-3 py-1.5 rounded-xl text-[13px]"
-        style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+        style={{ background: disabled ? 'var(--bg-soft)' : 'var(--bg)', border: '1px solid var(--line)', color: disabled ? 'var(--ink-faint)' : 'var(--ink)' }}>
         {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
     </div>

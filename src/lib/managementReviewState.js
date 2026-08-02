@@ -14,6 +14,7 @@ import { suppliers } from './supplierState'
 import { findings, FINDING_STATUS } from './internalAuditState'
 import { sessions as trainingSessions } from './trainingState'
 import { onboarding } from './onboardingState'
+import { getAll as getQualityObjectives, effStatus as qoEffStatus, OBJ_STATUSES } from './qualityObjectivesState'
 
 const STORE_KEY = 'qualytree.managementReview'
 // Documents.jsx(품질 문서)와 동일한 저장소 키 — 경영검토 승인 시 '경영검토' 절차서 docState에
@@ -144,7 +145,20 @@ export function buildSnapshot() {
       auditOpenFindings: openAuditFindings,
       trainingCompliance,
     },
-    qualityObjectivesSnapshot: qualityObjectives.getAll(),
+    // #356: 경영검토 화면 내부의 별도 미사용 저장소가 아닌, 품질방침·목표(§5.4.1) 화면에서
+    // 실제 입력되는 'qualytree.quality_objectives' 데이터를 그대로 긁어와 스냅샷에 반영한다.
+    qualityObjectivesSnapshot: getQualityObjectives().map((o) => {
+      const st = qoEffStatus(o)
+      return {
+        id: o.id,
+        objective: o.title,
+        target: o.targetValue,
+        unit: o.unit,
+        actual: o.actualValue,
+        statusKey: st,
+        status: (OBJ_STATUSES[st] || OBJ_STATUSES.not_started).label,
+      }
+    }),
     capaSnapshot: allCapas.map((c) => ({ id: c.id, title: c.title, status: c.status })),
   }
 }
