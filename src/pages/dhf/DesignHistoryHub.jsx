@@ -48,6 +48,15 @@ function derivePhase(dhf) {
   return 'change'
 }
 
+// 기록 추가 시 기본 기록유형을 산출한다. currentPhase는 진행률 표시를 위한 'planning'(기획) 값을 가질 수 있는데,
+// 'planning'은 ITEM_TYPES(실제 기록유형)에 없는 값이므로 그대로 넘기면 폼/AI초안 생성이 깨진다(#299 버그 수정).
+function defaultRecordType(dhf) {
+  const phase = dhf.currentPhase
+  if (phase === 'change') return 'change'
+  if (RECORD_PHASE_ORDER.includes(phase)) return phase
+  return 'input'
+}
+
 const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', '미분류']
 const RECORD_STATUSES = ['open', 'in_review', 'approved', 'rejected']
 const STATUS_META = {
@@ -655,7 +664,7 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
               style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE', cursor: 'pointer' }}>
               <Sparkles size={12} /> AI 초안 생성
             </button>
-            <button onClick={() => { setRecForm({ ...EMPTY_RECORD, type: dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase }); setEditRecIdx(null); setShowRecForm(true) }}
+            <button onClick={() => { setRecForm({ ...EMPTY_RECORD, type: defaultRecordType(dhf) }); setEditRecIdx(null); setShowRecForm(true) }}
               className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold"
               style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
               <Plus size={12} /> 기록 추가
@@ -668,7 +677,7 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
       {showAiModal && (
         <DhfAiDraftModal
           dhf={dhf}
-          defaultType={dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase}
+          defaultType={defaultRecordType(dhf)}
           onClose={() => setShowAiModal(false)}
           onUse={(draft) => {
             setRecForm({ ...EMPTY_RECORD, type: draft.type, title: draft.title, description: draft.description, notes: draft.notes || '' })
@@ -699,7 +708,9 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
           allowedTypes={
             dhf.currentPhase === 'change'
               ? [...RECORD_PHASE_ORDER, 'change']
-              : RECORD_PHASE_ORDER.slice(0, RECORD_PHASE_ORDER.indexOf(dhf.currentPhase) + 1)
+              // currentPhase가 'planning'(기획, 최초 상태)이면 indexOf가 -1이 되어 빈 배열이 나오는 버그가 있었다 —
+              // 이 경우 최소 '설계 입력'은 선택 가능해야 한다(#299 버그 수정).
+              : RECORD_PHASE_ORDER.slice(0, Math.max(1, RECORD_PHASE_ORDER.indexOf(dhf.currentPhase) + 1))
           } />
       )}
 
