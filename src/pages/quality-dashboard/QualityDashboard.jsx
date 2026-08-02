@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { getMergedEnvLogs } from '../../lib/envMonitoring'
 
 // ── localStorage 읽기 ─────────────────────────────────────────
 function lsR(k) { try { return JSON.parse(localStorage.getItem(k) || '[]') } catch { return [] } }
@@ -26,7 +27,7 @@ function loadAllData() {
     iqc:          lsR('qualytree.iqc'),
     inspections:  lsR('qualytree.inspections'),
     changes:      lsR('qualytree.changes'),
-    envLogs:      lsR('qualytree.env_logs'),
+    envLogs:      getMergedEnvLogs(), // 생산(청결·오염관리) 실측 + 과거 이력 병합 — 작업환경관리와 동일 SSoT
     validations:  lsR('qualytree.validations'),
     distributions:lsR('qualytree.distributions'),
     improvements: lsR('qualytree.improvements'),

@@ -13,6 +13,7 @@ import { auth } from '../../lib/auth'
 import { printCleanlinessCert } from '../../lib/pdfPrint'
 import { onboarding } from '../../lib/onboardingState'
 import { deriveCleanlinessSpecs } from '../../lib/cleanlinessSpecConstants'
+import { getZones, paToMmH2O, mmH2OToPa } from '../../lib/envMonitoring'
 
 const LS_SPECS  = 'qualytree.cleanliness_specs'
 const LS_RECS   = 'qualytree.cleanliness_records'
@@ -109,6 +110,7 @@ const EMPTY_SPEC = {
 
 const EMPTY_RECORD = {
   specId: '',
+  zoneId: '',        // 측정 구역(작업환경관리 구역 참조) — 구역이 1개뿐이면 자동 선택
   date: today(),
   lotNo: '',
   result: 'pass',    // pass | fail | conditional
@@ -139,6 +141,9 @@ export default function CleanlinessHub() {
   const specs = useMemo(() => deriveCleanlinessSpecs(onboarding.load()?.products || []), [])
   const goToProduct = (productId) => nav('/products?tab=product&productId=' + encodeURIComponent(productId) + '&detailTab=info')
   const goToProducts = () => nav('/products?tab=product')
+  // 측정 구역(온도·습도·파티클·차압 허용범위)은 품질검사 > 작업환경관리에서 관리한다 (SSoT).
+  const zones = useMemo(() => getZones(), [])
+  const goToWorkEnv = () => nav('/workenv?tab=zones')
 
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_RECS) || '[]') } catch { return [] }
@@ -310,7 +315,7 @@ export default function CleanlinessHub() {
             <div className="flex gap-2 mb-4 items-center">
               <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>카드 클릭 시 상세·성적서 확인</span>
               {canEdit && (
-                <button onClick={function() { setRecForm(EMPTY_RECORD); setEditRecId(null); setShowRecForm(true) }}
+                <button onClick={function() { setRecForm({ ...EMPTY_RECORD, zoneId: zones.length === 1 ? zones[0].id : '' }); setEditRecId(null); setShowRecForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
                   <Plus size={14} /> 기록 등록
@@ -319,7 +324,7 @@ export default function CleanlinessHub() {
             </div>
 
             {showRecForm && (
-              <RecordForm form={recForm} RF={RF} specs={specs} onSave={submitRecord}
+              <RecordForm form={recForm} RF={RF} specs={specs} zones={zones} goToWorkEnv={goToWorkEnv} onSave={submitRecord}
                 onCancel={function() { setShowRecForm(false); setRecForm(EMPTY_RECORD); setEditRecId(null) }}
                 isEdit={!!editRecId} RESULT_STYLES={RESULT_STYLES} />
             )}
@@ -334,7 +339,7 @@ export default function CleanlinessHub() {
                 {records.map(function(rec) {
                   var spec = specs.find(function(s) { return s.id === rec.specId }) || {}
                   return (
-                    <RecordCard key={rec.id} rec={rec} spec={spec} canEdit={canEdit}
+                    <RecordCard key={rec.id} rec={rec} spec={spec} zone={zones.find(function(z) { return z.id === rec.zoneId })} canEdit={canEdit}
                       expanded={expandedRec === rec.id}
                       onToggle={function() { setExpandedRec(expandedRec === rec.id ? null : rec.id) }}
                       onEdit={function() { setRecForm({ ...EMPTY_RECORD, ...rec }); setEditRecId(rec.id); setShowRecForm(true) }}
@@ -601,10 +606,13 @@ function SpecForm({ form, SF, onSave, onCancel, isEdit, toggleContamType }) {
 }
 
 // ── 모니터링 기록 폼 ─────────────────────────────────────────
-function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }) {
+function RecordForm({ form, RF, specs, zones, goToWorkEnv, onSave, onCancel, isEdit, RESULT_STYLES }) {
+  const [pressUnit, setPressUnit] = React.useState('Pa')
   const selectedSpec = specs.find(function(s) { return s.id === form.specId })
   // 선택된 사양에 밸리데이션 참조가 있으면 미립자/미생물 측정값은 밸리데이션으로 대체되므로 입력칸을 숨긴다. (#173)
   const validationSubstituted = !!(selectedSpec && selectedSpec.validationRef)
+  const pressDisplay = pressUnit === 'Pa' ? form.pressureDiff : paToMmH2O(form.pressureDiff)
+  const onPressChange = function(v) { RF('pressureDiff', pressUnit === 'Pa' ? v : mmH2OToPa(parseFloat(v))) }
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
@@ -620,6 +628,20 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
             {specs.map(function(s) { return <option key={s.id} value={s.id}>{s.productName}</option> })}
           </select>
         </div>
+        <div>
+          <label className="flex items-center justify-between text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>
+            <span>측정 구역</span>
+            {zones.length === 0 && (
+              <button type="button" onClick={goToWorkEnv} className="text-[10px] font-bold" style={{ color: 'var(--moss)', background: 'none', border: 'none', cursor: 'pointer' }}>+ 구역 등록</button>
+            )}
+          </label>
+          <select value={form.zoneId} onChange={function(e) { RF('zoneId', e.target.value) }}
+            className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+            style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+            <option value="">{zones.length === 0 ? '등록된 구역 없음' : '-- 구역 선택 --'}</option>
+            {zones.map(function(z) { return <option key={z.id} value={z.id}>{z.name}</option> })}
+          </select>
+        </div>
         <F label="일자" type="date" value={form.date} onChange={function(v) { RF('date', v) }} />
         <F label="로트 번호" value={form.lotNo} onChange={function(v) { RF('lotNo', v) }} />
         <div>
@@ -632,13 +654,26 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
         </div>
         {!validationSubstituted && (
           <>
-            <F label="미립자 측정값" value={form.particleResult} onChange={function(v) { RF('particleResult', v) }} placeholder="12,500개/m³" />
+            <div>
+              <F label="미립자 측정값 (선택)" value={form.particleResult} onChange={function(v) { RF('particleResult', v) }} placeholder="12,500개/m³" />
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>밸리데이션으로 대체 가능 — 필요 시에만 입력</div>
+            </div>
             <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
           </>
         )}
         <F label="온도 (℃)" value={form.temperature} onChange={function(v) { RF('temperature', v) }} placeholder="22.5" />
         <F label="습도 (%RH)" value={form.humidity} onChange={function(v) { RF('humidity', v) }} placeholder="45" />
-        <F label="차압 (Pa)" value={form.pressureDiff} onChange={function(v) { RF('pressureDiff', v) }} placeholder="15" />
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>차압</label>
+            <button type="button" onClick={function() { setPressUnit(function(u) { return u === 'Pa' ? 'mmH2O' : 'Pa' }) }}
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>
+              {pressUnit === 'Pa' ? 'Pa → mmH₂O' : 'mmH₂O → Pa'}
+            </button>
+          </div>
+          <input value={pressDisplay} onChange={function(e) { onPressChange(e.target.value) }} placeholder={pressUnit === 'Pa' ? '15' : '1.53'}
+            className="w-full px-3 py-1.5 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+        </div>
         <F label="비고" value={form.notes} onChange={function(v) { RF('notes', v) }} />
       </div>
       {validationSubstituted && (
@@ -659,7 +694,7 @@ function RecordForm({ form, RF, specs, onSave, onCancel, isEdit, RESULT_STYLES }
 }
 
 // ── 모니터링 기록 카드 (작업환경관리 스타일) ───────────────────
-function RecordCard({ rec, spec, expanded, onToggle, onEdit, onDelete, onPrint, RESULT_STYLES, canEdit }) {
+function RecordCard({ rec, spec, zone, expanded, onToggle, onEdit, onDelete, onPrint, RESULT_STYLES, canEdit }) {
   const rs = RESULT_STYLES[rec.result] || RESULT_STYLES.pass
   const isFail = rec.result === 'fail'
   const params = [
@@ -715,6 +750,7 @@ function RecordCard({ rec, spec, expanded, onToggle, onEdit, onDelete, onPrint, 
             {[
               ['제품 코드', spec.productCode],
               ['청결도 등급', spec.cleanClass],
+              ['측정 구역', zone ? zone.name : null],
               ['미립자 측정값', rec.particleResult],
               ['미생물 측정값', rec.microbialResult],
               ['온도', rec.temperature ? rec.temperature + ' ℃' : ''],

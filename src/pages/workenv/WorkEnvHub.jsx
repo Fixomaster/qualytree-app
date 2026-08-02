@@ -1,22 +1,25 @@
 // src/pages/workenv/WorkEnvHub.jsx
-// ISO 13485 §6.4 작업환경 관리 — 제조 구역별 환경 모니터링·이탈 감지·NCR 연동
+// ISO 13485 §6.4 작업환경 관리 — 제조 구역별 환경 허용범위 관리 + 모니터링 기록 열람(읽기 전용)
+// 실측 기록 입력은 생산제조 > 청결·오염 관리(/cleanliness)에서 이루어지며, 이 화면은 그 기록을
+// 구역 허용범위 기준으로 이탈 판정·분석해 보여주는 품질 열람 화면이다. (구역 자체의 허용범위 설정은
+// 품질에서 계속 관리한다.)
 import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Plus, Search, Trash2, X, Edit3, ChevronDown, ChevronUp,
   Thermometer, Droplets, Wind, Activity, AlertTriangle,
   CheckCircle2, XCircle, TrendingUp, BarChart2, MapPin,
-  Settings, Clock,
+  Settings, Clock, ExternalLink, Eye,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { getMergedEnvLogs, CLEAN_CLASS_PARTICLE_LIMIT, paToMmH2O, mmH2OToPa } from '../../lib/envMonitoring'
 
-// ── localStorage ──────────────────────────────────────────────
-const LS_LOG  = 'qualytree.env_logs'
+// ── localStorage (구역 정의만 이 화면에서 직접 쓴다) ────────────
 const LS_ZONE = 'qualytree.env_zones'
 function lsR(k) { try { return JSON.parse(localStorage.getItem(k) || '[]') } catch { return [] } }
 function lsW(k, d) { localStorage.setItem(k, JSON.stringify(d)) }
-function genLogId()  { return `ENV-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function genZoneId() { return `ZON-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -43,80 +46,28 @@ const emptyZone = () => ({
   monitorFreq: 'daily', active: true,
 })
 
-const emptyLog = () => ({
-  zoneId: '', measuredAt: new Date().toISOString().slice(0, 16),
-  measuredBy: '',
-  temp: '', humidity: '', particle: '', pressure: '',
-  ncrId: '', notes: '', deviations: [],
-})
-
-// 이탈 판정
-function calcDeviations(log, zone) {
-  if (!zone) return []
-  const devs = []
-  if (log.temp !== '' && log.temp !== null && log.temp !== undefined) {
-    const v = parseFloat(log.temp)
-    if (!isNaN(v) && (v < zone.tempMin || v > zone.tempMax))
-      devs.push({ param: '온도', value: `${v}°C`, limit: `${zone.tempMin}~${zone.tempMax}°C` })
-  }
-  if (log.humidity !== '' && log.humidity !== null) {
-    const v = parseFloat(log.humidity)
-    if (!isNaN(v) && (v < zone.humMin || v > zone.humMax))
-      devs.push({ param: '습도', value: `${v}%RH`, limit: `${zone.humMin}~${zone.humMax}%RH` })
-  }
-  if (log.particle !== '' && log.particle !== null) {
-    const v = parseFloat(log.particle)
-    if (!isNaN(v) && v > zone.partMax)
-      devs.push({ param: '파티클', value: `${v.toLocaleString()}개/m³`, limit: `≤${zone.partMax.toLocaleString()}개/m³` })
-  }
-  if (log.pressure !== '' && log.pressure !== null) {
-    const v = parseFloat(log.pressure)
-    if (!isNaN(v) && (v < zone.pressMin || v > zone.pressMax))
-      devs.push({ param: '차압', value: `${v}Pa`, limit: `${zone.pressMin}~${zone.pressMax}Pa` })
-  }
-  return devs
-}
-
 // ── 메인 ─────────────────────────────────────────────────────
 export default function WorkEnvHub() {
   const user = auth.current()
-  const [logs, setLogs]   = useState(() => lsR(LS_LOG))
+  const nav = useNavigate()
+  const [logs, setLogs]   = useState(() => getMergedEnvLogs())
   const [zones, setZones] = useState(() => lsR(LS_ZONE))
   const [tab, setTab]     = useState('logs')
   const [search, setSearch]         = useState('')
   const [zoneFilter, setZoneFilter] = useState('all')
   const [deviOnly, setDeviOnly]     = useState(false)
-  const [showLogForm, setShowLogForm]   = useState(false)
   const [showZoneForm, setShowZoneForm] = useState(false)
-  const [logForm, setLogForm]   = useState(emptyLog())
   const [zoneForm, setZoneForm] = useState(emptyZone())
-  const [editLogId, setEditLogId]   = useState(null)
   const [editZoneId, setEditZoneId] = useState(null)
   const [expanded, setExpanded]     = useState(null)
 
-  const saveLogs  = d => { setLogs(d); lsW(LS_LOG, d) }
-  const saveZones = d => { setZones(d); lsW(LS_ZONE, d) }
+  const saveZones = d => { setZones(d); lsW(LS_ZONE, d); setLogs(getMergedEnvLogs()) }
+  const goToRecord = () => nav('/cleanliness?tab=records')
 
-  const openNewLog  = () => { setLogForm({ ...emptyLog(), measuredBy: user?.name || '' }); setEditLogId(null); setShowLogForm(true) }
-  const openEditLog = r  => { setLogForm({ ...r }); setEditLogId(r.id); setShowLogForm(true) }
   const openNewZone = ()  => { setZoneForm(emptyZone()); setEditZoneId(null); setShowZoneForm(true) }
   const openEditZone = z  => { setZoneForm({ ...z }); setEditZoneId(z.id); setShowZoneForm(true) }
-  const removeLog  = id => { if (!confirm('삭제?')) return; saveLogs(logs.filter(l => l.id !== id)) }
   const removeZone = id => { if (!confirm('구역 삭제 시 관련 기록은 유지됩니다. 삭제?')) return; saveZones(zones.filter(z => z.id !== id)) }
-  const lfld = (k, v) => setLogForm(f => ({ ...f, [k]: v }))
   const zfld = (k, v) => setZoneForm(f => ({ ...f, [k]: v }))
-
-  const submitLog = () => {
-    if (!logForm.zoneId || !logForm.measuredBy)
-      return alert('측정 구역과 측정자는 필수입니다.')
-    const zone = zones.find(z => z.id === logForm.zoneId)
-    const deviations = calcDeviations(logForm, zone)
-    const now = new Date().toISOString()
-    const entry = { ...logForm, deviations, id: editLogId || genLogId(), createdAt: now, createdBy: user?.name || '-' }
-    if (editLogId) saveLogs(logs.map(l => l.id === editLogId ? entry : l))
-    else saveLogs([entry, ...logs])
-    setShowLogForm(false)
-  }
 
   const submitZone = () => {
     if (!zoneForm.name) return alert('구역 이름은 필수입니다.')
@@ -142,7 +93,6 @@ export default function WorkEnvHub() {
   // 집계
   const totalLogs   = logs.length
   const deviCount   = logs.filter(l => (l.deviations || []).length > 0).length
-  const deviNoNcr   = logs.filter(l => (l.deviations || []).length > 0 && !l.ncrId)
   const todayLogs   = logs.filter(l => (l.measuredAt || '').startsWith(new Date().toISOString().slice(0, 10))).length
   const activeZones = zones.filter(z => z.active !== false).length
 
@@ -156,33 +106,34 @@ export default function WorkEnvHub() {
     <AppLayout user={user} title="작업환경 관리" subtitle="ISO 13485 §6.4 · 제조 구역 환경 모니터링 · 이탈 감지 · NCR 연동">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
-        {/* 이탈 알림 배너 */}
-        {deviNoNcr.length > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-5" style={{ background: '#FEE2E2', border: '1px solid #FECACA' }}>
-            <AlertTriangle size={14} style={{ color: '#DC2626' }} />
-            <span className="text-[13px] font-semibold" style={{ color: '#991B1B' }}>
-              환경 이탈 {deviNoNcr.length}건 — NCR 미등록. 품질허브에서 NCR 등록 필요.
-            </span>
-          </div>
-        )}
+        {/* 열람 전용 안내 배너 */}
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl mb-5" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <Eye size={14} style={{ color: '#1E40AF' }} />
+          <span className="text-[13px] font-semibold" style={{ color: '#1E40AF' }}>
+            모니터링 실측 기록은 생산제조 &gt; 청결·오염 관리에서 입력됩니다. 이 화면은 구역 허용범위 기준 이탈 판정을 열람하는 화면입니다.
+          </span>
+          <button onClick={goToRecord} className="flex items-center gap-1 ml-auto text-[12px] font-bold px-2.5 py-1 rounded-lg"
+            style={{ background: '#1E40AF', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            <ExternalLink size={12} /> 청결·오염 관리로 이동
+          </button>
+        </div>
 
         <HubBanner
           title="작업환경 관리"
-          subtitle="ISO 13485 §6.4 · 온도·습도·청정도 모니터링 · 환경 기록 유지"
+          subtitle="ISO 13485 §6.4 · 온도·습도·청정도 모니터링(열람) · 구역별 허용범위 관리"
           icon={Thermometer}
           color="#0891B2"
-          quickActions={[{label:'환경 기록 추가',icon:Plus,onClick:openNewLog,primary:true}]}
-          workflow={['환경 조건 설정','모니터링 실시','이탈 감지','시정조치','기록 보관']}
+          quickActions={[{label:'구역 추가',icon:Plus,onClick:openNewZone,primary:true}]}
+          workflow={['환경 조건 설정','모니터링 실시(생산)','이탈 감지','시정조치','기록 보관']}
         />
 
         {/* KPI */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: '관리 구역',   count: activeZones,  color: '#2563EB' },
             { label: '전체 기록',   count: totalLogs,    color: '#6B7280' },
             { label: '오늘 측정',   count: todayLogs,    color: '#059669' },
             { label: '이탈 발생',   count: deviCount,    color: '#DC2626' },
-            { label: 'NCR 미등록',  count: deviNoNcr.length, color: deviNoNcr.length > 0 ? '#DC2626' : '#059669' },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
               <div className="text-[22px] font-bold" style={{ color: s.color }}>{s.count}</div>
@@ -218,8 +169,8 @@ export default function WorkEnvHub() {
                 style={{ background: deviOnly ? '#FEE2E2' : 'var(--bg-card)', color: deviOnly ? '#DC2626' : 'var(--ink-faint)', border: `1px solid ${deviOnly ? '#FECACA' : 'var(--line)'}`, cursor: 'pointer' }}>
                 <AlertTriangle size={13} /> 이탈만
               </button>
-              <button onClick={openNewLog} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-                <Plus size={14} /> 측정 기록 추가
+              <button onClick={goToRecord} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
+                <ExternalLink size={14} /> 청결·오염 관리에서 기록 추가
               </button>
             </div>
 
@@ -231,15 +182,13 @@ export default function WorkEnvHub() {
                 <button onClick={() => setTab('zones')} className="px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>구역 관리로 이동</button>
               </div>
             ) : filtered.length === 0 ? (
-              <EnvEmpty onAdd={openNewLog} />
+              <EnvEmpty onAdd={goToRecord} />
             ) : (
               <div className="space-y-2">
                 {filtered.map(log => (
                   <LogRow key={log.id} log={log} zone={zones.find(z => z.id === log.zoneId)}
                     expanded={expanded === log.id}
                     onToggle={() => setExpanded(expanded === log.id ? null : log.id)}
-                    onEdit={() => openEditLog(log)}
-                    onDelete={() => removeLog(log.id)}
                   />
                 ))}
               </div>
@@ -257,10 +206,6 @@ export default function WorkEnvHub() {
 
       </div>
 
-      {showLogForm && (
-        <LogForm form={logForm} lfld={lfld} zones={zones} editId={editLogId}
-          user={user} onSubmit={submitLog} onClose={() => setShowLogForm(false)} />
-      )}
       {showZoneForm && (
         <ZoneForm form={zoneForm} zfld={zfld} editId={editZoneId}
           onSubmit={submitZone} onClose={() => setShowZoneForm(false)} />
@@ -269,8 +214,8 @@ export default function WorkEnvHub() {
   )
 }
 
-// ── 측정 기록 행 ──────────────────────────────────────────────
-function LogRow({ log, zone, expanded, onToggle, onEdit, onDelete }) {
+// ── 측정 기록 행 (읽기 전용) ────────────────────────────────────
+function LogRow({ log, zone, expanded, onToggle }) {
   const devs = log.deviations || []
   const hasDeviation = devs.length > 0
   const cc = zone ? CLEAN_CLASSES.find(c => c.value === zone.cleanClass) : null
@@ -317,8 +262,6 @@ function LogRow({ log, zone, expanded, onToggle, onEdit, onDelete }) {
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
-          <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
           {expanded ? <ChevronUp size={16} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ink-faint)' }} />}
         </div>
       </div>
@@ -349,10 +292,6 @@ function LogRow({ log, zone, expanded, onToggle, onEdit, onDelete }) {
                     </div>
                   ))}
                 </div>
-                <SL>연결 NCR</SL>
-                <div className="text-[12px]" style={{ color: log.ncrId ? '#059669' : '#DC2626' }}>
-                  {log.ncrId || '⚠ NCR 미등록'}
-                </div>
               </>
             )}
             {!hasDeviation && (
@@ -367,7 +306,8 @@ function LogRow({ log, zone, expanded, onToggle, onEdit, onDelete }) {
                 <IR k="위치"   v={zone.location} />
                 <IR k="청정도" v={cc?.label || zone.cleanClass} />
               </>
-            ) : <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>구역 정보 없음</div>}
+            ) : <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>구역 정보 없음 (청결·오염 관리에서 측정 구역을 지정하지 않은 기록)</div>}
+            {log.measuredBy && <><SL>기록 출처</SL><div className="text-[12px]" style={{ color: 'var(--ink)' }}>{log.measuredBy}</div></>}
             {log.notes && <><SL>비고</SL><div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{log.notes}</div></>}
           </div>
         </div>
@@ -554,86 +494,22 @@ function EnvAnalysis({ logs, zones }) {
   )
 }
 
-// ── 측정 기록 폼 ──────────────────────────────────────────────
-function LogForm({ form, lfld, zones, editId, user, onSubmit, onClose }) {
-  const zone = zones.find(z => z.id === form.zoneId)
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }} onClick={onClose}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 640, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28 }} onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-5">
-          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? '측정 기록 수정' : '환경 측정 기록 추가'}</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><X size={20} /></button>
-        </div>
-
-        <div className="space-y-3">
-          <R2>
-            <F l="측정 구역 *">
-              <select value={form.zoneId} onChange={e => lfld('zoneId', e.target.value)} style={IS} className="w-full">
-                <option value="">구역 선택...</option>
-                {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
-              </select>
-            </F>
-            <F l="측정 일시"><input type="datetime-local" value={form.measuredAt} onChange={e => lfld('measuredAt', e.target.value)} style={IS} className="w-full" /></F>
-          </R2>
-          <F l="측정자"><input value={form.measuredBy || user?.name || '-'} readOnly disabled style={{ ...IS, background: 'var(--bg-soft)', color: 'var(--ink-mute)' }} className="w-full" /></F>
-
-          {/* 측정값 */}
-          <div className="pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-            <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>측정값 (해당 항목만 입력)</div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { k: 'temp', l: '온도 (°C)', placeholder: '예: 22.5', c: '#EF4444', icon: Thermometer,
-                hint: zone ? `허용: ${zone.tempMin}~${zone.tempMax}°C` : '' },
-              { k: 'humidity', l: '습도 (%RH)', placeholder: '예: 55', c: '#3B82F6', icon: Droplets,
-                hint: zone ? `허용: ${zone.humMin}~${zone.humMax}%RH` : '' },
-              { k: 'particle', l: '파티클 (개/m³)', placeholder: '예: 125000', c: '#8B5CF6', icon: Wind,
-                hint: zone ? `상한: ${Number(zone.partMax).toLocaleString()}` : '' },
-              { k: 'pressure', l: '차압 (Pa)', placeholder: '예: 10', c: '#059669', icon: Activity,
-                hint: zone ? `허용: ${zone.pressMin}~${zone.pressMax}Pa` : '' },
-            ].map(p => {
-              const PIcon = p.icon
-              const val = form[p.k]
-              // 빠른 이탈 판단
-              let deviated = false
-              if (zone && val !== '') {
-                const v = parseFloat(val)
-                if (p.k === 'temp'     && !isNaN(v) && (v < zone.tempMin || v > zone.tempMax)) deviated = true
-                if (p.k === 'humidity' && !isNaN(v) && (v < zone.humMin  || v > zone.humMax))  deviated = true
-                if (p.k === 'particle' && !isNaN(v) && v > zone.partMax)  deviated = true
-                if (p.k === 'pressure' && !isNaN(v) && (v < zone.pressMin || v > zone.pressMax)) deviated = true
-              }
-              return (
-                <div key={p.k}>
-                  <label className="flex items-center gap-1 text-[11.5px] font-semibold mb-1" style={{ color: deviated ? '#DC2626' : 'var(--ink-faint)' }}>
-                    <PIcon size={11} style={{ color: deviated ? '#DC2626' : p.c }} />
-                    {p.l} {deviated && '⚠ 이탈'}
-                  </label>
-                  <input value={val} onChange={e => lfld(p.k, e.target.value)} placeholder={p.placeholder} type="number" step="any"
-                    style={{ ...IS, borderColor: deviated ? '#FECACA' : undefined, background: deviated ? '#FFF5F5' : undefined }} className="w-full" />
-                  {p.hint && <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{p.hint}</div>}
-                </div>
-              )
-            })}
-          </div>
-
-          <F l="비고"><textarea value={form.notes} onChange={e => lfld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-        </div>
-
-        <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
-          <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-            {editId ? '수정 저장' : '측정 기록 등록'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── 구역 설정 폼 ──────────────────────────────────────────────
 function ZoneForm({ form, zfld, editId, onSubmit, onClose }) {
+  const [pressUnit, setPressUnit] = useState('Pa')
+
+  const onCleanClassChange = (val) => {
+    zfld('cleanClass', val)
+    const autoLimit = CLEAN_CLASS_PARTICLE_LIMIT[val]
+    if (autoLimit) zfld('partMax', autoLimit) // 청정도 등급에 따라 파티클 상한 자동 조정 (ISO 14644-1, 수동 재입력 가능)
+  }
+
+  const togglePressUnit = () => setPressUnit(u => u === 'Pa' ? 'mmH2O' : 'Pa')
+  const pressMinDisplay = pressUnit === 'Pa' ? form.pressMin : paToMmH2O(form.pressMin)
+  const pressMaxDisplay = pressUnit === 'Pa' ? form.pressMax : paToMmH2O(form.pressMax)
+  const onPressMinChange = v => zfld('pressMin', pressUnit === 'Pa' ? parseFloat(v) : mmH2OToPa(parseFloat(v)))
+  const onPressMaxChange = v => zfld('pressMax', pressUnit === 'Pa' ? parseFloat(v) : mmH2OToPa(parseFloat(v)))
+
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '24px 16px', overflowY: 'auto' }} onClick={onClose}>
       <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 620, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28 }} onClick={e => e.stopPropagation()}>
@@ -648,7 +524,7 @@ function ZoneForm({ form, zfld, editId, onSubmit, onClose }) {
           </R2>
           <R2>
             <F l="청정도 등급">
-              <select value={form.cleanClass} onChange={e => zfld('cleanClass', e.target.value)} style={IS} className="w-full">
+              <select value={form.cleanClass} onChange={e => onCleanClassChange(e.target.value)} style={IS} className="w-full">
                 {CLEAN_CLASSES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </F>
@@ -671,10 +547,19 @@ function ZoneForm({ form, zfld, editId, onSubmit, onClose }) {
             <F l="온도 최댓값 (°C)"><input type="number" step="0.1" value={form.tempMax} onChange={e => zfld('tempMax', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
             <F l="습도 최솟값 (%RH)"><input type="number" step="1" value={form.humMin} onChange={e => zfld('humMin', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
             <F l="습도 최댓값 (%RH)"><input type="number" step="1" value={form.humMax} onChange={e => zfld('humMax', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
-            <F l="파티클 상한 (개/m³)"><input type="number" step="1" value={form.partMax} onChange={e => zfld('partMax', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
-            <div className="grid grid-cols-2 gap-2">
-              <F l="차압 최솟값 (Pa)"><input type="number" step="0.5" value={form.pressMin} onChange={e => zfld('pressMin', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
-              <F l="최댓값 (Pa)"><input type="number" step="0.5" value={form.pressMax} onChange={e => zfld('pressMax', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
+            <div>
+              <F l="파티클 상한 (개/m³)"><input type="number" step="1" value={form.partMax} onChange={e => zfld('partMax', parseFloat(e.target.value))} style={IS} className="w-full" /></F>
+              <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>청정도 등급 선택 시 ISO 14644-1 기준값 자동 반영 · 수동 조정 가능</div>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11.5px] font-semibold" style={{ color: 'var(--ink-faint)' }}>차압 최소~최대</label>
+                <button type="button" onClick={togglePressUnit} className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>{pressUnit === 'Pa' ? 'Pa → mmH₂O' : 'mmH₂O → Pa'}</button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" step="0.1" value={pressMinDisplay} onChange={e => onPressMinChange(e.target.value)} placeholder={`최솟값 (${pressUnit})`} style={IS} className="w-full" />
+                <input type="number" step="0.1" value={pressMaxDisplay} onChange={e => onPressMaxChange(e.target.value)} placeholder={`최댓값 (${pressUnit})`} style={IS} className="w-full" />
+              </div>
             </div>
           </div>
           <F l="비고"><textarea value={form.description} onChange={e => zfld('description', e.target.value)} rows={2} placeholder="구역 설명 및 특이사항..." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
@@ -720,9 +605,9 @@ function EnvEmpty({ onAdd }) {
     <div className="flex flex-col items-center py-20 text-center rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
       <Thermometer size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#EF4444' }} />
       <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>측정 기록 없음</div>
-      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>온도·습도·파티클 측정 결과를 기록하고 이탈 여부를 자동으로 판정합니다</div>
+      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>생산제조 &gt; 청결·오염 관리에서 온도·습도·파티클·차압을 측정·기록하면 여기서 구역 허용범위 기준 이탈 여부를 확인할 수 있습니다</div>
       <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer' }}>
-        <Plus size={15} /> 측정 기록 추가
+        <ExternalLink size={15} /> 청결·오염 관리로 이동
       </button>
     </div>
   )
