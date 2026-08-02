@@ -6,6 +6,7 @@ import {
   FileText, CheckCircle2, Clock, AlertTriangle, XCircle,
   Link2, FlaskConical, GitBranch, Package, Layers,
   ClipboardList, Users, Star, ArrowRight, BarChart2,
+  Sparkles, Loader2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -538,6 +539,7 @@ function DhfForm({ form, setForm, onSave, onCancel, isEdit }) {
 function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRecForm, editRecIdx, setEditRecIdx,
   submitRec, deleteRec, recTab, setRecTab, filteredRecs, recTypeCounts, updatePhase, phaseProgress }) {
 
+  const [showAiModal, setShowAiModal] = useState(false)
   const meta = STATUS_META[dhf.status] || STATUS_META.open
   const phase = PHASE_MAP[dhf.currentPhase]
   const prog = phaseProgress(dhf.currentPhase)
@@ -644,16 +646,38 @@ function DetailView({ dhf, canEdit, showRecForm, setShowRecForm, recForm, setRec
       </div>
 
       {/* 기록 섹션 */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>설계 개발 기록 ({(dhf.records || []).length}건)</div>
         {canEdit && (
-          <button onClick={() => { setRecForm({ ...EMPTY_RECORD, type: dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase }); setEditRecIdx(null); setShowRecForm(true) }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold"
-            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <Plus size={12} /> 기록 추가
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowAiModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold"
+              style={{ background: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE', cursor: 'pointer' }}>
+              <Sparkles size={12} /> AI 초안 생성
+            </button>
+            <button onClick={() => { setRecForm({ ...EMPTY_RECORD, type: dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase }); setEditRecIdx(null); setShowRecForm(true) }}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold"
+              style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+              <Plus size={12} /> 기록 추가
+            </button>
+          </div>
         )}
       </div>
+
+      {/* AI 초안 생성 모달 */}
+      {showAiModal && (
+        <DhfAiDraftModal
+          dhf={dhf}
+          defaultType={dhf.currentPhase === 'change' ? 'change' : dhf.currentPhase}
+          onClose={() => setShowAiModal(false)}
+          onUse={(draft) => {
+            setRecForm({ ...EMPTY_RECORD, type: draft.type, title: draft.title, description: draft.description, notes: draft.notes || '' })
+            setEditRecIdx(null)
+            setShowAiModal(false)
+            setShowRecForm(true)
+          }}
+        />
+      )}
 
       {/* 기록 타입 탭 */}
       <div className="flex gap-1 flex-wrap mb-4">
@@ -800,6 +824,117 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit, allowedTypes }) {
   )
 }
 
+// ── AI 초안 생성 모달 (기록 추가) ────────────────────────────
+function DhfAiDraftModal({ dhf, defaultType, onClose, onUse }) {
+  const [itemType, setItemType] = useState(defaultType || 'input')
+  const [context, setContext] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [draft, setDraft] = useState(null)
+
+  const generate = async () => {
+    setLoading(true)
+    setError('')
+    setDraft(null)
+    try {
+      const r = await fetch('/api/dhf-draft', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          productName: dhf.productName || '',
+          itemType,
+          intendedUse: dhf.intendedUse || '',
+          context: context.trim(),
+        }),
+      })
+      const j = await r.json()
+      if (!j.ok) {
+        setError(j.message || 'AI 초안 생성에 실패했습니다.')
+      } else {
+        setDraft({ type: itemType, title: j.title, description: j.description, notes: j.notes })
+      }
+    } catch (e) {
+      setError('AI 초안 생성 중 오류가 발생했습니다: ' + String((e && e.message) || e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 9999,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '32px 16px', overflowY: 'auto',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)',
+          width: '100%', maxWidth: 640, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-[16px] font-bold" style={{ color: 'var(--ink)' }}>
+            <Sparkles size={18} style={{ color: '#7C3AED' }} /> DHF 기록 AI 초안 생성
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
+            <X size={20} />
+          </button>
+        </div>
+        <div className="text-[12px] mb-5" style={{ color: 'var(--ink-faint)' }}>
+          제품 정보와 선택한 설계 단계를 바탕으로 기록 제목·내용 초안을 생성합니다. 반드시 내용을 검토·수정한 뒤 저장하세요 — AI 초안은 참고용이며 최종 판단은 사용자 책임입니다.
+        </div>
+
+        <div className="space-y-3">
+          <FieldSelect label="설계 단계 (기록 유형)" value={itemType} onChange={setItemType}
+            options={Object.entries(ITEM_TYPES).map(([k, v]) => ({ value: k, label: v.label }))} />
+          <FieldArea label="참고 내용 (선택 — 이 제품의 실제 특징을 적을수록 초안 품질이 좋아집니다)"
+            value={context} onChange={setContext} rows={3}
+            placeholder="예: 손목형 산소포화도 측정기, 블루투스로 앱 연동, 재사용 가능한 실리콘 밴드 사용" />
+          {error && (
+            <div className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#FEE2E2', color: '#991B1B' }}>{error}</div>
+          )}
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[13px] font-semibold"
+            style={{ background: '#7C3AED', color: 'white', border: 'none', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}
+          >
+            {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+            {loading ? '생성 중...' : '초안 생성'}
+          </button>
+        </div>
+
+        {draft && (
+          <div className="mt-5">
+            <div className="text-[11px] font-mono tracking-wider mb-2" style={{ color: 'var(--ink-faint)' }}>
+              제안된 초안 — 사용하려면 아래 카드를 클릭하면 등록 폼에 채워집니다
+            </div>
+            <button
+              onClick={() => onUse(draft)}
+              className="w-full text-left p-3.5 rounded-xl transition"
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}
+            >
+              <div className="text-[10px] font-mono px-1.5 py-0.5 rounded inline-block mb-1" style={{ background: 'var(--bg-card)', color: 'var(--ink-faint)' }}>
+                {ITEM_TYPES[draft.type]?.label || draft.type}
+              </div>
+              <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{draft.title}</div>
+              <div className="text-[12px] mt-1 whitespace-pre-wrap" style={{ color: 'var(--ink-soft)' }}>{draft.description}</div>
+              {draft.notes && (
+                <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>비고: {draft.notes}</div>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── 현황 분석 ─────────────────────────────────────────────────
 function AnalysisView({ analysis, items, setSelectedId, setTab }) {
   const maxPhase = Math.max(...Object.values(analysis.phaseCount), 1)
@@ -936,11 +1071,11 @@ function FieldSelect({ label, value, onChange, options }) {
     </div>
   )
 }
-function FieldArea({ label, value, onChange, rows = 3 }) {
+function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
-      <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
+      <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
     </div>
