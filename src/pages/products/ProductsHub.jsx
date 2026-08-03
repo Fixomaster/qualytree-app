@@ -142,7 +142,7 @@ export default function ProductsHub() {
     <AppLayout
       user={user}
       title="제품 · 공정"
-      subtitle="제품 마스터 / 공정 라이브러리 / 검사 항목"
+      subtitle="허가증 단위 통합 관리 · 설계개발 전주기"
     >
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {/* Toast */}
@@ -213,42 +213,7 @@ export default function ProductsHub() {
 
         {hasOnboarding && (
           <>
-            {/* 탭 */}
-            <div className="flex gap-1 mb-5 overflow-x-auto">
-              <TabButton
-                active={tab === 'product'}
-                onClick={() => setTab('product')}
-                icon={PackageSearch}
-                label="제품"
-                en="PROD-001"
-                count={products.length}
-              />
-              <TabButton
-                active={tab === 'process'}
-                onClick={() => setTab('process')}
-                icon={Workflow}
-                label="공정"
-                en="PROD-002"
-                count={processes.length}
-              />
-              <TabButton
-                active={tab === 'inspection'}
-                onClick={() => setTab('inspection')}
-                icon={FlaskConical}
-                label="검사 항목"
-                en="PROD-003"
-                count={countAllTemplates()}
-              />
-              <TabButton
-                active={tab === 'documents'}
-                onClick={() => setTab('documents')}
-                icon={FileText}
-                label="문서"
-                en="PROD-004"
-                count={product ? productDocs.getLicenses(productKeyOf(product)).length : 0}
-              />
-            </div>
-
+            
             {/* 탭 내용 */}
             {tab === 'product' && (
               <div className="space-y-3">
@@ -289,6 +254,8 @@ export default function ProductsHub() {
                           <DetailTabBtn active={detailTab === 'risk'} onClick={() => setDetailTab('risk')} label="위험관리" />
                           <DetailTabBtn active={detailTab === 'validation'} onClick={() => setDetailTab('validation')} label="밸리데이션" />
                           <DetailTabBtn active={detailTab === 'pcp'} onClick={() => setDetailTab('pcp')} label="생산제어계획" />
+                        <DetailTabBtn active={detailTab === 'process'} onClick={() => setDetailTab('process')} label="공정" />
+                        <DetailTabBtn active={detailTab === 'inspection'} onClick={() => setDetailTab('inspection')} label="검사항목" />
                         </div>
                       </div>
                       {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} onDeleted={() => { setProductView('grid'); setTimeout(() => window.location.reload(), 400) }} />}
@@ -313,6 +280,12 @@ export default function ProductsHub() {
                       )}
                       {detailTab === 'pcp' && (
                         <ProductionControlHub key={'pcp-' + productKeyOf(product)} embedded productKey={productKeyOf(product)} productLabel={product.name} />
+                      )}
+                      {detailTab === 'process' && (
+                        <ProcessPanel key={'proc-' + productKeyOf(product)} product={product} products={products} selId={selId} setSelId={setSelId} onAction={showToast} />
+                      )}
+                      {detailTab === 'inspection' && (
+                        <InspectionPanel key={'ins-' + productKeyOf(product)} product={product} products={products} selId={selId} setSelId={setSelId} onAction={showToast} />
                       )}
                     </div>
                   ) : (
@@ -621,6 +594,18 @@ function ModelListPanel({ product, onAction }) {
 /* ================================================================
    설계 계획 패널 (신규 제품 · 9단계 설계관리 체크리스트)
    ================================================================ */
+const STAGE_REQUIRED_DOCS = [
+  ['설계 입력 명세서', '사용자 요구사항 문서 (URS)', '법적·규제 요구사항 목록'],
+  ['설계 출력 도면 및 사양서', '제조 지시서 초안 (WI/BOM)', '검사·시험 절차서'],
+  ['설계 검토 회의록', '검토 참석자 서명부', '조치사항 추적 목록'],
+  ['검증 계획서 (Verification Plan)', '검증 프로토콜', '검증 결과 보고서'],
+  ['밸리데이션 계획서', '임상 평가 보고서 (CER)', '밸리데이션 결과 보고서'],
+  ['위험분석서 (ISO 14971)', '위험 관리 계획서 (RMP)', '잔여 위험 수용성 평가서'],
+  ['이관 체크리스트', 'DMR (Device Master Record)', '제조 가능성 검토서'],
+  ['인허가 신청 패키지', '기술문서 (Technical File)', '규제 전략 문서'],
+  ['허가증 사본', '제조허가 조건 검토서', '인허가 유지 계획서'],
+]
+
 function DesignStagePanel({ product, onAction }) {
   const canEdit = permissions.can('onb.product.edit')
   const steps = designStepsOf(product)
@@ -684,6 +669,20 @@ function DesignStagePanel({ product, onAction }) {
         })}
       </div>
 
+        {progress.currentIdx >= 0 && progress.currentIdx < STAGE_REQUIRED_DOCS.length && (
+          <div className="mt-3 rounded-lg p-3" style={{ background: 'var(--bg-soft)', borderLeft: '3px solid var(--amber)' }}>
+            <div className="font-mono text-[9px] tracking-widest uppercase mb-2" style={{ color: 'var(--amber)' }}>
+              ISO 13485 §7.3 · 현재 단계 필수 요건
+            </div>
+            <div className="flex flex-col gap-1">
+              {STAGE_REQUIRED_DOCS[progress.currentIdx].map((doc, di) => (
+                <div key={di} className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--ink-mute)' }}>
+                  <span style={{ color: 'var(--amber)', fontWeight: 700 }}>·</span> {doc}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       {progress.done === progress.total && (
         <div className="mt-4 flex items-start gap-2 p-3 rounded-lg" style={{ background: 'var(--leaf-soft)' }}>
           <Sparkles size={15} style={{ color: 'var(--moss)' }} className="shrink-0 mt-0.5" />
@@ -847,8 +846,8 @@ function AddProductPanel({ onCancel, onSaved }) {
         <div className="grid md:grid-cols-2 gap-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
           <FieldEdit label="제품명" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 신규 와이어 제품" required />
           <FieldEdit label="품목명 (식약처, 예정)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="예정 품목명 (미확정 시 비워두세요)" />
-          <SelectEdit label="인허가 업종 (대분류)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
-          <SelectEdit label="인허가 업종 (중분류)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+          <MdcatCardPicker label="의료기기 대분류 선택" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', '선택 안 함'], ...MDCAT1.map((cc) => [cc, cc])]} />
+          <MdcatCardPicker label="중분류 선택" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === '기타'} options={[['', '선택 안 함'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
         </div>
       ) : (
         <div className="space-y-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
@@ -889,7 +888,7 @@ function AddProductPanel({ onCancel, onSaved }) {
               required
             />
             <FieldEdit label="식약처 분류번호" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="예: A11010.01" required />
-            <SelectEdit label="등급 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
+            <MdcatCardPicker label="등급 선택 (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1등급'], ['2', '2등급'], ['3', '3등급'], ['4', '4등급']]} />
             <FieldEdit label="허가일" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
             <FieldEdit label="제품명 (내부 관리명, 선택)" value={form.name} onChange={(v) => setF('name', v)} placeholder="비워두면 품목명을 사용합니다" />
           </div>
@@ -959,6 +958,23 @@ function AddProductPanel({ onCancel, onSaved }) {
       </div>
 
       <ComplianceFooter regs={['ISO 13485 §7.3', '21 CFR 820.30', 'MDR Annex II']} />
+    </div>
+  )
+}
+
+function MdcatCardPicker({ label, value, onChange, options, disabled, cols = 3 }) {
+  return (
+    <div>
+      <div className="font-mono text-[10px] mb-2" style={{ color: 'var(--ink-mute)' }}>{label}</div>
+      <div className="flex flex-wrap gap-1.5">
+        {options.filter(o => o[0]).map(([val, display]) => (
+          <button key={val} type="button" disabled={disabled} onClick={() => onChange(val)}
+            className="text-[11px] px-2.5 py-1.5 rounded-lg transition-all"
+            style={{ background: value === val ? 'var(--moss)' : 'var(--bg-soft)', color: value === val ? '#fff' : 'var(--ink)', border: value === val ? '1.5px solid var(--moss)' : '1.5px solid var(--line)', opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'pointer', fontWeight: value === val ? 600 : 400 }}
+          >{display}</button>
+        ))}
+      </div>
+      {value && <div className="mt-1 font-mono text-[9px]" style={{ color: 'var(--moss)' }}>✓ {value} 선택됨</div>}
     </div>
   )
 }
@@ -1711,7 +1727,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
       {/* 우: 변경 이력 */}
       <div className="lg:col-span-1">
-        <ChangeHistoryPanel ccrs={ccrs} />
+        <ChangeHistoryPanel ccrs={ccrs} onNavigateTo={() => navigate('/change-control')} />
       </div>
 
       {/* 삭제 확인 모달 */}
@@ -2315,7 +2331,7 @@ function InspectionTemplateRow({ template }) {
 /* ================================================================
    변경 이력 패널 (CCR)
    ================================================================ */
-function ChangeHistoryPanel({ ccrs }) {
+function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
   return (
     <div className="card-base p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -2336,6 +2352,9 @@ function ChangeHistoryPanel({ ccrs }) {
         >
           {ccrs.length}
         </span>
+        {onNavigateTo && (
+          <button onClick={onNavigateTo} className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--moss)', border: '1px solid var(--line)', cursor: 'pointer' }}>설계변경 바로가기 →</button>
+        )}
       </div>
 
       {ccrs.length === 0 ? (
