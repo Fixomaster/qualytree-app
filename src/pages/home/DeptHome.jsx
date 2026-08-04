@@ -408,6 +408,21 @@ export default function DeptHome() {
   const quickActions = QUICK_ACTIONS[dept] || QUICK_ACTIONS['ALL']
   const workflow = WORKFLOW_GUIDES[dept] || WORKFLOW_GUIDES['ALL']
 
+  // 공지사항 (localStorage)
+  const activeNotices = useMemo(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem('qualytree.notices') || '[]')
+      const now = new Date()
+      return all
+        .filter(n => n.isActive && (!n.expiresAt || new Date(n.expiresAt) >= now))
+        .sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+          return new Date(b.createdAt) - new Date(a.createdAt)
+        })
+        .slice(0, 4)
+    } catch { return [] }
+  }, [])
+
   // 기존 홈(Dashboard.jsx)의 핵심 콘텐츠 — 전사 GMP/RA 준수 현황 요약.
   // 상세 12개 카드 그리드는 /dashboard 에서 그대로 볼 수 있고, 여기서는 요약만 보여준다.
   const gmpCtx = useMemo(() => { try { return loadContext() } catch { return null } }, [])
@@ -462,6 +477,39 @@ export default function DeptHome() {
             </div>
           </div>
         </div>
+
+        {/* 공지사항 스트립 */}
+        {activeNotices.length > 0 && (
+          <div className="space-y-2">
+            {activeNotices.map(n => {
+              const tcolor = n.type === 'urgent' ? '#EF4444' : n.type === 'warning' ? '#F59E0B' : '#3B82F6'
+              const tbg = n.type === 'urgent' ? '#FEF2F2' : n.type === 'warning' ? '#FFFBEB' : '#EFF6FF'
+              const tlabel = n.type === 'urgent' ? '긴급' : n.type === 'warning' ? '주의' : '공지'
+              return (
+                <button key={n.id} onClick={() => nav('/notices')}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-left transition"
+                  style={{ background: tbg, border: `1px solid ${tcolor}25`, cursor: 'pointer' }}
+                >
+                  <Megaphone size={13} style={{ color: tcolor, flexShrink: 0 }} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      {n.isPinned && <span className="text-[9px]">📌</span>}
+                      <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{n.title}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: tcolor + '20', color: tcolor }}>{tlabel}</span>
+                    </div>
+                    <div className="text-[11px] truncate" style={{ color: 'var(--ink-faint)' }}>{n.content}</div>
+                  </div>
+                  <ChevronRight size={13} style={{ color: 'var(--ink-faint)', flexShrink: 0 }} />
+                </button>
+              )
+            })}
+            {activeNotices.length > 0 && (
+              <div className="text-right">
+                <button onClick={() => nav('/notices')} className="text-[11px]" style={{ color: 'var(--ink-faint)', background: 'none', border: 'none', cursor: 'pointer' }}>전체 공지 보기 →</button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
