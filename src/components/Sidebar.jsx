@@ -74,7 +74,8 @@ items: [
 {
 label: '문서·규정', icon: FileText,
 items: [
-{ to: '/document-control', label: '문서관리' },
+{ to: '/qms-overview', label: 'QMS 개요' },
+      { to: '/document-control', label: '문서관리' },
 ],
 },
 {
