@@ -98,7 +98,7 @@ export default function ImportProductsHub() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <button onClick={() => setAdding(true)} className="btn-primary text-[12.5px] shring-0">
+            <button onClick={() => setAdding(true)} className="btn-primary text-[12.5px] shrink-0">
               <Plus size={14} /> 품목 추가
             </button>
           </div>
@@ -109,7 +109,9 @@ export default function ImportProductsHub() {
               <div className="text-[13px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>새 품목 등록</div>
               <div className="grid sm:grid-cols-3 gap-3">
                 <label className="sm:col-span-2 block">
-                  <span className="block text-[11.5px] font-medium mb-1" style=={{ color: 'var(--ink-mute)' }}>'Y(������R���7��Ɩ�WB6�74��S�&��WB�&6R"7G��S׷�FF��s�s�W&V��w&V�r�f��E6��S�2�Тf�VS׶f�&productName} onChange={e => setF('productName', e.target.value)}
+                  <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>품목명 *</span>
+                  <input className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }}
+                    value={form.productName} onChange={e => setF('productName', e.target.value)}
                     placeholder="예: 정형외과용 나사못" />
                 </label>
                 <label className="block">
@@ -149,7 +151,7 @@ export default function ImportProductsHub() {
               </label>
               <div className="flex gap-2 mt-3">
                 <button onClick={add} className="btn-primary text-[12.5px]" style={{ padding: '0.45rem 0.9rem' }}>저장</button>
-                <button onClick={() => { setAdding(false); setForm(EMPTY) }} className="btn-ghost text-[12.5px]">취셬</button>
+                <button onClick={() => { setAdding(false); setForm(EMPTY) }} className="btn-ghost text-[12.5px]">취소</button>
               </div>
             </div>
           )}
