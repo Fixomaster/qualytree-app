@@ -77,7 +77,7 @@ try { SterileControlHub     = React.lazy(() => import(/* @vite-ignore */ './page
 // ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
 let KgmpHub, ForeignManufacturerHub, Iso13485Hub
-let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub
+let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
 try { SalesHub            = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub         = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
 try { ManufacturingHub    = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
@@ -93,6 +93,7 @@ try { LogisticsHub  = React.lazy(() => import(/* @vite-ignore */ './pages/logist
 try { NoticeHub = React.lazy(() => import(/* @vite-ignore */ './pages/notices/NoticeHub')) } catch {}
 try { ResourcePlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/resource-plan/ResourcePlanHub')) } catch {}
 try { QmsOverviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/qms-overview/QmsOverviewHub')) } catch {}
+try { RecordMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/record-master/RecordMasterHub')) } catch {}
 
 // ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -185,6 +186,7 @@ export default function App() {
 <Route path="/notices"                element={<ProtectedRoute><LazyRoute Component={NoticeHub} /></ProtectedRoute>} />
               <Route path="/resource-plan"          element={<ProtectedRoute><LazyRoute Component={ResourcePlanHub} /></ProtectedRoute>} />
                <Route path="/qms-overview"            element={<ProtectedRoute><LazyRoute Component={QmsOverviewHub} /></ProtectedRoute>} />
+          <Route path="/record-master"          element={<ProtectedRoute><LazyRoute Component={RecordMasterHub} /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
