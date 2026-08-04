@@ -4,6 +4,7 @@ import {
 Home,
 IdCard,
 Megaphone,
+Target,
 TrendingUp,
 ShoppingCart,
 Factory,
@@ -164,6 +165,19 @@ fontWeight: isActive ? 600 : 400,
 >
   <Megaphone size={17} strokeWidth={1.7} />
   <span>공지사항</span>
+</NavLink>
+
+<NavLink
+  to="/resource-plan"
+  className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
+  style={({ isActive }) => ({
+    color: isActive ? 'var(--moss)' : 'var(--ink-soft)',
+    background: isActive ? 'var(--leaf-soft)' : 'transparent',
+    fontWeight: isActive ? 600 : 400,
+  })}
+>
+  <Target size={17} strokeWidth={1.7} />
+  <span>자원 계획</span>
 </NavLink>
 
 <div
