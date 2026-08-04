@@ -75,6 +75,7 @@ items: [
 label: '문서·규정', icon: FileText,
 items: [
 { to: '/qms-overview', label: 'QMS 개요' },
+      { to: '/record-master', label: '기록 대장' },
       { to: '/document-control', label: '문서관리' },
 ],
 },
