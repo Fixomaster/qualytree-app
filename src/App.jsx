@@ -77,7 +77,7 @@ try { SterileControlHub     = React.lazy(() => import(/* @vite-ignore */ './page
 // ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
 let KgmpHub, ForeignManufacturerHub, Iso13485Hub
-let CompanyHub, LogisticsHub
+let CompanyHub, LogisticsHub, NoticeHub
 try { SalesHub            = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub         = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
 try { ManufacturingHub    = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
@@ -90,6 +90,7 @@ try { ForeignManufacturerHub = React.lazy(() => import(/* @vite-ignore */ './pag
 try { Iso13485Hub            = React.lazy(() => import(/* @vite-ignore */ './pages/iso13485/Iso13485Hub')) } catch {}
 try { CompanyHub    = React.lazy(() => import(/* @vite-ignore */ './pages/company/CompanyHub')) } catch {}
 try { LogisticsHub  = React.lazy(() => import(/* @vite-ignore */ './pages/logistics/LogisticsHub')) } catch {}
+try { NoticeHub = React.lazy(() => import(/* @vite-ignore */ './pages/notices/NoticeHub')) } catch {}
 
 // ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -179,6 +180,7 @@ export default function App() {
       <Route path="/iso13485"               element={<ProtectedRoute><LazyRoute Component={Iso13485Hub} /></ProtectedRoute>} />
       <Route path="/company"                 element={<ProtectedRoute><LazyRoute Component={CompanyHub} /></ProtectedRoute>} />
       <Route path="/logistics"               element={<ProtectedRoute><LazyRoute Component={LogisticsHub} /></ProtectedRoute>} />
+<Route path="/notices"                element={<ProtectedRoute><LazyRoute Component={NoticeHub} /></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/home" replace />} />
     </Routes>
