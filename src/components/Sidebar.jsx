@@ -16,6 +16,9 @@ BarChart3,
 ChevronRight,
 Crown,
 Settings,
+BadgeCheck,
+Globe,
+Building2,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -62,7 +65,6 @@ items: [
 { to: '/workenv', label: '작업환경관리' },
 { to: '/measurement', label: '측정·분석·개선' },
 { to: '/kpi-dashboard', label: '품질 KPI' },
-{ to: '/regulatory', label: '인허가' },
 ],
 },
 {
@@ -123,6 +125,13 @@ return s
 })
 
 const toggle = (i) => setOpen(p => ({ ...p, [i]: !p[i] }))
+
+// #제조GMP/수입GMP 분리 — WORKSPACE의 기존 9개 도메인은 '제조 GMP' 하위로 묶고,
+// '인허가'와 '수입 GMP'는 최상위 독립 메뉴로 분리한다.
+const [mfgOpen, setMfgOpen] = useState(() =>
+  DOMAINS.some(d => d.items.some(item => loc.pathname.startsWith(item.to)))
+)
+const mfgActive = visibleDomains.some(d => d.items.some(item => loc.pathname.startsWith(item.to)))
 
 return (
 <aside
@@ -189,6 +198,62 @@ fontWeight: isActive ? 600 : 500,
 <span>기본정보</span>
 </NavLink>
 
+<NavLink
+to="/regulatory"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 500,
+})}
+>
+<BadgeCheck size={16} strokeWidth={1.7} />
+<span>인허가</span>
+</NavLink>
+
+<NavLink
+to="/foreign-manufacturers"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 500,
+})}
+>
+<Globe size={16} strokeWidth={1.7} />
+<span>수입 GMP</span>
+</NavLink>
+
+<div className="mb-0.5">
+<button
+onClick={() => setMfgOpen(o => !o)}
+className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition"
+style={{
+color: mfgActive ? 'var(--moss)' : 'var(--ink)',
+background: mfgOpen ? 'var(--bg-soft)' : mfgActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: 500,
+textAlign: 'left',
+border: 'none',
+cursor: 'pointer',
+width: '100%',
+}}
+>
+<Building2 size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
+<span className="flex-1 text-left">제조 GMP</span>
+<ChevronRight
+size={13}
+strokeWidth={2}
+style={{
+transform: mfgOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+transition: 'transform 0.15s',
+color: 'var(--ink-faint)',
+flexShrink: 0,
+}}
+/>
+</button>
+
+{mfgOpen && (
+<div className="ml-3 mt-0.5 mb-1">
 {visibleDomains.map((domain) => {
 const i = DOMAINS.indexOf(domain)
 const isActive = domain.items.some(item => loc.pathname.startsWith(item.to))
@@ -243,6 +308,9 @@ fontWeight: isActive ? 600 : 400,
 </div>
 )
 })}
+</div>
+)}
+</div>
 
 {auth.identityKind() === 'operator' && (
 <>
