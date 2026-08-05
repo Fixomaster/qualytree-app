@@ -1,3 +1,4 @@
+// 
 // src/pages/regulatory/RegulatoryHub.jsx
 // 인허가 허브 — MFDS 고시 제2026-6호 별표7 기반 자동 서류 매핑
 import React, { useState, useMemo, useRef, useEffect } from 'react'
