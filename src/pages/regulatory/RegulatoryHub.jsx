@@ -57,7 +57,7 @@ const saveProducts = l => localStorage.setItem(LS_KEY, JSON.stringify(l))
 
 // ─────────────────────────────────────────────────────────────────────────
 export default function RegulatoryHub() {
-  const user = auth.user()
+  const user = auth.current()
   const [tab, setTab] = useState(0)
   const [products, setProducts] = useState(loadProducts)
 
