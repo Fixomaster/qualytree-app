@@ -25,6 +25,30 @@ import {
 } from '../../lib/foreignManufacturerState'
 import CertGate from '../../components/CertGate'
 
+// #4 — 신청서(의료기기 적합성인정등 심사 신청서, 제7조제1항제2호 구비서류) 양식과 동일하게
+// "기타 서류" 단일 다중첨부 대신 항목별 개별 서류 슬롯으로 구성한다.
+// (제조소 개요/품목목록은 위에서 별도 필드로 이미 관리하고, GMP 적합인정서·실사결과 자료는
+//  아래 GMP 적합인정서/타 인증기관 실사자료 섹션에서 별도로 관리하므로 여기서는 제외한다.)
+const FOREIGN_DOC_SLOTS = [
+  { key: 'bizLicense', label: '2. 제조(수입)업 허가증 사본' },
+  { key: 'orgChart', label: '2-가-2. 조직도' },
+  { key: 'employeeCert', label: '2-가-3. 종업원 수 확인자료' },
+  { key: 'productListDoc', label: '2-가-4. 제조되는 의료기기 목록' },
+  { key: 'cleanroomProcedure', label: '2-다-2. 청정실 관련 절차서' },
+  { key: 'monitoringProcedure', label: '2-다-3. 모니터링 및 측정장비 관련 절차서' },
+  { key: 'qualityManual', label: '2-라. 품질매뉴얼(품질방침 포함)' },
+  { key: 'fgTestProcedure', label: '2-마-1. 완제품시험 관련 절차서' },
+  { key: 'fgTestReport', label: '2-마-2. 시험성적서' },
+  { key: 'purchaseProcedure', label: '2-바-1. 구매·위탁 절차서' },
+  { key: 'supplierList', label: '2-바-2. 주요 공급업체명 및 업무범위' },
+  { key: 'productSpec', label: '2-사-1. 제품표준서' },
+  { key: 'sterilizationValidation', label: '2-사-2. 멸균 유효성 확인 절차서 (해당 시)' },
+  { key: 'standardChecklist', label: '2-아. 별표2 기준 점검표' },
+  { key: 'conformityDeclaration', label: '2-자. 별표2 기준 적합선언문' },
+  { key: 'siteOverviewTable', label: '3. 제조소 총괄표' },
+  { key: 'etc', label: '3. 기타 자료 (통역 동의서, KGMP 적합인정서 사본, 사업자등록증 등)' },
+]
+
 export default function ForeignManufacturerHub() {
   const user = auth.current()
   const [searchParams] = useSearchParams()
@@ -125,7 +149,7 @@ export default function ForeignManufacturerHub() {
 
           <div className="md:col-span-3">
             {sel ? (
-              <SiteDetail key={sel.id} site={sel} canEdit={canEdit} onAction={showToast} onChanged={refresh} onDelete={() => delSite(sel.id)} />
+              <SiteDetail key={sel.id} site={sel} canEdit={canEdit} onAction={showToast} onChanged={refresh} onDelete={() => delSite(sel.id)} allSites={sites} />
             ) : (
               <EmptyState icon={Factory} text="왼쪽에서 외국제조소를 선택하거나 추가하세요." />
             )}
@@ -141,10 +165,20 @@ export default function ForeignManufacturerHub() {
 /* ================================================================
    제조소 상세 — 기본정보 + GMP 적합인정서 + 타 인증기관 실사자료
    ================================================================ */
-function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
+function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) {
   const [form, setForm] = useState(site)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const dirty = JSON.stringify(form) !== JSON.stringify(site)
+  const [pnOpenId, setPnOpenId] = useState(null) // #3 품목명 검색 드롭다운 (열려있는 행 id)
+
+  // 이미 등록된 품목명(다른 제조소 포함) — 검색 후보 (#3)
+  const knownProducts = React.useMemo(() => {
+    const map = new Map()
+    ;(allSites || []).forEach((s) => (s.products || []).forEach((p) => {
+      if (p.name && !map.has(p.name)) map.set(p.name, p)
+    }))
+    return Array.from(map.values())
+  }, [allSites])
 
   const save = () => {
     if (!requirePermission('importgmp.site.edit')) return
@@ -177,20 +211,22 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
     setForm((f) => ({ ...f, products: (f.products || []).filter((p) => p.id !== id) }))
   }
 
-  // 기타 서류 다중 첨부 (#295) — 시설개요 첨부와 동일하게 즉시 저장
-  const attachOtherFile = async (file) => {
+  // #4 — 신청서 구비서류별 개별 슬롯 다중 첨부 (기존 "기타 서류" 단일 버킷 대체)
+  const attachSlotFile = async (slotKey, file) => {
     if (!requirePermission('importgmp.site.edit')) return
     const fileId = await fileStore.saveFile(file)
-    const nextFiles = [...(site.otherFiles || []), { id: Math.random().toString(36).slice(2, 9), fileId, fileName: file.name }]
-    foreignSites.update(site.id, { otherFiles: nextFiles })
-    setF('otherFiles', nextFiles)
+    const cur = { ...(site.docSlotFiles || {}) }
+    cur[slotKey] = [...(cur[slotKey] || []), { id: Math.random().toString(36).slice(2, 9), fileId, fileName: file.name }]
+    foreignSites.update(site.id, { docSlotFiles: cur })
+    setF('docSlotFiles', cur)
     onChanged()
   }
-  const removeOtherFile = (fid) => {
+  const removeSlotFile = (slotKey, fid) => {
     if (!requirePermission('importgmp.site.edit')) return
-    const nextFiles = (site.otherFiles || []).filter((x) => x.id !== fid)
-    foreignSites.update(site.id, { otherFiles: nextFiles })
-    setF('otherFiles', nextFiles)
+    const cur = { ...(site.docSlotFiles || {}) }
+    cur[slotKey] = (cur[slotKey] || []).filter((x) => x.id !== fid)
+    foreignSites.update(site.id, { docSlotFiles: cur })
+    setF('docSlotFiles', cur)
     onChanged()
   }
 
@@ -231,9 +267,37 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
           ) : (
             <div className="space-y-2">
               {form.products.map((p, idx) => (
-                <div key={p.id} className="grid grid-cols-[1.1fr_1.4fr_0.9fr_auto] gap-2 items-end">
+                <div key={p.id} className="grid grid-cols-[1.4fr_1.1fr_0.9fr_auto] gap-2 items-end">
+                  <div className="relative">
+                    {idx === 0 && <span className="block text-[10.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>품목명 (검색)</span>}
+                    <input className="input-base" style={{ padding: '0.4rem 0.6rem', fontSize: 12.5 }}
+                      value={p.name}
+                      onChange={(v) => { setProductField(p.id, 'name', v.target.value); setPnOpenId(p.id) }}
+                      onFocus={() => setPnOpenId(p.id)}
+                      onBlur={() => setTimeout(() => setPnOpenId((cur) => (cur === p.id ? null : cur)), 150)}
+                      placeholder="예: 금속제인공고관절 — 입력 또는 기존 품목 검색"
+                      disabled={!canEdit} />
+                    {pnOpenId === p.id && p.name && (() => {
+                      const q = p.name.toLowerCase()
+                      const hits = knownProducts.filter((kp) => kp.name.toLowerCase().includes(q) && kp.name !== p.name).slice(0, 8)
+                      if (hits.length === 0) return null
+                      return (
+                        <div className="absolute z-20 left-0 right-0 mt-1 max-h-56 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100">
+                          {hits.map((kp) => (
+                            <button key={kp.name} type="button"
+                              onMouseDown={() => {
+                                setForm((f) => ({ ...f, products: (f.products || []).map((row) => (row.id === p.id ? { ...row, name: kp.name, group: kp.group || row.group, grade: kp.grade || row.grade } : row)) }))
+                                setPnOpenId(null)
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-[12px] text-slate-800">
+                              {kp.name} <span className="text-slate-400">· {kp.group || '품목군 미지정'} · {kp.grade || '등급 미지정'}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )
+                    })()}
+                  </div>
                   <Field label={idx === 0 ? '품목군' : ''} value={p.group} onChange={(v) => setProductField(p.id, 'group', v)} placeholder="예: 정형용 임플란트" />
-                  <Field label={idx === 0 ? '품목명' : ''} value={p.name} onChange={(v) => setProductField(p.id, 'name', v)} placeholder="예: 금속제인공고관절" />
                   <SelectField label={idx === 0 ? '품목등급' : ''} value={p.grade} onChange={(v) => setProductField(p.id, 'grade', v)} options={['1등급', '2등급', '3등급', '4등급']} />
                   {canEdit ? (
                     <button type="button" onClick={() => removeProductRow(p.id)} className="mb-1.5" style={{ color: 'var(--rust, #c0392b)' }}><Trash2 size={14} /></button>
@@ -260,18 +324,35 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
         </div>
 
         <div className="mt-3">
-          <div className="text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>기타 서류 (신청서 등, 다중 첨부 가능)</div>
-          {(form.otherFiles || []).length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mb-1.5">
-              {form.otherFiles.map((f) => (
-                <span key={f.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-                  <button type="button" onClick={() => openFile(f.fileId)} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {f.fileName}</button>
-                  {canEdit && <button type="button" onClick={() => removeOtherFile(f.id)} className="opacity-50 hover:opacity-100"><X size={11} /></button>}
-                </span>
-              ))}
-            </div>
-          )}
-          {canEdit && <FileAttachButton onPick={attachOtherFile} label="기타 서류 첨부 (5MB 이하)" />}
+          <div className="text-[11.5px] font-medium mb-2" style={{ color: 'var(--ink-mute)' }}>
+            구비 서류 (의료기기 적합성인정등 심사 신청서 · 제7조제1항제2호 서식 기준)
+          </div>
+          <div className="space-y-2">
+            {FOREIGN_DOC_SLOTS.map((slot) => {
+              const files = (form.docSlotFiles || {})[slot.key] || []
+              return (
+                <div key={slot.key} className="rounded-lg px-2.5 py-2" style={{ background: 'var(--bg-soft)' }}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="text-[11.5px]" style={{ color: files.length ? 'var(--ink)' : 'var(--ink-mute)' }}>
+                      {files.length > 0 && <span style={{ color: 'var(--moss)' }}>✓ </span>}
+                      {slot.label}
+                    </span>
+                    {canEdit && <FileAttachButton onPick={(f) => attachSlotFile(slot.key, f)} label="첨부" />}
+                  </div>
+                  {files.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {files.map((f) => (
+                        <span key={f.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11px]" style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)' }}>
+                          <button type="button" onClick={() => openFile(f.fileId)} className="inline-flex items-center gap-1 hover:underline"><Download size={10} /> {f.fileName}</button>
+                          {canEdit && <button type="button" onClick={() => removeSlotFile(slot.key, f.id)} className="opacity-50 hover:opacity-100"><X size={10} /></button>}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
 
         {canEdit && (

@@ -73,7 +73,8 @@ export const foreignSites = {
       products: [], // 품목목록 구조화: [{ id, group(품목군), name(품목명), grade(품목등급) }]
       facilityFileId: null,
       facilityFileName: '',
-      otherFiles: [], // 기타 서류 다중 첨부: [{ id, fileId, fileName }]
+      otherFiles: [], // 기타 서류 다중 첨부(레거시, #4 이후 신규 등록은 docSlotFiles 사용): [{ id, fileId, fileName }]
+      docSlotFiles: {}, // #4 신청서 구비서류별 개별 슬롯: { [slotKey]: [{ id, fileId, fileName }] } — FOREIGN_DOC_SLOTS 참조
       entrustedRelation: ENTRUSTED_RELATION.NONE,
       relatedSiteName: '',
       notes: '',

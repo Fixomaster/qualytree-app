@@ -3,7 +3,7 @@
 // 수입업자가 갖추어야 하는 수입관리 절차 기준 문서. (#299)
 // SterileControlHub.jsx의 PolicyTab(읽기전용 뷰 + 편집 모달) 패턴을 따른다.
 import React, { useState } from 'react'
-import { FileText, Edit2, Save, Trash2, XCircle, ClipboardList } from 'lucide-react'
+import { FileText, Edit2, Save, Trash2, XCircle, ClipboardList, Sparkles, Loader2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import CertGate from '../../components/CertGate'
@@ -91,6 +91,7 @@ export default function ImportManagementStandardHub() {
 function PolicyTab({ standard, setStandard, canEdit }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(standard)
+  const [aiSectionKey, setAiSectionKey] = useState(null)
   const upd = (k) => (e) => setDraft((d) => ({ ...d, [k]: e.target.value }))
   const openEdit = () => {
     if (!requirePermission('importgmp.site.edit')) return
@@ -199,8 +200,21 @@ function PolicyTab({ standard, setStandard, canEdit }) {
 
           {SECTIONS.map(({ key, label }) => (
             <div key={key} style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 5 }}>{label}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)' }}>{label}</div>
+                <button type="button" onClick={() => setAiSectionKey(aiSectionKey === key ? null : key)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10.5, fontWeight: 600,
+                    background: '#f5f3ff', color: '#7c3aed', border: '1px solid #ddd6fe',
+                    borderRadius: 5, padding: '2px 8px', cursor: 'pointer',
+                  }}><Sparkles size={10} /> AI 초안</button>
+              </div>
               <textarea style={textarea} value={draft[key]} onChange={upd(key)} placeholder={SECTION_PLACEHOLDERS[key]} />
+              {aiSectionKey === key && (
+                <ImsDraftPanel sectionLabel={label} companyName={draft.approvedBy ? '' : ''}
+                  onUse={(text) => { setDraft((d) => ({ ...d, [key]: d[key] ? d[key] + '\n' + text : text })); setAiSectionKey(null) }}
+                  onClose={() => setAiSectionKey(null)} />
+              )}
             </div>
           ))}
 
@@ -251,6 +265,66 @@ function PolicyTab({ standard, setStandard, canEdit }) {
           </div>
         </StdModal>
       )}
+    </div>
+  )
+}
+
+// #12 — 섹션별 AI 초안 생성 패널 (dhf-draft.js / regulatory-draft.js와 동일한 패턴)
+function ImsDraftPanel({ sectionLabel, companyName, onUse, onClose }) {
+  const [context, setContext] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [draftText, setDraftText] = useState('')
+
+  async function generate() {
+    setLoading(true); setError(''); setDraftText('')
+    try {
+      const r = await fetch('/api/import-standard-draft', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sectionLabel, companyName, context: context.trim() }),
+      })
+      const j = await r.json()
+      if (!j.ok) setError(j.message || 'AI 초안 생성에 실패했습니다.')
+      else setDraftText(j.content || '')
+    } catch (e) {
+      setError('AI 초안 생성 중 오류가 발생했습니다: ' + String((e && e.message) || e))
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ marginTop: 8, padding: 12, borderRadius: 8, background: '#faf9ff', border: '1px solid #ddd6fe' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#7c3aed', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <Sparkles size={12} /> {sectionLabel} — AI 초안
+        </span>
+        <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><XCircle size={14} /></button>
+      </div>
+      <input style={{ ...inp, fontSize: 12, padding: '6px 10px', marginBottom: 8 }}
+        placeholder="참고 내용 (선택) — 실제 회사 상황을 적을수록 초안 품질이 좋아집니다"
+        value={context} onChange={(e) => setContext(e.target.value)} />
+      {error && <div style={{ fontSize: 11.5, padding: '6px 10px', borderRadius: 6, background: '#fee2e2', color: '#991b1b', marginBottom: 8 }}>{error}</div>}
+      <button type="button" onClick={generate} disabled={loading}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
+          fontSize: 12, fontWeight: 600, cursor: loading ? 'default' : 'pointer', border: 'none',
+          background: '#7c3aed', color: '#fff', opacity: loading ? 0.7 : 1, marginBottom: draftText ? 8 : 0,
+        }}>
+        {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        {loading ? '생성 중...' : '초안 생성'}
+      </button>
+      {draftText && (
+        <div>
+          <div style={{ fontSize: 12, whiteSpace: 'pre-wrap', padding: 10, borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', marginBottom: 8 }}>
+            {draftText}
+          </div>
+          <button type="button" onClick={() => onUse(draftText)}
+            style={{
+              padding: '5px 12px', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+              border: '1px solid var(--moss)', background: 'var(--leaf-soft)', color: 'var(--moss)',
+            }}>이 내용을 섹션에 추가</button>
+        </div>
+      )}
+      <p style={{ fontSize: 10, color: 'var(--ink-faint)', marginTop: 6 }}>AI 초안은 참고용입니다 — 반드시 검토·수정 후 저장하세요.</p>
     </div>
   )
 }

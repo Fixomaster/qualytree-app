@@ -6,6 +6,9 @@ import {
   CheckCircle2,
   Package,
   HelpCircle,
+  FileWarning,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -13,6 +16,7 @@ import { ncr, NCR_STATUS, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrSt
 import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
 import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
 import { permissions, requirePermission } from '../../lib/permissions'
+import { mdrHandoff } from '../../lib/mdrHandoff'
 import ValidationHub from '../validation/ValidationHub'
 import { FlaskConical } from 'lucide-react'
 
@@ -21,11 +25,11 @@ export default function QualityHub() {
   const user = auth.current()
 
   const [searchParams] = useSearchParams()
-  const KNOWN_TABS = ['ncr', 'quarantine', 'validation']
+  const KNOWN_TABS = ['ncr', 'quarantine', 'validation', 'mdr']
   const [tab, setTab] = useState(() => {
     const t = searchParams.get('tab')
     return KNOWN_TABS.includes(t) ? t : 'ncr'
-  }) // ncr | quarantine | validation
+  }) // ncr | quarantine | validation | mdr
   const [filter, setFilter] = useState('open') // open | all
   const [selectedNcrId, setSelectedNcrId] = useState(() => searchParams.get('ncrId') || null)
   const [selectedQId, setSelectedQId] = useState(() => searchParams.get('qId') || null)
@@ -44,9 +48,13 @@ export default function QualityHub() {
     return arr
   }, [allNcrs, filter])
 
+  const mdrItems = mdrHandoff.loadAll()
+  const mdrPending = mdrItems.filter((c) => !c.qualityReviewedAt).length
+
   const counts = {
     ncrOpen: ncr.getOpenCount(),
     quarantineActive: quarantine.getActiveCount(),
+    mdrPending,
   }
 
   return (
@@ -78,7 +86,7 @@ export default function QualityHub() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid md:grid-cols-3 gap-3 mb-5">
+        <div className="grid md:grid-cols-4 gap-3 mb-5">
           <StatCard
             icon={AlertTriangle}
             label="진행 중 NCR"
@@ -102,6 +110,14 @@ export default function QualityHub() {
             tone="moss"
             onClick={() => setTab('validation')}
             active={tab === 'validation'}
+          />
+          <StatCard
+            icon={FileWarning}
+            label="이상사례보고(MDR) 품질검토 대기"
+            value={counts.mdrPending}
+            tone="rust"
+            onClick={() => setTab('mdr')}
+            active={tab === 'mdr'}
           />
         </div>
         <div className="mb-5 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
@@ -147,6 +163,7 @@ export default function QualityHub() {
         )}
         {tab === 'quarantine' && <QuarantineList items={allQuarantine} selectedId={selectedQId} onSelect={setSelectedQId} onChanged={refresh} />}
         {tab === 'validation' && <ValidationHub embedded role="quality" />}
+        {tab === 'mdr' && <MdrHandoffList items={mdrItems} onChanged={refresh} />}
       </div>
     </AppLayout>
   )
@@ -929,6 +946,145 @@ function QuarantineDetail({ item, onChanged }) {
                 {opt.label}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ================================================================
+   이상사례보고(MDR) 품질부서 핸드오프 — #13
+   고객불만(ComplaintHub)에서 MDR 대상으로 표시된 항목을 품질검사 도메인에서
+   직접 조회·검토하고 MFDS 보고일을 기록한 뒤 "품질 검토 완료"로 종결 처리한다.
+   ================================================================ */
+function MdrHandoffList({ items, onChanged }) {
+  const [expandedId, setExpandedId] = useState(null)
+
+  if (items.length === 0) {
+    return (
+      <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
+        <FileWarning size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
+        <div className="mt-3">이상사례(MDR) 보고 대상으로 표시된 고객불만이 없습니다.</div>
+        <div className="mt-1 text-[11.5px] leading-relaxed max-w-md mx-auto" style={{ color: 'var(--ink-faint)' }}>
+          수주고객 도메인의 <b>고객불만 관리</b>에서 불만 등록 시 "규제 보고 필요(MDR)"로 표시하면 이 목록에 자동으로 나타납니다.
+        </div>
+      </div>
+    )
+  }
+
+  const pending = items.filter((i) => !i.qualityReviewedAt)
+  const reviewed = items.filter((i) => i.qualityReviewedAt)
+
+  return (
+    <div className="space-y-5">
+      <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+        고객불만 등록(영업/수주고객)과 이상사례 검토·MFDS 보고(품질검사)는 서로 다른 담당자가 처리합니다 — 원본 불만 내용은
+        <Link to="/complaints?tab=mdr" className="underline mx-1" style={{ color: 'var(--moss)' }}>고객불만 관리</Link>
+        에서도 동일하게 확인·수정할 수 있습니다.
+      </div>
+
+      <div>
+        <div className="text-[12.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: '#DC2626' }}>
+          <AlertTriangle size={13} /> 품질 검토 대기 ({pending.length}건)
+        </div>
+        {pending.length === 0 ? (
+          <div className="text-[12.5px] px-3 py-4 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>대기 중인 항목이 없습니다.</div>
+        ) : (
+          <div className="space-y-2">
+            {pending.map((item) => (
+              <MdrHandoffRow key={item.id} item={item} expanded={expandedId === item.id}
+                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} onChanged={onChanged} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {reviewed.length > 0 && (
+        <div>
+          <div className="text-[12.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
+            <CheckCircle2 size={13} /> 품질 검토 완료 ({reviewed.length}건)
+          </div>
+          <div className="space-y-2">
+            {reviewed.map((item) => (
+              <MdrHandoffRow key={item.id} item={item} expanded={expandedId === item.id}
+                onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} onChanged={onChanged} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MdrHandoffRow({ item, expanded, onToggle, onChanged }) {
+  const user = auth.current()
+  const [note, setNote] = useState(item.qualityReviewNote || '')
+  const [reportDate, setReportDate] = useState(item.mdrReportDate || '')
+  const reviewed = !!item.qualityReviewedAt
+
+  const save = () => {
+    if (!requirePermission('qms.quarantine.dispose')) return
+    mdrHandoff.updateReview(item.id, { qualityReviewNote: note, mdrReportDate: reportDate })
+    onChanged && onChanged()
+  }
+  const toggleReviewed = () => {
+    if (!requirePermission('qms.quarantine.dispose')) return
+    if (reviewed) mdrHandoff.clearReviewed(item.id)
+    else mdrHandoff.markReviewed(item.id, (user && (user.name || user.email)) || '')
+    onChanged && onChanged()
+  }
+
+  return (
+    <div className="card-base p-3.5" style={reviewed ? undefined : { borderColor: '#FCA5A5' }}>
+      <div className="flex items-center gap-2 flex-wrap cursor-pointer" onClick={onToggle}>
+        <span className="font-mono text-[11.5px]" style={{ color: 'var(--moss)', fontWeight: 500 }}>{item.id}</span>
+        <span style={{ color: 'var(--ink)' }}>{item.customerName}</span>
+        {item.productName && <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>· {item.productName}</span>}
+        <span className="tag" style={{ background: item.mdrReportDate ? 'var(--leaf-soft)' : '#FEE2E2', color: item.mdrReportDate ? 'var(--moss)' : '#DC2626' }}>
+          {item.mdrReportDate ? `MFDS 보고 완료 (${item.mdrReportDate})` : 'MFDS 보고 미완료'}
+        </span>
+        {reviewed && <span className="tag" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>품질 검토 완료</span>}
+        <span className="ml-auto">{expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</span>
+      </div>
+
+      {expanded && (
+        <div className="mt-3 pt-3 space-y-3" style={{ borderTop: '1px solid var(--line)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="grid sm:grid-cols-2 gap-3 text-[12.5px]">
+            <div><span style={{ color: 'var(--ink-faint)' }}>접수일: </span>{item.receivedDate || '—'}</div>
+            <div><span style={{ color: 'var(--ink-faint)' }}>심각도: </span>{item.severity || '—'}</div>
+          </div>
+          {(item.investigation || item.rootCause || item.corrective) && (
+            <div className="space-y-1.5 text-[12.5px]">
+              {item.investigation && <div><span style={{ color: 'var(--ink-faint)' }}>조사 결과: </span>{item.investigation}</div>}
+              {item.rootCause && <div><span style={{ color: 'var(--ink-faint)' }}>근본 원인: </span>{item.rootCause}</div>}
+              {item.corrective && <div><span style={{ color: 'var(--ink-faint)' }}>시정 조치: </span>{item.corrective}</div>}
+            </div>
+          )}
+          {!(item.investigation || item.rootCause || item.corrective) && (
+            <div className="text-[12px] px-2.5 py-1.5 rounded-lg" style={{ background: '#FEF3C7', color: '#92400E' }}>
+              아직 조사 결과가 입력되지 않았습니다 — 고객불만 관리 화면에서 조사 내용을 먼저 작성하세요.
+            </div>
+          )}
+
+          <div>
+            <label className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>MFDS 보고일</label>
+            <input type="date" className="input-base text-[12.5px]" style={{ maxWidth: 200 }} value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>품질부서 검토 메모</label>
+            <textarea className="input-base text-[12.5px]" style={{ minHeight: 60 }} value={note} onChange={(e) => setNote(e.target.value)}
+              placeholder="품질부서 관점의 위해성 평가, 재발방지 조치 연계(CAPA 등) 등을 기록하세요." />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button onClick={save} className="btn-primary text-[12px]" style={{ padding: '0.4rem 0.9rem' }}>저장</button>
+            <button onClick={toggleReviewed} className="text-[12px] px-3 py-1.5 rounded-lg" style={{
+              background: reviewed ? 'var(--bg-soft)' : 'var(--leaf-soft)', color: reviewed ? 'var(--ink-mute)' : 'var(--moss)', border: 'none', cursor: 'pointer', fontWeight: 600,
+            }}>
+              {reviewed ? '검토 완료 취소' : '품질 검토 완료로 표시'}
+            </button>
+            {reviewed && <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{item.qualityReviewedBy} · {item.qualityReviewedAt}</span>}
           </div>
         </div>
       )}

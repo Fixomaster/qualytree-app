@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Trash2, BadgeCheck, Factory } from 'lucide-react'
+import { Plus, Trash2, BadgeCheck, Factory, Edit2, ClipboardPaste, X } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import CertGate from '../../components/CertGate'
@@ -14,33 +14,80 @@ const mkId = () => Math.random().toString(36).slice(2, 10)
 
 const EMPTY = { productName: '', classNo: '', type: '허가', certNo: '', issuedDate: '', siteId: '', notes: '' }
 
+// 모델명 대량 입력 파싱 (#8) — 한 줄에 "코드<TAB>모델명" 또는 "코드,모델명" 형식으로 여러 줄 붙여넣기 지원
+function parseBulkModels(text) {
+  return text
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const parts = line.includes('\t') ? line.split('\t') : line.split(',')
+      const code = (parts[0] || '').trim()
+      const name = (parts.slice(1).join(',') || '').trim()
+      return { id: mkId(), code, name }
+    })
+    .filter(m => m.code || m.name)
+}
+
 export default function ImportProductsHub() {
   const user = auth.current()
   const sites = foreignSites.getAll()
   const [list, setList] = useState(readLS)
   const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(EMPTY)
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const [siteQuery, setSiteQuery] = useState('')
+  const [pnOpen, setPnOpen] = useState(false) // #6 품목명 검색 드롭다운 (온보딩 방식)
   const [draftModels, setDraftModels] = useState([])
   const addDraftModel = () => setDraftModels((l) => [...l, { id: mkId(), code: '', name: '' }])
   const updateDraftModel = (id, patch) => setDraftModels((l) => l.map((m) => (m.id === id ? { ...m, ...patch } : m)))
   const removeDraftModel = (id) => setDraftModels((l) => l.filter((m) => m.id !== id))
   const [search, setSearch] = useState('')
+  const [siteFilter, setSiteFilter] = useState('') // #17 제조소별 검색
+
+  // 대량 입력 (#8)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const applyBulk = () => {
+    const parsed = parseBulkModels(bulkText)
+    if (parsed.length === 0) { alert('붙여넣은 내용에서 모델을 찾지 못했습니다. "코드<TAB>모델명" 또는 "코드,모델명" 형식으로 한 줄에 하나씩 입력하세요.'); return }
+    setDraftModels((l) => [...l, ...parsed])
+    setBulkText(''); setBulkOpen(false)
+  }
 
   // 품목명 자동완성 후보 — 기존 등록된 품목명 검색하면서 등록 가능 (#6)
   const productNameSuggestions = Array.from(new Set(list.map(r => r.productName).filter(Boolean)))
 
   const save = (v) => { writeLS(v); setList(v) }
+
+  const startAdd = () => {
+    setEditingId(null); setForm(EMPTY); setDraftModels([]); setSiteQuery(''); setAdding(true)
+  }
+  const startEdit = (r) => {
+    setEditingId(r.id)
+    setForm({ productName: r.productName, classNo: r.classNo, type: r.type, certNo: r.certNo, issuedDate: r.issuedDate, siteId: r.siteId, notes: r.notes })
+    setSiteQuery(r.siteId ? (sites.find(s => s.id === r.siteId)?.name || '') : '')
+    setDraftModels((r.models || []).map(m => ({ ...m })))
+    setAdding(true)
+  }
+  const cancelForm = () => { setAdding(false); setEditingId(null); setForm(EMPTY); setDraftModels([]); setSiteQuery(''); setBulkOpen(false); setBulkText('') }
+
   const add = () => {
     if (!form.productName.trim()) { alert('품목명을 입력하세요.'); return }
-    save([...list, { ...form, id: Date.now().toString(), models: draftModels.filter(m => m.code || m.name) }])
-    setAdding(false); setForm(EMPTY); setDraftModels([]); setSiteQuery('')
+    const models = draftModels.filter(m => m.code || m.name)
+    if (editingId) {
+      save(list.map(r => (r.id === editingId ? { ...r, ...form, models } : r)))
+    } else {
+      save([...list, { ...form, id: Date.now().toString(), models }])
+    }
+    cancelForm()
   }
   const del = (id) => { if (window.confirm('삭제할까요?')) save(list.filter(r => r.id !== id)) }
 
   const filtered = list
     .filter(r => !search || r.productName.includes(search) || (r.certNo || '').includes(search))
+    .filter(r => !siteFilter || r.siteId === siteFilter)
     .sort((a, b) => (a.productName || '').localeCompare(b.productName || ''))
 
   const siteName = (siteId) => sites.find(s => s.id === siteId)?.name || ''
@@ -87,34 +134,59 @@ export default function ImportProductsHub() {
             ))}
           </div>
 
-          {/* 검색 + 추가 */}
-          <div className="flex items-center gap-3 mb-3">
+          {/* 검색 + 제조소별 필터 + 추가 (#17) */}
+          <div className="flex items-center gap-3 mb-3 flex-wrap">
             <input
               className="input-base flex-1"
-              style={{ padding: '0.5rem 0.8rem', fontSize: 13 }}
+              style={{ padding: '0.5rem 0.8rem', fontSize: 13, minWidth: 180 }}
               placeholder="품목명 또는 허가번호 검색"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <button onClick={() => setAdding(true)} className="btn-primary text-[12.5px] shrink-0">
+            <select
+              className="input-base"
+              style={{ padding: '0.5rem 0.8rem', fontSize: 13, minWidth: 160 }}
+              value={siteFilter}
+              onChange={e => setSiteFilter(e.target.value)}
+            >
+              <option value="">전체 제조소</option>
+              {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button onClick={startAdd} className="btn-primary text-[12.5px] shrink-0">
               <Plus size={14} /> 품목 추가
             </button>
           </div>
 
-          {/* 등록 폼 */}
+          {/* 등록/수정 폼 (#16) */}
           {adding && (
             <div className="card-base p-4 mb-4" style={{ borderColor: 'var(--moss)' }}>
-              <div className="text-[13px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>새 품목 등록</div>
+              <div className="text-[13px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>
+                {editingId ? '품목 정보 수정' : '새 품목 등록'}
+              </div>
               <div className="grid sm:grid-cols-3 gap-3">
-                <label className="sm:col-span-2 block">
+                <label className="sm:col-span-2 block relative">
                   <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>품목명 * (검색)</span>
                   <input className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }}
-                    list="import-product-name-options"
-                    value={form.productName} onChange={e => setF('productName', e.target.value)}
+                    value={form.productName}
+                    onChange={e => { setF('productName', e.target.value); setPnOpen(true) }}
+                    onFocus={() => setPnOpen(true)}
+                    onBlur={() => setTimeout(() => setPnOpen(false), 150)}
                     placeholder="예: 정형외과용 나사못 — 입력 또는 기존 품목명 검색" />
-                  <datalist id="import-product-name-options">
-                    {productNameSuggestions.map(n => <option key={n} value={n} />)}
-                  </datalist>
+                  {pnOpen && form.productName && (() => {
+                    const q = form.productName.toLowerCase()
+                    const hits = productNameSuggestions.filter(n => n.toLowerCase().includes(q) && n !== form.productName).slice(0, 8)
+                    if (hits.length === 0) return null
+                    return (
+                      <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100">
+                        {hits.map(n => (
+                          <button key={n} type="button" onMouseDown={() => { setF('productName', n); setPnOpen(false) }}
+                            className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-[12.5px] text-slate-800">
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })()}
                 </label>
                 <label className="block">
                   <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>외국제조소 (검색)</span>
@@ -168,11 +240,36 @@ export default function ImportProductsHub() {
                   <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>
                     모델 목록{draftModels.length > 0 ? ` (${draftModels.length}개)` : ''}
                   </span>
-                  <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> 행 추가</button>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setBulkOpen(v => !v)} className="btn-ghost text-[11.5px]">
+                      <ClipboardPaste size={12} /> 여러 개 붙여넣기
+                    </button>
+                    <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> 행 추가</button>
+                  </div>
                 </div>
+
+                {bulkOpen && (
+                  <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+                    <div className="text-[11px] mb-1.5" style={{ color: 'var(--ink-faint)' }}>
+                      한 줄에 모델 1개씩, "코드&#9;모델명" (탭 또는 쉼표 구분) 형식으로 붙여넣으세요. 엑셀에서 두 열을 복사해 그대로 붙여넣어도 됩니다.
+                    </div>
+                    <textarea
+                      className="input-base text-[12.5px] font-mono"
+                      style={{ minHeight: 90 }}
+                      placeholder={"예:\nPA-SCS-3522\t나사못 3.5x22mm\nPA-SCS-4025\t나사못 4.0x25mm"}
+                      value={bulkText}
+                      onChange={e => setBulkText(e.target.value)}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <button type="button" onClick={applyBulk} className="btn-primary text-[11.5px]" style={{ padding: '0.35rem 0.8rem' }}>목록에 일괄 추가</button>
+                      <button type="button" onClick={() => { setBulkOpen(false); setBulkText('') }} className="btn-ghost text-[11.5px]">취소</button>
+                    </div>
+                  </div>
+                )}
+
                 {draftModels.length === 0 ? (
                   <div className="text-center py-6 text-[12px] rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                    이 품목에 속한 모델명을 직접 추가하세요.
+                    이 품목에 속한 모델명을 직접 추가하거나, 위 "여러 개 붙여넣기"로 한 번에 등록하세요.
                   </div>
                 ) : (
                   <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--line)' }}>
@@ -195,8 +292,8 @@ export default function ImportProductsHub() {
               </div>
 
               <div className="flex gap-2 mt-3">
-                <button onClick={add} className="btn-primary text-[12.5px]" style={{ padding: '0.45rem 0.9rem' }}>저장</button>
-                <button onClick={() => { setAdding(false); setForm(EMPTY); setDraftModels([]); setSiteQuery('') }} className="btn-ghost text-[12.5px]">취소</button>
+                <button onClick={add} className="btn-primary text-[12.5px]" style={{ padding: '0.45rem 0.9rem' }}>{editingId ? '수정 저장' : '저장'}</button>
+                <button onClick={cancelForm} className="btn-ghost text-[12.5px]">취소</button>
               </div>
             </div>
           )}
@@ -206,7 +303,7 @@ export default function ImportProductsHub() {
             <div className="card-base p-10 text-center" style={{ borderStyle: 'dashed' }}>
               <BadgeCheck size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
               <div className="mt-2 text-[13px]" style={{ color: 'var(--ink-mute)' }}>
-                {search ? '검색 결과가 없습니다.' : '등록된 품목이 없습니다.'}
+                {search || siteFilter ? '검색 결과가 없습니다.' : '등록된 품목이 없습니다.'}
               </div>
             </div>
           ) : (
@@ -244,9 +341,14 @@ export default function ImportProductsHub() {
                               )}
                               {r.notes && <div className="text-[12px] mt-1" style={{ color: 'var(--ink-mute)' }}>{r.notes}</div>}
                             </div>
-                            <button onClick={() => del(r.id)} className="text-slate-300 hover:text-rose-600 shrink-0">
-                              <Trash2 size={15} />
-                            </button>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button onClick={() => startEdit(r)} style={{ color: 'var(--ink-faint)' }} title="수정">
+                                <Edit2 size={14} />
+                              </button>
+                              <button onClick={() => del(r.id)} className="text-slate-300 hover:text-rose-600">
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
