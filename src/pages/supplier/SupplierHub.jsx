@@ -47,10 +47,13 @@ const EVAL_STATUS = {
   pending:     { label: '심사 대기',  color: '#6B7280', bg: '#F3F4F6' },
 }
 const COMMON_CERTS = ['ISO 13485', 'ISO 9001', 'KGMP', 'CE 인증', 'FDA 등록', 'MDSAP', 'KC 인증', 'RoHS']
+// 2-바-2 서식(주요 공급업체명·업무범위) 대응 — 관련 공정/자재를 자유텍스트가 아닌 태그로 구조화
+const SUPPLY_SCOPE_TAGS = ['원자재 공급', '가공', '세척', '조립', '검사', '멸균', '포장·라벨링', '물류·배송', '기타']
+const COUNTRIES = ['대한민국', '중국', '미국', '일본', '독일', '베트남', '대만', '기타']
 const emptySupplier = () => ({
   name: '', code: '', category: '',
-  contact: '', phone: '', email: '', address: '',
-  items: '', certifications: [], notes: '',
+  contact: '', phone: '', email: '', address: '', country: '대한민국',
+  items: '', scopeTags: [], certifications: [], notes: '',
   grade: '', status: 'pending',
 })
 const emptyEval = () => ({
@@ -357,6 +360,8 @@ function SupRow({ sup, lastEval, policy, expanded, onToggle, onEdit, onDelete, o
           <div className="flex items-center gap-2 flex-wrap">
             {sup.code && <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{sup.code}</span>}
             {sup.category && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{sup.category}</span>}
+            {sup.country && sup.country !== '대한민국' && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#2563EB' }}>{sup.country}</span>}
+            {(sup.scopeTags || []).map(t => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#F0FDF4', color: '#059669' }}>{t}</span>)}
             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ color: statusColor, background: `${statusColor}15` }}>
               {statusInfo.label}
             </span>
@@ -539,8 +544,30 @@ function SupForm({ form, fld, editId, onSubmit, onClose }) {
         <F label="전화"><input value={form.phone} onChange={e => fld('phone', e.target.value)} placeholder="02-0000-0000" style={IS} className="w-full" /></F>
       </R2>
       <F label="이메일"><input value={form.email} onChange={e => fld('email', e.target.value)} placeholder="contact@supplier.com" style={IS} className="w-full" /></F>
-      <F label="주소"><input value={form.address} onChange={e => fld('address', e.target.value)} placeholder="서울시..." style={IS} className="w-full" /></F>
+      <R2>
+        <F label="주소"><input value={form.address} onChange={e => fld('address', e.target.value)} placeholder="서울시..." style={IS} className="w-full" /></F>
+        <F label="국가">
+          <select value={form.country || '대한민국'} onChange={e => fld('country', e.target.value)} style={IS} className="w-full">
+            {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </F>
+      </R2>
       <F label="공급 품목 (쉼표 구분)"><input value={form.items} onChange={e => fld('items', e.target.value)} placeholder="예: PCB, 커넥터, 전원모듈" style={IS} className="w-full" /></F>
+      <F label="관련 공정/자재 (GMP 신청서 2-바-2 서식 대응 — 해당 공정 모두 선택)">
+        <div className="flex flex-wrap gap-1.5">
+          {SUPPLY_SCOPE_TAGS.map(tag => {
+            const on = (form.scopeTags || []).includes(tag)
+            return (
+              <button key={tag} type="button"
+                onClick={() => fld('scopeTags', on ? (form.scopeTags || []).filter(t => t !== tag) : [...(form.scopeTags || []), tag])}
+                className="text-[11.5px] px-2.5 py-1 rounded-full"
+                style={{ border: '1px solid ' + (on ? '#059669' : '#E5E7EB'), background: on ? '#D1FAE5' : '#fff', color: on ? '#059669' : '#6B7280', cursor: 'pointer' }}>
+                {tag}
+              </button>
+            )
+          })}
+        </div>
+      </F>
       <F label="보유 인증"><CertPicker value={form.certifications} onChange={v => fld('certifications', v)} /></F>
       {!editId && (
         <div className="text-[11.5px] p-3 rounded-xl" style={{ background: '#F0FDF4', color: '#166534', border: '1px solid #BBF7D0' }}>

@@ -126,6 +126,27 @@ function SelectField({ label, value, onChange, options, className = '' }) {
     </label>
   )
 }
+function ChipMultiField({ label, value, onChange, options, className = '' }) {
+  const list = Array.isArray(value) ? value : []
+  const toggle = (opt) => onChange(list.includes(opt) ? list.filter((v) => v !== opt) : [...list, opt])
+  return (
+    <div className={className}>
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => {
+          const on = list.includes(opt)
+          return (
+            <button key={opt} type="button" onClick={() => toggle(opt)}
+              className="text-[11.5px] px-2.5 py-1 rounded-full"
+              style={{ border: '1px solid ' + (on ? 'var(--moss)' : 'var(--line-strong)'), background: on ? 'var(--leaf-soft)' : 'var(--bg-card)', color: on ? 'var(--moss)' : 'var(--ink-mute)', cursor: 'pointer' }}>
+              {opt}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 function TextAreaField({ label, value, onChange, placeholder, minHeight = 70, className = '' }) {
   return (
     <label className={`block ${className}`}>
@@ -203,10 +224,19 @@ function ProfileTab({ company, onAction, refresh }) {
   const canEdit = permissions.can('onb.company.edit')
   const [form, setForm] = useState({
     name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '', employeeCount: '',
+    // GMP 접수양식 상단 행정정보 (7-4. GMP 접수양식_2026.02.19 기준) — 심사구분·현장조사 희망일 등
+    gmpExamTypes: [], gmpDetailTypes: [], gmpSiteVisitDate: '', gmpRiskSite: false,
+    gmpSubmitContactName: '', gmpSubmitContactPhone: '', gmpInvoiceEmail: '', gmpSubmitContactEmail: '',
     ...company,
   })
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const dirty = Object.keys(form).some((k) => (form[k] || '') !== (company[k] || ''))
+  const dirty = Object.keys(form).some((k) => {
+    const a = form[k]
+    const b = company[k]
+    if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a || []) !== JSON.stringify(b || [])
+    if (typeof a === 'boolean' || typeof b === 'boolean') return !!a !== !!b
+    return (a || '') !== (b || '')
+  })
 
   const save = () => {
     if (!requirePermission('onb.company.edit')) return
@@ -235,6 +265,33 @@ function ProfileTab({ company, onAction, refresh }) {
         <Field label="전화번호" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
         <Field label="대표 이메일" type="email" value={form.email} onChange={(v) => setF('email', v)} />
       </div>
+
+      <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
+        <div className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>GMP 심사 신청 정보</div>
+        <div className="text-[11px] mt-0.5 mb-2.5" style={{ color: 'var(--ink-faint)' }}>
+          GMP 적합성인정 심사 신청서 상단 행정정보(심사구분·현장조사 희망일 등)입니다 — 신청서 작성 시 그대로 사용됩니다.
+        </div>
+        <div className="space-y-3">
+          <ChipMultiField label="심사구분 (해당 항목 모두 선택)" value={form.gmpExamTypes} onChange={(v) => setF('gmpExamTypes', v)}
+            options={['최초심사', '정기심사', '변경심사', '추가심사']} />
+          <ChipMultiField label="특이유형 (해당 시)" value={form.gmpDetailTypes} onChange={(v) => setF('gmpDetailTypes', v)}
+            options={['1등급', '임상시험용', '수출용', '융복합', '공동심사프로그램', '우수제조소']} />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="현장조사 희망일" type="date" value={form.gmpSiteVisitDate} onChange={(v) => setF('gmpSiteVisitDate', v)} />
+            <label className="flex items-center gap-2 text-[12.5px] mt-5 cursor-pointer" style={{ color: 'var(--ink)' }}>
+              <input type="checkbox" checked={!!form.gmpRiskSite} onChange={(e) => setF('gmpRiskSite', e.target.checked)} />
+              위해우려제조소 해당
+            </label>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="접수 담당자 성명" value={form.gmpSubmitContactName} onChange={(v) => setF('gmpSubmitContactName', v)} />
+            <Field label="접수 담당자 연락처" value={form.gmpSubmitContactPhone} onChange={(v) => setF('gmpSubmitContactPhone', v)} placeholder="010-0000-0000" />
+            <Field label="계산서 발행 이메일" type="email" value={form.gmpInvoiceEmail} onChange={(v) => setF('gmpInvoiceEmail', v)} />
+            <Field label="접수 담당자 이메일" type="email" value={form.gmpSubmitContactEmail} onChange={(v) => setF('gmpSubmitContactEmail', v)} />
+          </div>
+        </div>
+      </div>
+
       {canEdit && (
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--line)' }}>
           <button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px] disabled:opacity-50">기업정보 저장</button>

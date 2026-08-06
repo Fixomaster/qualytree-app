@@ -259,7 +259,7 @@ function InstrumentsView({instruments,setInstruments,openId}){
   useEffect(() => {
     if (openId) { const item = instruments.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
-  const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
+  const shown = srch ? instruments.filter(i=>[i.name,i.model,i.serial,i.location,i.application,i.kind].some(v=>v&&v.toLowerCase().includes(srch.toLowerCase()))) : instruments
   const statusOpts=['사용가능','교정임박','교정중','사용제한','폐기']
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setInstruments(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
@@ -294,13 +294,17 @@ function InstrumentsView({instruments,setInstruments,openId}){
       </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['기기ID','기기명','모델','S/N','최근점검','차기점검','주기','위치','상태','적격성평가','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['기기ID','기기명','구분','모델','S/N','최근점검','차기점검','주기','위치','상태','적격성평가','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{shown.length===0?<EmptyRow msg={srch?"검색 결과가 없습니다.":undefined}/>:shown.map(i=>{
               const qi=qualStageInfo(i)
               return(
       <tr key={i.id}>
                 <TD mono color="var(--moss)">{i.id}</TD>
-                <TD><button onClick={()=>openDetail(i)} className="font-medium hover:underline" style={{color:'var(--ink)'}}>{i.name}</button></TD>
+                <TD>
+                  <button onClick={()=>openDetail(i)} className="font-medium hover:underline" style={{color:'var(--ink)'}}>{i.name}</button>
+                  {i.application && <div className="text-[11px] mt-0.5" style={{color:'var(--ink-faint)'}}>{i.application}</div>}
+                </TD>
+                <TD><Badge text={i.kind||'제조설비'} tone={i.kind==='측정장비'?'blue':'gray'}/></TD>
                 <TD muted>{i.model}</TD>
                 <TD mono muted>{i.serial}</TD>
                 <TD mono muted>{i.lastCalib}</TD>
@@ -321,12 +325,14 @@ function InstrumentsView({instruments,setInstruments,openId}){
   )
 }
 function InstrForm({initial,onSave,onCancel,statusOpts}){
-  const[f,sf]=useState({name:'',model:'',serial:'',lastCalib:'',nextCalib:'',interval:'12개월',location:'',status:'사용가능',...initial})
+  const[f,sf]=useState({name:'',kind:'제조설비',application:'',model:'',serial:'',lastCalib:'',nextCalib:'',interval:'12개월',location:'',status:'사용가능',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return(
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <FL label="기기명 *"><input style={inp} value={f.name} onChange={set('name')} placeholder="예) 버니어 캘리퍼스"/></FL>
+        <FL label="구분"><select style={sel} value={f.kind} onChange={set('kind')}>{['제조설비','측정장비'].map(o=><option key={o}>{o}</option>)}</select></FL>
+        <FL label="적용활동 (용도/적용공정)"><input style={inp} value={f.application} onChange={set('application')} placeholder="예) 완제품 조립, 최종검사 치수측정"/></FL>
         <FL label="모델명"><input style={inp} value={f.model} onChange={set('model')}/></FL>
         <FL label="시리얼 번호"><input style={inp} value={f.serial} onChange={set('serial')}/></FL>
         <FL label="최근 점검일"><input style={inp} type="date" value={f.lastCalib} onChange={set('lastCalib')}/></FL>
@@ -335,7 +341,7 @@ function InstrForm({initial,onSave,onCancel,statusOpts}){
         <FL label="보관 위치"><input style={inp} value={f.location} onChange={set('location')}/></FL>
         <FL label="상태"><select style={sel} value={f.status} onChange={set('status')}>{statusOpts.map(o=><option key={o}>{o}</option>)}</select></FL>
       </div>
-      <div className="text-[11.5px]" style={{color:'var(--ink-faint)'}}>* 신규 등록 시 기기명·모델명·시리얼번호만 입력해도 등록할 수 있으며, 등록 즉시 IQ(설치적격성평가) 화면으로 이동합니다.</div>
+      <div className="text-[11.5px]" style={{color:'var(--ink-faint)'}}>* 신규 등록 시 기기명·모델명·시리얼번호만 입력해도 등록할 수 있으며, 등록 즉시 IQ(설치적격성평가) 화면으로 이동합니다. 구분·적용활동은 GMP 신청서 첨부(2-다-1-2 시설·장비목록)에 필요한 항목입니다.</div>
       <div className="flex gap-2 pt-2"><SBtn onClick={()=>f.name&&onSave(f)}>{initial.name?'수정 저장':'등록'}</SBtn><SBtn onClick={onCancel} secondary>취소</SBtn></div>
     </div>
   )
