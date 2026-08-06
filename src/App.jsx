@@ -96,10 +96,11 @@ try { QmsOverviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/qms-o
 try { RecordMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/record-master/RecordMasterHub')) } catch {}
 
 // ── 수입 GMP 신규 허브 ──────────────────────────────────────────────
-let ImportProductsHub, ImportClearanceHub, ImportAdverseHub
+let ImportProductsHub, ImportClearanceHub, ImportAdverseHub, ImportManagementStandardHub
 try { ImportProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportProductsHub')) } catch {}
 try { ImportClearanceHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportClearanceHub')) } catch {}
 try { ImportAdverseHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportAdverseHub')) } catch {}
+try { ImportManagementStandardHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportManagementStandardHub')) } catch {}
 
 // ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
@@ -196,6 +197,7 @@ return (
 <Route path="/import-products"  element={<ProtectedRoute><LazyRoute Component={ImportProductsHub} /></ProtectedRoute>} />
 <Route path="/import-clearance" element={<ProtectedRoute><LazyRoute Component={ImportClearanceHub} /></ProtectedRoute>} />
 <Route path="/import-adverse"   element={<ProtectedRoute><LazyRoute Component={ImportAdverseHub} /></ProtectedRoute>} />
+<Route path="/import-management-standard" element={<ProtectedRoute><LazyRoute Component={ImportManagementStandardHub} /></ProtectedRoute>} />
 
 <Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>

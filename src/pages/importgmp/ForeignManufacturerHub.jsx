@@ -11,7 +11,6 @@ import {
   X,
   AlertTriangle,
   Save,
-  FileDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -24,9 +23,6 @@ import {
   ENTRUSTED_RELATION,
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
-import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
-import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kgmpDocumentBundle'
-import KgmpSectionList from '../../components/KgmpSectionList'
 import CertGate from '../../components/CertGate'
 
 export default function ForeignManufacturerHub() {
@@ -46,9 +42,6 @@ export default function ForeignManufacturerHub() {
   // 공통 제출 문서·기술문서·품질시스템·절차서·기록 체크리스트 — KGMP통합현황(제조사용)과 같은
   // 로직을 수입사 관점(profile:'importer')으로 계산해 이 화면에 함께 보여준다. 제조소별 GMP
   // 적합인정서 상세는 위 마스터-디테일 UI에서 직접 관리하므로 체크리스트에는 중복 나열하지 않는다.
-  const kgmpSections = buildKgmpSections({ profile: 'importer' })
-  const kgmpSummary = summarizeKgmpSections(kgmpSections)
-  const downloadPdf = () => downloadHtmlAsPdf(buildApprovedDocumentBundleHtml('importer', '수입사 GMP (외국제조소)'))
 
   const addSite = () => {
     if (!requirePermission('importgmp.site.edit')) return
@@ -139,18 +132,6 @@ export default function ForeignManufacturerHub() {
           </div>
         </div>
 
-        <div className="mt-8">
-          <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
-            <div>
-              <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>수입 인허가 제출 체크리스트</div>
-              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-                공통 제출 문서·기술문서·품질시스템·절차서·유지 기록 — 수입사 기준({kgmpSummary.doneCount} / {kgmpSummary.totalCount}개 완료, {kgmpSummary.pct}%)
-              </div>
-            </div>
-            <button onClick={downloadPdf} className="btn-primary text-[12.5px] shrink-0"><FileDown size={14} /> 승인 문서 통합 PDF</button>
-          </div>
-          <KgmpSectionList sections={kgmpSections} keyPrefix="importer-" />
-        </div>
       </div>
       </CertGate>
     </AppLayout>
@@ -183,6 +164,36 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
     foreignSites.update(site.id, { facilityFileId: null, facilityFileName: '' })
     onChanged()
   }
+
+  // 품목목록: 품목군/품목명/품목등급 구조화 (#295) — 일반 필드와 동일하게 '변경사항 저장'으로 반영
+  const addProductRow = () => {
+    if (!canEdit) return
+    setForm((f) => ({ ...f, products: [...(f.products || []), { id: Math.random().toString(36).slice(2, 9), group: '', name: '', grade: '1등급' }] }))
+  }
+  const setProductField = (id, key, val) => {
+    setForm((f) => ({ ...f, products: (f.products || []).map((p) => (p.id === id ? { ...p, [key]: val } : p)) }))
+  }
+  const removeProductRow = (id) => {
+    setForm((f) => ({ ...f, products: (f.products || []).filter((p) => p.id !== id) }))
+  }
+
+  // 기타 서류 다중 첨부 (#295) — 시설개요 첨부와 동일하게 즉시 저장
+  const attachOtherFile = async (file) => {
+    if (!requirePermission('importgmp.site.edit')) return
+    const fileId = await fileStore.saveFile(file)
+    const nextFiles = [...(site.otherFiles || []), { id: Math.random().toString(36).slice(2, 9), fileId, fileName: file.name }]
+    foreignSites.update(site.id, { otherFiles: nextFiles })
+    setF('otherFiles', nextFiles)
+    onChanged()
+  }
+  const removeOtherFile = (fid) => {
+    if (!requirePermission('importgmp.site.edit')) return
+    const nextFiles = (site.otherFiles || []).filter((x) => x.id !== fid)
+    foreignSites.update(site.id, { otherFiles: nextFiles })
+    setF('otherFiles', nextFiles)
+    onChanged()
+  }
+
   const openFile = async (fileId) => {
     const url = await fileStore.getObjectURL(fileId)
     if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
@@ -191,7 +202,7 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
   }
 
   const missing = []
-  if (!site.productList) missing.push('품목목록')
+  if (!site.products || site.products.length === 0) missing.push('품목목록')
   if (!site.facilityFileId) missing.push('시설개요(평면도·장비목록)')
 
   return (
@@ -210,7 +221,28 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
             <Field label="상대 제조소명 (제조의뢰자/제조자)" value={form.relatedSiteName} onChange={(v) => setF('relatedSiteName', v)} className="sm:col-span-2" />
           )}
         </div>
-        <TextAreaField label="품목목록 (품목명·등급)" value={form.productList} onChange={(v) => setF('productList', v)} placeholder="이 제조소에서 제조되는 의료기기 품목명·등급을 입력하세요." className="mt-3" />
+        <div className="mt-3">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="block text-[11.5px] font-medium" style={{ color: 'var(--ink-mute)' }}>품목목록 (품목군 · 품목명 · 품목등급)</span>
+            {canEdit && <button type="button" onClick={addProductRow} className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: 'var(--moss)' }}><Plus size={12} /> 품목 추가</button>}
+          </div>
+          {(form.products || []).length === 0 ? (
+            <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>등록된 품목이 없습니다.</div>
+          ) : (
+            <div className="space-y-2">
+              {form.products.map((p, idx) => (
+                <div key={p.id} className="grid grid-cols-[1.1fr_1.4fr_0.9fr_auto] gap-2 items-end">
+                  <Field label={idx === 0 ? '품목군' : ''} value={p.group} onChange={(v) => setProductField(p.id, 'group', v)} placeholder="예: 정형용 임플란트" />
+                  <Field label={idx === 0 ? '품목명' : ''} value={p.name} onChange={(v) => setProductField(p.id, 'name', v)} placeholder="예: 금속제인공고관절" />
+                  <SelectField label={idx === 0 ? '품목등급' : ''} value={p.grade} onChange={(v) => setProductField(p.id, 'grade', v)} options={['1등급', '2등급', '3등급', '4등급']} />
+                  {canEdit ? (
+                    <button type="button" onClick={() => removeProductRow(p.id)} className="mb-1.5" style={{ color: 'var(--rust, #c0392b)' }}><Trash2 size={14} /></button>
+                  ) : <span />}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} className="mt-3" />
 
         <div className="mt-3">
@@ -225,6 +257,21 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete }) {
           ) : (
             <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>첨부 파일 없음</span>
           )}
+        </div>
+
+        <div className="mt-3">
+          <div className="text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>기타 서류 (신청서 등, 다중 첨부 가능)</div>
+          {(form.otherFiles || []).length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-1.5">
+              {form.otherFiles.map((f) => (
+                <span key={f.id} className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
+                  <button type="button" onClick={() => openFile(f.fileId)} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {f.fileName}</button>
+                  {canEdit && <button type="button" onClick={() => removeOtherFile(f.id)} className="opacity-50 hover:opacity-100"><X size={11} /></button>}
+                </span>
+              ))}
+            </div>
+          )}
+          {canEdit && <FileAttachButton onPick={attachOtherFile} label="기타 서류 첨부 (5MB 이하)" />}
         </div>
 
         {canEdit && (

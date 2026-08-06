@@ -1,35 +1,20 @@
 // src/components/AppLayout.jsx
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
-import DeptSelectModal from './DeptSelectModal'
 import { deptAuth } from '../lib/deptAuth'
 
+// #301: 부서 선택 정보는 localStorage(브라우저 캐시)에만 저장되어, 캐시를 삭제하면
+// 홈 대시보드 진입 시마다 매번 부서 선택 화면이 강제로 뜨는 문제가 있었다(요청: 삭제).
+// 강제 모달 팝업을 제거하고, 미선택 상태이면 조용히 '전체 보기'(ALL)로 기본 설정한다.
+// (근본 원인은 부서 선택이 서버(Supabase)가 아닌 로컬 캐시 기반이라는 점 — 계정 간
+// 영구적으로 공유·유지하려면 추후 Supabase 사용자 프로필에 저장하는 방식으로 이전 필요.)
 export default function AppLayout({ user, title, subtitle, children }) {
-  const [showDeptModal, setShowDeptModal] = useState(false)
-  const navigate = useNavigate()
-
   useEffect(() => {
-    // 부서 미선택 시 모달 표시 (첫 로그인)
     if (!deptAuth.getDepartment()) {
-      setShowDeptModal(true)
+      deptAuth.setDepartment('ALL')
     }
-
-    // 부서 강제 재선택 이벤트 (null 이벤트 수신 시)
-    const handler = (e) => {
-      if (e.detail === null) setShowDeptModal(true)
-    }
-    window.addEventListener('qt-dept-changed', handler)
-    return () => window.removeEventListener('qt-dept-changed', handler)
   }, [])
-
-  const handleDeptSelect = (dept) => {
-    deptAuth.setDepartment(dept)
-    setShowDeptModal(false)
-    // 부서 선택 후 홈 대시보드로 이동
-    navigate('/home')
-  }
 
   return (
     <div className="flex">
@@ -38,10 +23,6 @@ export default function AppLayout({ user, title, subtitle, children }) {
         <TopBar user={user} title={title} subtitle={subtitle} />
         <main>{children}</main>
       </div>
-
-      {showDeptModal && (
-        <DeptSelectModal onSelect={handleDeptSelect} />
-      )}
     </div>
   )
 }

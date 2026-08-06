@@ -520,6 +520,7 @@ export function printCleanlinessCert(rec, spec) {
     <div class="section-title">2. 측정 결과</div>
     <table>
       <tr><th>미립자 측정값</th><td>${rec.particleResult || '(없음)'}</td><th>미생물 측정값</th><td>${rec.microbialResult || '(없음)'}</td></tr>
+      <tr><th>이물 검사 결과</th><td colspan="3">${rec.foreignMatterResult || '(없음)'}</td></tr>
       <tr><th>온도</th><td>${rec.temperature ? rec.temperature + ' ℃' : '(없음)'}</td><th>습도</th><td>${rec.humidity ? rec.humidity + ' %RH' : '(없음)'}</td></tr>
       <tr><th>차압</th><td colspan="3">${rec.pressureDiff ? rec.pressureDiff + ' Pa' : '(없음)'}</td></tr>
     </table>

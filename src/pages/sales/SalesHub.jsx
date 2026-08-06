@@ -1824,9 +1824,11 @@ export default function SalesHub() {
   const [deliveries, setDeliveries] = useLS('qms_sal_deliveries', INIT_DELIVERIES)
   const [prodReqs, setProdReqs] = useLS('qms_sal_prodreqs', INIT_PRODREQS)
 
+  // #302: 영업현황 홈 카드는 '영업실적'이 맨 앞인데, 이 상단 탭 전환 메뉴는 5번째에 있어
+  // 순서가 서로 달랐다 — 홈 카드 순서(영업실적 → 고객사 → 수주 → 견적 → 납품 → 생산요청 → 고객요구)와 통일한다.
   const tabLabels = {
-    customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
-    delivery:'납품 이력', performance:'영업 실적', 'prod-req':'생산 요청', 'market':'고객요구',
+    performance:'영업 실적', customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
+    delivery:'납품 이력', 'prod-req':'생산 요청', 'market':'고객요구',
   }
 
   const viewMap = {

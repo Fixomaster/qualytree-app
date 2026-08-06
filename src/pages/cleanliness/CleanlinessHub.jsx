@@ -44,7 +44,7 @@ const CLEANING_METHODS = [
 
 // 오염 유형
 const CONTAMINATION_TYPES = [
-  '미립자 (파티클)', '미생물', '화학물질', '정전기 (ESD)',
+  '미립자 (파티클)', '미생물', '이물 (Foreign Matter)', '화학물질', '정전기 (ESD)',
   '교차 오염', '중금속', '발열원', '기타',
 ]
 
@@ -116,6 +116,7 @@ const EMPTY_RECORD = {
   result: 'pass',    // pass | fail | conditional
   particleResult: '',
   microbialResult: '',
+  foreignMatterResult: '',
   temperature: '',
   humidity: '',
   pressureDiff: '',
@@ -661,6 +662,7 @@ function RecordForm({ form, RF, specs, zones, goToWorkEnv, onSave, onCancel, isE
               <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>밸리데이션으로 대체 가능 — 필요 시에만 입력</div>
             </div>
             <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
+            <F label="이물 검사 결과" value={form.foreignMatterResult} onChange={function(v) { RF('foreignMatterResult', v) }} placeholder="예: 육안 검사 이상없음 / 이물 2건 검출" />
           </>
         )}
         <F label="온도 (℃)" value={form.temperature} onChange={function(v) { RF('temperature', v) }} placeholder="22.5" />
@@ -702,6 +704,7 @@ function RecordCard({ rec, spec, zone, expanded, onToggle, onEdit, onDelete, onP
   const params = [
     { label: '미립자', value: rec.particleResult, icon: Wind, color: '#8B5CF6' },
     { label: '미생물', value: rec.microbialResult, icon: FlaskConical, color: '#7C3AED' },
+    { label: '이물', value: rec.foreignMatterResult, icon: AlertTriangle, color: '#DC2626' },
     { label: '온도', value: rec.temperature ? rec.temperature + '℃' : '', icon: Thermometer, color: '#EF4444' },
     { label: '습도', value: rec.humidity ? rec.humidity + '%' : '', icon: Droplets, color: '#3B82F6' },
     { label: '차압', value: rec.pressureDiff ? rec.pressureDiff + 'Pa' : '', icon: Activity, color: '#059669' },
@@ -755,6 +758,7 @@ function RecordCard({ rec, spec, zone, expanded, onToggle, onEdit, onDelete, onP
               ['측정 구역', zone ? zone.name : null],
               ['미립자 측정값', rec.particleResult],
               ['미생물 측정값', rec.microbialResult],
+              ['이물 검사 결과', rec.foreignMatterResult],
               ['온도', rec.temperature ? rec.temperature + ' ℃' : ''],
               ['습도', rec.humidity ? rec.humidity + ' %RH' : ''],
               ['차압', rec.pressureDiff ? rec.pressureDiff + ' Pa' : ''],
@@ -829,6 +833,7 @@ function CleanlinessCertificate({ rec, specs, onClose }) {
       <Row label="결과" value={rs} />
       <Row label="미립자 측정값" value={rec.particleResult} />
       <Row label="미생물 측정값" value={rec.microbialResult} />
+      <Row label="이물 검사 결과" value={rec.foreignMatterResult} />
       <Row label="온도" value={rec.temperature ? rec.temperature + ' ℃' : ''} />
       <Row label="습도" value={rec.humidity ? rec.humidity + ' %RH' : ''} />
       <Row label="차압" value={rec.pressureDiff ? rec.pressureDiff + ' Pa' : ''} />

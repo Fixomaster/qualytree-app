@@ -113,6 +113,7 @@ const IMP_ITEMS = [
 { to: '/import-products', label: '품목 허가 현황' },
 { to: '/import-clearance', label: '수입 통관 기록' },
 { to: '/import-adverse', label: '이상사례 보고' },
+{ to: '/import-management-standard', label: '수입관리기준서' },
 ]
 
 export default function Sidebar() {

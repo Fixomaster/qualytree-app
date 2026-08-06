@@ -70,8 +70,10 @@ export const foreignSites = {
       address: '',
       employeeCount: '',
       productList: '',
+      products: [], // 품목목록 구조화: [{ id, group(품목군), name(품목명), grade(품목등급) }]
       facilityFileId: null,
       facilityFileName: '',
+      otherFiles: [], // 기타 서류 다중 첨부: [{ id, fileId, fileName }]
       entrustedRelation: ENTRUSTED_RELATION.NONE,
       relatedSiteName: '',
       notes: '',
