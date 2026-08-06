@@ -1020,27 +1020,9 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
     [productEid, editing]
   )
 
-  // #⑥ 제품별 연도별 생산·수입실적 — GMP 제조소 총괄표·대표품목 선정 근거자료
-  // 생산현황(ManufacturingHub)의 작업지시(WO) 중 이 제품명과 일치하고 완료된 건을
-  // 납기일(dueDate) 기준 연도로 묶어 수량을 합산한다. 실제 출하일 필드가 아직 없어
-  // 근사치이며, 정밀 집계가 필요하면 실제 출하일 기준으로 별도 정산이 필요하다.
-  const yearlyOutput = useMemo(() => {
-    try {
-      const wos = JSON.parse(localStorage.getItem('qms_mfg_wo') || '[]')
-      const name = (product.itemName || product.name || '').trim().toLowerCase()
-      if (!name || !Array.isArray(wos)) return []
-      const byYear = {}
-      wos.forEach((w) => {
-        if (w.status !== '완료') return
-        if ((w.product || '').trim().toLowerCase() !== name) return
-        const m = /^(\d{2})-/.exec(w.dueDate || w.startDate || '')
-        if (!m) return
-        const year = '20' + m[1]
-        byYear[year] = (byYear[year] || 0) + (parseInt(w.qty, 10) || 0)
-      })
-      return Object.entries(byYear).sort((a, b) => a[0].localeCompare(b[0]))
-    } catch { return [] }
-  }, [product])
+  // #32 재수정 — 연도별 생산·수입실적(#⑥)은 KMDIA(의료기기산업정보시스템)에 별도 보고하는
+  // 사항이며 이 화면(설계개발/제품상세) 위치도 맞지 않는다는 지적에 따라 삭제한다.
+  // (GMP 신청 관련 자료는 별도 "GMP 신청" 메뉴에서 통합 관리한다.)
 
   const startEdit = () => {
     if (!requirePermission('onb.product.edit')) return
@@ -1126,17 +1108,6 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
   const addPkgItem = () => setDraft((d) => ({ ...d, pkgCheckItems: [...(d.pkgCheckItems || []), { name: '', spec: '' }] }))
 
-  const addCompareRow = () => setDraft((d) => ({ ...d, compareRecords: [...(d.compareRecords || []), { name: '', licenseNo: '', similarity: '', difference: '' }] }))
-  const updCompareRow = (i, k, v) => setDraft((d) => {
-    const rows = [...(d.compareRecords || [])]
-    rows[i] = { ...rows[i], [k]: v }
-    return { ...d, compareRecords: rows }
-  })
-  const delCompareRow = (i) => setDraft((d) => {
-    const rows = [...(d.compareRecords || [])]
-    rows.splice(i, 1)
-    return { ...d, compareRecords: rows }
-  })
   const updPkgItem = (i, k, v) => setDraft((d) => {
     const items = [...(d.pkgCheckItems || [])]
     items[i] = { ...items[i], [k]: v }
@@ -1240,55 +1211,6 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                   <Field label="의도된 사용" value={product.intendedUse} />
                 )}
               </div>
-
-              {yearlyOutput.length > 0 && (
-                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
-                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    연도별 생산실적 (WO 완료 기준 — 제조소 총괄표·대표품목 선정 근거자료)
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {yearlyOutput.map(([year, qty]) => (
-                      <div key={year} className="px-3 py-1.5 rounded-lg text-[12.5px]" style={{ background: 'var(--bg-soft)' }}>
-                        <span style={{ color: 'var(--ink-faint)' }}>{year}년</span> <b style={{ color: 'var(--ink)' }}>{qty.toLocaleString()}개</b>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {(product.techShape || product.techRawMaterial || product.techMfgMethod || product.techUsageMethod || product.techUsageWarning || product.techStorage || product.techUsagePeriod) && (
-                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
-                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    제품 기술설명 (기술문서등심사의뢰서 신청내용)
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="모양 및 구조 (외형·작용원리·치수·특성)" value={product.techShape || '-'} />
-                    <Field label="원재료" value={product.techRawMaterial || '-'} />
-                    <Field label="제조방법" value={product.techMfgMethod || '-'} />
-                    <Field label="사용방법" value={product.techUsageMethod || '-'} />
-                    <Field label="사용시 주의사항" value={product.techUsageWarning || '-'} />
-                    <Field label="저장방법" value={product.techStorage || '-'} />
-                    <Field label="사용기한" value={product.techUsagePeriod || '-'} />
-                  </div>
-                </div>
-              )}
-
-              {(product.compareRecords || []).length > 0 && (
-                <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
-                  <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    이미 허가·인증받은 제품과 비교한 자료 (기술문서심사 필수항목)
-                  </div>
-                  <div className="space-y-1.5">
-                    {product.compareRecords.map((c, i) => (
-                      <div key={i} className="p-2.5 rounded-lg text-[12px]" style={{ background: 'var(--bg-soft)' }}>
-                        <div style={{ color: 'var(--ink)', fontWeight: 500 }}>{c.name || '(비교대상 제품명 미입력)'} {c.licenseNo && <span style={{ color: 'var(--ink-faint)', fontWeight: 400 }}>· 허가번호 {c.licenseNo}</span>}</div>
-                        {c.similarity && <div className="mt-0.5" style={{ color: 'var(--ink-mute)' }}>유사점: {c.similarity}</div>}
-                        {c.difference && <div className="mt-0.5" style={{ color: 'var(--ink-mute)' }}>차이점: {c.difference}</div>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {product.sterileEnabled && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
@@ -1477,40 +1399,10 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                 onChange={(v) => setDraft({ ...draft, classification: v })}
               />
 
-              <div className="pt-3 mt-1 space-y-3" style={{ borderTop: '1px dashed var(--line)' }}>
-                <div className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>제품 기술설명 (기술문서등심사의뢰서 신청내용)</div>
-                <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>KTL 기술문서등심사의뢰서 "신청내용" 10개 항목 중 서술형 항목 — 최초 기술문서 심사 시 그대로 옮겨 쓸 수 있습니다.</div>
-                <FieldEdit label="모양 및 구조 (외형·작용원리·치수·특성)" value={draft.techShape || ''} onChange={(v) => setDraft({ ...draft, techShape: v })} multiline />
-                <FieldEdit label="원재료" value={draft.techRawMaterial || ''} onChange={(v) => setDraft({ ...draft, techRawMaterial: v })} multiline />
-                <FieldEdit label="제조방법" value={draft.techMfgMethod || ''} onChange={(v) => setDraft({ ...draft, techMfgMethod: v })} multiline />
-                <FieldEdit label="사용방법" value={draft.techUsageMethod || ''} onChange={(v) => setDraft({ ...draft, techUsageMethod: v })} multiline />
-                <FieldEdit label="사용시 주의사항" value={draft.techUsageWarning || ''} onChange={(v) => setDraft({ ...draft, techUsageWarning: v })} multiline />
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <FieldEdit label="저장방법" value={draft.techStorage || ''} onChange={(v) => setDraft({ ...draft, techStorage: v })} />
-                  <FieldEdit label="사용기한" value={draft.techUsagePeriod || ''} onChange={(v) => setDraft({ ...draft, techUsagePeriod: v })} placeholder="예: 제조일로부터 3년" />
-                </div>
-              </div>
-
               <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
-                <div className="flex items-center justify-between">
-                  <div className="text-[12px] font-semibold" style={{ color: 'var(--ink)' }}>이미 허가·인증받은 제품과 비교한 자료 <span className="font-normal" style={{ color: 'var(--ink-faint)' }}>(기술문서심사 필수항목)</span></div>
-                  <button type="button" onClick={addCompareRow} className="btn-ghost text-[11.5px]"><Plus size={11} /> 비교 항목 추가</button>
-                </div>
-                <div className="mt-2 space-y-2">
-                  {(draft.compareRecords || []).map((c, i) => (
-                    <div key={i} className="p-2.5 rounded-lg space-y-1.5" style={{ background: 'var(--bg-soft)' }}>
-                      <div className="grid sm:grid-cols-2 gap-2">
-                        <input className="input-base text-[12.5px]" placeholder="비교대상 제품명" value={c.name} onChange={(e) => updCompareRow(i, 'name', e.target.value)} />
-                        <input className="input-base text-[12.5px]" placeholder="허가번호" value={c.licenseNo} onChange={(e) => updCompareRow(i, 'licenseNo', e.target.value)} />
-                      </div>
-                      <input className="input-base text-[12.5px] w-full" placeholder="유사점" value={c.similarity} onChange={(e) => updCompareRow(i, 'similarity', e.target.value)} />
-                      <input className="input-base text-[12.5px] w-full" placeholder="차이점" value={c.difference} onChange={(e) => updCompareRow(i, 'difference', e.target.value)} />
-                      <button type="button" onClick={() => delCompareRow(i)} className="text-[11px]" style={{ color: '#DC2626', background: 'none', border: 'none', cursor: 'pointer' }}>삭제</button>
-                    </div>
-                  ))}
-                  {(draft.compareRecords || []).length === 0 && (
-                    <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>등록된 비교 항목이 없습니다.</div>
-                  )}
+                <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+                  제품 기술설명·비교자료(기술문서등심사의뢰서 신청내용)는{' '}
+                  <a href="/gmp-application?tab=tech" className="underline" style={{ color: 'var(--moss)' }}>GMP 신청</a> 화면에서 작성·관리합니다.
                 </div>
               </div>
 

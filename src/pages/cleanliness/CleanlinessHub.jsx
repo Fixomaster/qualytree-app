@@ -130,6 +130,7 @@ const DEFAULT_PLAN = {
   environmentReqs: '',
   monitoringPlan: '',
   cleaningValidationSummary: '',
+  pestControl: '',
   revisionHistory: [],
 }
 
@@ -386,6 +387,26 @@ export default function CleanlinessHub() {
                   : <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>{field.ph}</p>}
               </div>
             )})}
+
+            <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[12.5px] font-bold mb-2" style={{ color: 'var(--ink)' }}>방충·방서 관리 (이물 유입 예방)</div>
+              <div className="text-[11px] mb-2" style={{ color: 'var(--ink-faint)' }}>
+                제조소 방충·방서 트랩(포집기) 설치 현황, 점검 주기, 서식 흔적 발견 시 조치 절차 등을 기재합니다 — §7.5.2 이물(Foreign Matter) 오염 관리의 일부입니다.
+              </div>
+              {canEdit ? (
+                <textarea
+                  value={plan.pestControl || ''}
+                  onChange={function(e) { savePlan({ ...plan, pestControl: e.target.value }) }}
+                  placeholder={'예: 제조소 내 방충등 O개·트랩(포집기) O개 설치, 월 1회 정기 점검 및 결과 기록. 방역업체(위탁 시 업체명) 분기 1회 방제 실시. 트랩에서 서식 흔적 발견 시 즉시 방제 조치 후 청결오염관리 기록에 등록.'}
+                  className="w-full px-3 py-2 rounded-lg text-[13px] whitespace-pre-line"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)', minHeight: 90 }}
+                />
+              ) : (
+                plan.pestControl
+                  ? <p className="text-[13px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{plan.pestControl}</p>
+                  : <p className="text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>등록된 내용이 없습니다.</p>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {[

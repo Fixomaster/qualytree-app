@@ -4,6 +4,7 @@ import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import CertGate from '../../components/CertGate'
 import { foreignSites } from '../../lib/foreignManufacturerState'
+import { onboarding } from '../../lib/onboardingState'
 
 const LS_KEY = 'qualytree.import_products'
 function readLS() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
@@ -56,8 +57,19 @@ export default function ImportProductsHub() {
     setBulkText(''); setBulkOpen(false)
   }
 
-  // 품목명 자동완성 후보 — 기존 등록된 품목명 검색하면서 등록 가능 (#6)
-  const productNameSuggestions = Array.from(new Set(list.map(r => r.productName).filter(Boolean)))
+  // 품목명 자동완성 후보 — 기존 등록된 수입품목 + 회사가 제품·공정에 등록한 품목(onboarding)에서 검색 (#6, #25/#26 재수정)
+  // 처음 품목을 등록할 때는 수입품목 목록이 비어있으므로, 제품·공정(ProductsHub)에 이미 등록된 품목도 함께 검색 후보로 사용한다.
+  const productNameCandidates = React.useMemo(() => {
+    const map = new Map()
+    list.forEach(r => { if (r.productName && !map.has(r.productName)) map.set(r.productName, { name: r.productName, classNo: r.classNo || '' }) })
+    const obProducts = (onboarding.load()?.products || [])
+    obProducts.forEach(p => {
+      const name = p.itemName || p.name
+      if (name && !map.has(name)) map.set(name, { name, classNo: p.classNo || '' })
+    })
+    return Array.from(map.values())
+  }, [list])
+  const productNameSuggestions = productNameCandidates.map(c => c.name)
 
   const save = (v) => { writeLS(v); setList(v) }
 
@@ -174,14 +186,14 @@ export default function ImportProductsHub() {
                     placeholder="예: 정형외과용 나사못 — 입력 또는 기존 품목명 검색" />
                   {pnOpen && form.productName && (() => {
                     const q = form.productName.toLowerCase()
-                    const hits = productNameSuggestions.filter(n => n.toLowerCase().includes(q) && n !== form.productName).slice(0, 8)
+                    const hits = productNameCandidates.filter(c => c.name.toLowerCase().includes(q) && c.name !== form.productName).slice(0, 8)
                     if (hits.length === 0) return null
                     return (
                       <div className="absolute z-20 left-0 right-0 mt-1 max-h-60 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100">
-                        {hits.map(n => (
-                          <button key={n} type="button" onMouseDown={() => { setF('productName', n); setPnOpen(false) }}
+                        {hits.map(c => (
+                          <button key={c.name} type="button" onMouseDown={() => { setF('productName', c.name); if (c.classNo) setF('classNo', c.classNo); setPnOpen(false) }}
                             className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-[12.5px] text-slate-800">
-                            {n}
+                            {c.name} {c.classNo && <span className="text-slate-400">· {c.classNo}</span>}
                           </button>
                         ))}
                       </div>

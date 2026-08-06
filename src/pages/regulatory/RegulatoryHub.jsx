@@ -8,6 +8,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { fileStore } from '../../lib/fileStore'
+import { onboarding } from '../../lib/onboardingState'
 
 // ── 품목 분류 데이터 (106개 중분류, MFDS 고시 제2026-6호) ─────────────────
 const PRODUCT_CATEGORIES = JSON.parse(`[{"code":"A01000","name":"진료대와 수술대(유아가온장치 등)"},{"code":"A02000","name":"의료용 침대(의료용공기분사침대 등)"},{"code":"A03000","name":"의료용 조명기(내시경용광원장치 등)"},{"code":"A04000","name":"의료용 소독기(B형소용량고압증기멸균기 등)"},{"code":"A05000","name":"의료용 무균수 장치(의료용무균수장치 등)"},{"code":"A06000","name":"마취기(가스마취기 등)"},{"code":"A07000","name":"호흡 보조기(의료용산소발생기 등)"},{"code":"A08000","name":"의료용 챔버 (고압산소챔버 등)"},{"code":"A09000","name":"내장 기능 대용기(인공심폐장치 등)"},{"code":"A10000","name":"보육기(거치형보육기 등)"},{"code":"A11000","name":"진단용 엑스선 장치(전신용전산화단층엑스선촬영장치 등)"},{"code":"A12000","name":"비전리 진단장치(초전도자석식전신용자기공명전산화단층촬영장치 등)"},{"code":"A13000","name":"방사선 진료 장치(양전자방출전산화단층촬영장치 등)"},{"code":"A16000","name":"이학 진료용 기구(저주파자극기 등)"},{"code":"A17000","name":"심혈관용 기계 기구(저출력심장충격기 등)"},{"code":"A18000","name":"비뇨기과용 기계 기구(분사식신장결석제거장치 등)"},{"code":"A19000","name":"환자 운반차(전동식휠체어 등)"},{"code":"A20000","name":"청진기(전자청진기 등)"},{"code":"A21000","name":"체온 측정용 기구(전자체온계 등)"},{"code":"A22000","name":"혈액 검사용 기기(개인용혈당측정기 등)"},{"code":"A22500","name":"유전자 분석 기구(마이크로어레이칩분석장치 등)"},{"code":"A23000","name":"혈압 검사 또는 맥파 검사용 기기(수동식전자혈압계 등)"},{"code":"A26000","name":"내장 기능 검사용 기기(심전계 등)"},{"code":"A27000","name":"호흡 기능 검사용 기기(진단폐활량계 등)"},{"code":"A28000","name":"검안용 기기(검안용굴절력측정기 등)"},{"code":"A29000","name":"청력 검사용 기기(청력검사기 등)"},{"code":"A30000","name":"지각 및 신체 진단용 기구(근전도계 등)"},{"code":"A31000","name":"의료용 경(일회용내시경흡인기 등)"},{"code":"A32000","name":"의료용 원심 분리기(의료용냉동원심분리기 등)"},{"code":"A33000","name":"조직 가공기(전동식피부절제기 등)"},{"code":"A34000","name":"의료용 정온기(의료용가온기 등)"},{"code":"A35000","name":"전기 수술 장치(범용전기수술기 등)"},{"code":"A36000","name":"냉동 수술 장치(냉동수술기 등)"},{"code":"A37000","name":"레이저 진료기(레이저수술기 등)"},{"code":"A38000","name":"결찰기 및 봉합기(일회용의료용봉합기 등)"},{"code":"A39000","name":"의료용 흡인기(전동식의료용흡인기 등)"},{"code":"A40000","name":"기흉기 및 기복기(기흉기 등)"},{"code":"A41000","name":"의료용 칼(전동식의료용칼 등)"},{"code":"A42000","name":"의료용가위(전동식의료용가위 등)"},{"code":"A43000","name":"의료용 큐렛(전동식의료용큐렛 등)"},{"code":"A44000","name":"의료용 클램프(범용전동식의료용클램프 등)"},{"code":"A45000","name":"의료용 겸자(전동식의료용핀셋 등)"},{"code":"A46000","name":"의료용 톱(전동식의료용톱 등)"},{"code":"A47000","name":"의료용 끌(전동식의료용끌 등)"},{"code":"A48000","name":"의료용 박리자(전동식의료용기자 등)"},{"code":"A49000","name":"의료용 망치(전동식의료용망치 등)"},{"code":"A50000","name":"의료용 줄(전동식의료용줄 등)"},{"code":"A51000","name":"의료용 레버(전동식의료용레버 등)"},{"code":"A52000","name":"의료용 올가미(전동식의료용올가미 등)"},{"code":"A53000","name":"주사침 및 천자침(멸균주사침 등)"},{"code":"A54000","name":"주사기(주사기 등)"},{"code":"A55000","name":"의료용 천자기, 천착기 및 천공기(전동식의료용천자기 등)"},{"code":"A56000","name":"개창 또는 개공용 기구(전동식의료용개창기구 등)"},{"code":"A57000","name":"의료용 취관 및 체액 유도관(단기사용위장용튜브ㆍ카테터 등)"},{"code":"A58000","name":"의료용 소식자(전동식의료용소식자 등)"},{"code":"A59000","name":"의료용확장기 (전동식식도확장기 등)"},{"code":"A62000","name":"의료용 충전기(치과용전열식근관플러거 등)"},{"code":"A63000","name":"의료용누르개 (약물흡수유도피부자극기 등)"},{"code":"A64000","name":"측정 및 유도용 기구(전자식의료용측각도계 등)"},{"code":"A65000","name":"의료용 세정기(전동식의료용세정기 등)"},{"code":"A66000","name":"채혈 또는 수혈 및 생체 검사용 기구(혈액저장용기 등)"},{"code":"A67000","name":"정형 및 기능 회복용 기구(전동식정형용견인장치 등)"},{"code":"A68000","name":"치과용 진료 장치 및 의자(치과용진료장치및의자 등)"},{"code":"A69000","name":"치과용 엔진(치과용엔진 등)"},{"code":"A72000","name":"치과용 방습기(치과용공기건조기 등)"},{"code":"A77000","name":"눈 적용 렌즈(안경렌즈 등)"},{"code":"A78000","name":"보청기(골도형보청기 등)"},{"code":"A79000","name":"의약품 주입기(의약품주입펌프 등)"},{"code":"A81000","name":"의료용 흡입기(가열식흡입기 등)"},{"code":"A82000","name":"의료용 진동기(의료용진동기 등)"},{"code":"A83000","name":"개인용 전기 자극기(개인용저주파자극기 등)"},{"code":"A84000","name":"침 또는 구용기구(비멸균침 등)"},{"code":"A85000","name":"의료용 자기 발생기(의료용자기발생기 등)"},{"code":"A86000","name":"의료용 물질 생성기(알칼리이온수생성기 등)"},{"code":"A88000","name":"이비인후과용 진료 장치 및 의자(이비인후과용진료장치 및 의자 등)"},{"code":"A89000","name":"안과용 진료 장치 및 의자(안과용진료장치및의자 등)"},{"code":"A90000","name":"유헬스케어 의료기기(유헬스케어게이트웨이 등)"},{"code":"A91000","name":"의료용 세포 및 조직 처리 기구(세포조작키트 등)"},{"code":"B02000","name":"봉합사 및 결찰사(일시적사용결찰사 등)"},{"code":"B03000","name":"정형용품(인공 발목 관절 등)"},{"code":"B03260.03","name":"안구내주입용가스키트[3]"},{"code":"B04000","name":"인체 조직 또는 기능 대치품(비중심순환계인공혈관 등)"},{"code":"B07000","name":"외과의료용품(수술용 장갑 등)"},{"code":"B08000","name":"콘돔(남성용콘돔 등)"},{"code":"B09000","name":"피임용구(피임용페서리 등)"},{"code":"C01000","name":"치과가공용합금(치과용귀금속박 등)"},{"code":"C02000","name":"치과주조용합금(치과주조용귀금속합금 등)"},{"code":"C03000","name":"메탈세라믹합금(메탈세라믹용귀금속합금 등)"},{"code":"C04000","name":"의치재료(금속계인공치아 등)"},{"code":"C05000","name":"가공용합금(성형된치관 등)"},{"code":"C06000","name":"직접수복재료(치과용직접금충전재 등)"},{"code":"C07000","name":"심미치관재료(일반용치과도재 등)"},{"code":"C09000","name":"의치상재료(의치부착재 등)"},{"code":"C10000","name":"근관치료재(고형근관충전재 등)"},{"code":"C11000","name":"치과접착용시멘트(치과용수성시멘트 등)"},{"code":"C12000","name":"치과용접착제(4세대상아질접착시스템 등)"},{"code":"C13000","name":"치과용인상재료(치과용임프레션콤파운드 등)"},{"code":"C16000","name":"예방치과재료(시아노아크릴레이트계치면열구전색재 등)"},{"code":"C17000","name":"치과용교정재료(교정용밴드 등)"},{"code":"C18000","name":"악안면성형용재료(악안면성형용판 등)"},{"code":"C19000","name":"악골치아고정장치(아치바 등)"},{"code":"C20000","name":"치과용임플란트시스템(치과용임플란트상부구조물)"},{"code":"C22000","name":"치과용골이식재(골이식용복합재료 등)"},{"code":"C23000","name":"치주조직재생유도재(치주조직재생유도재 등)"},{"code":"C26000","name":"기타보철재료(인상전처치제 등)"},{"code":"C27000","name":"기타보존재료(지각과민처치제 등)"}]`)
@@ -71,6 +72,34 @@ export default function RegulatoryHub() {
     setProducts(list); saveProducts(list)
   }
 
+  // #30 — 허가증 등록: 신청서 작성 완료(=허가 진행중)와 실제 MFDS 허가증 발급(=허가 완료)은
+  // 서로 다른 사건이므로, 필요서류 체크리스트 완료율과 별개로 실제 허가번호를 입력해야 "허가 완료"로 전환한다.
+  // 제조(비수입) 품목은 설계개발(ProductsHub)의 동일 품목명 레코드에도 허가번호·허가일을 반영하고
+  // "제조허가 취득" 설계단계를 완료 처리하여 인허가↔설계개발이 연동되도록 한다.
+  function handleGrant(id, licenseNo, licenseDate) {
+    const list = products.map(p => (p.id === id ? { ...p, licenseNo, licenseDate } : p))
+    setProducts(list); saveProducts(list)
+
+    const target = list.find(p => p.id === id)
+    if (target && !target.isImport && target.productName) {
+      try {
+        const ob = onboarding.load()
+        const arr = Array.isArray(ob.products) ? ob.products : []
+        const name = target.productName.trim().toLowerCase()
+        let changed = false
+        const nextProducts = arr.map(pr => {
+          const prName = (pr.itemName || pr.name || '').trim().toLowerCase()
+          if (prName !== name) return pr
+          changed = true
+          const steps = Array.isArray(pr.designSteps) ? [...pr.designSteps] : []
+          steps[8] = true // '제조허가 취득' — DESIGN_STAGES 9번째 단계
+          return { ...pr, licenseNo, issueDate: licenseDate, designSteps: steps }
+        })
+        if (changed) onboarding.save({ ...ob, products: nextProducts })
+      } catch { /* 설계개발 연동은 best-effort — 실패해도 인허가 자체 저장은 유지 */ }
+    }
+  }
+
   return (
     <AppLayout user={user} title="인허가 허브"
       subtitle="MFDS 고시 제2026-6호 별표7 — 품목별 기술문서 제출 범위 자동 매핑">
@@ -88,7 +117,7 @@ export default function RegulatoryHub() {
           ))}
         </div>
 
-        {tab===0 && <ProductList products={products} onNew={()=>setTab(1)} onDelete={handleDelete} />}
+        {tab===0 && <ProductList products={products} onNew={()=>setTab(1)} onDelete={handleDelete} onGrant={handleGrant} />}
         {tab===1 && <WizardForm onSave={handleSave} onCancel={()=>setTab(0)} />}
       </div>
     </AppLayout>
@@ -109,9 +138,10 @@ function productProgress(p) {
   return { total, doneCount, complete, pct, nextDoc }
 }
 
-function ProductList({ products, onNew, onDelete }) {
+function ProductList({ products, onNew, onDelete, onGrant }) {
   const [selected, setSelected] = useState(null)
   const [subTab, setSubTab] = useState('progress') // 'progress' | 'done'
+  const [grantForm, setGrantForm] = useState(null) // { licenseNo, licenseDate } — 허가증 등록 편집 중
 
   if (products.length === 0) {
     return (
@@ -167,6 +197,54 @@ function ProductList({ products, onNew, onDelete }) {
             </button>
           </div>
 
+          {/* #30 — 허가증 등록: 신청서 작성 완료(진행중)와 실제 MFDS 허가증 발급(완료)을 분리 */}
+          {p.licenseNo && grantForm?.id !== p.id ? (
+            <div style={{ background:'#ECFDF5', border:'1px solid #A7F3D0', borderRadius:8, padding:'12px 16px', marginBottom:20 }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                <div>
+                  <p style={{ fontSize:12, fontWeight:700, color:'#047857', marginBottom:2 }}>✓ 허가 완료</p>
+                  <p style={{ fontSize:12.5, color:'var(--ink)' }}>
+                    허가번호: {p.licenseNo}{p.licenseDate ? ' · 허가일: '+p.licenseDate : ''}
+                  </p>
+                </div>
+                <button onClick={() => setGrantForm({ id:p.id, licenseNo:p.licenseNo, licenseDate:p.licenseDate||'' })}
+                  style={{ fontSize:11.5, color:'#047857', background:'none', border:'1px solid #A7F3D0', borderRadius:6, padding:'4px 10px', cursor:'pointer' }}>
+                  수정
+                </button>
+              </div>
+              {!p.isImport && (
+                <p style={{ fontSize:11, color:'#059669', marginTop:6 }}>제조 품목 — 설계·개발(제품·공정)의 동일 품목 "제조허가 취득" 단계 및 허가번호에도 자동 반영되었습니다.</p>
+              )}
+            </div>
+          ) : grantForm?.id === p.id ? (
+            <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'12px 16px', marginBottom:20 }}>
+              <p style={{ fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 }}>허가증 정보 등록</p>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                <input className="input-base" style={{ flex:'1 1 180px', fontSize:12.5 }}
+                  placeholder="허가번호 (예: 제2026-1234호)"
+                  value={grantForm.licenseNo}
+                  onChange={e => setGrantForm(f => ({ ...f, licenseNo:e.target.value }))} />
+                <input type="date" className="input-base" style={{ flex:'0 1 160px', fontSize:12.5 }}
+                  value={grantForm.licenseDate}
+                  onChange={e => setGrantForm(f => ({ ...f, licenseDate:e.target.value }))} />
+                <button className="btn-primary" style={{ fontSize:12.5 }}
+                  disabled={!grantForm.licenseNo.trim()}
+                  onClick={() => { onGrant(p.id, grantForm.licenseNo.trim(), grantForm.licenseDate); setSelected({ ...p, licenseNo:grantForm.licenseNo.trim(), licenseDate:grantForm.licenseDate }); setGrantForm(null) }}>
+                  저장
+                </button>
+                <button className="btn-ghost" style={{ fontSize:12.5 }} onClick={() => setGrantForm(null)}>취소</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ background:'#FFFBEB', border:'1px solid #FDE68A', borderRadius:8, padding:'12px 16px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+              <p style={{ fontSize:12.5, color:'#92400e' }}>허가 진행중 — 식약처로부터 허가증을 받으면 허가번호를 등록해 "허가 완료"로 전환하세요.</p>
+              <button onClick={() => setGrantForm({ id:p.id, licenseNo:'', licenseDate:'' })}
+                style={{ fontSize:11.5, color:'#92400e', background:'#fff', border:'1px solid #FDE68A', borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
+                허가증 등록
+              </button>
+            </div>
+          )}
+
           {p.compareName && (
             <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'12px 16px', marginBottom:20, fontSize:12 }}>
               <p style={{ fontWeight:600, marginBottom:4, color:'var(--ink)' }}>기허가 제품</p>
@@ -208,9 +286,10 @@ function ProductList({ products, onNew, onDelete }) {
     )
   }
 
+  // #30 — "허가 완료"는 필요서류 체크리스트 완료율이 아니라 실제 MFDS 허가번호 등록 여부로 판정한다.
   const withProgress = products.map(p => ({ p, prog: productProgress(p) }))
-  const inProgress = withProgress.filter(x => !x.prog.complete)
-  const completed = withProgress.filter(x => x.prog.complete)
+  const inProgress = withProgress.filter(x => !x.p.licenseNo)
+  const completed = withProgress.filter(x => !!x.p.licenseNo)
   const rows = subTab === 'done' ? completed : inProgress
 
   return (
@@ -242,13 +321,13 @@ function ProductList({ products, onNew, onDelete }) {
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           {rows.map(({ p, prog }) => (
             <div key={p.id} className="card-base"
-              onClick={() => setSelected(p)}
+              onClick={() => { setSelected(p); setGrantForm(null) }}
               style={{ padding:'14px 20px', cursor:'pointer' }}>
               <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                 <div style={{ flex:1, minWidth:0 }}>
                   <p style={{ fontSize:14, fontWeight:500, color:'var(--ink)', marginBottom:2 }}>{p.productName}</p>
                   <p style={{ fontSize:12, color:'var(--ink-faint)' }}>
-                    {p.productCode} · {p.grade ? p.grade+'등급' : '-'} · {p.isImport ? '수입' : '제조'}
+                    {p.categoryName ? p.categoryName + ' · ' : ''}{p.productCode} · {p.grade ? p.grade+'등급' : '-'} · {p.isImport ? '수입' : '제조'}
                     {' · '}{new Date(p.savedAt).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
@@ -261,6 +340,11 @@ function ProductList({ products, onNew, onDelete }) {
                 {subTab==='progress' && prog.total>0 && (
                   <span style={{ fontSize:11, fontWeight:600, color:'var(--ink-mute)', flexShrink:0 }}>
                     {prog.doneCount}/{prog.total} 서류
+                  </span>
+                )}
+                {subTab==='done' && p.licenseNo && (
+                  <span style={{ fontSize:11, fontWeight:600, color:'#047857', background:'#ECFDF5', padding:'2px 8px', borderRadius:4, flexShrink:0 }}>
+                    {p.licenseNo}
                   </span>
                 )}
                 <ChevronRight size={14} style={{ color:'var(--ink-faint)' }} />
@@ -288,7 +372,7 @@ function ProductList({ products, onNew, onDelete }) {
 // ─── 신규 신청 마법사 ─────────────────────────────────────────────────────
 const emptyCompareCell = () => ({ existing:'', proposed:'', override:null })
 const INITIAL_FORM = {
-  productName:'', productCode:'', grade:'', isImport:false, fieldType:'',
+  productName:'', categoryName:'', productCode:'', grade:'', isImport:false, fieldType:'',
   compareName:'', comparePermit:'', compareMfg:'',
   comparison:{
     purpose:emptyCompareCell(), principle:emptyCompareCell(), material:emptyCompareCell(),
@@ -349,7 +433,11 @@ function WizardForm({ onSave, onCancel }) {
 
 // ─── Step 1: 품목 기본정보 ────────────────────────────────────────────────
 function Step1({ form, onChange, onNext, onCancel }) {
-  const [query, setQuery] = useState(form.productName || '')
+  // #29 재수정 — 이 검색창은 식약처 "품목군(대분류)" 목록(PRODUCT_CATEGORIES)에서 분류번호를 찾는
+  // 용도이지 실제 제품의 구체적 "품목명"이 아니다(예: 품목군 "정형용품" ≠ 품목명 "골절합용나사").
+  // 라벨만 고쳤던 이전 수정(#18/#317)은 검색 대상 자체가 품목군이라는 근본 문제를 해결하지 못했으므로,
+  // 분류 검색과 실제 품목명 입력을 분리한다.
+  const [query, setQuery] = useState(form.categoryName || '')
   const [open, setOpen] = useState(false)
 
   const filtered = useMemo(() => {
@@ -362,7 +450,7 @@ function Step1({ form, onChange, onNext, onCancel }) {
 
   function selectCat(cat) {
     const fields = Object.keys(REG_MATRIX[cat.code] || {})
-    onChange({ productName:cat.name, productCode:cat.code, fieldType: fields.length===1 ? fields[0] : '' })
+    onChange({ categoryName:cat.name, productCode:cat.code, fieldType: fields.length===1 ? fields[0] : '' })
     setQuery(cat.name); setOpen(false)
   }
 
@@ -379,16 +467,16 @@ function Step1({ form, onChange, onNext, onCancel }) {
 
       <div style={{ marginBottom:18, position:'relative' }}>
         <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:6 }}>
-          품목명 <span style={{ color:'#ef4444' }}>*</span>
+          분류 검색 (품목군 · 분류번호) <span style={{ color:'#ef4444' }}>*</span>
         </label>
         <div style={{ position:'relative' }}>
           <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--ink-faint)' }} />
           <input className="input-base" style={{ paddingLeft:32 }}
-            placeholder="품목명 또는 분류번호로 검색 (예: 혈압계, A23000)"
+            placeholder="품목군 또는 분류번호로 검색 (예: 정형용품, A23000) — 식약처 대분류입니다"
             value={query}
             onChange={e => {
               setQuery(e.target.value); setOpen(true)
-              if(!e.target.value) onChange({productName:'',productCode:'',fieldType:''})
+              if(!e.target.value) onChange({categoryName:'',productCode:'',fieldType:''})
             }}
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(()=>setOpen(false),150)}
@@ -416,8 +504,20 @@ function Step1({ form, onChange, onNext, onCancel }) {
       <div style={{ marginBottom:18 }}>
         <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:6 }}>분류번호</label>
         <input className="input-base" value={form.productCode} readOnly
-          placeholder="품목 선택 시 자동 입력"
+          placeholder="분류 선택 시 자동 입력"
           style={{ background:'var(--bg-soft,#f8f9fa)', color: form.productCode ? 'var(--ink)' : 'var(--ink-faint)' }} />
+      </div>
+
+      <div style={{ marginBottom:18 }}>
+        <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:6 }}>
+          품목명 (구체적 제품명) <span style={{ color:'#ef4444' }}>*</span>
+        </label>
+        <input className="input-base" value={form.productName || ''}
+          onChange={e => onChange({ productName:e.target.value })}
+          placeholder="예: 골절합용나사, 인공 고관절 등 — 위 분류군에 속하는 실제 제품의 구체적 명칭" />
+        {form.categoryName && (
+          <div style={{ fontSize:11, color:'var(--ink-faint)', marginTop:4 }}>선택된 품목군: {form.categoryName}</div>
+        )}
       </div>
 
       <div style={{ marginBottom:18 }}>

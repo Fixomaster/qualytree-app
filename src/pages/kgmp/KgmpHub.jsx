@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Factory, ArrowRight, FileDown } from 'lucide-react'
+import { Factory, ArrowRight, FileDown, FileCheck2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
@@ -46,6 +46,20 @@ export default function KgmpHub() {
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>수입사이신가요?</div>
             <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다 — 전용 화면 "외국제조소 · 수입 GMP"에서 확인하세요.</div>
+          </div>
+          <ArrowRight size={16} style={{ color: 'var(--ink-faint)' }} className="shrink-0" />
+        </button>
+
+        <button
+          onClick={() => nav('/gmp-application')}
+          className="card-base p-3.5 mb-5 w-full flex items-center gap-3 text-left hover:opacity-90 transition"
+        >
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+            <FileCheck2 size={16} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>GMP 신청서 작성 준비</div>
+            <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>GMP 접수양식·기술문서등심사의뢰서에 필요한 신청정보·제품 기술문서·공급업체·설비·기술문서 현황을 한 화면에서 확인하세요.</div>
           </div>
           <ArrowRight size={16} style={{ color: 'var(--ink-faint)' }} className="shrink-0" />
         </button>

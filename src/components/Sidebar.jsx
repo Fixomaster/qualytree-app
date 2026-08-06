@@ -17,6 +17,7 @@ ChevronRight,
 Crown,
 Settings,
 BadgeCheck,
+FileCheck2,
 Globe,
 Building2,
 } from 'lucide-react'
@@ -220,6 +221,19 @@ fontWeight: isActive ? 600 : 500,
 >
 <BadgeCheck size={16} strokeWidth={1.7} />
 <span>인허가</span>
+</NavLink>
+
+<NavLink
+to="/gmp-application"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 500,
+})}
+>
+<FileCheck2 size={16} strokeWidth={1.7} />
+<span>GMP 신청</span>
 </NavLink>
 
 <div className="mb-0.5">

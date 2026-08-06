@@ -16,6 +16,7 @@ import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
+import { onboarding } from '../../lib/onboardingState'
 import {
   foreignSites,
   gmpCertificates,
@@ -171,12 +172,18 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) 
   const dirty = JSON.stringify(form) !== JSON.stringify(site)
   const [pnOpenId, setPnOpenId] = useState(null) // #3 품목명 검색 드롭다운 (열려있는 행 id)
 
-  // 이미 등록된 품목명(다른 제조소 포함) — 검색 후보 (#3)
+  // 이미 등록된 품목명 — 다른 외국제조소에 등록된 품목 + 회사 제품·공정(ProductsHub)에 등록된 품목을 함께 검색 후보로 사용 (#3, #25 재수정)
+  // 제조소를 처음 등록할 때는 다른 제조소 품목이 아직 없어 검색이 비어 보일 수 있으므로, 이미 온보딩에서 등록한 자사 품목도 함께 찾는다.
   const knownProducts = React.useMemo(() => {
     const map = new Map()
     ;(allSites || []).forEach((s) => (s.products || []).forEach((p) => {
       if (p.name && !map.has(p.name)) map.set(p.name, p)
     }))
+    const obProducts = (onboarding.load()?.products || [])
+    obProducts.forEach((p) => {
+      const name = p.itemName || p.name
+      if (name && !map.has(name)) map.set(name, { name, group: p.cat1 || '', grade: p.grade ? p.grade + '등급' : '' })
+    })
     return Array.from(map.values())
   }, [allSites])
 
