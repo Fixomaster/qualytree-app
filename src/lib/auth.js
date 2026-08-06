@@ -13,6 +13,7 @@ import {
 } from './supabase'
 
 const KEY = 'qualytree.auth'
+export const PENDING_JOIN_KEY = 'qualytree.pendingJoin'
 
 // 페이지 로드 시 SIGNED_IN·TOKEN_REFRESHED 이벤트가 거의 동시에 여러 번 발생하면
 // refreshFromSupabase()가 병렬로 여러 번 실행되면서 서로의 localStorage 쓰기를
@@ -215,6 +216,30 @@ export const auth = {
       localStorage.setItem(KEY, JSON.stringify(session))
       permissions.setLevel(level)
       return { kind: 'company_member', session }
+    }
+
+    // 이메일 확인이 필요한 프로젝트에서는 JoinCompany.jsx가 회사 가입 신청을 바로 넣지 못하고
+    // localStorage에 예약해둔다 — 신원 미확인 상태(operator도 company_member도 아닌 'orphan')로
+    // 로그인이 확인되는 첫 순간이 바로 그 예약을 이어서 처리할 시점이다. 실패해도(이미 신청됨 등)
+    // 로그인 자체는 막지 않고 orphan 세션으로 계속 진행한다.
+    let pendingJoin = null
+    try { pendingJoin = JSON.parse(localStorage.getItem(PENDING_JOIN_KEY) || 'null') } catch { pendingJoin = null }
+    if (pendingJoin && pendingJoin.businessNumber && pendingJoin.name) {
+      try {
+        const { error: joinErr } = await supabase.rpc('request_company_join', {
+          p_business_number: pendingJoin.businessNumber,
+          p_name: pendingJoin.name,
+        })
+        if (!joinErr) {
+          localStorage.removeItem(PENDING_JOIN_KEY)
+          // 신청이 막 반영됐을 수 있으니 이번 호출 안에서는 orphan으로 두고,
+          // 다음 refreshFromSupabase(다음 로그인/새로고침)에서 정상적으로 company_member로 승격된다.
+        } else {
+          console.warn('[auth] pending company join soft-failed:', String(joinErr?.message || joinErr))
+        }
+      } catch (e) {
+        console.warn('[auth] pending company join threw:', String(e?.message || e))
+      }
     }
 
     const orphanOverride = this._localNameOverride(user.id)

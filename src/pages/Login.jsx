@@ -155,6 +155,10 @@ export default function Login() {
                 <Field label="이름" icon={User} type="text" value={wname} onChange={setWname} placeholder="홍길동" />
                 <Field label="비밀번호" icon={Lock} type="password" value={password} onChange={setPassword} placeholder="••••••••" />
                 <p className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>작업자·검사관은 회사 관리자가 발급한 사업자번호·이름·비밀번호로 로그인합니다.</p>
+                <p className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>
+                  계정이 아직 없으신가요?{' '}
+                  <Link to="/join" className="underline" style={{ color: 'var(--moss)', fontWeight: 500 }}>사업자번호로 직원 가입 신청</Link>
+                </p>
               </>
             )}
 

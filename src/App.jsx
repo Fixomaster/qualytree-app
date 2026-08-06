@@ -5,13 +5,14 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { auth } from './lib/auth'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
-let Login, Signup, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
+let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
 let QualityHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
 
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
+try { JoinCompany = React.lazy(() => import(/* @vite-ignore */ './pages/JoinCompany')) } catch {}
 try { SignupSuccess = React.lazy(() => import(/* @vite-ignore */ './pages/SignupSuccess')) } catch {}
 try { OperatorConsole= React.lazy(() => import(/* @vite-ignore */ './pages/OperatorConsole')) } catch {}
 try { PlanAdmin = React.lazy(() => import(/* @vite-ignore */ './pages/operator/PlanAdmin')) } catch {}
@@ -126,6 +127,7 @@ return (
 <Route path="/" element={<Navigate to="/home" replace />} />
 <Route path="/login" element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
 <Route path="/signup" element={<PublicRoute><LazyRoute Component={Signup} /></PublicRoute>} />
+<Route path="/join" element={<PublicRoute><LazyRoute Component={JoinCompany} /></PublicRoute>} />
 <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
 <Route path="/operator" element={<LazyRoute Component={OperatorConsole} />} />
 <Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />} />
