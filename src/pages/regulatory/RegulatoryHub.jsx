@@ -3,10 +3,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
   Search, CheckCircle2, Clock, FileText, Plus,
-  ChevronRight, X, Info, Save, Tag,
+  ChevronRight, X, Info, Save, Tag, Sparkles, Loader2, Paperclip, RotateCcw,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { fileStore } from '../../lib/fileStore'
 
 // ── 품목 분류 데이터 (106개 중분류, MFDS 고시 제2026-6호) ─────────────────
 const PRODUCT_CATEGORIES = JSON.parse(`[{"code":"A01000","name":"진료대와 수술대(유아가온장치 등)"},{"code":"A02000","name":"의료용 침대(의료용공기분사침대 등)"},{"code":"A03000","name":"의료용 조명기(내시경용광원장치 등)"},{"code":"A04000","name":"의료용 소독기(B형소용량고압증기멸균기 등)"},{"code":"A05000","name":"의료용 무균수 장치(의료용무균수장치 등)"},{"code":"A06000","name":"마취기(가스마취기 등)"},{"code":"A07000","name":"호흡 보조기(의료용산소발생기 등)"},{"code":"A08000","name":"의료용 챔버 (고압산소챔버 등)"},{"code":"A09000","name":"내장 기능 대용기(인공심폐장치 등)"},{"code":"A10000","name":"보육기(거치형보육기 등)"},{"code":"A11000","name":"진단용 엑스선 장치(전신용전산화단층엑스선촬영장치 등)"},{"code":"A12000","name":"비전리 진단장치(초전도자석식전신용자기공명전산화단층촬영장치 등)"},{"code":"A13000","name":"방사선 진료 장치(양전자방출전산화단층촬영장치 등)"},{"code":"A16000","name":"이학 진료용 기구(저주파자극기 등)"},{"code":"A17000","name":"심혈관용 기계 기구(저출력심장충격기 등)"},{"code":"A18000","name":"비뇨기과용 기계 기구(분사식신장결석제거장치 등)"},{"code":"A19000","name":"환자 운반차(전동식휠체어 등)"},{"code":"A20000","name":"청진기(전자청진기 등)"},{"code":"A21000","name":"체온 측정용 기구(전자체온계 등)"},{"code":"A22000","name":"혈액 검사용 기기(개인용혈당측정기 등)"},{"code":"A22500","name":"유전자 분석 기구(마이크로어레이칩분석장치 등)"},{"code":"A23000","name":"혈압 검사 또는 맥파 검사용 기기(수동식전자혈압계 등)"},{"code":"A26000","name":"내장 기능 검사용 기기(심전계 등)"},{"code":"A27000","name":"호흡 기능 검사용 기기(진단폐활량계 등)"},{"code":"A28000","name":"검안용 기기(검안용굴절력측정기 등)"},{"code":"A29000","name":"청력 검사용 기기(청력검사기 등)"},{"code":"A30000","name":"지각 및 신체 진단용 기구(근전도계 등)"},{"code":"A31000","name":"의료용 경(일회용내시경흡인기 등)"},{"code":"A32000","name":"의료용 원심 분리기(의료용냉동원심분리기 등)"},{"code":"A33000","name":"조직 가공기(전동식피부절제기 등)"},{"code":"A34000","name":"의료용 정온기(의료용가온기 등)"},{"code":"A35000","name":"전기 수술 장치(범용전기수술기 등)"},{"code":"A36000","name":"냉동 수술 장치(냉동수술기 등)"},{"code":"A37000","name":"레이저 진료기(레이저수술기 등)"},{"code":"A38000","name":"결찰기 및 봉합기(일회용의료용봉합기 등)"},{"code":"A39000","name":"의료용 흡인기(전동식의료용흡인기 등)"},{"code":"A40000","name":"기흉기 및 기복기(기흉기 등)"},{"code":"A41000","name":"의료용 칼(전동식의료용칼 등)"},{"code":"A42000","name":"의료용가위(전동식의료용가위 등)"},{"code":"A43000","name":"의료용 큐렛(전동식의료용큐렛 등)"},{"code":"A44000","name":"의료용 클램프(범용전동식의료용클램프 등)"},{"code":"A45000","name":"의료용 겸자(전동식의료용핀셋 등)"},{"code":"A46000","name":"의료용 톱(전동식의료용톱 등)"},{"code":"A47000","name":"의료용 끌(전동식의료용끌 등)"},{"code":"A48000","name":"의료용 박리자(전동식의료용기자 등)"},{"code":"A49000","name":"의료용 망치(전동식의료용망치 등)"},{"code":"A50000","name":"의료용 줄(전동식의료용줄 등)"},{"code":"A51000","name":"의료용 레버(전동식의료용레버 등)"},{"code":"A52000","name":"의료용 올가미(전동식의료용올가미 등)"},{"code":"A53000","name":"주사침 및 천자침(멸균주사침 등)"},{"code":"A54000","name":"주사기(주사기 등)"},{"code":"A55000","name":"의료용 천자기, 천착기 및 천공기(전동식의료용천자기 등)"},{"code":"A56000","name":"개창 또는 개공용 기구(전동식의료용개창기구 등)"},{"code":"A57000","name":"의료용 취관 및 체액 유도관(단기사용위장용튜브ㆍ카테터 등)"},{"code":"A58000","name":"의료용 소식자(전동식의료용소식자 등)"},{"code":"A59000","name":"의료용확장기 (전동식식도확장기 등)"},{"code":"A62000","name":"의료용 충전기(치과용전열식근관플러거 등)"},{"code":"A63000","name":"의료용누르개 (약물흡수유도피부자극기 등)"},{"code":"A64000","name":"측정 및 유도용 기구(전자식의료용측각도계 등)"},{"code":"A65000","name":"의료용 세정기(전동식의료용세정기 등)"},{"code":"A66000","name":"채혈 또는 수혈 및 생체 검사용 기구(혈액저장용기 등)"},{"code":"A67000","name":"정형 및 기능 회복용 기구(전동식정형용견인장치 등)"},{"code":"A68000","name":"치과용 진료 장치 및 의자(치과용진료장치및의자 등)"},{"code":"A69000","name":"치과용 엔진(치과용엔진 등)"},{"code":"A72000","name":"치과용 방습기(치과용공기건조기 등)"},{"code":"A77000","name":"눈 적용 렌즈(안경렌즈 등)"},{"code":"A78000","name":"보청기(골도형보청기 등)"},{"code":"A79000","name":"의약품 주입기(의약품주입펌프 등)"},{"code":"A81000","name":"의료용 흡입기(가열식흡입기 등)"},{"code":"A82000","name":"의료용 진동기(의료용진동기 등)"},{"code":"A83000","name":"개인용 전기 자극기(개인용저주파자극기 등)"},{"code":"A84000","name":"침 또는 구용기구(비멸균침 등)"},{"code":"A85000","name":"의료용 자기 발생기(의료용자기발생기 등)"},{"code":"A86000","name":"의료용 물질 생성기(알칼리이온수생성기 등)"},{"code":"A88000","name":"이비인후과용 진료 장치 및 의자(이비인후과용진료장치 및 의자 등)"},{"code":"A89000","name":"안과용 진료 장치 및 의자(안과용진료장치및의자 등)"},{"code":"A90000","name":"유헬스케어 의료기기(유헬스케어게이트웨이 등)"},{"code":"A91000","name":"의료용 세포 및 조직 처리 기구(세포조작키트 등)"},{"code":"B02000","name":"봉합사 및 결찰사(일시적사용결찰사 등)"},{"code":"B03000","name":"정형용품(인공 발목 관절 등)"},{"code":"B03260.03","name":"안구내주입용가스키트[3]"},{"code":"B04000","name":"인체 조직 또는 기능 대치품(비중심순환계인공혈관 등)"},{"code":"B07000","name":"외과의료용품(수술용 장갑 등)"},{"code":"B08000","name":"콘돔(남성용콘돔 등)"},{"code":"B09000","name":"피임용구(피임용페서리 등)"},{"code":"C01000","name":"치과가공용합금(치과용귀금속박 등)"},{"code":"C02000","name":"치과주조용합금(치과주조용귀금속합금 등)"},{"code":"C03000","name":"메탈세라믹합금(메탈세라믹용귀금속합금 등)"},{"code":"C04000","name":"의치재료(금속계인공치아 등)"},{"code":"C05000","name":"가공용합금(성형된치관 등)"},{"code":"C06000","name":"직접수복재료(치과용직접금충전재 등)"},{"code":"C07000","name":"심미치관재료(일반용치과도재 등)"},{"code":"C09000","name":"의치상재료(의치부착재 등)"},{"code":"C10000","name":"근관치료재(고형근관충전재 등)"},{"code":"C11000","name":"치과접착용시멘트(치과용수성시멘트 등)"},{"code":"C12000","name":"치과용접착제(4세대상아질접착시스템 등)"},{"code":"C13000","name":"치과용인상재료(치과용임프레션콤파운드 등)"},{"code":"C16000","name":"예방치과재료(시아노아크릴레이트계치면열구전색재 등)"},{"code":"C17000","name":"치과용교정재료(교정용밴드 등)"},{"code":"C18000","name":"악안면성형용재료(악안면성형용판 등)"},{"code":"C19000","name":"악골치아고정장치(아치바 등)"},{"code":"C20000","name":"치과용임플란트시스템(치과용임플란트상부구조물)"},{"code":"C22000","name":"치과용골이식재(골이식용복합재료 등)"},{"code":"C23000","name":"치주조직재생유도재(치주조직재생유도재 등)"},{"code":"C26000","name":"기타보철재료(인상전처치제 등)"},{"code":"C27000","name":"기타보존재료(지각과민처치제 등)"}]`)
@@ -95,8 +96,22 @@ export default function RegulatoryHub() {
 }
 
 // ─── 허가 현황 ─────────────────────────────────────────────────────────────
+// 각 품목의 진행상황을 필수(○필수) 서류 완료율로 산정 — DesignHistoryHub의 설계단계 진행률 표시 방식 참조
+function productProgress(p) {
+  const docs = p.docList || []
+  const required = docs.filter(d => d.required === 1)
+  const done = required.filter(d => d.status === 'done')
+  const total = required.length
+  const doneCount = done.length
+  const complete = total > 0 && doneCount === total
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : (docs.length ? 100 : 0)
+  const nextDoc = docs.find(d => d.required === 1 && d.status !== 'done' && d.status !== 'na')
+  return { total, doneCount, complete, pct, nextDoc }
+}
+
 function ProductList({ products, onNew, onDelete }) {
   const [selected, setSelected] = useState(null)
+  const [subTab, setSubTab] = useState('progress') // 'progress' | 'done'
 
   if (products.length === 0) {
     return (
@@ -193,46 +208,104 @@ function ProductList({ products, onNew, onDelete }) {
     )
   }
 
+  const withProgress = products.map(p => ({ p, prog: productProgress(p) }))
+  const inProgress = withProgress.filter(x => !x.prog.complete)
+  const completed = withProgress.filter(x => x.prog.complete)
+  const rows = subTab === 'done' ? completed : inProgress
+
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:16 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+        <div style={{ display:'flex', gap:6 }}>
+          {[
+            { key:'progress', label:`허가 진행중 (${inProgress.length})` },
+            { key:'done',     label:`허가 완료 (${completed.length})` },
+          ].map(t => (
+            <button key={t.key} onClick={() => setSubTab(t.key)} style={{
+              padding:'6px 14px', borderRadius:20, fontSize:12.5, fontWeight:600, cursor:'pointer',
+              border: subTab===t.key ? '1px solid var(--moss)' : '1px solid var(--line)',
+              background: subTab===t.key ? 'var(--leaf-soft)' : 'transparent',
+              color: subTab===t.key ? 'var(--moss)' : 'var(--ink-faint)',
+            }}>{t.label}</button>
+          ))}
+        </div>
         <button className="btn-primary" onClick={onNew}
           style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
           <Plus size={14} /> 신규 신청
         </button>
       </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {products.map(p => (
-          <div key={p.id} className="card-base"
-            onClick={() => setSelected(p)}
-            style={{ padding:'14px 20px', cursor:'pointer', display:'flex', alignItems:'center', gap:12 }}>
-            <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ fontSize:14, fontWeight:500, color:'var(--ink)', marginBottom:2 }}>{p.productName}</p>
-              <p style={{ fontSize:12, color:'var(--ink-faint)' }}>
-                {p.productCode} · {p.grade ? p.grade+'등급' : '-'} · {p.isImport ? '수입' : '제조'}
-                {' · '}{new Date(p.savedAt).toLocaleDateString('ko-KR')}
-              </p>
+      {rows.length === 0 ? (
+        <p style={{ color:'var(--ink-faint)', fontSize:13, textAlign:'center', padding:'32px 0' }}>
+          {subTab==='done' ? '완료된 허가 항목이 없습니다.' : '진행중인 허가 항목이 없습니다.'}
+        </p>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {rows.map(({ p, prog }) => (
+            <div key={p.id} className="card-base"
+              onClick={() => setSelected(p)}
+              style={{ padding:'14px 20px', cursor:'pointer' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:14, fontWeight:500, color:'var(--ink)', marginBottom:2 }}>{p.productName}</p>
+                  <p style={{ fontSize:12, color:'var(--ink-faint)' }}>
+                    {p.productCode} · {p.grade ? p.grade+'등급' : '-'} · {p.isImport ? '수입' : '제조'}
+                    {' · '}{new Date(p.savedAt).toLocaleDateString('ko-KR')}
+                  </p>
+                </div>
+                {p.classification && (
+                  <span style={{
+                    fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:4, flexShrink:0,
+                    background: clr(p.classification)+'20', color: clr(p.classification),
+                  }}>{p.classLabel}</span>
+                )}
+                {subTab==='progress' && prog.total>0 && (
+                  <span style={{ fontSize:11, fontWeight:600, color:'var(--ink-mute)', flexShrink:0 }}>
+                    {prog.doneCount}/{prog.total} 서류
+                  </span>
+                )}
+                <ChevronRight size={14} style={{ color:'var(--ink-faint)' }} />
+              </div>
+              {subTab==='progress' && prog.total>0 && (
+                <div style={{ marginTop:10 }}>
+                  <div style={{ height:5, borderRadius:3, background:'var(--bg-soft,#f8f9fa)', overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:prog.pct+'%', background:'var(--moss)', borderRadius:3 }} />
+                  </div>
+                  {prog.nextDoc && (
+                    <p style={{ fontSize:11, color:'var(--ink-faint)', marginTop:5 }}>
+                      다음 필요 서류: {prog.nextDoc.label}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-            {p.classification && (
-              <span style={{
-                fontSize:11, fontWeight:600, padding:'2px 8px', borderRadius:4, flexShrink:0,
-                background: clr(p.classification)+'20', color: clr(p.classification),
-              }}>{p.classLabel}</span>
-            )}
-            <ChevronRight size={14} style={{ color:'var(--ink-faint)' }} />
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── 신규 신청 마법사 ─────────────────────────────────────────────────────
+const emptyCompareCell = () => ({ existing:'', proposed:'', override:null })
 const INITIAL_FORM = {
   productName:'', productCode:'', grade:'', isImport:false, fieldType:'',
   compareName:'', comparePermit:'', compareMfg:'',
-  comparison:{ purpose:null, principle:null, material:null, performance:null, standard:null, usage:null },
+  comparison:{
+    purpose:emptyCompareCell(), principle:emptyCompareCell(), material:emptyCompareCell(),
+    performance:emptyCompareCell(), standard:emptyCompareCell(), usage:emptyCompareCell(),
+  },
   classification:null, classLabel:'', docList:[],
+}
+
+// 항목별 동등 여부 자동 판정 — override(수동 지정)가 있으면 그것을 우선하고,
+// 없으면 기허가/신청 제품 내용을 비교하여 자동으로 예/아니오를 판단한다.
+function deriveCompareAnswer(cell) {
+  if (!cell) return null
+  if (cell.override !== null && cell.override !== undefined) return cell.override
+  const a = (cell.existing||'').trim()
+  const b = (cell.proposed||'').trim()
+  if (!a || !b) return null
+  return a === b
 }
 
 function WizardForm({ onSave, onCancel }) {
@@ -417,24 +490,37 @@ function Step1({ form, onChange, onNext, onCancel }) {
 function Step2({ form, onChange, onNext, onBack }) {
   const { comparison } = form
 
-  function setCompare(key, value) {
-    onChange({ comparison: { ...comparison, [key]: value } })
+  function setCell(key, patch) {
+    const cell = comparison[key] || emptyCompareCell()
+    onChange({ comparison: { ...comparison, [key]: { ...cell, ...patch } } })
   }
+  function setOverride(key, value) {
+    setCell(key, { override: value })
+  }
+  function clearOverride(key) {
+    setCell(key, { override: null })
+  }
+
+  const answers = useMemo(() => {
+    const out = {}
+    COMPARE_ITEMS.forEach(item => { out[item.key] = deriveCompareAnswer(comparison[item.key]) })
+    return out
+  }, [comparison])
 
   const classification = useMemo(() => {
     for (const item of COMPARE_ITEMS) {
-      if (comparison[item.key] === false) return { code:item.code, label:item.classLabel }
+      if (answers[item.key] === false) return { code:item.code, label:item.classLabel }
     }
-    const allAnswered = COMPARE_ITEMS.every(item => comparison[item.key] !== null)
+    const allAnswered = COMPARE_ITEMS.every(item => answers[item.key] !== null)
     if (allAnswered) return { code:'동등', label:'동등 — 기허가 제품과 동등' }
     return null
-  }, [comparison])
+  }, [answers])
 
   useEffect(() => {
     if (classification) onChange({ classification:classification.code, classLabel:classification.label })
   }, [classification])
 
-  const allAnswered = COMPARE_ITEMS.every(i => comparison[i.key] !== null)
+  const allAnswered = COMPARE_ITEMS.every(i => answers[i.key] !== null)
 
   return (
     <div className="card-base" style={{ padding:28 }}>
@@ -476,39 +562,63 @@ function Step2({ form, onChange, onNext, onBack }) {
       </p>
       <div style={{ border:'1px solid var(--line)', borderRadius:8, overflow:'hidden', marginBottom:24 }}>
         <div style={{
-          display:'grid', gridTemplateColumns:'1fr 160px', padding:'8px 16px',
+          display:'grid', gridTemplateColumns:'110px 1fr 1fr 150px', padding:'8px 16px',
           background:'var(--bg-soft,#f8f9fa)', fontSize:11, fontWeight:600, color:'var(--ink-faint)', letterSpacing:'0.05em',
         }}>
           <span>비교 항목</span>
-          <span style={{ textAlign:'center' }}>기허가 제품과 동일?</span>
+          <span>기허가 제품 내용</span>
+          <span>신청 제품 내용</span>
+          <span style={{ textAlign:'center' }}>동일?</span>
         </div>
         {COMPARE_ITEMS.map((item, i) => {
-          const val = comparison[item.key]
+          const cell = comparison[item.key] || emptyCompareCell()
+          const val = answers[item.key]
+          const isManual = cell.override !== null && cell.override !== undefined
           return (
             <div key={item.key} style={{
-              display:'grid', gridTemplateColumns:'1fr 160px', padding:'12px 16px', alignItems:'center',
+              display:'grid', gridTemplateColumns:'110px 1fr 1fr 150px', padding:'10px 16px', alignItems:'center', gap:8,
               borderTop: i>0 ? '1px solid var(--line)' : 'none',
               background: val===false ? 'rgba(239,68,68,.04)' : 'transparent',
             }}>
               <div>
                 <span style={{ fontSize:13, fontWeight:500, color:'var(--ink)' }}>{item.label}</span>
                 {val===false && (
-                  <span style={{ fontSize:11, marginLeft:8, color:'var(--ink-faint)' }}>→ {item.classLabel}</span>
+                  <div style={{ fontSize:10.5, marginTop:2, color:'var(--ink-faint)' }}>→ {item.classLabel}</div>
                 )}
               </div>
-              <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
-                <button onClick={() => setCompare(item.key, true)} style={{
-                  padding:'5px 10px', fontSize:12, fontWeight:500, borderRadius:5, cursor:'pointer',
-                  border: val===true ? '1px solid var(--moss)' : '1px solid var(--line)',
-                  background: val===true ? 'var(--leaf-soft)' : 'transparent',
-                  color: val===true ? 'var(--moss)' : 'var(--ink-mute)',
-                }}>예</button>
-                <button onClick={() => setCompare(item.key, false)} style={{
-                  padding:'5px 10px', fontSize:12, fontWeight:500, borderRadius:5, cursor:'pointer',
-                  border: val===false ? '1px solid #ef4444' : '1px solid var(--line)',
-                  background: val===false ? '#fef2f2' : 'transparent',
-                  color: val===false ? '#ef4444' : 'var(--ink-mute)',
-                }}>아니오</button>
+              <input className="input-base" placeholder="기허가 제품 내용"
+                value={cell.existing} onChange={e => setCell(item.key, { existing:e.target.value })}
+                style={{ fontSize:12.5, padding:'6px 10px' }} />
+              <input className="input-base" placeholder="신청 제품 내용"
+                value={cell.proposed} onChange={e => setCell(item.key, { proposed:e.target.value })}
+                style={{ fontSize:12.5, padding:'6px 10px' }} />
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                  <button onClick={() => setOverride(item.key, true)} style={{
+                    padding:'5px 10px', fontSize:12, fontWeight:500, borderRadius:5, cursor:'pointer',
+                    border: val===true ? '1px solid var(--moss)' : '1px solid var(--line)',
+                    background: val===true ? 'var(--leaf-soft)' : 'transparent',
+                    color: val===true ? 'var(--moss)' : 'var(--ink-mute)',
+                  }}>예</button>
+                  <button onClick={() => setOverride(item.key, false)} style={{
+                    padding:'5px 10px', fontSize:12, fontWeight:500, borderRadius:5, cursor:'pointer',
+                    border: val===false ? '1px solid #ef4444' : '1px solid var(--line)',
+                    background: val===false ? '#fef2f2' : 'transparent',
+                    color: val===false ? '#ef4444' : 'var(--ink-mute)',
+                  }}>아니오</button>
+                </div>
+                <div style={{ fontSize:10, color:'var(--ink-faint)', display:'flex', alignItems:'center', gap:4 }}>
+                  {isManual ? (
+                    <>
+                      수동 지정
+                      <button type="button" onClick={() => clearOverride(item.key)}
+                        title="자동 판정으로 되돌리기"
+                        style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-faint)', display:'inline-flex' }}>
+                        <RotateCcw size={10} />
+                      </button>
+                    </>
+                  ) : (val!==null ? '내용 비교로 자동 판정' : '내용 입력 시 자동 판정')}
+                </div>
               </div>
             </div>
           )
@@ -545,6 +655,9 @@ function Step2({ form, onChange, onNext, onBack }) {
 function Step3({ form, onChange, onSave, onBack }) {
   const [docStatus, setDocStatus] = useState({})
   const [docNotes, setDocNotes] = useState({})
+  const [docFiles, setDocFiles] = useState({}) // key -> [{id,fileId,fileName}]
+  const [busyFile, setBusyFile] = useState(null)
+  const [draftOpenKey, setDraftOpenKey] = useState(null)
 
   const docList = useMemo(() => {
     const { productCode, fieldType, classification, isImport } = form
@@ -573,15 +686,41 @@ function Step3({ form, onChange, onSave, onBack }) {
     return result
   }, [form])
 
+  // '본질적동등성 비교표'는 Step2에서 이미 작성한 내용으로 자동 대체 — 별도 준비상태 입력 불필요
+  const compareAnswered = useMemo(() => {
+    return COMPARE_ITEMS.every(item => deriveCompareAnswer(form.comparison[item.key]) !== null)
+  }, [form.comparison])
+
   useEffect(() => {
-    const list = docList.map(d => ({
-      ...d, status: docStatus[d.key]||'pending', note: docNotes[d.key]||'',
-    }))
+    const list = docList.map(d => {
+      if (d.key === 'compare') {
+        return { ...d, status: compareAnswered ? 'done' : 'pending', note: '(동등성 비교표 — Step2 내용으로 자동 대체)', files: [] }
+      }
+      return {
+        ...d, status: docStatus[d.key]||'pending', note: docNotes[d.key]||'', files: docFiles[d.key]||[],
+      }
+    })
     onChange({ docList:list })
-  }, [docList, docStatus, docNotes])
+  }, [docList, docStatus, docNotes, docFiles, compareAnswered])
 
   const setStatus = (key, val) => setDocStatus(s => ({ ...s, [key]:val }))
   const setNote   = (key, val) => setDocNotes(n => ({ ...n, [key]:val }))
+
+  async function addFile(key, file) {
+    if (!file) return
+    setBusyFile(key)
+    try {
+      const fileId = await fileStore.saveFile(file)
+      setDocFiles(f => ({ ...f, [key]: [...(f[key]||[]), { id:`att-${Date.now()}`, fileId, fileName:file.name }] }))
+    } catch (e) {
+      alert(e.message || '파일 첨부에 실패했습니다.')
+    } finally {
+      setBusyFile(null)
+    }
+  }
+  function removeFile(key, id) {
+    setDocFiles(f => ({ ...f, [key]: (f[key]||[]).filter(x => x.id !== id) }))
+  }
 
   const GROUPS = ['공통','기본','안전','성능','임상','기타','수입']
   const grouped = GROUPS.reduce((acc, g) => {
@@ -617,7 +756,7 @@ function Step3({ form, onChange, onSave, onBack }) {
 
       <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'10px 14px', marginBottom:20, fontSize:12, color:'var(--ink-faint)' }}>
         <strong style={{ color:'var(--ink)' }}>△ 품목별 판단</strong> 서류는 식약처 담당자 협의 후 제출 여부가 결정됩니다.
-        각 서류의 준비 상태를 체크하고 저장하세요.
+        각 서류의 준비 상태를 체크하고, 필요 시 AI 초안을 생성하거나 파일을 첨부하세요.
       </div>
 
       {docList.length===0
@@ -634,7 +773,37 @@ function Step3({ form, onChange, onSave, onBack }) {
             }}>{grp}</p>
             <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
               {items.map(doc => {
+                if (doc.key === 'compare') {
+                  return (
+                    <div key={doc.key} style={{
+                      borderRadius:8, border:'1px solid var(--line)', padding:'12px 14px',
+                      background: compareAnswered ? 'var(--leaf-soft)' : 'var(--bg-soft,#f8f9fa)',
+                    }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                        {compareAnswered
+                          ? <CheckCircle2 size={14} style={{ color:'var(--moss)' }} />
+                          : <Clock size={14} style={{ color:'var(--amber,#f59e0b)' }} />}
+                        <span style={{ fontSize:13, fontWeight:500, color:'var(--ink)', flex:1 }}>{doc.label}</span>
+                        <span style={{ fontSize:10, color:'var(--ink-faint)' }}>Step2 내용으로 자동 대체</span>
+                      </div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {COMPARE_ITEMS.map(item => {
+                          const ans = deriveCompareAnswer(form.comparison[item.key])
+                          return (
+                            <span key={item.key} style={{
+                              fontSize:11, padding:'2px 8px', borderRadius:4,
+                              background: ans===false ? '#fef2f2' : ans===true ? 'var(--bg-card)' : 'var(--bg-soft,#f8f9fa)',
+                              color: ans===false ? '#ef4444' : ans===true ? 'var(--ink-mute)' : 'var(--ink-faint)',
+                              border:'1px solid var(--line)',
+                            }}>{item.label}: {ans===null ? '미입력' : (ans ? '동일' : '상이')}</span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                }
                 const st = docStatus[doc.key]||'pending'
+                const files = docFiles[doc.key]||[]
                 return (
                   <div key={doc.key} style={{
                     borderRadius:8, border:'1px solid var(--line)', padding:'12px 14px',
@@ -663,7 +832,47 @@ function Step3({ form, onChange, onSave, onBack }) {
                     </div>
                     <input className="input-base" placeholder="메모 (담당기관, 진행상황, 주의사항 등)"
                       value={docNotes[doc.key]||''} onChange={e => setNote(doc.key, e.target.value)}
-                      style={{ fontSize:12, padding:'5px 10px' }} />
+                      style={{ fontSize:12, padding:'5px 10px', marginBottom:8 }} />
+
+                    <div style={{ display:'flex', flexWrap:'wrap', alignItems:'center', gap:6 }}>
+                      <button type="button" onClick={() => setDraftOpenKey(draftOpenKey===doc.key ? null : doc.key)}
+                        style={{
+                          display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:6,
+                          fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid #ddd6fe',
+                          background:'#f5f3ff', color:'#7c3aed',
+                        }}>
+                        <Sparkles size={11} /> AI 초안
+                      </button>
+                      <label style={{
+                        display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:6,
+                        fontSize:11, fontWeight:600, cursor:'pointer', border:'1px solid var(--line)',
+                        background:'var(--bg-soft,#f8f9fa)', color:'var(--ink-mute)',
+                      }}>
+                        <Paperclip size={11} /> {busyFile===doc.key ? '업로드 중...' : '파일 첨부'}
+                        <input type="file" style={{ display:'none' }} disabled={busyFile===doc.key}
+                          onChange={e => { const file=e.target.files && e.target.files[0]; e.target.value=''; addFile(doc.key, file) }} />
+                      </label>
+                      {files.map(f => (
+                        <span key={f.id} style={{
+                          display:'inline-flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:5,
+                          fontSize:11, background:'var(--bg-soft,#f8f9fa)', border:'1px solid var(--line)', color:'var(--ink-mute)',
+                        }}>
+                          {f.fileName}
+                          <button type="button" onClick={() => removeFile(doc.key, f.id)}
+                            style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-faint)', display:'inline-flex' }}>
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+
+                    {draftOpenKey === doc.key && (
+                      <RegDraftPanel
+                        doc={doc} form={form}
+                        onUse={text => { setNote(doc.key, text); setDraftOpenKey(null) }}
+                        onClose={() => setDraftOpenKey(null)}
+                      />
+                    )}
                   </div>
                 )
               })}
@@ -679,6 +888,68 @@ function Step3({ form, onChange, onSave, onBack }) {
           <Save size={14} /> 허가 현황에 저장
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─── 필요 서류 AI 초안 생성 패널 ───────────────────────────────────────────
+function RegDraftPanel({ doc, form, onUse, onClose }) {
+  const [context, setContext] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [draft, setDraft] = useState('')
+
+  async function generate() {
+    setLoading(true); setError(''); setDraft('')
+    try {
+      const r = await fetch('/api/regulatory-draft', {
+        method:'POST', headers:{ 'content-type':'application/json' },
+        body: JSON.stringify({
+          productName: form.productName || '', productCode: form.productCode || '',
+          grade: form.grade || '', docLabel: doc.label, context: context.trim(),
+        }),
+      })
+      const j = await r.json()
+      if (!j.ok) setError(j.message || 'AI 초안 생성에 실패했습니다.')
+      else setDraft(j.content || '')
+    } catch (e) {
+      setError('AI 초안 생성 중 오류가 발생했습니다: ' + String((e && e.message) || e))
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <div style={{ marginTop:10, padding:12, borderRadius:8, background:'#faf9ff', border:'1px solid #ddd6fe' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+        <span style={{ fontSize:11.5, fontWeight:700, color:'#7c3aed', display:'flex', alignItems:'center', gap:5 }}>
+          <Sparkles size={12} /> {doc.label} — AI 초안
+        </span>
+        <button type="button" onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'var(--ink-faint)' }}><X size={13} /></button>
+      </div>
+      <input className="input-base" placeholder="참고 내용 (선택) — 이 제품의 실제 특징을 적을수록 초안 품질이 좋아집니다"
+        value={context} onChange={e => setContext(e.target.value)} style={{ fontSize:12, padding:'6px 10px', marginBottom:8 }} />
+      {error && <div style={{ fontSize:11.5, padding:'6px 10px', borderRadius:6, background:'#fee2e2', color:'#991b1b', marginBottom:8 }}>{error}</div>}
+      <button type="button" onClick={generate} disabled={loading}
+        style={{
+          display:'inline-flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:6,
+          fontSize:12, fontWeight:600, cursor: loading?'default':'pointer', border:'none',
+          background:'#7c3aed', color:'#fff', opacity: loading?0.7:1, marginBottom: draft?8:0,
+        }}>
+        {loading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+        {loading ? '생성 중...' : '초안 생성'}
+      </button>
+      {draft && (
+        <div>
+          <div style={{ fontSize:12, whiteSpace:'pre-wrap', padding:10, borderRadius:6, background:'var(--bg-card)', border:'1px solid var(--line)', color:'var(--ink)', marginBottom:8 }}>
+            {draft}
+          </div>
+          <button type="button" onClick={() => onUse(draft)}
+            style={{
+              padding:'5px 12px', borderRadius:6, fontSize:11.5, fontWeight:600, cursor:'pointer',
+              border:'1px solid var(--moss)', background:'var(--leaf-soft)', color:'var(--moss)',
+            }}>이 내용을 메모에 사용</button>
+        </div>
+      )}
+      <p style={{ fontSize:10, color:'var(--ink-faint)', marginTop:6 }}>AI 초안은 참고용입니다 — 반드시 검토·수정 후 제출하세요.</p>
     </div>
   )
 }

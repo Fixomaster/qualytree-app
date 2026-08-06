@@ -662,9 +662,9 @@ function RecordForm({ form, RF, specs, zones, goToWorkEnv, onSave, onCancel, isE
               <div className="text-[10px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>밸리데이션으로 대체 가능 — 필요 시에만 입력</div>
             </div>
             <F label="미생물 측정값" value={form.microbialResult} onChange={function(v) { RF('microbialResult', v) }} placeholder="3 CFU/m³" />
-            <F label="이물 검사 결과" value={form.foreignMatterResult} onChange={function(v) { RF('foreignMatterResult', v) }} placeholder="예: 육안 검사 이상없음 / 이물 2건 검출" />
           </>
         )}
+        <F label="이물 검사 결과" value={form.foreignMatterResult} onChange={function(v) { RF('foreignMatterResult', v) }} placeholder="예: 육안 검사 이상없음 / 이물 2건 검출" />
         <F label="온도 (℃)" value={form.temperature} onChange={function(v) { RF('temperature', v) }} placeholder="22.5" />
         <F label="습도 (%RH)" value={form.humidity} onChange={function(v) { RF('humidity', v) }} placeholder="45" />
         <div>
@@ -702,13 +702,14 @@ function RecordCard({ rec, spec, zone, expanded, onToggle, onEdit, onDelete, onP
   const rs = RESULT_STYLES[rec.result] || RESULT_STYLES.pass
   const isFail = rec.result === 'fail'
   const params = [
-    { label: '미립자', value: rec.particleResult, icon: Wind, color: '#8B5CF6' },
-    { label: '미생물', value: rec.microbialResult, icon: FlaskConical, color: '#7C3AED' },
-    { label: '이물', value: rec.foreignMatterResult, icon: AlertTriangle, color: '#DC2626' },
-    { label: '온도', value: rec.temperature ? rec.temperature + '℃' : '', icon: Thermometer, color: '#EF4444' },
-    { label: '습도', value: rec.humidity ? rec.humidity + '%' : '', icon: Droplets, color: '#3B82F6' },
-    { label: '차압', value: rec.pressureDiff ? rec.pressureDiff + 'Pa' : '', icon: Activity, color: '#059669' },
-  ].filter(function(p) { return p.value })
+    { label: '미립자', value: rec.particleResult, icon: Wind, color: '#8B5CF6', always: false },
+    { label: '미생물', value: rec.microbialResult, icon: FlaskConical, color: '#7C3AED', always: false },
+    { label: '이물', value: rec.foreignMatterResult, icon: AlertTriangle, color: '#DC2626', always: true },
+    { label: '온도', value: rec.temperature ? rec.temperature + '℃' : '', icon: Thermometer, color: '#EF4444', always: false },
+    { label: '습도', value: rec.humidity ? rec.humidity + '%' : '', icon: Droplets, color: '#3B82F6', always: false },
+    { label: '차압', value: rec.pressureDiff ? rec.pressureDiff + 'Pa' : '', icon: Activity, color: '#059669', always: false },
+  ].filter(function(p) { return p.value || p.always })
+    .map(function(p) { return p.value ? p : Object.assign({}, p, { value: '미입력', faded: true }) })
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid ' + (isFail ? '#FECACA' : 'var(--line)') }}>
@@ -728,8 +729,8 @@ function RecordCard({ rec, spec, zone, expanded, onToggle, onEdit, onDelete, onP
               : params.map(function(p) {
                   var PIcon = p.icon
                   return (
-                    <span key={p.label} className="text-[12px] flex items-center gap-1" style={{ color: 'var(--ink)' }}>
-                      <PIcon size={11} style={{ color: p.color }} />{p.value}
+                    <span key={p.label} className="text-[12px] flex items-center gap-1" style={{ color: p.faded ? 'var(--ink-faint)' : 'var(--ink)' }}>
+                      <PIcon size={11} style={{ color: p.faded ? 'var(--ink-faint)' : p.color }} />{p.faded ? p.label + ' 미입력' : p.value}
                     </span>
                   )
                 })}
