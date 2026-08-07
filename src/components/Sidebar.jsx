@@ -48,6 +48,7 @@ items: [
 { to: '/manufacturing', label: '생산 현황' },
 { to: '/process-validation', label: '공정유효성확인(실행)' },
 { to: '/traceability', label: '제품추적성관리' },
+{ to: '/customer-property', label: '고객자산관리' },
 { to: '/preservation', label: '제품보존·취급' },
 { to: '/inventory', label: '재고·출고관리' },
 { to: '/cleanliness', label: '청결·오염 관리' },

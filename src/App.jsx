@@ -32,7 +32,7 @@ try { PreviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/PreviewHu
 
 // ── 신규 허브 (Tasks #28-#61) ────────────────────────────────────────
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
-let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub
+let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
 let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub, InventoryHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
@@ -49,6 +49,7 @@ try { CalibrationHub = React.lazy(() => import(/* @vite-ignore */ './pages/calib
 try { SupplierHub = React.lazy(() => import(/* @vite-ignore */ './pages/supplier/SupplierHub')) } catch {}
 try { ComplaintHub = React.lazy(() => import(/* @vite-ignore */ './pages/complaint/ComplaintHub')) } catch {}
 try { TraceabilityHub = React.lazy(() => import(/* @vite-ignore */ './pages/traceability/TraceabilityHub')) } catch {}
+try { CustomerPropertyHub = React.lazy(() => import(/* @vite-ignore */ './pages/customer-property/CustomerPropertyHub')) } catch {}
 try { ChangeControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/change/ChangeControlHub')) } catch {}
 try { InspectionHub = React.lazy(() => import(/* @vite-ignore */ './pages/inspection/InspectionHub')) } catch {}
 try { WorkEnvHub = React.lazy(() => import(/* @vite-ignore */ './pages/workenv/WorkEnvHub')) } catch {}
@@ -156,6 +157,7 @@ return (
 <Route path="/supplier" element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
 <Route path="/complaints" element={<ProtectedRoute><LazyRoute Component={ComplaintHub} /></ProtectedRoute>} />
 <Route path="/traceability" element={<ProtectedRoute><LazyRoute Component={TraceabilityHub} /></ProtectedRoute>} />
+<Route path="/customer-property" element={<ProtectedRoute><LazyRoute Component={CustomerPropertyHub} /></ProtectedRoute>} />
 <Route path="/change-control" element={<ProtectedRoute><LazyRoute Component={ChangeControlHub} /></ProtectedRoute>} />
 <Route path="/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionHub} /></ProtectedRoute>} />
 <Route path="/workenv" element={<ProtectedRoute><LazyRoute Component={WorkEnvHub} /></ProtectedRoute>} />
