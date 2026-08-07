@@ -54,6 +54,28 @@ const CLASS_COLOR = {
 }
 const clr = code => CLASS_COLOR[code] || '#6b7280'
 
+// MFDS 공공데이터 API가 내려주는 "품목군코드"(PRDGR_CD, 예: "A09")는 이 앱이 REG_MATRIX/
+// PRODUCT_CATEGORIES에서 사용하는 표준 분류체계(예: "A19000")와 전혀 다른 코드 체계임이
+// 실제 데이터로 확인되었다(예: 수동식 휠체어의 grp="A09", 정식 분류번호="A19010.01").
+// 따라서 grp 필드는 사용하지 않고, 개별 품목의 정식 분류번호(MDEQ_CLSF_NO)를 기준으로
+// 같은 알파벳 접두어 내에서 그 값을 넘지 않는 가장 큰 품목군 코드를 찾아 매핑한다.
+function parseClsfCode(code) {
+  const m = /^([A-Z]+)(\d+(?:\.\d+)?)/.exec(String(code || '').trim())
+  if (!m) return null
+  return { letter: m[1], num: parseFloat(m[2]) }
+}
+function resolveCategoryByNo(no) {
+  const target = parseClsfCode(no)
+  if (!target) return null
+  let best = null, bestNum = -Infinity
+  for (const c of PRODUCT_CATEGORIES) {
+    const cc = parseClsfCode(c.code)
+    if (!cc || cc.letter !== target.letter) continue
+    if (cc.num <= target.num && cc.num > bestNum) { best = c; bestNum = cc.num }
+  }
+  return best
+}
+
 const LS_KEY = 'qualytree.regulatory_products'
 const loadProducts = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]') } catch { return [] } }
 const saveProducts = l => localStorage.setItem(LS_KEY, JSON.stringify(l))
@@ -429,8 +451,8 @@ function ExistingLicenseModal({ onSave, onClose }) {
   const set = patch => setForm(f => ({ ...f, ...patch }))
 
   function pickItem(it) {
-    const group = PRODUCT_CATEGORIES.find(c => c.code === it.grp)
-    set({ productName: it.name, categoryName: group ? group.name : (it.grp || ''), productCode: it.grp || '', grade: it.grade || '' })
+    const group = resolveCategoryByNo(it.no)
+    set({ productName: it.name, categoryName: group ? group.name : '', productCode: group ? group.code : '', grade: it.grade || '' })
     setQ(it.name); setOpen(false)
   }
 
@@ -606,20 +628,21 @@ function Step1({ form, onChange, onNext, onCancel }) {
   function pickItem(it) {
     // #22 — 같은 품목명이라도 여러 등급으로 등록된 경우(예: 골절합용나사는 3·4등급만 존재)가 있으므로
     // 선택한 품목명과 동일한 전체 항목을 모아 실제 존재하는 등급만 선택 가능하도록 제한한다.
-    const group = PRODUCT_CATEGORIES.find(c => c.code === it.grp)
+    // 품목군은 MFDS grp 코드가 아닌 정식 분류번호(it.no) 기준으로 매핑한다(resolveCategoryByNo 주석 참고).
+    const group = resolveCategoryByNo(it.no)
     const sameName = mfds.findAllByName(it.name)
     const grades = Array.from(new Set(sameName.map(x => x.grade))).filter(Boolean)
-    const fields = Object.keys(REG_MATRIX[it.grp] || {})
+    const fields = group ? Object.keys(REG_MATRIX[group.code] || {}) : []
     onChange({
       productName: it.name,
-      categoryName: group ? group.name : (it.grp || ''),
-      productCode: it.grp || '',
+      categoryName: group ? group.name : '',
+      productCode: group ? group.code : '',
       grade: grades.length === 1 ? grades[0] : '',
       allowedGrades: grades,
       fieldType: fields.length === 1 ? fields[0] : '',
     })
     setQ(it.name); setOpen(false)
-    setCatQuery(group ? group.name : (it.grp || ''))
+    setCatQuery(group ? group.name : '')
   }
 
   function selectCat(cat) {
