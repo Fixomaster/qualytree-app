@@ -171,6 +171,44 @@ function getMyTasks(dept) {
     }
   })
 
+  // #8: 온보딩 완료 후 설정 순서 안내 — 품질매뉴얼 → 절차서 순으로 작성을 유도한다.
+  // 회사 전체에 관련된 항목이라 ALL/MR/DOC 뷰에서만 노출(다른 부서 화면에서는 노이즈가 되지 않도록).
+  if (['ALL', 'MR', 'DOC'].includes(dept)) {
+    try {
+      const ob = JSON.parse(localStorage.getItem('qualytree.onboarding') || 'null')
+      const onboardingDone = ob && ob.done && Object.values(ob.done).every(Boolean)
+      if (onboardingDone) {
+        const manualStarted = (() => {
+          try {
+            const m = JSON.parse(localStorage.getItem('qualytree.quality_manual') || 'null')
+            return !!(m && ((m.scope && m.scope.trim()) || (m.revisionHistory || []).length > 0))
+          } catch { return false }
+        })()
+        const proceduresStarted = (() => {
+          try {
+            const docs = JSON.parse(localStorage.getItem('qualytree.doc_register') || '[]')
+            return Array.isArray(docs) && docs.some((d) => d.type === 'SOP')
+          } catch { return false }
+        })()
+        if (!manualStarted) {
+          tasks.unshift({
+            id: 'setup-manual', type: 'setup', urgent: false,
+            label: '설정 1/2 · 품질매뉴얼 작성',
+            sub: '온보딩에서 정한 목차를 기준으로 품질매뉴얼 내용을 작성하세요.',
+            link: '/quality-manual', color: '#7C3AED', createdAt: null,
+          })
+        } else if (!proceduresStarted) {
+          tasks.unshift({
+            id: 'setup-procedures', type: 'setup', urgent: false,
+            label: '설정 2/2 · 절차서 작성',
+            sub: '온보딩에서 선택한 절차서 목록의 실제 내용을 문서 관리 대장에서 작성하세요.',
+            link: '/doc-control', color: '#2563EB', createdAt: null,
+          })
+        }
+      }
+    } catch { /* ignore */ }
+  }
+
   // 우선순위 정렬: urgent 먼저, 최신 순
   return tasks
     .sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0))

@@ -144,23 +144,63 @@ function NoticeFormModal({ notice, onClose, onSave }) {
   )
 }
 
+// 온보딩 STEP6(계정 발급)에서 등록한 구성원 목록 — 이메일이 있는 구성원만 선택 가능
+function loadOnboardingMembers() {
+  try {
+    const raw = localStorage.getItem('qualytree.onboarding')
+    if (!raw) return []
+    const ob = JSON.parse(raw)
+    return (ob.members || []).filter(m => m.name && m.email)
+  } catch { return [] }
+}
+
 function AuthorPanel({ authors, onUpdate }) {
+  const members = loadOnboardingMembers()
+  const [pick, setPick] = useState('')
+  const [showManual, setShowManual] = useState(false)
   const [email, setEmail] = useState('')
-  const add = () => { const e = email.trim().toLowerCase(); if (!e || authors.includes(e)) return; onUpdate([...authors, e]); setEmail('') }
+  const available = members.filter(m => !authors.includes(m.email.trim().toLowerCase()))
+  const nameFor = (e) => { const m = members.find(mm => mm.email.trim().toLowerCase() === e); return m ? `${m.name} (${m.dept || '-'} · ${m.role === 'MANAGER' ? '매니저/RA' : m.role === 'INSPECTOR' ? '검사관' : '작업자'})` : e }
+  const addFromList = () => {
+    const m = available.find(mm => mm.id === pick)
+    if (!m) return
+    const e = m.email.trim().toLowerCase()
+    if (authors.includes(e)) return
+    onUpdate([...authors, e]); setPick('')
+  }
+  const addManual = () => { const e = email.trim().toLowerCase(); if (!e || authors.includes(e)) return; onUpdate([...authors, e]); setEmail('') }
   return (
     <div className="space-y-3">
-      <p className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>관리자 외에 공지를 작성할 수 있는 이메일을 추가하세요.</p>
-      <div className="flex gap-2">
-        <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && add()} placeholder="이메일 입력 후 Enter 또는 추가 클릭" className="flex-1 px-3 py-2 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', outline: 'none' }} />
-        <button onClick={add} className="px-4 py-2 rounded-lg text-[13px] font-medium" style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>추가</button>
-      </div>
+      <p className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>관리자 외에 공지를 작성할 수 있는 사람을, 온보딩에서 등록한 구성원 중에서 선택해 추가하세요.</p>
+      {members.length === 0 ? (
+        <div className="text-[12px] px-3 py-2 rounded-lg" style={{ background: '#FFFBEB', border: '1px solid #FDE68A', color: '#92400E' }}>
+          온보딩(계정 발급 단계)에 등록된 구성원이 없습니다. 온보딩에서 이메일과 함께 구성원을 먼저 등록하면 여기서 이름으로 선택할 수 있습니다.
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <select value={pick} onChange={e => setPick(e.target.value)} className="flex-1 px-3 py-2 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', outline: 'none' }}>
+            <option value="">구성원 선택...</option>
+            {available.map(m => <option key={m.id} value={m.id}>{m.name} ({m.dept || '-'} · {m.role === 'MANAGER' ? '매니저/RA' : m.role === 'INSPECTOR' ? '검사관' : '작업자'})</option>)}
+          </select>
+          <button onClick={addFromList} disabled={!pick} className="px-4 py-2 rounded-lg text-[13px] font-medium disabled:opacity-40" style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: pick ? 'pointer' : 'not-allowed' }}>추가</button>
+        </div>
+      )}
+      <button onClick={() => setShowManual(v => !v)} className="text-[11.5px]" style={{ background: 'none', border: 'none', color: 'var(--ink-faint)', cursor: 'pointer', textDecoration: 'underline' }}>
+        {showManual ? '이메일 직접 추가 닫기' : '구성원 목록에 없는 경우 이메일로 직접 추가'}
+      </button>
+      {showManual && (
+        <div className="flex gap-2">
+          <input value={email} onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && addManual()} placeholder="이메일 입력 후 Enter 또는 추가 클릭" className="flex-1 px-3 py-2 rounded-lg text-[13px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', outline: 'none' }} />
+          <button onClick={addManual} className="px-4 py-2 rounded-lg text-[13px] font-medium" style={{ background: 'var(--bg-soft)', color: 'var(--ink)', border: '1px solid var(--line)', cursor: 'pointer' }}>추가</button>
+        </div>
+      )}
       {authors.length === 0 ? (
         <div className="text-[12.5px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>추가 작성 권한자가 없습니다</div>
       ) : (
         <div className="space-y-1.5">
           {authors.map(e => (
             <div key={e} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-              <span className="text-[13px]" style={{ color: 'var(--ink)' }}>{e}</span>
+              <span className="text-[13px]" style={{ color: 'var(--ink)' }}>{nameFor(e)}</span>
               <button onClick={() => onUpdate(authors.filter(a => a !== e))} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={13} style={{ color: '#EF4444' }} /></button>
             </div>
           ))}

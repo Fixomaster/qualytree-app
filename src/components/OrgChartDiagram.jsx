@@ -53,7 +53,9 @@ const OrgChartDiagram = forwardRef(function OrgChartDiagram({ departments, onDel
       const w = treeRef.current.scrollWidth
       const h = treeRef.current.scrollHeight
       setNatural({ w, h })
-      setAutoFit(containerW > 0 && w > containerW ? Math.max(MIN_SCALE, containerW / w) : 1)
+      // '전체 맞춤'이 좁은(트리가 큰) 경우에만 축소하고, 작은 조직도(신규 회사 등)는 항상 100%에
+      // 머물러 컨테이너의 남는 공간을 활용하지 못하던 문제 — 폭에 맞춰 확대도 하도록 양방향 스케일링.
+      setAutoFit(containerW > 0 && w > 0 ? Math.min(MAX_SCALE, Math.max(MIN_SCALE, containerW / w)) : 1)
     }
     recompute()
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(recompute) : null

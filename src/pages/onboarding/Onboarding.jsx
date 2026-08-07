@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
-  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search,
+  Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search, Clock,
 } from 'lucide-react'
 import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_CERT_IDS, certMapForPlan, planForCertIds, planById, syncPlansFromServer } from '../../lib/plans'
 import { mfds } from '../../lib/mfds'
@@ -83,7 +83,7 @@ const STEPS = [
 function defaultState() {
   return {
     plan: (() => { const sg = readSignup(); return { id: sg.plan || '', cycle: sg.cycle || 'monthly' } })(),
-    company: { name: '', ceo: '', bizNumber: '', licenseNo: '', qmRep: '' },
+    company: { name: '', ceo: '', bizNumber: '', licenseNo: '', qmRep: '', newLicense: false },
     certs: (() => {
       const sg = readSignup()
       const base = { kgmp: false, iso13485: false, ce: false, fda: false, mdsap: false }
@@ -139,14 +139,18 @@ export default function Onboarding() {
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
   const stepValid = (s, key) => {
     if (key === 'plan') return !!(s.plan && s.plan.id)
-    if (key === 'info') return !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNumber?.trim()) && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim()) && (s.products || []).length > 0
+    if (key === 'info') {
+      const base = !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNumber?.trim()) && (s.products || []).length > 0
+      if (s.company?.newLicense) return base
+      return base && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim())
+    }
     if (key === 'org') return (s.departments || []).length > 0
     if (key === 'manual') return !!(s.manual?.mode)
     if (key === 'procedures') return (s.procedures || []).some((p) => p.applicable)
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명·대표자·사업자등록번호·제조업 허가번호·품질관리 책임자를 모두 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명·대표자·사업자등록번호를 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다. (제조업 허가번호·품질관리 책임자는 "신규 회사" 체크 시 추후 입력으로 건너뛸 수 있습니다.)'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -388,12 +392,14 @@ function StepInfo({ state, patch, setState }) {
   const setCat = (k, v) => { catTouchedRef.current = true; setF(k, v) }
 
   const pickItem = (it) => {
+    // 저장 전에 다른 품목명을 재검색해 선택해도 분류번호 외 다른 항목(제품명·등급·추적관리 등)이
+    // 갱신되지 않던 문제 — 이전 선택값을 남기지 않고 선택한 품목 정보로 항상 전체 덮어쓴다.
     setForm((ff) => ({
       ...ff,
-      name: ff.name.trim() ? ff.name : it.name,
+      name: it.name,
       itemName: it.name,
       classNo: it.no,
-      grade: it.grade || ff.grade,
+      grade: it.grade || '2',
       track: it.track || 'N',
       grp: it.grp || '',
     }))
@@ -414,12 +420,18 @@ function StepInfo({ state, patch, setState }) {
   return (
     <div className="space-y-6">
       <Section title="회사 정보" desc="허가증·사업자등록증 기준으로 입력하세요.">
+        <label className="flex items-start gap-2 mb-3 p-2.5 rounded-lg cursor-pointer select-none" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <input type="checkbox" className="mt-0.5" checked={!!c.newLicense} onChange={(e) => setC('newLicense', e.target.checked)} />
+          <span className="text-[12.5px]" style={{ color: '#1E40AF' }}>
+            아직 제조업 허가를 받지 않은 <b>신규 회사</b>입니다 — 제조업 허가번호·품질관리 책임자는 허가 취득 후 입력해도 다음 단계로 진행할 수 있습니다.
+          </span>
+        </label>
         <div className="grid sm:grid-cols-2 gap-3">
           <Field label="회사명" value={c.name} onChange={(v) => setC('name', v)} placeholder="(주)퀄리트리" required />
           <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" required />
           <Field label="사업자등록번호" value={c.bizNumber} onChange={(v) => setC('bizNumber', v)} placeholder="000-00-00000" required />
-          <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder="제0000호" required />
-          <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder="이름" required />
+          <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder={c.newLicense ? '허가 취득 후 입력' : '제0000호'} required={!c.newLicense} />
+          <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder={c.newLicense ? '지정 후 입력' : '이름'} required={!c.newLicense} />
         </div>
       </Section>
 
@@ -754,19 +766,29 @@ function StepManual({ state, patch }) {
     `인증 ${certNames.length ? certNames.join('·') : '없음'}`,
   ]
 
+  const isNew = !!state.company?.newLicense
   return (
     <Section title="품질매뉴얼" desc="ISO 13485 / KGMP 조항 구조로 작성합니다. 시작 방식을 고르고, 우리 회사 매뉴얼에 포함할 장(章)을 구성하세요.">
-      <div className="grid sm:grid-cols-2 gap-3 mb-4">
+      {isNew && (
+        <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <Info size={14} className="shrink-0 mt-0.5" style={{ color: '#1E40AF' }} />
+          <span className="text-[12px]" style={{ color: '#1E40AF' }}>신규 회사는 아직 조직·제품 운영 경험이 없어 지금 결정하기 어려울 수 있습니다. 아래 <b>"추후 작성"</b>을 선택하면 목차만 기본값으로 남겨두고, 실제 내용은 온보딩 완료 후 준비되는 대로 작성할 수 있습니다.</span>
+        </div>
+      )}
+      <div className="grid sm:grid-cols-3 gap-3 mb-4">
         {[
           { id: 'ai', icon: Sparkles, title: 'AI 초안으로 시작', desc: '조직도·제품·인증 정보를 바탕으로 초안을 자동 작성합니다. 검토만 하면 됩니다.' },
           { id: 'manual', icon: FileText, title: '직접 작성', desc: '빈 템플릿에서 직접 작성합니다.' },
+          { id: 'later', icon: Clock, title: '추후 작성', desc: '지금은 목차만 정해두고, 실제 내용은 온보딩 완료 후 준비되는 대로 작성합니다.' },
         ].map((o) => {
           const Icon = o.icon
           const on = m.mode === o.id
+          const recommended = isNew && o.id === 'later' && !m.mode
           return (
             <button key={o.id} onClick={() => set('mode', o.id)}
-              className={`p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-              <div className="flex items-center gap-2 mb-1 font-medium text-slate-800"><Icon size={16} className={o.id === 'ai' ? 'text-violet-600' : 'text-slate-500'} /> {o.title}</div>
+              className={`relative p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 bg-emerald-50' : recommended ? 'border-sky-300 bg-sky-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
+              {recommended && <span className="absolute -top-2 right-3 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-500 text-white font-medium">추천</span>}
+              <div className="flex items-center gap-2 mb-1 font-medium text-slate-800"><Icon size={16} className={o.id === 'ai' ? 'text-violet-600' : o.id === 'later' ? 'text-sky-600' : 'text-slate-500'} /> {o.title}</div>
               <div className="text-[12px] text-slate-500">{o.desc}</div>
             </button>
           )
@@ -821,6 +843,7 @@ function StepProcedures({ state, setState }) {
   const [name, setName] = useState('')
   const items = state.procedures
   const applicable = items.filter((p) => p.applicable).length
+  const isNew = !!state.company?.newLicense
   const setApplicable = (id, v) => setState((s) => ({ ...s, procedures: s.procedures.map((p) => (p.id === id ? { ...p, applicable: v } : p)) }))
   const addCustom = () => {
     const n = name.trim()
@@ -832,6 +855,12 @@ function StepProcedures({ state, setState }) {
 
   return (
     <Section title="절차서 구성" desc="회사마다 이름·순서가 다르고 추가·제외될 수 있습니다. 우리 회사에 해당하는 절차서만 남기세요.">
+      {isNew && (
+        <div className="mb-3 flex items-start gap-2 p-2.5 rounded-lg" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <Clock size={14} className="shrink-0 mt-0.5" style={{ color: '#1E40AF' }} />
+          <span className="text-[12px]" style={{ color: '#1E40AF' }}>신규 회사는 아직 어떤 절차서가 필요한지 판단하기 어려울 수 있습니다. 기본 목록을 그대로 두고 다음 단계로 진행해도 됩니다 — 실제 절차서 내용 작성은 온보딩 완료 후 <b>문서 관리 대장</b> 화면에서 준비되는 대로 진행하시면 됩니다.</span>
+        </div>
+      )}
       <div className="flex items-center gap-3 mb-3 text-[12.5px]">
         <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">해당 {applicable}</span>
         <span className="px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">비해당 {items.length - applicable}</span>

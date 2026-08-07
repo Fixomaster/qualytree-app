@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
 Home,
@@ -24,6 +24,29 @@ Building2,
 import Logo from './Logo'
 import { auth } from '../lib/auth'
 import { menuPermissions } from '../lib/menuPermissions'
+import { deptAuth, DEPT_LIST } from '../lib/deptAuth'
+
+// 온보딩 STEP3(조직도)에서 등록한 부서 이름을 읽어, 뷰 전환 목록(DEPT_LIST)을 회사 실제
+// 조직에 맞춰 추려낸다. 매칭되는 게 거의 없으면(예: 온보딩 전) 전체 목록을 그대로 보여준다.
+function loadOnboardingDeptNames() {
+  try {
+    const raw = localStorage.getItem('qualytree.onboarding')
+    if (!raw) return []
+    const ob = JSON.parse(raw)
+    return (ob.departments || []).map((d) => d.name).filter(Boolean)
+  } catch { return [] }
+}
+function relevantDeptOptions() {
+  const names = loadOnboardingDeptNames()
+  if (!names.length) return DEPT_LIST
+  const norm = (s) => (s || '').replace(/[·\s]/g, '')
+  const hit = (label) => names.some((n) => {
+    const a = norm(n); const b = norm(label)
+    return a.includes(b) || b.includes(a) || a.includes(b.slice(0, 2))
+  })
+  const filtered = DEPT_LIST.filter((d) => d.code === 'ALL' || hit(d.label))
+  return filtered.length > 1 ? filtered : DEPT_LIST
+}
 
 const DOMAINS = [
 {
@@ -122,6 +145,17 @@ export default function Sidebar() {
 const loc = useLocation()
 const cur = auth.current()
 const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
+
+// #6/#7: 부서 보기 전환 — CEO/매니저가 부서별 메뉴·대시보드를 바꿔볼 수 있도록.
+// 옵션은 온보딩 조직도에 등록된 부서 기준으로 추려 "부서명이 너무 많다"는 문제를 줄인다.
+const canSwitchDept = (cur?.level ?? 0) >= 2
+const [dept, setDeptState] = useState(() => deptAuth.getDepartment() || 'ALL')
+useEffect(() => {
+const handler = (e) => { if (e.detail) setDeptState(e.detail) }
+window.addEventListener('qt-dept-changed', handler)
+return () => window.removeEventListener('qt-dept-changed', handler)
+}, [])
+const deptOptions = useMemo(() => relevantDeptOptions(), [])
 
 const allowed = useMemo(() => menuPermissions.getAllowedDomains(userId), [userId])
 const visibleDomains = DOMAINS.filter(d => allowed.includes(d.label))
@@ -406,6 +440,23 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 </>
 )}
 
+{canSwitchDept && (
+<div className="px-3 mt-4 mb-2">
+<div className="font-mono text-[10px] tracking-[0.2em] uppercase mb-1.5" style={{ color: 'var(--ink-faint)' }}>
+부서 보기 전환
+</div>
+<select
+value={dept}
+onChange={(e) => deptAuth.setDepartment(e.target.value)}
+className="w-full px-2.5 py-1.5 rounded-lg text-[12px]"
+style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)' }}
+>
+{deptOptions.map((d) => (
+<option key={d.code} value={d.code}>{d.icon} {d.label}</option>
+))}
+</select>
+</div>
+)}
 <div
 className="px-3 mt-4 mb-2 font-mono text-[10px] tracking-[0.2em] uppercase"
 style={{ color: 'var(--ink-faint)' }}
