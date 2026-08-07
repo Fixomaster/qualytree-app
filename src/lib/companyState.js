@@ -13,6 +13,7 @@ function defaultState() {
     documents: [],
     roleDocs: [],
     qualityManager: null,
+    naCategories: [], // 회사문서함 중 "해당 없음" 처리한 카테고리 목록 (예: 제조업 아닌 회사의 수입업 허가증)
   }
 }
 
@@ -55,6 +56,17 @@ export const QM_STATUS = {
   DRAFT: '지정대기',
   APPROVED: '승인완료',
 }
+
+// 품질책임자(제조관리자) 자격 요건 — 의료기기법 시행규칙 [별표9] 품질관리 담당자의 자격기준 요약.
+// 회사가 실제 자격증·경력증명서 등을 보유하고 있음을 스스로 체크하는 요건 목록으로,
+// 이전에는 자격증·임명장 파일 첨부를 승인 조건으로 요구했으나, 파일 유무보다
+// 법정 요건 충족 여부를 명시적으로 확인하는 방식으로 변경한다.
+export const QM_REQUIREMENTS = [
+  { id: 'qualification', label: '의료기기법 시행규칙 [별표9]에 따른 품질관리 담당자 자격기준(의사·치과의사·한의사·약사 또는 관련 학과 학위 + 실무경력 등)을 충족합니다.' },
+  { id: 'independence', label: '품질업무 외의 다른 업무(생산·영업 등)에 대한 독립성이 확보되어, 품질에 관한 사항에 대해 독자적으로 판단·보고할 수 있습니다.' },
+  { id: 'authority', label: '부적합품 처리, 시정·예방조치(CAPA), 문서 승인 등 품질경영시스템 운영에 필요한 권한을 대표이사로부터 위임받았습니다.' },
+  { id: 'training', label: 'GMP·ISO 13485 등 관련 법령 및 품질경영시스템에 대한 교육을 이수하였거나 이수할 예정입니다.' },
+]
 
 export const companyDocs = {
   load,
@@ -100,6 +112,22 @@ export const companyDocs = {
     return category ? s.documents.filter((d) => d.category === category) : s.documents
   },
 
+  // ── 회사문서함 항목별 "해당 없음" 처리 ──
+  // 9개 고정 항목 중 회사 업태(제조업/수입업 등)에 따라 해당하지 않는 문서가 있을 수 있어,
+  // 등록하지 않아도 완료로 집계되도록 사용자가 직접 표시할 수 있게 한다.
+  toggleNA(category) {
+    const s = load()
+    const set = new Set(s.naCategories || [])
+    if (set.has(category)) set.delete(category)
+    else set.add(category)
+    s.naCategories = [...set]
+    save(s)
+    return s
+  },
+  isNA(category) {
+    return (load().naCategories || []).includes(category)
+  },
+
   // ── 부서별 직무기술서·권한책임서 ──
   upsertRoleDoc(departmentId, departmentName, patch) {
     const s = load()
@@ -125,7 +153,7 @@ export const companyDocs = {
   // ── 품질책임자 지정 ──
   setQualityManager(patch) {
     const s = load()
-    const cur = s.qualityManager || { name: '', title: '', appointedDate: '', certFileId: null, certFileName: '', letterFileId: null, letterFileName: '', status: QM_STATUS.DRAFT, approvedBy: '', approvedAt: '' }
+    const cur = s.qualityManager || { name: '', title: '', appointedDate: '', requirements: [], status: QM_STATUS.DRAFT, approvedBy: '', approvedAt: '' }
     s.qualityManager = { ...cur, ...patch, status: QM_STATUS.DRAFT, approvedBy: '', approvedAt: '' }
     save(s)
     return s
@@ -133,8 +161,13 @@ export const companyDocs = {
   approveQualityManager(approverName) {
     const s = load()
     if (!s.qualityManager) return s
-    if (!s.qualityManager.certFileId || !s.qualityManager.letterFileId) {
-      throw new Error('제조관리자 자격증과 임명장을 모두 첨부해야 승인할 수 있습니다.')
+    const checked = new Set(s.qualityManager.requirements || [])
+    const allChecked = QM_REQUIREMENTS.every((r) => checked.has(r.id))
+    if (!s.qualityManager.name?.trim()) {
+      throw new Error('품질책임자 성명을 입력해야 승인할 수 있습니다.')
+    }
+    if (!allChecked) {
+      throw new Error('품질책임자 자격 요건 4개 항목을 모두 확인·체크해야 승인할 수 있습니다.')
     }
     s.qualityManager = { ...s.qualityManager, status: QM_STATUS.APPROVED, approvedBy: approverName, approvedAt: new Date().toISOString() }
     save(s)

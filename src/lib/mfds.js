@@ -90,6 +90,13 @@ export const mfds = {
     return list.find((it) => it.no === no) || null
   },
 
+  // 품목명(정확히 일치)으로 전체 조회 — 같은 품목명이 여러 등급으로 존재하는 경우
+  // (예: 골절합용나사는 3등급·4등급 품목이 각각 등록됨) 사용 가능한 등급을 판별할 때 사용
+  findAllByName(name) {
+    const list = MEM || (readCache() || {}).items || []
+    return list.filter((it) => it.name === name)
+  },
+
   isReady() {
     return !!(MEM && MEM.length) || !!((readCache() || {}).items || []).length
   },

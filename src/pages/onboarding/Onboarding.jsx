@@ -9,6 +9,7 @@ import { mfds } from '../../lib/mfds'
 import { classifyProduct } from '../../lib/aiClassify'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
 import { saveOrgChartImage, loadOrgChartImage } from '../../lib/orgChartImage'
+import { auth } from '../../lib/auth'
 
 const STORE_KEY = 'qualytree.onboarding'
 
@@ -900,6 +901,27 @@ function StepAccounts({ state, setState }) {
   const seats = Number(state.plan?.seats) || 0 // 0 => 무제한 (플랜에 좌석 제한이 설정된 경우에만 적용)
   const used = state.members.length
   const full = seats > 0 && used >= seats
+
+  // #11 — 최초 진입 시 구성원 목록이 비어 있으면, 지금 가입을 진행 중인 관리자(대표이사)를
+  // 첫 구성원으로 기본 등록해준다. "담당자(계정) 최소 1명"이라는 이 단계의 진행 조건과도
+  // 자연스럽게 맞물려, 매번 대표자 본인을 수동으로 다시 입력하지 않아도 된다.
+  useEffect(() => {
+    if (state.members.length > 0) return
+    const me = auth.current()
+    if (!me?.email) return
+    setState((s) => (s.members.length > 0 ? s : {
+      ...s,
+      members: [{
+        id: uid(),
+        name: me.name || s.company?.ceo || '',
+        dept: s.departments[0]?.name || '',
+        role: 'MANAGER',
+        email: me.email,
+      }],
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const addMember = () => {
     if (full) return
     setState((s) => ({

@@ -697,6 +697,60 @@ export function printAuditChecklist(checks = {}) {
   openPrint(pageWrapper('AUD-CL-001', 'ISO 13485 내부감사 체크리스트', 'ISO 13485 §8.2.2', body))
 }
 
+// ── 품질책임자(제조관리자) 임명장 ────────────────────────────
+// #19 — 승인 시 자격증·임명장 파일을 수동 첨부하도록 요구하는 대신,
+// 지정 정보(성명·직위·지정일)와 승인 정보를 바탕으로 임명장을 즉시 자동 생성해 출력한다.
+export function printQmAppointmentLetter(qm) {
+  const company = getCompanyName()
+  const html = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>임명장 — ${company}</title>
+<style>
+  @page { size: A4; margin: 30mm 26mm; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Malgun Gothic', 'Noto Sans KR', Arial, sans-serif; color: #1a1a1a; }
+  .frame { border: 3px double #1a3a2a; padding: 48px 40px; min-height: 680px; position: relative; }
+  .letter-title { text-align: center; font-size: 30pt; font-weight: 800; letter-spacing: 0.3em; color: #1a3a2a; margin-bottom: 44px; }
+  .letter-body { font-size: 13pt; line-height: 2.1; text-align: center; margin-bottom: 56px; }
+  .letter-name { font-size: 17pt; font-weight: 800; }
+  .letter-role { font-size: 13pt; font-weight: 600; margin: 18px 0 0; }
+  .letter-desc { font-size: 11.5pt; color: #444; line-height: 1.9; margin-top: 28px; }
+  .letter-basis { font-size: 9.5pt; color: #777; margin-top: 10px; }
+  .letter-footer { text-align: center; margin-top: 60px; }
+  .letter-date { font-size: 12pt; margin-bottom: 26px; }
+  .letter-company { font-size: 15pt; font-weight: 800; color: #1a3a2a; letter-spacing: 0.08em; }
+  .letter-ceo { font-size: 12.5pt; margin-top: 10px; }
+  .stamp-hint { font-size: 9pt; color: #aaa; margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <div class="letter-title">임&nbsp;&nbsp;명&nbsp;&nbsp;장</div>
+  <div class="letter-body">
+    <div class="letter-name">${qm.name || '-'}</div>
+    <div class="letter-role">${qm.title ? qm.title + ' · ' : ''}품질책임자(제조관리자)</div>
+    <div class="letter-desc">
+      위 사람을 「의료기기법」 및 ISO 13485:2016 §5.5.2에 따라<br>
+      우리 회사의 품질책임자(제조관리자)로 임명합니다.
+    </div>
+    <div class="letter-basis">지정일: ${qm.appointedDate || '-'} · 승인일: ${qm.approvedAt ? new Date(qm.approvedAt).toLocaleDateString('ko-KR') : '-'}</div>
+  </div>
+  <div class="letter-footer">
+    <div class="letter-date">${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+    <div class="letter-company">${company}</div>
+    <div class="letter-ceo">대표이사 ${qm.approvedBy || ''} (인)</div>
+    <div class="stamp-hint">본 임명장은 Qualytree QMS에서 승인 정보에 따라 자동 생성되었습니다.</div>
+  </div>
+</div>
+<script>window.onload=()=>{setTimeout(()=>{window.print()},300)}<\/script>
+</body>
+</html>`
+  openPrint(html)
+}
+
 // ── 프린트 창 열기 ────────────────────────────────────────────
 function openPrint(html) {
   const w = window.open('', '_blank', 'width=860,height=1000,scrollbars=yes')

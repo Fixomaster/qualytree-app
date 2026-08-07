@@ -12,15 +12,18 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  Printer,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
-import { companyDocs, DOC_CATEGORY, QM_STATUS } from '../../lib/companyState'
+import { companyDocs, DOC_CATEGORY, QM_STATUS, QM_REQUIREMENTS } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
 import { saveOrgChartImage, loadOrgChartImage } from '../../lib/orgChartImage'
+import { printQmAppointmentLetter } from '../../lib/pdfPrint'
 
 export default function CompanyHub() {
   const user = auth.current()
@@ -59,7 +62,7 @@ export default function CompanyHub() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           <StatCard label="기업정보" value={profileDone ? '입력완료' : '미입력'} hint="회사명·사업자번호·대표자" icon={IdCard} tone={profileDone ? undefined : 'amber'} />
-          <StatCard label="회사 문서" value={`${Object.values(DOC_CATEGORY).filter((cat) => s.documents.some((d) => d.category === cat)).length} / ${Object.values(DOC_CATEGORY).length}`} hint="필수 항목 등록 현황" icon={Building2} tone={Object.values(DOC_CATEGORY).every((cat) => s.documents.some((d) => d.category === cat)) ? undefined : 'amber'} />
+          <StatCard label="회사 문서" value={`${Object.values(DOC_CATEGORY).filter((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)).length} / ${Object.values(DOC_CATEGORY).length}`} hint="필수 항목 등록 현황 (해당없음 포함)" icon={Building2} tone={Object.values(DOC_CATEGORY).every((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)) ? undefined : 'amber'} />
           <StatCard label="부서" value={departments.length} hint="직무기술서 대상" icon={Users} />
           <StatCard label="품질책임자" value={qm?.status === QM_STATUS.APPROVED ? '승인완료' : qm ? '지정대기' : '미지정'} hint="제조관리자 지정 상태" icon={BadgeCheck} tone={qm?.status === QM_STATUS.APPROVED ? undefined : 'amber'} />
         </div>
@@ -71,7 +74,7 @@ export default function CompanyHub() {
           <TabButton active={tab === 'qm'} onClick={() => setTab('qm')} icon={BadgeCheck} label="품질책임자 지정" en="QM APPOINTMENT" count={null} />
         </div>
 
-        {tab === 'profile' && <ProfileTab key={'profile' + tick} company={company} onAction={showToast} refresh={refresh} />}
+        {tab === 'profile' && <ProfileTab key={'profile' + tick} company={company} members={ob?.members || []} onAction={showToast} refresh={refresh} />}
         {tab === 'docs' && <CompanyDocsTab key={tick} onAction={showToast} refresh={refresh} />}
         {tab === 'org' && <OrgTab key={'org' + tick} departments={departments} onAction={showToast} refresh={refresh} />}
         {tab === 'qm' && <QmTab key={'qm' + tick} qm={qm} onAction={showToast} refresh={refresh} />}
@@ -220,10 +223,14 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
 /* ================================================================
    기업정보 — 의료기기 제조업체 기본정보 (onboarding.company 와 연동)
    ================================================================ */
-function ProfileTab({ company, onAction, refresh }) {
+function ProfileTab({ company, members, onAction, refresh }) {
   const canEdit = permissions.can('onb.company.edit')
+  // #10 직원 수 기본값 — 온보딩(계정 발급 단계)에서 등록한 구성원 수를 기본값으로 채워주되,
+  // 회사가 직접 입력/수정한 값이 있으면 그 값을 그대로 존중한다(자동 채움은 최초 1회뿐).
+  const memberCount = (members || []).length
   const [form, setForm] = useState({
-    name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '', employeeCount: '',
+    name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '',
+    employeeCount: company.employeeCount || (memberCount > 0 ? String(memberCount) : ''),
     ...company,
   })
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -256,7 +263,10 @@ function ProfileTab({ company, onAction, refresh }) {
         <Field label="사업자등록번호" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
         <Field label="제조업 허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="제0000호" />
         <Field label="대표자 (대표이사)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
-        <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
+        <div>
+          <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
+          {memberCount > 0 && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>온보딩에 등록된 구성원 {memberCount}명 기준 기본값 — 직접 수정할 수 있습니다.</div>}
+        </div>
         <Field label="본사 주소" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />
         <Field label="제조소 주소 (본사와 다른 경우)" value={form.site} onChange={(v) => setF('site', v)} className="sm:col-span-2" />
         <Field label="전화번호" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
@@ -302,6 +312,14 @@ const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDat
 function CompanyDocsTab({ onAction, refresh }) {
   const canEdit = permissions.can('company.docs.edit')
   const [list, setList] = useState(() => companyDocs.getDocuments())
+  const [naList, setNaList] = useState(() => companyDocs.load().naCategories || [])
+
+  const toggleNA = (category) => {
+    if (!requirePermission('company.docs.edit')) return
+    companyDocs.toggleNA(category)
+    setNaList(companyDocs.load().naCategories || [])
+    refresh()
+  }
 
   const save = (form) => {
     if (!requirePermission('company.docs.edit')) return false
@@ -334,7 +352,7 @@ function CompanyDocsTab({ onAction, refresh }) {
 
   const byCategory = {}
   list.forEach((d) => { (byCategory[d.category] = byCategory[d.category] || []).push(d) })
-  const registeredCount = CATEGORY_ORDER.filter((cat) => (byCategory[cat] || []).length > 0).length
+  const registeredCount = CATEGORY_ORDER.filter((cat) => (byCategory[cat] || []).length > 0 || naList.includes(cat)).length
   const customDocs = list.filter((d) => !CATEGORY_ORDER.includes(d.category))
 
   return (
@@ -351,6 +369,8 @@ function CompanyDocsTab({ onAction, refresh }) {
           category={cat}
           hint={CATEGORY_HINT[cat]}
           docs={byCategory[cat] || []}
+          na={naList.includes(cat)}
+          onToggleNA={() => toggleNA(cat)}
           canEdit={canEdit}
           onSave={save}
           onDelete={del}
@@ -435,7 +455,7 @@ function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemove
   )
 }
 
-function DocCategoryCard({ category, hint, docs, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
+function DocCategoryCard({ category, hint, docs, na, onToggleNA, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(() => EMPTY_DOC_FOR(category))
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -447,16 +467,28 @@ function DocCategoryCard({ category, hint, docs, canEdit, onSave, onDelete, onAt
   }
 
   return (
-    <div className="card-base p-4" style={{ borderColor: registered ? 'var(--line)' : 'var(--amber)' }}>
+    <div className="card-base p-4" style={{ borderColor: na ? 'var(--line)' : registered ? 'var(--line)' : 'var(--amber)', opacity: na ? 0.7 : 1 }}>
       <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
         <div className="min-w-0">
           <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{category}</div>
           <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>{hint}</div>
         </div>
-        <Badge text={registered ? `등록됨 · ${docs.length}건` : '미등록'} tone={registered ? 'emerald' : 'amber'} />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <label className="flex items-center gap-1 text-[10.5px] cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>
+            <input type="checkbox" checked={!!na} onChange={onToggleNA} disabled={!canEdit} style={{ accentColor: 'var(--ink-mute)' }} />
+            해당 없음
+          </label>
+          <Badge text={na ? '해당없음' : registered ? `등록됨 · ${docs.length}건` : '미등록'} tone={na ? 'slate' : registered ? 'emerald' : 'amber'} />
+        </div>
       </div>
 
-      {docs.length > 0 && (
+      {na && (
+        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-faint)' }}>
+          우리 회사 업태(제조업/수입업 등)에 해당하지 않는 문서로 표시했습니다. 체크를 해제하면 다시 등록할 수 있습니다.
+        </div>
+      )}
+
+      {!na && docs.length > 0 && (
         <div className="space-y-2 mt-2">
           {docs.map((d) => (
             <div key={d.id} className="p-3 rounded-lg border flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--line)' }}>
@@ -471,10 +503,10 @@ function DocCategoryCard({ category, hint, docs, canEdit, onSave, onDelete, onAt
         </div>
       )}
 
-      {canEdit && !adding && (
+      {canEdit && !adding && !na && (
         <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> {registered ? '문서 추가' : '문서 등록'}</button>
       )}
-      {adding && (
+      {adding && !na && (
         <div className="rounded-lg p-3 mt-2 space-y-3" style={{ background: 'var(--bg-soft)' }}>
           <div className="grid sm:grid-cols-2 gap-3">
             <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder={`예: ${category}`} />
@@ -572,7 +604,16 @@ function RoleDocForm({ dept, canEdit, onAction, refresh }) {
 
   return (
     <div className="card-base p-4 space-y-3">
-      <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{dept.name} — 직무기술서 · 권한책임서</div>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{dept.name} — 직무기술서 · 권한책임서</div>
+        {/* #16 AI 초안 작성 — 추후 적용 예정. 조직도·제품·인증 정보를 바탕으로 초안을 자동 생성하는 기능은
+            다른 화면(품질매뉴얼 STEP4)에 이미 적용된 패턴을 이 화면에도 확장할 예정이며, 우선 진입점만 마련해둔다. */}
+        <button type="button" disabled title="조직도·부서 정보를 바탕으로 초안을 자동 생성하는 기능을 준비 중입니다."
+          className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1.5 rounded-lg opacity-50 cursor-not-allowed"
+          style={{ border: '1px solid var(--line)', color: 'var(--ink-faint)' }}>
+          <Sparkles size={12} /> AI 초안 작성 (준비 중)
+        </button>
+      </div>
       <TextAreaField label="직무기술서" value={jobDescription} onChange={setJobDescription} minHeight={120} placeholder="담당 업무·필요 자격·보고체계 등을 기술하세요." />
       <TextAreaField label="권한 및 책임서" value={authorityResponsibility} onChange={setAuthorityResponsibility} minHeight={120} placeholder="의사결정 권한 범위·품질 관련 책임 사항을 기술하세요. (ISO 13485 §5.5.1)" />
       {canEdit && (
@@ -588,9 +629,16 @@ function RoleDocForm({ dept, canEdit, onAction, refresh }) {
 function QmTab({ qm, onAction, refresh }) {
   const canEdit = permissions.can('company.qm.edit')
   const canApprove = permissions.can('company.qm.approve')
-  const cur = qm || { name: '', title: '', appointedDate: '', certFileId: null, certFileName: '', letterFileId: null, letterFileName: '', status: QM_STATUS.DRAFT }
+  const cur = qm || { name: '', title: '', appointedDate: '', requirements: [], status: QM_STATUS.DRAFT }
   const [form, setForm] = useState(cur)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const reqSet = new Set(form.requirements || [])
+  const toggleReq = (id) => {
+    const next = new Set(form.requirements || [])
+    if (next.has(id)) next.delete(id); else next.add(id)
+    setF('requirements', [...next])
+  }
+  const allReqChecked = QM_REQUIREMENTS.every((r) => reqSet.has(r.id))
 
   const save = () => {
     if (!requirePermission('company.qm.edit')) return
@@ -600,40 +648,38 @@ function QmTab({ qm, onAction, refresh }) {
     refresh()
   }
 
-  const attachCert = async (file) => {
-    const fileId = await fileStore.saveFile(file)
-    companyDocs.setQualityManager({ ...form, certFileId: fileId, certFileName: file.name })
-    onAction('제조관리자 자격증이 첨부되었습니다.')
-    refresh()
-  }
-  const attachLetter = async (file) => {
-    const fileId = await fileStore.saveFile(file)
-    companyDocs.setQualityManager({ ...form, letterFileId: fileId, letterFileName: file.name })
-    onAction('임명장이 첨부되었습니다.')
-    refresh()
-  }
-
   const approve = () => {
     if (!requirePermission('company.qm.approve')) return
+    // 승인 전에 화면에 입력된 최신 값(성명·요건 체크)을 먼저 저장해 승인 로직이 참조하도록 한다.
+    companyDocs.setQualityManager(form)
     const approver = auth.current()
     try {
-      companyDocs.approveQualityManager(approver?.name || '승인자')
-      if (qm?.name) onboarding.updateCompany({ qmRep: qm.name })
-      onAction('품질책임자 지정이 승인되었습니다.')
+      const saved = companyDocs.approveQualityManager(approver?.name || '승인자')
+      if (form.name) onboarding.updateCompany({ qmRep: form.name })
+      onAction('품질책임자 지정이 승인되었습니다. 임명장을 자동 생성합니다.')
       refresh()
+      // #19 승인 후 임명장 자동 발급 — 별도 파일 첨부 없이 지정·승인 정보로 즉시 인쇄용 임명장을 생성한다.
+      if (saved?.qualityManager) printQmAppointmentLetter(saved.qualityManager)
     } catch (e) {
       window.alert((e && e.message) || String(e))
     }
   }
 
+  const reissueLetter = () => {
+    if (qm) printQmAppointmentLetter(qm)
+  }
+
   return (
     <div className="card-base p-4 space-y-3">
       <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>품질책임자(제조관리자) 지정</div>
-      <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>KGMP 제6조 / ISO 13485 §5.5.2 — 제조관리자 자격증과 임명장을 첨부해야 승인할 수 있습니다.</div>
+      <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>KGMP 제6조 / ISO 13485 §5.5.2 — 자격 요건 4개 항목을 모두 확인·체크해야 승인할 수 있습니다.</div>
 
       {qm?.status === QM_STATUS.APPROVED && (
-        <div className="text-[12px] p-2.5 rounded-lg" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-          <CheckCircle2 size={13} className="inline mr-1" /> {qm.approvedBy} 승인 · {qm.approvedAt ? new Date(qm.approvedAt).toLocaleString('ko-KR') : ''}
+        <div className="text-[12px] p-2.5 rounded-lg flex items-center justify-between gap-2 flex-wrap" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+          <span><CheckCircle2 size={13} className="inline mr-1" /> {qm.approvedBy} 승인 · {qm.approvedAt ? new Date(qm.approvedAt).toLocaleString('ko-KR') : ''}</span>
+          <button onClick={reissueLetter} className="inline-flex items-center gap-1 text-[11.5px] font-medium px-2 py-1 rounded-md" style={{ background: '#fff', border: '1px solid var(--moss)', color: 'var(--moss)' }}>
+            <Printer size={12} /> 임명장 다시 보기
+          </button>
         </div>
       )}
       {qm && qm.status !== QM_STATUS.APPROVED && (
@@ -647,14 +693,25 @@ function QmTab({ qm, onAction, refresh }) {
         <Field label="직위" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: 품질경영팀장" />
         <Field label="지정일" type="date" value={form.appointedDate} onChange={(v) => setF('appointedDate', v)} />
       </div>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <SingleFileAttach label="제조관리자 자격증" fileId={form.certFileId} fileName={form.certFileName} onAttach={attachCert} onRemove={() => { companyDocs.setQualityManager({ ...form, certFileId: null, certFileName: '' }); refresh() }} canEdit={canEdit} />
-        <SingleFileAttach label="임명장" fileId={form.letterFileId} fileName={form.letterFileName} onAttach={attachLetter} onRemove={() => { companyDocs.setQualityManager({ ...form, letterFileId: null, letterFileName: '' }); refresh() }} canEdit={canEdit} />
+
+      <div className="rounded-lg p-3" style={{ background: 'var(--bg-soft)' }}>
+        <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>품질책임자 자격 요건 확인 (의료기기법 시행규칙 [별표9])</div>
+        <div className="space-y-2">
+          {QM_REQUIREMENTS.map((r) => (
+            <label key={r.id} className="flex items-start gap-2 cursor-pointer select-none">
+              <input type="checkbox" className="mt-0.5" checked={reqSet.has(r.id)} onChange={() => toggleReq(r.id)} disabled={!canEdit} />
+              <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{r.label}</span>
+            </label>
+          ))}
+        </div>
+        {!allReqChecked && (
+          <div className="text-[11px] mt-2" style={{ color: 'var(--ink-faint)' }}>4개 항목을 모두 체크해야 지정 승인이 가능합니다.</div>
+        )}
       </div>
 
       <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
         {canEdit && <button onClick={save} className="btn-ghost text-[12.5px]">정보 저장</button>}
-        {canApprove && <button onClick={approve} className="btn-primary text-[12.5px]"><CheckCircle2 size={14} /> 지정 승인</button>}
+        {canApprove && <button onClick={approve} disabled={!form.name?.trim() || !allReqChecked} className="btn-primary text-[12.5px] disabled:opacity-40"><CheckCircle2 size={14} /> 지정 승인 · 임명장 발급</button>}
       </div>
     </div>
   )
