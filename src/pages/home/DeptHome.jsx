@@ -7,7 +7,7 @@ import {
   ChevronRight, RefreshCw, Bell, TrendingUp,
   BarChart2, Workflow, ShieldCheck, Search,
   FileText, Target, Calendar, Users,
-  ArrowRight, Zap,
+  ArrowRight, Zap, Megaphone,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
