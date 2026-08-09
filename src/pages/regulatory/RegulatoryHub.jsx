@@ -80,6 +80,17 @@ const LS_KEY = 'qualytree.regulatory_products'
 const loadProducts = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]') } catch { return [] } }
 const saveProducts = l => localStorage.setItem(LS_KEY, JSON.stringify(l))
 
+// #2 — 제조업+수입업을 겸업하거나 수입 거래처가 여러 곳인 업체는 허가증을 업체(허가권자/거래처)별로
+// 구분해 관리해야 하므로, 품목마다 소지 업체명을 태그하고 자주 쓰는 업체명은 자동완성으로 재사용한다.
+const SITES_KEY = 'qualytree.regulatory_sites'
+const loadSites = () => { try { return JSON.parse(localStorage.getItem(SITES_KEY)||'[]') } catch { return [] } }
+function addSite(name) {
+  const n = (name||'').trim()
+  if (!n) return
+  const list = loadSites()
+  if (!list.includes(n)) { list.push(n); localStorage.setItem(SITES_KEY, JSON.stringify(list)) }
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 export default function RegulatoryHub() {
   const user = auth.current()
@@ -87,6 +98,7 @@ export default function RegulatoryHub() {
   const [products, setProducts] = useState(loadProducts)
 
   function handleSave(product) {
+    addSite(product.siteName)
     const list = [...products, { ...product, id: Date.now(), savedAt: new Date().toISOString() }]
     setProducts(list); saveProducts(list); setTab(0)
   }
@@ -98,12 +110,14 @@ export default function RegulatoryHub() {
   // #20 — 이미 MFDS 허가를 취득한 품목은 동등성비교/서류준비 마법사를 거칠 필요가 없으므로,
   // 품목 기본정보 + 허가번호만 입력해 바로 "허가 완료" 목록에 등록할 수 있는 경로를 별도로 둔다.
   function handleRegisterExisting(data) {
+    addSite(data.siteName)
     const id = Date.now()
     const product = {
       productName: data.productName, categoryName: data.categoryName || '', productCode: data.productCode || '',
       grade: data.grade || '', isImport: !!data.isImport, fieldType: '',
+      siteName: data.siteName || '',
       compareName:'', comparePermit:'', compareMfg:'',
-      comparison:{}, classification:null, classLabel:'', docList:[],
+      comparison:{}, classification:null, classLabel:'', docList:[], licenseChanges:[],
       licenseNo: data.licenseNo || '', licenseDate: data.licenseDate || '',
       id, savedAt: new Date().toISOString(),
     }
@@ -157,6 +171,22 @@ export default function RegulatoryHub() {
     }
   }
 
+  // #1 — 허가 완료 품목도 사용목적·원재료·제조소 등 허가사항이 바뀌면 "허가변경"을 신청해야 하는데
+  // 기존에는 그런 경로가 없었다. 변경 이력을 별도로 남기고(무엇을·왜·언제 바꿨는지), 새 허가번호가
+  // 발급되면 현재 허가번호도 함께 갱신한다.
+  function handleAmend(id, record) {
+    const list = products.map(p => {
+      if (p.id !== id) return p
+      const changes = Array.isArray(p.licenseChanges) ? p.licenseChanges : []
+      const entry = { ...record, id: Date.now(), createdAt: new Date().toISOString() }
+      const next = { ...p, licenseChanges: [entry, ...changes] }
+      if (record.newLicenseNo && record.newLicenseNo.trim()) next.licenseNo = record.newLicenseNo.trim()
+      if (record.changeDate) next.licenseDate = record.changeDate
+      return next
+    })
+    setProducts(list); saveProducts(list)
+  }
+
   return (
     <AppLayout user={user} title="인허가 허브"
       subtitle="MFDS 고시 제2026-6호 별표7 — 품목별 기술문서 제출 범위 자동 매핑">
@@ -174,7 +204,7 @@ export default function RegulatoryHub() {
           ))}
         </div>
 
-        {tab===0 && <ProductList products={products} onNew={()=>setTab(1)} onDelete={handleDelete} onGrant={handleGrant} onRegisterExisting={handleRegisterExisting} />}
+        {tab===0 && <ProductList products={products} onNew={()=>setTab(1)} onDelete={handleDelete} onGrant={handleGrant} onRegisterExisting={handleRegisterExisting} onAmend={handleAmend} />}
         {tab===1 && <WizardForm onSave={handleSave} onCancel={()=>setTab(0)} />}
       </div>
     </AppLayout>
@@ -195,11 +225,16 @@ function productProgress(p) {
   return { total, doneCount, complete, pct, nextDoc }
 }
 
-function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting }) {
+function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting, onAmend }) {
   const [selected, setSelected] = useState(null)
   const [subTab, setSubTab] = useState('progress') // 'progress' | 'done'
   const [grantForm, setGrantForm] = useState(null) // { licenseNo, licenseDate } — 허가증 등록 편집 중
   const [existingOpen, setExistingOpen] = useState(false) // #20 — 기존 허가증 등록 모달
+  const [amendForm, setAmendForm] = useState(null) // #1 — 허가변경 신청 편집 중
+  // #2 — 제조업+수입업 겸업 또는 복수 수입거래처 업체는 허가증을 업체별로 구분해 봐야 하므로,
+  // 등록된 품목에 서로 다른 업체명이 2개 이상 있을 때만 업체 필터를 노출한다.
+  const [siteFilter, setSiteFilter] = useState('all')
+  const siteOptions = useMemo(() => Array.from(new Set(products.map(p => (p.siteName||'').trim()).filter(Boolean))), [products])
 
   if (products.length === 0) {
     return (
@@ -252,6 +287,7 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
               <p style={{ fontSize:12, color:'var(--ink-faint)' }}>
                 {p.productCode} · {p.grade ? p.grade+'등급' : '등급 미상'}
                 {p.isImport ? ' · 수입' : ' · 제조'}
+                {p.siteName ? ' · 업체: '+p.siteName : ''}
                 {' · '}{new Date(p.savedAt).toLocaleDateString('ko-KR')}
               </p>
             </div>
@@ -280,6 +316,12 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
               {!p.isImport && (
                 <p style={{ fontSize:11, color:'#059669', marginTop:6 }}>제조 품목 — 설계·개발(제품·공정)의 동일 품목 "제조허가 취득" 단계 및 허가번호에도 자동 반영되었습니다.</p>
               )}
+              {amendForm?.id !== p.id && (
+                <button onClick={() => setAmendForm({ id:p.id, reason:'', detail:'', newLicenseNo:'', changeDate:new Date().toISOString().slice(0,10) })}
+                  style={{ fontSize:11.5, color:'#047857', background:'none', border:'1px solid #A7F3D0', borderRadius:6, padding:'4px 10px', cursor:'pointer', marginTop:10 }}>
+                  허가변경 신청
+                </button>
+              )}
             </div>
           ) : grantForm?.id === p.id ? (
             <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'12px 16px', marginBottom:20 }}>
@@ -307,6 +349,58 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
                 style={{ fontSize:11.5, color:'#92400e', background:'#fff', border:'1px solid #FDE68A', borderRadius:6, padding:'4px 10px', cursor:'pointer', flexShrink:0 }}>
                 허가증 등록
               </button>
+            </div>
+          )}
+
+          {/* #1 — 허가변경 신청 입력 폼: 무엇을·왜 바꾸는지 기록하고, 새 허가번호가 나오면 갱신한다 */}
+          {amendForm?.id === p.id && (
+            <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'12px 16px', marginBottom:20 }}>
+              <p style={{ fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 }}>허가변경 신청 등록</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <input className="input-base" style={{ fontSize:12.5 }}
+                  placeholder="변경 사유 (예: 제조소 이전, 원재료 변경, 사용목적 추가 등)"
+                  value={amendForm.reason}
+                  onChange={e => setAmendForm(f => ({ ...f, reason:e.target.value }))} />
+                <textarea className="input-base" rows={2} style={{ fontSize:12.5, resize:'vertical' }}
+                  placeholder="변경 내용 상세"
+                  value={amendForm.detail}
+                  onChange={e => setAmendForm(f => ({ ...f, detail:e.target.value }))} />
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <input className="input-base" style={{ flex:'1 1 180px', fontSize:12.5 }}
+                    placeholder="새 허가번호 (변경 후 재발급된 경우)"
+                    value={amendForm.newLicenseNo}
+                    onChange={e => setAmendForm(f => ({ ...f, newLicenseNo:e.target.value }))} />
+                  <input type="date" className="input-base" style={{ flex:'0 1 160px', fontSize:12.5 }}
+                    value={amendForm.changeDate}
+                    onChange={e => setAmendForm(f => ({ ...f, changeDate:e.target.value }))} />
+                </div>
+                <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+                  <button className="btn-ghost" style={{ fontSize:12.5 }} onClick={() => setAmendForm(null)}>취소</button>
+                  <button className="btn-primary" style={{ fontSize:12.5 }}
+                    disabled={!amendForm.reason.trim()}
+                    onClick={() => { onAmend(p.id, amendForm); setAmendForm(null) }}>
+                    변경사항 저장
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* #1 — 허가변경 이력 */}
+          {Array.isArray(p.licenseChanges) && p.licenseChanges.length > 0 && (
+            <div style={{ marginBottom:20 }}>
+              <p style={{ fontSize:12.5, fontWeight:600, color:'var(--ink)', marginBottom:8 }}>허가변경 이력</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {p.licenseChanges.map(c => (
+                  <div key={c.id} style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:6, padding:'8px 12px', fontSize:12 }}>
+                    <p style={{ fontWeight:600, color:'var(--ink)' }}>
+                      {c.changeDate || new Date(c.createdAt).toLocaleDateString('ko-KR')} · {c.reason}
+                      {c.newLicenseNo ? ' · 신규 허가번호: '+c.newLicenseNo : ''}
+                    </p>
+                    {c.detail && <p style={{ color:'var(--ink-faint)', marginTop:2 }}>{c.detail}</p>}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -352,14 +446,16 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
   }
 
   // #30 — "허가 완료"는 필요서류 체크리스트 완료율이 아니라 실제 MFDS 허가번호 등록 여부로 판정한다.
-  const withProgress = products.map(p => ({ p, prog: productProgress(p) }))
+  // #2 — 업체(허가권자/수입거래처)가 여러 곳인 경우 업체 필터를 먼저 적용한 뒤 진행중/완료를 나눈다.
+  const bySite = siteFilter === 'all' ? products : products.filter(p => (p.siteName||'') === siteFilter)
+  const withProgress = bySite.map(p => ({ p, prog: productProgress(p) }))
   const inProgress = withProgress.filter(x => !x.p.licenseNo)
   const completed = withProgress.filter(x => !!x.p.licenseNo)
   const rows = subTab === 'done' ? completed : inProgress
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, flexWrap:'wrap', gap:10 }}>
         <div style={{ display:'flex', gap:6 }}>
           {[
             { key:'progress', label:`허가 진행중 (${inProgress.length})` },
@@ -372,6 +468,13 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
               color: subTab===t.key ? 'var(--moss)' : 'var(--ink-faint)',
             }}>{t.label}</button>
           ))}
+          {siteOptions.length > 1 && (
+            <select className="input-base" value={siteFilter} onChange={e => setSiteFilter(e.target.value)}
+              style={{ fontSize:12.5, padding:'5px 10px', marginLeft:4 }}>
+              <option value="all">전체 업체</option>
+              {siteOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button className="btn-ghost" onClick={() => setExistingOpen(true)}
@@ -400,6 +503,7 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting })
                   <p style={{ fontSize:14, fontWeight:500, color:'var(--ink)', marginBottom:2 }}>{p.productName}</p>
                   <p style={{ fontSize:12, color:'var(--ink-faint)' }}>
                     {p.categoryName ? p.categoryName + ' · ' : ''}{p.productCode} · {p.grade ? p.grade+'등급' : '-'} · {p.isImport ? '수입' : '제조'}
+                    {p.siteName ? ' · '+p.siteName : ''}
                     {' · '}{new Date(p.savedAt).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
@@ -447,7 +551,7 @@ function ExistingLicenseModal({ onSave, onClose }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
   const results = useMemo(() => (q.trim() ? mfds.search(q) : []), [q])
-  const [form, setForm] = useState({ productName:'', categoryName:'', productCode:'', grade:'', isImport:false, licenseNo:'', licenseDate:'' })
+  const [form, setForm] = useState({ productName:'', categoryName:'', productCode:'', grade:'', isImport:false, siteName:'', licenseNo:'', licenseDate:'' })
   const set = patch => setForm(f => ({ ...f, ...patch }))
 
   function pickItem(it) {
@@ -512,6 +616,18 @@ function ExistingLicenseModal({ onSave, onClose }) {
           수입 제품
         </label>
 
+        <div style={{ marginBottom:14 }}>
+          <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:6 }}>
+            허가 소지 업체명 <span style={{ fontWeight:400, color:'var(--ink-faint)' }}>(선택)</span>
+          </label>
+          <input className="input-base" list="regulatory-site-list-existing" value={form.siteName}
+            placeholder="예: (주)퀄리트리 제조사업부, ○○메디칼 수입거래처 등"
+            onChange={e => set({ siteName:e.target.value })} />
+          <datalist id="regulatory-site-list-existing">
+            {loadSites().map(s => <option key={s} value={s} />)}
+          </datalist>
+        </div>
+
         <div style={{ display:'flex', gap:8, marginBottom:18 }}>
           <div style={{ flex:1 }}>
             <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:6 }}>
@@ -542,12 +658,13 @@ function ExistingLicenseModal({ onSave, onClose }) {
 const emptyCompareCell = () => ({ existing:'', proposed:'', override:null })
 const INITIAL_FORM = {
   productName:'', categoryName:'', productCode:'', grade:'', allowedGrades:[], isImport:false, fieldType:'',
+  siteName:'', // #2 — 허가를 소지할 업체명(제조업체/수입거래처) — 업체별 허가증 관리용
   compareName:'', comparePermit:'', compareMfg:'',
   comparison:{
     purpose:emptyCompareCell(), principle:emptyCompareCell(), material:emptyCompareCell(),
     performance:emptyCompareCell(), standard:emptyCompareCell(), usage:emptyCompareCell(),
   },
-  classification:null, classLabel:'', docList:[],
+  classification:null, classLabel:'', docList:[], licenseChanges:[],
 }
 
 // 항목별 동등 여부 자동 판정 — override(수동 지정)가 있으면 그것을 우선하고,
@@ -797,6 +914,20 @@ function Step1({ form, onChange, onNext, onCancel }) {
           수입 제품
           <span style={{ fontSize:11, color:'var(--ink-faint)' }}>(체크 시 CFS·외국 GMP 서류 추가)</span>
         </label>
+      </div>
+
+      {/* #2 — 제조업+수입업 겸업 또는 여러 수입거래처를 두는 업체는 허가증을 업체별로 구분 관리해야 하므로,
+          허가를 소지할 업체명을 태그해 둔다. 자주 쓰는 업체명은 datalist로 자동완성된다. */}
+      <div style={{ marginBottom:18 }}>
+        <label style={{ fontSize:12, fontWeight:600, color:'var(--ink-mute)', display:'block', marginBottom:8 }}>
+          허가 소지 업체명 <span style={{ fontWeight:400, color:'var(--ink-faint)' }}>(제조업+수입업 겸업 또는 복수 수입거래처가 있을 때 구분용)</span>
+        </label>
+        <input className="input-base" list="regulatory-site-list" value={form.siteName || ''}
+          placeholder="예: (주)퀄리트리 제조사업부, ○○메디칼 수입거래처 등"
+          onChange={e => onChange({ siteName:e.target.value })} />
+        <datalist id="regulatory-site-list">
+          {loadSites().map(s => <option key={s} value={s} />)}
+        </datalist>
       </div>
 
       {hasBoth && (
