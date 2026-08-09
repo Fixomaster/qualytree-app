@@ -31,7 +31,7 @@ function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
 function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
 function genId() { return `IAE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
-const REPORT_TYPE_OPTIONS = ['의무보고', '자발보고']
+const REPORT_TYPE_OPTIONS = ['자발보고', '고객불만']
 
 const SEVERITIES = [
   { value: 'critical', label: '심각 — 사망/중상해', color: '#991B1B', bg: '#FEE2E2' },
@@ -40,13 +40,21 @@ const SEVERITIES = [
   { value: 'none',     label: '해당없음 — 부상 없음', color: '#059669', bg: '#D1FAE5' },
 ]
 
+// #24 — 반려 항목 삭제. 등록된 이상사례는 접수→조사→(의무보고 시)보고→처리→종결로만 흘러간다.
 const STATUSES = [
   { value: 'received',      label: '접수',       color: '#6B7280', bg: '#F3F4F6' },
   { value: 'investigating', label: '조사 중',    color: '#2563EB', bg: '#DBEAFE' },
   { value: 'reporting',     label: '규제 보고',  color: '#7C3AED', bg: '#EDE9FE' },
   { value: 'resolving',     label: '처리 중',    color: '#D97706', bg: '#FEF3C7' },
   { value: 'closed',        label: '종결',       color: '#059669', bg: '#D1FAE5' },
-  { value: 'rejected',      label: '반려',       color: '#9CA3AF', bg: '#F3F4F6' },
+]
+// #25 — 조치 과정 워크플로우 단계(확장 뷰의 스테퍼 표시용)
+const WORKFLOW_STEPS = [
+  { value: 'received',      label: '접수' },
+  { value: 'investigating', label: '조사 중' },
+  { value: 'reporting',     label: '규제 보고' },
+  { value: 'resolving',     label: '처리 중' },
+  { value: 'closed',        label: '종결' },
 ]
 
 // MFDS 보고 판단 기준 안내
@@ -60,7 +68,7 @@ const MDR_GUIDE = [
 // 처리 상태는 임의 선택이 아니라 작성된 내용(조사결과·근본원인·시정조치·MFDS보고 등)에 따라
 // 자동으로 진행된다. 반려/종결(승인)만 사람이 직접 결정하는 종결 상태로 취급한다.
 function deriveAdverseStatus(f) {
-  if (f.status === 'closed' || f.status === 'rejected') return f.status
+  if (f.status === 'closed') return f.status
   const hasInvestigation = !!(f.investigation && f.investigation.trim())
   const hasRootCause = !!(f.rootCause && f.rootCause.trim())
   const hasCorrective = !!(f.corrective && f.corrective.trim())
@@ -71,7 +79,7 @@ function deriveAdverseStatus(f) {
 }
 // 종결 승인 가능 여부 — 조사·근본원인·시정조치가 모두 작성되고(의무보고 시 보고까지 완료) 아직 종결 전인 경우.
 function readyToClose(item) {
-  if (['closed', 'rejected'].includes(item.status)) return false
+  if (item.status === 'closed') return false
   const ok = !!(item.investigation?.trim() && item.rootCause?.trim() && item.corrective?.trim())
   if (!ok) return false
   if (item.reportType === '의무보고' && !item.reportDate) return false
@@ -80,7 +88,7 @@ function readyToClose(item) {
 
 const emptyForm = () => ({
   productName: '', incidentDate: new Date().toISOString().slice(0, 10),
-  reportDate: '', reportNo: '', reportType: '의무보고', severity: 'none',
+  reportDate: '', reportNo: '', reportType: '자발보고', mdrCriteria: [], severity: 'none',
   description: '', immediateAction: '',
   assignee: '', dueDate: '', status: 'received',
   investigation: '', rootCause: '', corrective: '', followup: '',
@@ -143,10 +151,6 @@ export default function ImportAdverseHub() {
       return
     }
     save(items.map(i => i.id === id ? { ...i, status: 'closed', closedDate: new Date().toISOString().slice(0, 10), approvedBy: approver } : i))
-  }
-  const rejectItem = id => {
-    if (!confirm('이 이상사례를 반려 처리하시겠습니까?')) return
-    save(items.map(i => i.id === id ? { ...i, status: 'rejected' } : i))
   }
 
   const filtered = useMemo(() => {
@@ -261,7 +265,6 @@ export default function ImportAdverseHub() {
                         onEdit={() => openEdit(item)}
                         onDelete={() => remove(item.id)}
                         onApproveClose={() => approveClose(item.id)}
-                        onReject={() => rejectItem(item.id)}
                       />
                     ))}
                   </div>
@@ -284,10 +287,9 @@ export default function ImportAdverseHub() {
 }
 
 // ── 이상사례 행 컴포넌트 ──────────────────────────────────────
-function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose, onReject }) {
+function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose }) {
   const st = STATUSES.find(s => s.value === item.status) || STATUSES[0]
   const canClose = readyToClose(item)
-  const canReject = !['closed', 'rejected'].includes(item.status)
   const sev = SEVERITIES.find(s => s.value === item.severity) || SEVERITIES[3]
 
   return (
@@ -332,9 +334,6 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
           {canClose && (
             <button onClick={e => { e.stopPropagation(); onApproveClose() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', cursor: 'pointer' }}>종결 승인</button>
           )}
-          {canReject && (
-            <button onClick={e => { e.stopPropagation(); onReject() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: '1px solid var(--line)', cursor: 'pointer' }}>반려</button>
-          )}
           <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
           {expanded ? <ChevronUp size={16} style={{ color: 'var(--ink-faint)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ink-faint)' }} />}
@@ -343,6 +342,23 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
 
       {expanded && (
         <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="md:col-span-2 flex items-center gap-1 mb-1 overflow-x-auto pb-1">
+            {WORKFLOW_STEPS.map((s, i) => {
+              const curIdx = WORKFLOW_STEPS.findIndex(w => w.value === item.status)
+              const done = i <= curIdx
+              const active = i === curIdx
+              return (
+                <div key={s.value} className="flex items-center flex-shrink-0">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10.5px] font-bold"
+                    style={{ background: active ? '#DBEAFE' : done ? '#D1FAE5' : 'var(--bg-soft)', color: active ? '#2563EB' : done ? '#059669' : 'var(--ink-faint)', border: `1px solid ${active ? '#93C5FD' : done ? '#A7F3D0' : 'var(--line)'}` }}>
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: done ? (active ? '#2563EB' : '#059669') : 'var(--line)', color: 'white', fontSize: 9 }}>{i + 1}</span>
+                    {s.label}
+                  </div>
+                  {i < WORKFLOW_STEPS.length - 1 && <div className="w-3 h-px flex-shrink-0" style={{ background: done ? '#A7F3D0' : 'var(--line)' }} />}
+                </div>
+              )
+            })}
+          </div>
           <div>
             <SL>제품 정보</SL>
             <InfoRow k="제품명" v={item.productName} />
@@ -582,14 +598,33 @@ function AdverseForm({ form, fld, editId, onSubmit, onClose }) {
             </F>
             <F l="발생일 *"><input type="date" value={form.incidentDate} onChange={e => fld('incidentDate', e.target.value)} style={IS} className="w-full" /></F>
           </R2>
-          <R2>
+          <F l="MFDS 의무보고 해당 여부 (아래 기준 중 하나라도 해당되면 의무보고로 자동 분류됩니다)">
+            <div className="space-y-1.5 p-2.5 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
+              {MDR_GUIDE.map((g, i) => (
+                <label key={i} className="flex items-start gap-2 cursor-pointer">
+                  <input type="checkbox" checked={(form.mdrCriteria || []).includes(i)}
+                    onChange={e => {
+                      const cur = form.mdrCriteria || []
+                      const next = e.target.checked ? [...cur, i] : cur.filter(x => x !== i)
+                      fld('mdrCriteria', next)
+                      fld('reportType', next.length > 0 ? '의무보고' : (REPORT_TYPE_OPTIONS.includes(form.reportType) ? form.reportType : REPORT_TYPE_OPTIONS[0]))
+                    }} style={{ width: 15, height: 15, marginTop: 1, flexShrink: 0 }} />
+                  <span className="text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{g}</span>
+                </label>
+              ))}
+            </div>
+          </F>
+          {(form.mdrCriteria || []).length > 0 ? (
+            <div className="p-2.5 rounded-xl text-[11.5px] font-semibold" style={{ background: '#EDE9FE', color: '#4C1D95', border: '1px solid #C4B5FD' }}>
+              MFDS 의무보고 대상으로 분류되었습니다. 등록 후 조사 진행에 따라 'MFDS 규제 보고 정보'에 접수번호를 입력하세요.
+            </div>
+          ) : (
             <F l="보고 유형">
               <select value={form.reportType} onChange={e => fld('reportType', e.target.value)} style={IS} className="w-full">
                 {REPORT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
               </select>
             </F>
-            <F l="보고번호 (식약처 접수번호)"><input value={form.reportNo} onChange={e => fld('reportNo', e.target.value)} style={IS} className="w-full" /></F>
-          </R2>
+          )}
 
           <F l="심각도 (부상·피해 수준)">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -640,10 +675,6 @@ function AdverseForm({ form, fld, editId, onSubmit, onClose }) {
                   </div>
                 )
               })()}
-              <label className="flex items-center gap-2 cursor-pointer pt-1">
-                <input type="checkbox" checked={form.status === 'rejected'} onChange={e => fld('status', e.target.checked ? 'rejected' : 'received')} style={{ width: 15, height: 15 }} />
-                <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>이 이상사례를 반려 처리합니다 (근거 없음 등)</span>
-              </label>
             </>
           )}
           <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
