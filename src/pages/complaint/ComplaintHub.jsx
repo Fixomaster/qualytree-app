@@ -72,8 +72,8 @@ const STATUSES = [
   { value: 'reporting',    label: '규제 보고', color: '#7C3AED', bg: '#EDE9FE' },
   { value: 'resolving',    label: '처리 중',   color: '#D97706', bg: '#FEF3C7' },
   { value: 'closed',       label: '종결',      color: '#059669', bg: '#D1FAE5' },
-  { value: 'rejected',     label: '반려',      color: '#9CA3AF', bg: '#F3F4F6' },
 ]
+// #42: 반려 절차 삭제 — 고객불만은 접수→조사→(MDR 대상 시)규제보고→처리→종결의 흐름만 갖는다.
 
 // MDR (Mandatory Reporting) 판단 기준 안내
 const MDR_GUIDE = [
@@ -86,7 +86,7 @@ const MDR_GUIDE = [
 // #59: 처리 상태는 임의 선택이 아니라 작성된 내용(조사결과·근본원인·시정조치·MDR 등)에 따라
 // 자동으로 진행되어야 한다. 반려/종결(승인)만 사람이 직접 결정하는 종결 상태로 취급한다.
 function deriveComplaintStatus(f) {
-  if (f.status === 'closed' || f.status === 'rejected') return f.status // 종결 상태는 되돌리지 않음
+  if (f.status === 'closed') return f.status // 종결 상태는 되돌리지 않음
   const hasInvestigation = !!(f.investigation && f.investigation.trim())
   const hasRootCause = !!(f.rootCause && f.rootCause.trim())
   const hasCorrective = !!(f.corrective && f.corrective.trim())
@@ -97,7 +97,7 @@ function deriveComplaintStatus(f) {
 }
 // 종결 승인 가능 여부 — 조사·근본원인·시정조치가 모두 작성되고(MDR 필요 시 보고까지 완료) 아직 종결 전인 경우.
 function readyToClose(item) {
-  if (['closed', 'rejected'].includes(item.status)) return false
+  if (item.status === 'closed') return false
   const ok = !!(item.investigation?.trim() && item.rootCause?.trim() && item.corrective?.trim())
   if (!ok) return false
   if (item.mdrRequired && !item.mdrReportDate) return false
@@ -171,10 +171,6 @@ export default function ComplaintHub() {
     }
     save(items.map(i => i.id === id ? { ...i, status: 'closed', closedDate: new Date().toISOString().slice(0, 10), approvedBy: approver } : i))
   }
-  const rejectComplaint = id => {
-    if (!confirm('이 고객불만을 반려 처리하시겠습니까?')) return
-    save(items.map(i => i.id === id ? { ...i, status: 'rejected' } : i))
-  }
 
   const filtered = useMemo(() => {
     let list = [...items]
@@ -189,7 +185,7 @@ export default function ComplaintHub() {
 
   const stats = {
     total:        items.length,
-    open:         items.filter(i => !['closed','rejected'].includes(i.status)).length,
+    open:         items.filter(i => i.status !== 'closed').length,
     mdr:          items.filter(i => i.mdrRequired).length,
     critical:     items.filter(i => ['critical','major'].includes(i.severity)).length,
     closed:       items.filter(i => i.status === 'closed').length,
@@ -287,7 +283,6 @@ export default function ComplaintHub() {
                       onEdit={() => openEdit(item)}
                       onDelete={() => remove(item.id)}
                       onApproveClose={() => approveClose(item.id)}
-                      onReject={() => rejectComplaint(item.id)}
                     />
                   ))}
                 </div>
@@ -309,10 +304,9 @@ export default function ComplaintHub() {
 }
 
 // ── 불만 행 컴포넌트 ──────────────────────────────────────────
-function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose, onReject }) {
+function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose }) {
   const st  = STATUSES.find(s => s.value === item.status) || STATUSES[0]
   const canClose = readyToClose(item)
-  const canReject = !['closed', 'rejected'].includes(item.status)
   const sev = SEVERITIES.find(s => s.value === item.severity) || SEVERITIES[3]
   const cat = CATEGORIES.find(c => c.value === item.category)
 
@@ -359,9 +353,6 @@ function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClo
         <div className="flex items-center gap-1 flex-shrink-0">
           {canClose && (
             <button onClick={e => { e.stopPropagation(); onApproveClose() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', cursor: 'pointer' }}>종결 승인</button>
-          )}
-          {canReject && (
-            <button onClick={e => { e.stopPropagation(); onReject() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: '1px solid var(--line)', cursor: 'pointer' }}>반려</button>
           )}
           <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
@@ -518,22 +509,6 @@ function StatsView({ items }) {
             </div>
         }
       </div>
-
-      {/* 심각도 분포 */}
-      <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>심각도 분포</div>
-        <div className="grid grid-cols-2 gap-3">
-          {SEVERITIES.map(s => {
-            const cnt = items.filter(i => i.severity === s.value).length
-            return (
-              <div key={s.value} className="p-3 rounded-xl text-center" style={{ background: s.bg }}>
-                <div className="text-[22px] font-bold" style={{ color: s.color }}>{cnt}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: s.color, opacity: 0.8 }}>{s.label.split(' — ')[0]}</div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
     </div>
   )
 }
@@ -681,22 +656,11 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
           <F l="불만 내용 *"><textarea value={form.description} onChange={e => fld('description', e.target.value)} rows={3} placeholder="구체적인 불만 내용을 기술하세요..." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
           <F l="즉각 조치 (현장 조치 등)"><textarea value={form.immediateAction} onChange={e => fld('immediateAction', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
 
-          {/* MDR */}
-          <div className="p-4 rounded-xl" style={{ background: form.mdrRequired ? '#EDE9FE' : 'var(--bg-soft)', border: `1px solid ${form.mdrRequired ? '#C4B5FD' : 'var(--line)'}` }}>
-            <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: form.mdrRequired ? 8 : 0 }}>
-              <input type="checkbox" checked={!!form.mdrRequired} onChange={e => fld('mdrRequired', e.target.checked)} style={{ width: 16, height: 16 }} />
-              <span className="text-[13px] font-semibold" style={{ color: form.mdrRequired ? '#4C1D95' : 'var(--ink)' }}>규제 보고 필요 (MDR / 이상사례 보고)</span>
-            </label>
-            {form.mdrRequired && !editId && (
-              <div className="text-[11.5px]" style={{ color: '#6D28D9' }}>보고일 · 식약처 접수 번호는 접수 후 조사가 진행되면 수정 화면에서 입력합니다.</div>
-            )}
-            {form.mdrRequired && editId && (
-              <R2>
-                <F l="보고일"><input type="date" value={form.mdrReportDate} onChange={e => fld('mdrReportDate', e.target.value)} style={IS} className="w-full" /></F>
-                <F l="식약처 접수 번호"><input value={form.mdrRefNo} onChange={e => fld('mdrRefNo', e.target.value)} placeholder="접수 번호" style={IS} className="w-full" /></F>
-              </R2>
-            )}
-          </div>
+          {!editId && (
+            <div className="p-3 rounded-xl text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+              규제 보고(MDR) 해당 여부는 접수 시점이 아니라 조사가 진행된 뒤 판단합니다 — 등록 후 수정 화면에서 입력하세요.
+            </div>
+          )}
 
           {/* 처리 정보 */}
           <R2>
@@ -706,6 +670,20 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
           {editId && (
             <>
               <div className="text-[11.5px] font-bold pt-1" style={{ color: 'var(--ink-faint)' }}>진행 상황 (접수 후 조사·처리 진행에 따라 입력)</div>
+
+              {/* #43 — 규제보고필요(MDR) 판단은 조사 진행 중인 수정 화면에서만 입력한다 */}
+              <div className="p-4 rounded-xl" style={{ background: form.mdrRequired ? '#EDE9FE' : 'var(--bg-soft)', border: `1px solid ${form.mdrRequired ? '#C4B5FD' : 'var(--line)'}` }}>
+                <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: form.mdrRequired ? 8 : 0 }}>
+                  <input type="checkbox" checked={!!form.mdrRequired} onChange={e => fld('mdrRequired', e.target.checked)} style={{ width: 16, height: 16 }} />
+                  <span className="text-[13px] font-semibold" style={{ color: form.mdrRequired ? '#4C1D95' : 'var(--ink)' }}>규제 보고 필요 (MDR / 이상사례 보고)</span>
+                </label>
+                {form.mdrRequired && (
+                  <R2>
+                    <F l="보고일"><input type="date" value={form.mdrReportDate} onChange={e => fld('mdrReportDate', e.target.value)} style={IS} className="w-full" /></F>
+                    <F l="식약처 접수 번호"><input value={form.mdrRefNo} onChange={e => fld('mdrRefNo', e.target.value)} placeholder="접수 번호" style={IS} className="w-full" /></F>
+                  </R2>
+                )}
+              </div>
               <R2>
                 <F l="NCR 연결 번호"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="예: NCR-2026-00001" style={IS} className="w-full" /></F>
                 <F l="CAPA 연결 번호"><input value={form.capaId} onChange={e => fld('capaId', e.target.value)} placeholder="예: CAPA-2026-00001" style={IS} className="w-full" /></F>
@@ -728,10 +706,6 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
                   </div>
                 )
               })()}
-              <label className="flex items-center gap-2 cursor-pointer pt-1">
-                <input type="checkbox" checked={form.status === 'rejected'} onChange={e => fld('status', e.target.checked ? 'rejected' : 'received')} style={{ width: 15, height: 15 }} />
-                <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>이 불만을 반려 처리합니다 (근거 없음 등)</span>
-              </label>
             </>
           )}
           <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>

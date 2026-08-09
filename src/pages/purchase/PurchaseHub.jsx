@@ -51,7 +51,7 @@ function toDate(s) {
 // 발주(PO)가 납기예정일을 넘겼는데 아직 입고완료/취소되지 않은 경우 지연으로 간주
 function isOrderOverdue(order) {
   const d = toDate(order.dueDate)
-  if (!d || ['입고완료','취소'].includes(order.status)) return false
+  if (!d || ['입고완료','반납','취소'].includes(order.status)) return false
   const today = new Date(); today.setHours(0,0,0,0)
   return d < today
 }
@@ -210,7 +210,7 @@ function OrdersView({orders,setOrders,avl,inventory,setInventory,openId}) {
   useEffect(() => {
     if (openId) { const item = orders.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
-  const statusOpts=['발주완료','입고예정','진행중','입고완료','취소']
+  const ORDER_STATUS_TONE={'발주완료':'gray','입고완료':'green','반납':'red','취소':'gray'}
   const addNewItem = (name) => { setInventory(p=>[...p,{id:nid('MAT'),name,unit:'EA',stock:'0',min:'0',location:'',lot:'',status:'부족'}]) }
   const del=id=>{if(window.confirm('삭제하시겠습니까?'))setOrders(p=>p.filter(x=>x.id!==id))}
   const save=f=>{
@@ -257,7 +257,7 @@ function OrdersView({orders,setOrders,avl,inventory,setInventory,openId}) {
                 <TD mono muted>{o.date}</TD>
                 <TD mono color={isOrderOverdue(o)?'var(--rust)':undefined} muted={!isOrderOverdue(o)}>{o.dueDate}{isOrderOverdue(o)?' (지연)':''}</TD>
                 <TD right>{Number(o.amount).toLocaleString()}</TD>
-                <TD><StatusSelect value={o.status} options={statusOpts} onChange={v=>setOrders(p=>p.map(x=>x.id===o.id?{...x,status:v}:x))}/></TD>
+                <TD><Badge text={o.status} tone={ORDER_STATUS_TONE[o.status]||'amber'}/></TD>
                 <TD><div className="flex gap-1"><ActBtn label="수정" onClick={()=>{setEdit(o);setModal('form')}}/><ActBtn label="삭제" color="red" onClick={()=>del(o.id)}/></div></TD>
               </tr>
             ))}</tbody>
@@ -321,11 +321,12 @@ function genLot() {
   const ymd = d.toISOString().slice(2,10).replace(/-/g,'')
   return `LOT-${ymd}-${String(Date.now()).slice(-3)}`
 }
-function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) {
+function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc,avl}) {
   const [modal,setModal]=useState(null); const [edit,setEdit]=useState(null)
   const [receiveTarget,setReceiveTarget]=useState(null)
   const [issueTarget,setIssueTarget]=useState(null)
   const [zeroOnly,setZeroOnly]=useState(false)
+  const [supplierFilter,setSupplierFilter]=useState('all')
   useEffect(() => {
     if (openId) { const item = inventory.find(x => x.id === openId); if (item) { setEdit(item); setModal('form') } }
   }, [openId])
@@ -369,12 +370,15 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) 
   const zeroStock=inventory.filter(i=>parseFloat(i.stock)===0)
   const [srch,setSrch]=useState('')
   let shown=srch
-    ? inventory.filter(m=>[m.id,m.name,m.location,m.lot,m.status].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
+    ? inventory.filter(m=>[m.id,m.name,m.location,m.lot,m.status,m.supplier].some(v=>v&&String(v).toLowerCase().includes(srch.toLowerCase())))
     : inventory
   if(zeroOnly) shown=shown.filter(m=>parseFloat(m.stock)===0)
+  if(supplierFilter!=='all') shown=shown.filter(m=>m.supplier===supplierFilter)
+  // #48 — 자재를 공급업체별로 묶어서 볼 수 있도록 공급업체 목록을 도출
+  const supplierNames=[...new Set(inventory.map(m=>m.supplier).filter(Boolean))]
   return (
     <div>
-      <SectionTitle breadcrumb="자재 등록">자재 등록</SectionTitle>
+      <SectionTitle breadcrumb="자재 현황">자재 현황</SectionTitle>
       {shortfall.length>0&&(
         <div className="mb-4 p-3 rounded-lg flex items-start gap-2" style={{background:'var(--rust-soft)',border:'1px solid var(--rust)'}}>
           <AlertTriangle size={14} style={{color:'var(--rust)',marginTop:2,flexShrink:0}}/>
@@ -383,14 +387,20 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) 
       )}
       <Card>
         <div className="flex items-center justify-between mb-3">
-          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>자재 재고 현황</span>
+          <span className="font-mono text-[10px] tracking-widest uppercase" style={{color:'var(--ink-faint)'}}>자재 재고 현황 (공급업체별)</span>
           <button onClick={()=>{setEdit(null);setModal('form')}} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium" style={{background:'var(--moss)',color:'var(--bg)'}}><Plus size={13}/> 자재 등록</button>
         </div>
         <div className="flex items-center gap-3 mb-3 flex-wrap">
           <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-            <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}} placeholder="코드 · 자재명 · 위치 · LOT · 상태 검색..." value={srch} onChange={e=>setSrch(e.target.value)}/>
+            <input className="flex-1 text-xs rounded-lg px-3 py-1.5 outline-none" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}} placeholder="코드 · 자재명 · 위치 · LOT · 상태 · 공급업체 검색..." value={srch} onChange={e=>setSrch(e.target.value)}/>
             {srch&&<button onClick={()=>setSrch('')} className="text-xs px-2 rounded" style={{color:'var(--ink-mute)'}}>✕</button>}
           </div>
+          {supplierNames.length>0 && (
+            <select value={supplierFilter} onChange={e=>setSupplierFilter(e.target.value)} className="text-xs rounded-lg px-2 py-1.5 outline-none" style={{background:'var(--bg-soft)',border:'1px solid var(--line)',color:'var(--ink)'}}>
+              <option value="all">전체 공급업체</option>
+              {supplierNames.map(n=><option key={n} value={n}>{n}</option>)}
+            </select>
+          )}
           <label className="flex items-center gap-1.5 text-[12px] cursor-pointer select-none flex-shrink-0" style={{color:zeroOnly?'var(--rust)':'var(--ink-mute)'}}>
             <input type="checkbox" checked={zeroOnly} onChange={e=>setZeroOnly(e.target.checked)}/>
             재고 0인 품목만 보기 {zeroStock.length>0&&`(${zeroStock.length}건)`}
@@ -398,13 +408,14 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) 
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr>{['코드','자재명','단위','재고','최소재고','위치','LOT','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
+            <thead><tr>{['코드','자재명','공급업체','단위','재고','최소재고','위치','LOT','상태','작업'].map(h=><TH key={h}>{h}</TH>)}</tr></thead>
             <tbody>{shown.length===0?<EmptyRow msg={srch||zeroOnly?'검색 결과가 없습니다.':undefined}/>:shown.map(m=>{
               const below=parseFloat(m.stock)<parseFloat(m.min)
               return (
       <tr key={m.id}>
                 <TD mono color="var(--moss)">{m.id}</TD>
                 <TD><span className="font-medium">{m.name}</span></TD>
+                <TD muted>{m.supplier||'-'}</TD>
                 <TD muted>{m.unit}</TD>
                 <TD right color={below?'var(--rust)':'var(--moss)'}>
                   <span className="inline-flex items-center gap-1 justify-end">
@@ -422,20 +433,25 @@ function InventoryView({inventory,setInventory,orders,setOrders,openId,setIqc}) 
           </table>
         </div>
       </Card>
-      {modal==='form'&&<Modal title={edit?'자재 수정':'자재 등록'} onClose={()=>{setModal(null);setEdit(null)}}><MatForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/></Modal>}
+      {modal==='form'&&<Modal title={edit?'자재 수정':'자재 등록'} onClose={()=>{setModal(null);setEdit(null)}}><MatForm initial={edit||{}} avl={avl} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/></Modal>}
       {receiveTarget&&<Modal title={`자재 입고 — ${receiveTarget.name}`} onClose={()=>setReceiveTarget(null)}><ReceiveForm material={receiveTarget} orders={orders} onSave={receive} onCancel={()=>setReceiveTarget(null)}/></Modal>}
       {issueTarget&&<Modal title={`자재 출고 — ${issueTarget.name}`} onClose={()=>setIssueTarget(null)}><IssueForm material={issueTarget} onSave={issue} onCancel={()=>setIssueTarget(null)}/></Modal>}
     </div>
   )
 }
-function MatForm({initial,onSave,onCancel}) {
+function MatForm({initial,avl,onSave,onCancel}) {
   const isEdit = !!initial.name
-  const [f,sf]=useState({name:'',unit:'EA',stock:'0',min:'',location:'',lot:'',...initial})
+  const [f,sf]=useState({name:'',supplier:'',unit:'EA',stock:'0',min:'',location:'',lot:'',...initial})
   const set=k=>e=>sf(p=>({...p,[k]:e.target.value}))
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <FL label="자재명 *"><input style={inp} value={f.name} onChange={set('name')}/></FL>
+        {/* #48 — 자재는 공급업체 관리(SupplierHub)에 등록된 업체와 묶어서 입력한다 */}
+        <FL label="공급업체 (검색)">
+          <input style={inp} list="mat-supplier-list" value={f.supplier} onChange={set('supplier')} placeholder="공급업체명 입력·검색..."/>
+          <datalist id="mat-supplier-list">{(avl||[]).map(v=><option key={v.id} value={v.name}/>)}</datalist>
+        </FL>
         <FL label="단위"><select style={sel} value={f.unit} onChange={set('unit')}>{['EA','kg','g','m','mm','매','본'].map(o=><option key={o}>{o}</option>)}</select></FL>
         <FL label="최소 재고"><input style={inp} type="number" step="0.1" value={f.min} onChange={set('min')}/></FL>
         <FL label="보관 위치"><input style={inp} value={f.location} onChange={set('location')} placeholder="A-01-01"/></FL>
@@ -511,7 +527,7 @@ function matchIqcStandard(materialName) {
     return (n1 && (target.includes(n1) || n1.includes(target))) || (n2 && (target.includes(n2) || n2.includes(target)))
   }) || null
 }
-function IqcView({iqc,setIqc,orders,openId}) {
+function IqcView({iqc,setIqc,orders,setOrders,openId}) {
   const [srch,setSrch]=useState('')
   const [inspectTarget,setInspectTarget]=useState(null)
   const [decisionTarget,setDecisionTarget]=useState(null)
@@ -538,6 +554,9 @@ function IqcView({iqc,setIqc,orders,openId}) {
     setIqc(p=>p.map(x=>x.id===rec.id?{
       ...x, status: decision, qcDecision:{decidedBy:auth.current()?.name||'-', decidedAt:new Date().toISOString(), decision, note},
     }:x))
+    if (decision === '불합격' && rec.po && setOrders) {
+      setOrders(p=>p.map(o=>o.id===rec.po?{...o,status:'반납'}:o))
+    }
     setDecisionTarget(null)
   }
   const shown=srch
@@ -815,7 +834,7 @@ function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate,onGoSupplier}) {
     {label:'진행중 발주',value:`${orders.filter(o=>!['입고완료','취소'].includes(o.status)).length}건`,sub:'PO 현황'},
     {label:'납기 지연 발주',value:`${overdueOrders}건`,warn:overdueOrders>0,sub:'납기예정일 경과'},
     {label:'IQC 대기',value:`${pendingIQC}건`,warn:pendingIQC>0,sub:'검사 진행 필요'},
-    {label:'등록 업체',value:`${avl.length}개사`,sub:`A등급 ${avl.filter(v=>v.grade==='A').length}개사`},
+    {label:'등록 업체',value:`${avl.length}개사`,sub:`승인 ${avl.filter(v=>v.status==='승인').length}개사`},
   ]
   return (
     <div>
@@ -927,18 +946,21 @@ export default function PurchaseHub() {
   const [searchParams] = useSearchParams()
   const [view,setView]=useState(searchParams.get('tab') || 'home')
   const editId = searchParams.get('edit')
-  const [avl,setAvl]=useLS('qms_pur_avl',INIT_AVL)
+  // #46 — 발주등록의 협력업체 목록이 실제 「공급업체 관리」(SupplierHub / supplierState.js)와
+  // 연동되지 않고 예전 독립 저장소(qms_pur_avl)를 참조하고 있어 등록한 업체가 뜨지 않았다.
+  // 공급업체 관리에 등록된 실제 데이터를 그대로 읽어온다(편집은 「공급업체 관리」에서만).
+  const avl = suppliers.getSuppliers()
   const [orders,setOrders]=useLS('qms_pur_orders',INIT_ORDERS)
   const [inventory,setInventory]=useLS('qms_pur_inventory',INIT_INVENTORY)
   const [iqc,setIqc]=useLS('qms_pur_iqc',INIT_IQC)
   const [fin,setFin]=useLS('qms_pur_fin',INIT_FIN)
 
-  const tabLabels={orders:'발주관리',inventory:'자재등록',iqc:'수입검사',fin:'완제품재고',analysis:'현황분석'}
+  const tabLabels={orders:'발주관리',inventory:'자재현황',iqc:'수입검사',fin:'완제품재고',analysis:'현황분석'}
   const viewMap={
     home:<PurchaseHome avl={avl} orders={orders} inventory={inventory} iqc={iqc} fin={fin} onNavigate={setView} onGoSupplier={()=>navigate('/supplier')}/>,
     orders:<OrdersView orders={orders} setOrders={setOrders} avl={avl} inventory={inventory} setInventory={setInventory} openId={editId}/>,
-    inventory:<InventoryView inventory={inventory} setInventory={setInventory} orders={orders} setOrders={setOrders} openId={editId} setIqc={setIqc}/>,
-    iqc:<IqcView iqc={iqc} setIqc={setIqc} orders={orders} openId={editId}/>,
+    inventory:<InventoryView inventory={inventory} setInventory={setInventory} orders={orders} setOrders={setOrders} openId={editId} setIqc={setIqc} avl={avl}/>,
+    iqc:<IqcView iqc={iqc} setIqc={setIqc} orders={orders} setOrders={setOrders} openId={editId}/>,
     fin:<FinStockView fin={fin} setFin={setFin}/>,
     analysis:<AnalysisView orders={orders} iqc={iqc} inventory={inventory} fin={fin}/>,
   }

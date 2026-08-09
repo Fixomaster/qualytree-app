@@ -708,43 +708,55 @@ function OrderForm({ initial, customers, onSave, onCancel, statusOpts, quotes })
 }
 
 /* ─── 견적 관리 ─── */
+// #32-35 — 견적 상태는 더 이상 사람이 임의로 선택하지 않는다. 등록 시 자동으로 '작성중'이
+// 부여되고(#32), 수주로 전환되는 순간 자동으로 '수주접수'로 바뀌며(#33), 수주로 이어지지 않은 채
+// 유효기간이 지나면 자동으로 삭제된다(#34). 목록에는 상태를 바꾸는 컨트롤을 두지 않는다(#35).
+const QUOTE_STATUS_COLOR = { '작성중': { color:'#6B7280', bg:'#F3F4F6' }, '수주접수': { color:'#059669', bg:'#D1FAE5' } }
+
 function QuotesView({ quotes, setQuotes, customers, orders, setOrders, onNavigate }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
   const [convertMsg, setConvertMsg] = useState(null)
-  const statusOpts = ['검토중','발송완료','협의중','수주확정','견적취소']
   const defaultValidUntil = () => {
     const d = new Date()
     d.setMonth(d.getMonth() + 1)
     return d.toISOString().slice(0,10)
   }
-  const init = { id:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), validUntil:defaultValidUntil(), amount:'', status:'검토중',
+  const init = { id:'', customer:'', items:'', date:new Date().toISOString().slice(0,10), validUntil:defaultValidUntil(), amount:'', status:'작성중',
     lineItems:[{ name:'', qty:'', price:'' }] }
+
+  // #34 — 수주로 전환되지 않은 채 유효기간이 지난 견적은 화면 진입 시 자동으로 삭제한다.
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0,10)
+    const expired = quotes.filter(q => q.status === '작성중' && q.validUntil && q.validUntil < today)
+    if (expired.length) {
+      const expiredIds = new Set(expired.map(q=>q.id))
+      setQuotes(p => p.filter(x => !expiredIds.has(x.id)))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const save = (f) => {
     if (edit) { setQuotes(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
-    else { setQuotes(p=>[...p, { ...init, ...f, id:nid('QT') }]) }
+    else { setQuotes(p=>[...p, { ...init, ...f, status:'작성중', id:nid('QT') }]) }
     setModal(null)
   }
   const del = (id) => { if(window.confirm('삭제하시겠습니까?')) setQuotes(p=>p.filter(x=>x.id!==id)) }
 
-  // 견적 상태가 '수주확정'이 되면 자동으로 연계된 수주(SO)를 만들어 수주 관리에서 이어서 입력할 수 있게 한다.
-  const setStatus = (q, v) => {
-    if (v === '수주확정' && !q.linkedOrderId && setOrders) {
-      const li = (q.lineItems && q.lineItems.length) ? q.lineItems : [{ name:q.items||'', qty:'', price:'' }]
-      const totalQty = li.reduce((s,x)=>s+(parseFloat(x.qty)||0),0)
-      const newOrder = {
-        id: nid('SO'), customer:q.customer, items:q.items,
-        qty: totalQty ? `${totalQty}EA` : '', receivedDate:new Date().toISOString().slice(0,10),
-        amount:q.amount, wo:'', status:'수주접수', lineItems:li, quoteRef:q.id,
-      }
-      setOrders(p=>[...p, newOrder])
-      setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:v,linkedOrderId:newOrder.id}:x))
-      setConvertMsg(`${newOrder.id} 수주가 자동 생성되었습니다 — 수주 관리에서 이어서 입력하세요.`)
-    } else {
-      setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:v}:x))
+  // #33 — 수주로 전환하는 순간 견적 상태가 자동으로 '수주접수'로 바뀌고 연계된 수주(SO)가 생성된다.
+  const convertToOrder = (q) => {
+    if (q.linkedOrderId || !setOrders) return
+    const li = (q.lineItems && q.lineItems.length) ? q.lineItems : [{ name:q.items||'', qty:'', price:'' }]
+    const totalQty = li.reduce((s,x)=>s+(parseFloat(x.qty)||0),0)
+    const newOrder = {
+      id: nid('SO'), customer:q.customer, items:q.items,
+      qty: totalQty ? `${totalQty}EA` : '', receivedDate:new Date().toISOString().slice(0,10),
+      amount:q.amount, wo:'', status:'수주접수', lineItems:li, quoteRef:q.id,
     }
+    setOrders(p=>[...p, newOrder])
+    setQuotes(p=>p.map(x=>x.id===q.id?{...x,status:'수주접수',linkedOrderId:newOrder.id}:x))
+    setConvertMsg(`${newOrder.id} 수주가 자동 생성되었습니다 — 수주 관리에서 이어서 입력하세요.`)
   }
 
   const deliveredCount = quotes.filter(q=>q.linkedOrderId && (orders||[]).find(o=>o.id===q.linkedOrderId)?.status==='납품완료').length
@@ -805,13 +817,18 @@ function QuotesView({ quotes, setQuotes, customers, orders, setOrders, onNavigat
                   <TD right>{isNaN(Number(q.amount))?q.amount:Number(q.amount).toLocaleString()}</TD>
                   <TD>
                     <div className="flex flex-col gap-1">
-                      <StatusSelect value={q.status} options={statusOpts}
-                        onChange={v=>setStatus(q,v)}/>
+                      <span className="inline-flex w-fit px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                        style={{ background: (QUOTE_STATUS_COLOR[q.status]||{}).bg || 'var(--bg-soft)', color: (QUOTE_STATUS_COLOR[q.status]||{}).color || 'var(--ink-mute)' }}>
+                        {q.status}
+                      </span>
                       {q.linkedOrderId && <span className="font-mono text-[10px]" style={{color:'var(--moss)'}}>→ {q.linkedOrderId}</span>}
                     </div>
                   </TD>
                   <TD>
                     <div className="flex gap-1">
+                      {q.status === '작성중' && (
+                        <ActBtn label="수주 전환" onClick={()=>convertToOrder(q)}/>
+                      )}
                       <ActBtn label="수정" onClick={()=>{setEdit(q);setModal('form')}}/>
                       <ActBtn label="삭제" color="red" onClick={()=>del(q.id)}/>
                     </div>
@@ -824,13 +841,13 @@ function QuotesView({ quotes, setQuotes, customers, orders, setOrders, onNavigat
       </div>
       {modal==='form' && (
         <Modal title={edit?'견적 수정':'견적 등록'} onClose={()=>{setModal(null);setEdit(null)}} wide>
-          <QuoteForm initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}} statusOpts={statusOpts}/>
+          <QuoteForm initial={edit||init} customers={customers} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/>
         </Modal>
       )}
     </div>
   )
 }
-function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
+function QuoteForm({ initial, customers, onSave, onCancel }) {
   const [orderableModels] = useState(() => loadOrderableModels())
   const legacyLine = () => {
     if (!initial.items) return [{ name:'', qty:'', price:'' }]
@@ -872,11 +889,6 @@ function QuoteForm({ initial, customers, onSave, onCancel, statusOpts }) {
           <datalist id="quote-customer-list">
             {customers.map(c=><option key={c.id} value={c.name}/>)}
           </datalist>
-        </FL>
-        <FL label="상태">
-          <select style={sel} value={f.status} onChange={set('status')}>
-            {statusOpts.map(o=><option key={o}>{o}</option>)}
-          </select>
         </FL>
         <FL label="작성일"><input style={inp} type="date" value={f.date} onChange={set('date')}/></FL>
         <FL label="유효기간까지 (기본 1개월)"><input style={inp} type="date" value={f.validUntil} onChange={set('validUntil')}/></FL>
@@ -1618,11 +1630,20 @@ function PerformanceView({ orders, deliveries }) {
 
 /* ─── 영업 홈 ─── */
 
+// #36 — "설계 연동" 필드가 자유 텍스트라 실제로 아무 것도 연결되지 않았다. 고객 요구사항의
+// 정식 검토·승인 워크플로우는 별도 화면(고객 요구사항 검토, CustomerReqHub)에서 진행되므로,
+// 그 화면에 등록된 실제 기록과 매칭해 상태를 실시간으로 가져와 보여준다.
+function linkedCustomerReqs() {
+  try { return JSON.parse(localStorage.getItem('qualytree.customer_reqs') || '[]') } catch { return [] }
+}
+const CR_STATUS_LABEL = { captured: '접수', reviewing: '검토 중', accepted: '수락', rejected: '반려', closed: '완료' }
+
 function MarketResView() {
   const [items, setItems] = useLS('qms_sal_mktres', [])
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
+  const crRecords = linkedCustomerReqs()
 
   const del = (id) => { if (window.confirm('삭제할까요?')) setItems(items.filter(i => i.id !== id)) }
   const save = (f) => {
@@ -1652,9 +1673,10 @@ function MarketResView() {
           <MarketResForm init={edit} onSave={save} />
         </Modal>
       )}
-      <div className="mb-3 p-3 rounded-lg text-[12.5px]"
+      <div className="mb-3 p-3 rounded-lg text-[12.5px] flex items-center justify-between gap-3 flex-wrap"
         style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-mute)' }}>
-        ℹ 고객·시장에서 수집된 요구사항은 제품 설계 입력(설계 계획)과 연동됩니다 · ISO 13485 §7.2.1
+        <span>ℹ 여기는 시장·고객 동향을 가볍게 기록하는 곳입니다. 정식 검토·수락/반려 승인 절차는 <b>고객 요구사항 검토</b>에서 진행하며, 아래 표의 "연동 상태"는 그 화면의 실제 처리 상태를 그대로 가져옵니다.</span>
+        <a href="/customer-req" className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold" style={{ background: 'var(--moss)', color: '#fff' }}>고객 요구사항 검토 열기 →</a>
       </div>
       <div className="card-base p-4">
         <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -1688,12 +1710,33 @@ function MarketResView() {
                   <TD color="var(--ink-mute)">{r.product || '—'}</TD>
                   <TD>{r.content}</TD>
                   <TD mono color="var(--ink-faint)">{r.date}</TD>
-                  <TD mono color="var(--ink-faint)">{r.linkage || '—'}</TD>
                   <TD>
-                    <Badge
-                      text={r.state}
-                      tone={r.state === '설계반영' ? 'green' : r.state === '설계진행중' ? 'amber' : r.state === '보류' ? 'red' : 'gray'}
-                    />
+                    {(() => {
+                      const cr = r.linkedCrId ? crRecords.find(c => c.id === r.linkedCrId) : null
+                      if (cr) {
+                        return (
+                          <a href="/customer-req" className="font-mono text-[11px]" style={{ color: 'var(--moss)' }} title="고객 요구사항 검토에서 열기">
+                            → {cr.id}
+                          </a>
+                        )
+                      }
+                      return <span style={{ color: 'var(--ink-faint)' }}>{r.linkage || '—'}</span>
+                    })()}
+                  </TD>
+                  <TD>
+                    {(() => {
+                      const cr = r.linkedCrId ? crRecords.find(c => c.id === r.linkedCrId) : null
+                      if (cr) {
+                        const label = CR_STATUS_LABEL[cr.status] || cr.status
+                        return <Badge text={`${label} (연동)`} tone={cr.status === 'accepted' || cr.status === 'closed' ? 'green' : cr.status === 'rejected' ? 'red' : 'amber'} />
+                      }
+                      return (
+                        <Badge
+                          text={r.state}
+                          tone={r.state === '설계반영' ? 'green' : r.state === '설계진행중' ? 'amber' : r.state === '보류' ? 'red' : 'gray'}
+                        />
+                      )
+                    })()}
                   </TD>
                   <TD>
                     <div className="flex gap-1">
@@ -1720,8 +1763,9 @@ function MarketResView() {
 }
 
 function MarketResForm({ init, onSave }) {
-  const [f, setF] = useState(init || { src: '고객요청', product: '', content: '', linkage: '', state: '검토중' })
+  const [f, setF] = useState(init || { src: '고객요청', product: '', content: '', linkage: '', linkedCrId: '', state: '검토중' })
   const up = (k, v) => setF(p => ({ ...p, [k]: v }))
+  const crRecords = linkedCustomerReqs()
   return (
     <div className="space-y-3">
       <FL label="요구 출처 *">
@@ -1733,12 +1777,22 @@ function MarketResForm({ init, onSave }) {
       <FL label="요구 내용 *">
         <textarea className="inp min-h-[72px] resize-none" value={f.content} onChange={e => up('content', e.target.value)} placeholder="고객 또는 시장에서 수집된 요구사항을 구체적으로 입력하세요" />
       </FL>
-      <FL label="설계 연동">
-        <input className="inp" value={f.linkage} onChange={e => up('linkage', e.target.value)} placeholder="예: 설계변경 #1, 신규 설계 계획" />
+      <FL label="고객 요구사항 검토 연동 (선택 — 실제 등록된 검토 건과 연결)">
+        <select className="inp" value={f.linkedCrId || ''} onChange={e => up('linkedCrId', e.target.value)}>
+          <option value="">연동 안 함 (자유 메모만)</option>
+          {crRecords.map(cr => (
+            <option key={cr.id} value={cr.id}>{cr.id} · {cr.customerName} · {cr.productName} ({CR_STATUS_LABEL[cr.status] || cr.status})</option>
+          ))}
+        </select>
+        {!f.linkedCrId && (
+          <input className="inp mt-2" value={f.linkage} onChange={e => up('linkage', e.target.value)} placeholder="자유 메모 (예: 설계변경 #1) — 연동 건이 없을 때만 사용" />
+        )}
       </FL>
-      <FL label="처리 상태">
-        <StatusSelect opts={['검토중', '설계반영', '설계진행중', '보류']} val={f.state} onChange={v => up('state', v)} />
-      </FL>
+      {!f.linkedCrId && (
+        <FL label="처리 상태">
+          <StatusSelect opts={['검토중', '설계반영', '설계진행중', '보류']} val={f.state} onChange={v => up('state', v)} />
+        </FL>
+      )}
       <div className="flex justify-end pt-2">
         <button
           className="btn-secondary text-xs px-4 py-2"
@@ -1759,8 +1813,8 @@ function SalesHome({ customers, orders, deliveries, prodReqs, onNavigate }) {
   const CARDS = [
     { id:'performance', icon:BarChart2, label:'영업 실적', desc:'수주·납품·민원 통계 요약', count:'집계' },
     { id:'customers', icon:Users, label:'고객사 관리', desc:'고객사 등록 · 등급 · 담당자 · 수주이력', count:`${customers.length}개사` },
-    { id:'orders', icon:ClipboardList, label:'수주 관리', desc:'수주 목록 · WO 연동 · 상태 추적', count:`${active}건 진행중` },
     { id:'quotes', icon:FileText, label:'견적 관리', desc:'견적서 작성 · 발송 · 수주 전환', count:`${INIT_QUOTES.length}건` },
+    { id:'orders', icon:ClipboardList, label:'수주 관리', desc:'수주 목록 · WO 연동 · 상태 추적', count:`${active}건 진행중` },
     { id:'delivery', icon:Truck, label:'납품 이력', desc:'납품 완료 · UDI·Lot 추적 · 증빙 관리', count:`${deliveries.length}건` },
     { id:'prod-req', icon:ShoppingCart, label:'생산 요청', desc:'수주 기반 생산 요청 발행 · WO 연동', count:`${prodReqs.length}건` },
     { id:'market', icon:Search, label:'고객요구', desc:'고객·시장 요구사항 수집 · 설계 입력 연동', count:`${mktItems.length}건` },
@@ -1827,7 +1881,7 @@ export default function SalesHub() {
   // #302: 영업현황 홈 카드는 '영업실적'이 맨 앞인데, 이 상단 탭 전환 메뉴는 5번째에 있어
   // 순서가 서로 달랐다 — 홈 카드 순서(영업실적 → 고객사 → 수주 → 견적 → 납품 → 생산요청 → 고객요구)와 통일한다.
   const tabLabels = {
-    performance:'영업 실적', customers:'고객사 관리', orders:'수주 관리', quotes:'견적 관리',
+    performance:'영업 실적', customers:'고객사 관리', quotes:'견적 관리', orders:'수주 관리',
     delivery:'납품 이력', 'prod-req':'생산 요청', 'market':'고객요구',
   }
 

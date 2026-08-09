@@ -86,7 +86,7 @@ const EMPTY_FORM = {
   productKey: '', productName: '', productCode: '', orderNo: '',
   inquiryDate: today(), reviewDate: '', acceptedDate: '',
   status: 'captured',
-  requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true, assignee: '', assigneeChecked: false })),
+  requirements: REQ_TYPES.map(t => ({ type: t, content: '', applicable: true, updatedBy: '', updatedAt: '' })),
   reviewItems: REVIEW_ITEMS.map(text => ({ text, result: null, note: '' })),
   reviewMisc: '',
   reviewedBy: '', approvedBy: '',
@@ -95,10 +95,9 @@ const EMPTY_FORM = {
   communications: [],
 }
 
-// #46/#47/#48: 각 요구사항이 (해당없음으로 체크되었거나) 담당자가 내용을 입력하고 확인 체크까지
-// 완료되어야만 검토를 시작할 수 있다 — 요구자(영업)와 검토자(해당 부서 담당자)의 역할을 구분한다.
+// #39: 담당자가 요구사항 내용을 작성한 것 자체를 확인 완료로 간주한다(별도 확인 체크박스 불필요).
 function requirementsReady(rec) {
-  return (rec.requirements || []).every(r => r.applicable === false || ((r.content && r.content.trim()) && r.assigneeChecked))
+  return (rec.requirements || []).every(r => r.applicable === false || (r.content && r.content.trim()))
 }
 
 // ── 메인 ─────────────────────────────────────────────────────
@@ -203,6 +202,19 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
       if (r.id !== recId) return r
       const reqs = [...(r.requirements || [])]
       reqs[idx] = { ...reqs[idx], [field]: value }
+      return { ...r, requirements: reqs }
+    })
+    save(next)
+  }
+
+  // #37/#38 — 요구사항 내용은 "저장" 버튼을 눌러야 확정 반영되고(입력 중 상태와 구분되어 저장 여부를
+  // 명확히 알 수 있음), 담당자는 별도 입력 없이 저장을 누른 로그인 사용자로 자동 기록된다.
+  function saveRequirementContent(recId, idx, content) {
+    const who = user?.name || user?.email || '(알 수 없음)'
+    const next = records.map(r => {
+      if (r.id !== recId) return r
+      const reqs = [...(r.requirements || [])]
+      reqs[idx] = { ...reqs[idx], content, updatedBy: who, updatedAt: today() }
       return { ...r, requirements: reqs }
     })
     save(next)
@@ -375,6 +387,7 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
           <DetailView
             rec={selected} canEdit={canEdit}
             updateReviewItem={updateReviewItem} updateRequirement={updateRequirement} updateReviewMisc={updateReviewMisc}
+            saveRequirementContent={saveRequirementContent}
             commForm={commForm} setCommForm={setCommForm}
             showCommForm={showCommForm} setShowCommForm={setShowCommForm}
             addCommunication={addCommunication} deleteComm={deleteComm}
@@ -395,7 +408,7 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
 }
 
 // ── 상세 뷰 ──────────────────────────────────────────────────
-function DetailView({ rec, canEdit, updateReviewItem, updateRequirement, updateReviewMisc,
+function DetailView({ rec, canEdit, updateReviewItem, updateRequirement, updateReviewMisc, saveRequirementContent,
   commForm, setCommForm, showCommForm, setShowCommForm, addCommunication, deleteComm,
   quickStatus, completeReview, reviewPassed }) {
   const sm = REQ_STATUSES[rec.status] || REQ_STATUSES.captured
@@ -474,51 +487,8 @@ function DetailView({ rec, canEdit, updateReviewItem, updateRequirement, updateR
       <SectionCard title="§7.2.1 요구사항 결정" open={openSec.reqs} onToggle={() => toggle('reqs')}>
         <div className="space-y-3">
           {(rec.requirements || []).map((req, i) => (
-            <div key={i} className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{req.type}</span>
-                {canEdit && (
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={req.applicable !== false}
-                      onChange={e => updateRequirement(rec.id, i, 'applicable', e.target.checked)}
-                      className="accent-green-500" />
-                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>해당</span>
-                  </label>
-                )}
-              </div>
-              {req.applicable !== false ? (
-                canEdit ? (
-                  <textarea value={req.content || ''} rows={2} placeholder="요구사항 내용 입력..."
-                    onChange={e => updateRequirement(rec.id, i, 'content', e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg text-[12.5px] resize-none"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
-                ) : (
-                  <div className="text-[12.5px]" style={{ color: req.content ? 'var(--ink-soft)' : 'var(--ink-faint)' }}>
-                    {req.content || '내용 없음'}
-                  </div>
-                )
-              ) : (
-                <div className="text-[11.5px] italic" style={{ color: 'var(--ink-faint)' }}>해당 없음 (N/A)</div>
-              )}
-              {req.applicable !== false && (
-                <div className="flex items-center gap-2 mt-2 pt-2" style={{ borderTop: '1px dashed var(--line)' }}>
-                  {canEdit ? (
-                    <input type="text" value={req.assignee || ''} placeholder="담당자명 (검토 책임자)"
-                      onChange={e => updateRequirement(rec.id, i, 'assignee', e.target.value)}
-                      className="flex-1 px-2 py-1 rounded-lg text-[11.5px]"
-                      style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
-                  ) : (
-                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>담당자: {req.assignee || '미지정'}</span>
-                  )}
-                  <label className="flex items-center gap-1.5 shrink-0" style={{ cursor: canEdit ? 'pointer' : 'default' }}>
-                    <input type="checkbox" checked={!!req.assigneeChecked} disabled={!canEdit}
-                      onChange={e => updateRequirement(rec.id, i, 'assigneeChecked', e.target.checked)}
-                      className="accent-green-500" />
-                    <span className="text-[11px] font-medium" style={{ color: req.assigneeChecked ? '#059669' : 'var(--ink-faint)' }}>담당자 확인완료</span>
-                  </label>
-                </div>
-              )}
-            </div>
+            <RequirementRow key={i} req={req} idx={i} recId={rec.id} canEdit={canEdit}
+              updateRequirement={updateRequirement} saveRequirementContent={saveRequirementContent} />
           ))}
         </div>
       </SectionCard>
@@ -776,6 +746,67 @@ function RecordForm({ form, setForm, onSave, onCancel, isEdit }) {
 }
 
 // ── 공통 컴포넌트 ─────────────────────────────────────────────
+// #37/#38/#39 — 요구사항 항목 한 줄. 내용은 "저장" 버튼을 눌러야 확정 반영되어 저장 여부를
+// 명확히 알 수 있고(#37), 담당자는 저장한 로그인 사용자로 자동 기록되며(#38), 내용을 저장한 것
+// 자체가 확인 완료를 의미하므로 별도 확인 체크박스는 없다(#39).
+function RequirementRow({ req, idx, recId, canEdit, updateRequirement, saveRequirementContent }) {
+  const [draft, setDraft] = useState(req.content || '')
+  const [savedFlash, setSavedFlash] = useState(false)
+  const dirty = draft !== (req.content || '')
+
+  const doSave = () => {
+    saveRequirementContent(recId, idx, draft)
+    setSavedFlash(true)
+    setTimeout(() => setSavedFlash(false), 1600)
+  }
+
+  return (
+    <div className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{req.type}</span>
+        {canEdit && (
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <input type="checkbox" checked={req.applicable !== false}
+              onChange={e => updateRequirement(recId, idx, 'applicable', e.target.checked)}
+              className="accent-green-500" />
+            <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>해당</span>
+          </label>
+        )}
+      </div>
+      {req.applicable !== false ? (
+        canEdit ? (
+          <>
+            <textarea value={draft} rows={2} placeholder="요구사항 내용 입력..."
+              onChange={e => setDraft(e.target.value)}
+              className="w-full px-3 py-1.5 rounded-lg text-[12.5px] resize-none"
+              style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+            <div className="flex items-center gap-2 mt-1.5">
+              <button onClick={doSave} disabled={!dirty}
+                className="px-3 py-1 rounded-lg text-[11.5px] font-bold"
+                style={{
+                  background: dirty ? 'var(--moss)' : 'var(--bg-soft)',
+                  color: dirty ? '#fff' : 'var(--ink-faint)',
+                  border: dirty ? 'none' : '1px solid var(--line)',
+                  cursor: dirty ? 'pointer' : 'not-allowed',
+                }}><Save size={11} style={{ display: 'inline', marginRight: 4, verticalAlign: -1 }} />저장</button>
+              {savedFlash && <span className="text-[11px] font-semibold" style={{ color: '#059669' }}>✓ 저장됨</span>}
+              {!savedFlash && req.updatedBy && (
+                <span className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>최종 저장: {req.updatedBy} · {req.updatedAt}</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="text-[12.5px]" style={{ color: req.content ? 'var(--ink-soft)' : 'var(--ink-faint)' }}>
+            {req.content || '내용 없음'}
+          </div>
+        )
+      ) : (
+        <div className="text-[11.5px] italic" style={{ color: 'var(--ink-faint)' }}>해당 없음 (N/A)</div>
+      )}
+    </div>
+  )
+}
+
 function SectionCard({ title, open, onToggle, children }) {
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
