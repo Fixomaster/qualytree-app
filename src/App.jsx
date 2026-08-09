@@ -3,6 +3,7 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { auth } from './lib/auth'
+import ErrorBoundary from './components/ErrorBoundary'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
@@ -117,9 +118,11 @@ return children
 function LazyRoute({ Component, fallback }) {
 if (!Component) return fallback || <Navigate to="/home" replace />
 return (
+<ErrorBoundary>
 <React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>로딩 중...</div>}>
 <Component />
 </React.Suspense>
+</ErrorBoundary>
 )
 }
 
