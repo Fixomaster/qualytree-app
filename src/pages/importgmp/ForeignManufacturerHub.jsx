@@ -17,6 +17,8 @@ import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
 import { onboarding } from '../../lib/onboardingState'
+import { mfds } from '../../lib/mfds'
+import { resolveCategoryByNo } from '../../lib/mfdsCategory'
 import {
   foreignSites,
   gmpCertificates,
@@ -30,7 +32,7 @@ import CertGate from '../../components/CertGate'
 // "기타 서류" 단일 다중첨부 대신 항목별 개별 서류 슬롯으로 구성한다.
 // (제조소 개요/품목목록은 위에서 별도 필드로 이미 관리하고, GMP 적합인정서·실사결과 자료는
 //  아래 GMP 적합인정서/타 인증기관 실사자료 섹션에서 별도로 관리하므로 여기서는 제외한다.)
-const FOREIGN_DOC_SLOTS = [
+export const FOREIGN_DOC_SLOTS = [
   { key: 'bizLicense', label: '2. 제조(수입)업 허가증 사본' },
   { key: 'orgChart', label: '2-가-2. 조직도' },
   { key: 'employeeCert', label: '2-가-3. 종업원 수 확인자료' },
@@ -172,6 +174,21 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) 
   const dirty = JSON.stringify(form) !== JSON.stringify(site)
   const [pnOpenId, setPnOpenId] = useState(null) // #3 품목명 검색 드롭다운 (열려있는 행 id)
 
+  // #17 — 품목군을 사용자가 직접 타이핑하지 않아도, MFDS 품목분류 데이터로 품목명을 찾아
+  // 분류번호 기준 품목군을 자동 생성해준다(RegulatoryHub Step1과 동일한 방식).
+  React.useEffect(() => { mfds.load() }, [])
+  const autoFillGroup = (id, name) => {
+    if (!name || !name.trim()) return
+    const hit = mfds.search(name, 1).find((it) => it.name === name.trim()) || mfds.search(name, 1)[0]
+    if (!hit) return
+    const cat = resolveCategoryByNo(hit.no)
+    if (!cat) return
+    setForm((f) => ({
+      ...f,
+      products: (f.products || []).map((row) => (row.id === id && !row.group ? { ...row, group: cat.name } : row)),
+    }))
+  }
+
   // 이미 등록된 품목명 — 다른 외국제조소에 등록된 품목 + 회사 제품·공정(ProductsHub)에 등록된 품목을 함께 검색 후보로 사용 (#3, #25 재수정)
   // 제조소를 처음 등록할 때는 다른 제조소 품목이 아직 없어 검색이 비어 보일 수 있으므로, 이미 온보딩에서 등록한 자사 품목도 함께 찾는다.
   const knownProducts = React.useMemo(() => {
@@ -281,8 +298,8 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) 
                       value={p.name}
                       onChange={(v) => { setProductField(p.id, 'name', v.target.value); setPnOpenId(p.id) }}
                       onFocus={() => setPnOpenId(p.id)}
-                      onBlur={() => setTimeout(() => setPnOpenId((cur) => (cur === p.id ? null : cur)), 150)}
-                      placeholder="예: 금속제인공고관절 — 입력 또는 기존 품목 검색"
+                      onBlur={() => { autoFillGroup(p.id, p.name); setTimeout(() => setPnOpenId((cur) => (cur === p.id ? null : cur)), 150) }}
+                      placeholder="예: 금속제인공고관절 — 입력 또는 기존 품목 검색 (품목군 자동 생성)"
                       disabled={!canEdit} />
                     {pnOpenId === p.id && p.name && (() => {
                       const q = p.name.toLowerCase()

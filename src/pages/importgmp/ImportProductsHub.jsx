@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Trash2, BadgeCheck, Factory, Edit2, ClipboardPaste, X } from 'lucide-react'
+import { Plus, Trash2, BadgeCheck, Factory, Edit2, ClipboardPaste, X, Link2, ExternalLink } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import CertGate from '../../components/CertGate'
@@ -13,7 +13,15 @@ function writeLS(v) { localStorage.setItem(LS_KEY, JSON.stringify(v)) }
 const TYPE_OPTIONS = ['허가', '신고', '인증']
 const mkId = () => Math.random().toString(36).slice(2, 10)
 
-const EMPTY = { productName: '', classNo: '', type: '허가', certNo: '', issuedDate: '', siteId: '', notes: '' }
+const EMPTY = { productName: '', classNo: '', type: '허가', certNo: '', issuedDate: '', siteId: '', notes: '', linkedLicenseId: null }
+
+// #19 — 인허가(RegulatoryHub)에서 이미 허가 완료된 수입 품목을 그대로 가져와 연동한다.
+function loadLicensedImportProducts() {
+  try {
+    const list = JSON.parse(localStorage.getItem('qualytree.regulatory_products') || '[]')
+    return (Array.isArray(list) ? list : []).filter((p) => p.isImport && p.licenseNo)
+  } catch { return [] }
+}
 
 // 모델명 대량 입력 파싱 (#8) — 한 줄에 "코드<TAB>모델명" 또는 "코드,모델명" 형식으로 여러 줄 붙여넣기 지원
 function parseBulkModels(text) {
@@ -73,12 +81,26 @@ export default function ImportProductsHub() {
 
   const save = (v) => { writeLS(v); setList(v) }
 
+  const [licenseImportOpen, setLicenseImportOpen] = useState(false) // #19
+  const licensedImportProducts = React.useMemo(() => loadLicensedImportProducts(), [licenseImportOpen])
+
   const startAdd = () => {
     setEditingId(null); setForm(EMPTY); setDraftModels([]); setSiteQuery(''); setAdding(true)
   }
+  // #19 — 인허가에서 가져오기: 품목명·분류번호·허가번호·허가일을 그대로 채우고 연동 표시를 남긴다.
+  const importFromLicense = (lp) => {
+    setF('productName', lp.productName)
+    setF('classNo', lp.productCode || '')
+    setF('type', '허가')
+    setF('certNo', lp.licenseNo || '')
+    setF('issuedDate', lp.licenseDate || '')
+    setForm((f) => ({ ...f, linkedLicenseId: lp.id }))
+    setSiteQuery('')
+    setLicenseImportOpen(false)
+  }
   const startEdit = (r) => {
     setEditingId(r.id)
-    setForm({ productName: r.productName, classNo: r.classNo, type: r.type, certNo: r.certNo, issuedDate: r.issuedDate, siteId: r.siteId, notes: r.notes })
+    setForm({ productName: r.productName, classNo: r.classNo, type: r.type, certNo: r.certNo, issuedDate: r.issuedDate, siteId: r.siteId, notes: r.notes, linkedLicenseId: r.linkedLicenseId || null })
     setSiteQuery(r.siteId ? (sites.find(s => s.id === r.siteId)?.name || '') : '')
     setDraftModels((r.models || []).map(m => ({ ...m })))
     setAdding(true)
@@ -172,9 +194,33 @@ export default function ImportProductsHub() {
           {/* 등록/수정 폼 (#16) */}
           {adding && (
             <div className="card-base p-4 mb-4" style={{ borderColor: 'var(--moss)' }}>
-              <div className="text-[13px] font-semibold mb-3" style={{ color: 'var(--ink)' }}>
-                {editingId ? '품목 정보 수정' : '새 품목 등록'}
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>
+                  {editingId ? '품목 정보 수정' : '새 품목 등록'}
+                </div>
+                <div className="relative">
+                  <button type="button" onClick={() => setLicenseImportOpen((v) => !v)} className="btn-ghost text-[11.5px] inline-flex items-center gap-1">
+                    <Link2 size={12} /> 인허가에서 가져오기
+                  </button>
+                  {licenseImportOpen && (
+                    <div className="absolute z-20 right-0 mt-1 w-[320px] max-h-64 overflow-auto bg-white border border-slate-200 rounded-lg shadow-lg divide-y divide-slate-100">
+                      {licensedImportProducts.length === 0 ? (
+                        <div className="px-3 py-3 text-[12px]" style={{ color: 'var(--ink-faint)' }}>인허가에 등록된 수입 허가완료 품목이 없습니다.</div>
+                      ) : licensedImportProducts.map((lp) => (
+                        <button key={lp.id} type="button" onMouseDown={() => importFromLicense(lp)}
+                          className="w-full text-left px-3 py-2 hover:bg-emerald-50 text-[12.5px] text-slate-800">
+                          {lp.productName} <span className="text-slate-400">· {lp.licenseNo}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+              {form.linkedLicenseId && (
+                <div className="mb-3 text-[11.5px] inline-flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                  <Link2 size={11} /> 인허가 품목과 연동됨
+                </div>
+              )}
               <div className="grid sm:grid-cols-3 gap-3">
                 <label className="sm:col-span-2 block relative">
                   <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>품목명 * (검색)</span>
@@ -336,6 +382,11 @@ export default function ImportProductsHub() {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>{r.productName}</span>
                                 <span className="text-[10.5px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{r.type}</span>
+                                {r.linkedLicenseId && (
+                                  <a href="/regulatory" className="text-[10.5px] px-1.5 py-0.5 rounded font-medium inline-flex items-center gap-1" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
+                                    <Link2 size={9} /> 인허가 연동 <ExternalLink size={9} />
+                                  </a>
+                                )}
                               </div>
                               <div className="text-[12px] mt-1 flex flex-wrap gap-3" style={{ color: 'var(--ink-mute)' }}>
                                 {r.classNo && <span>분류: {r.classNo}</span>}

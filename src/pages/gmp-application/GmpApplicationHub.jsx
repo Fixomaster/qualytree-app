@@ -31,6 +31,8 @@ import { permissions, requirePermission } from '../../lib/permissions'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { productDocs, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
 import { getKgmpStatus } from '../../lib/kgmpProgress'
+import { foreignSites } from '../../lib/foreignManufacturerState'
+import { FOREIGN_DOC_SLOTS } from '../importgmp/ForeignManufacturerHub'
 
 const TABS = [
   { key: 'apply', label: '신청정보', icon: FileCheck2 },
@@ -691,6 +693,10 @@ function AttachmentsTab({ nav }) {
   const isImporter = isImporterOnly()
   const kgmpStatus = useMemo(() => getKgmpStatus({ profile: isImporter ? 'importer' : 'manufacturer' }), [isImporter])
 
+  // #18 — 외국제조소에 첨부한 구비서류(FOREIGN_DOC_SLOTS)가 GMP신청 첨부서류 체크리스트에도
+  // 반영되어야 한다는 피드백 — 외국제조소별 구비서류 첨부 현황을 여기서도 볼 수 있게 한다.
+  const foreignSiteList = useMemo(() => (isImporter ? foreignSites.getAll() : []), [isImporter])
+
   const docNames = state.docNames || REQUIRED_DOC_NAMES
   const docChecked = state.docChecked || {}
   const toggleDoc = (name) => patch({ docChecked: { ...docChecked, [name]: !docChecked[name] } })
@@ -707,6 +713,38 @@ function AttachmentsTab({ nav }) {
 
   return (
     <div className="space-y-5">
+      {/* #18 외국제조소 구비서류 현황 (수입GMP 전용) */}
+      {isImporter && (
+        <div className="card-base p-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+            <div>
+              <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>외국제조소 구비서류 현황</div>
+              <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>
+                외국제조소·수입 GMP 화면에서 제조소별로 첨부한 구비서류가 여기 자동으로 반영됩니다.
+              </div>
+            </div>
+            <button onClick={() => nav('/foreign-manufacturers')} className="btn-ghost text-[12px] inline-flex items-center gap-1 shrink-0">
+              외국제조소 관리로 이동 <ChevronRight size={13} />
+            </button>
+          </div>
+          {foreignSiteList.length === 0 ? (
+            <div className="text-[12px] py-4 text-center" style={{ color: 'var(--ink-faint)' }}>등록된 외국제조소가 없습니다.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {foreignSiteList.map((s) => {
+                const filled = FOREIGN_DOC_SLOTS.filter((slot) => ((s.docSlotFiles || {})[slot.key] || []).length > 0).length
+                return (
+                  <div key={s.id} className="p-2.5 rounded-lg flex items-center justify-between" style={{ background: 'var(--bg-soft)' }}>
+                    <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{s.name || '(제조소명 미입력)'}</span>
+                    <span className="text-[11.5px] font-semibold" style={{ color: 'var(--ink-mute)' }}>{filled}/{FOREIGN_DOC_SLOTS.length} 서류 첨부됨</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* #9 품질문서관리개요 별표2 */}
       <div className="card-base p-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
