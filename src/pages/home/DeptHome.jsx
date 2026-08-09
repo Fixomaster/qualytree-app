@@ -155,6 +155,23 @@ function getMyTasks(dept) {
     }
   })
 
+  // RA/QUA: 수입관리기준서 검토·승인 대기 (#30 — 작성/검토/승인 워크플로우)
+  if (['RA', 'QUA', 'ALL'].includes(dept)) {
+    try {
+      const ims = JSON.parse(localStorage.getItem('qualytree.import_management_standard') || 'null')
+      if (ims && ['review', 'approval'].includes(ims.docStatus)) {
+        const isReview = ims.docStatus === 'review'
+        tasks.push({
+          id: 'ims-' + ims.docStatus, type: 'ims', urgent: false,
+          label: `수입관리기준서 · ${isReview ? '검토 대기' : '승인 대기'}`,
+          sub: isReview ? `작성자: ${ims.draftedBy || '-'} · 검토가 필요합니다` : `검토자: ${ims.reviewedBy || '-'} · 승인이 필요합니다`,
+          link: '/import-management-standard', color: '#7C3AED',
+          createdAt: isReview ? ims.draftedAt : ims.reviewedAt,
+        })
+      }
+    } catch { /* ignore */ }
+  }
+
   // EQP: 교정 초과
   const eqpInstrT = lsRead('qms_eqp_instruments')
   eqpInstrT.forEach(e => {
