@@ -1225,6 +1225,28 @@ function Step3({ form, onChange, onSave, onBack }) {
     return acc
   }, {})
 
+  // #5 — "실질적으로 제출해야되는 서류가 없음. 모양및구조/사용방법/사용시주의사항 등등의 내용을
+  // 제출해야 함" 피드백 대응: 위 서류들은 체크박스만으로 끝나는 게 아니라 실제 제품 기술설명
+  // 내용이 필요하다. GMP신청(기술문서 심사자료) 탭에서 같은 품목명으로 이미 작성해 둔 모양및구조·
+  // 원재료·제조방법·사용방법·사용시주의사항·저장방법·사용기한을 여기서도 그대로 확인할 수 있도록
+  // 참고 패널로 노출해, 각 서류의 "내용 작성" 란에 옮겨 적을 수 있게 한다.
+  const techRef = useMemo(() => {
+    try {
+      const ob = onboarding.load()
+      const list = ob.products || []
+      const name = (form.productName || '').trim().toLowerCase()
+      if (!name) return null
+      const p = list.find(pr => ((pr.itemName || pr.name || '').trim().toLowerCase()) === name)
+      if (!p) return null
+      const fields = [
+        ['모양 및 구조', p.techShape], ['원재료', p.techRawMaterial], ['제조방법', p.techMfgMethod],
+        ['사용방법', p.techUsageMethod], ['사용시 주의사항', p.techUsageWarning],
+        ['저장방법', p.techStorage], ['사용기한', p.techUsagePeriod],
+      ].filter(([, v]) => (v || '').trim())
+      return fields.length ? fields : null
+    } catch { return null }
+  }, [form.productName])
+
   const STATUS_BTNS = [
     { val:'pending', label:'준비중', color:'var(--amber,#f59e0b)', bg:'#fef3c7' },
     { val:'done',    label:'완료',   color:'var(--moss)',           bg:'var(--leaf-soft)' },
@@ -1254,6 +1276,21 @@ function Step3({ form, onChange, onSave, onBack }) {
         <strong style={{ color:'var(--ink)' }}>△ 품목별 판단</strong> 서류는 식약처 담당자 협의 후 제출 여부가 결정됩니다.
         각 서류의 준비 상태를 체크하고, 필요 시 AI 초안을 생성하거나 파일을 첨부하세요.
       </div>
+
+      {techRef && (
+        <div style={{ background:'#ECFDF5', border:'1px solid #A7F3D0', borderRadius:8, padding:'12px 16px', marginBottom:20, fontSize:12 }}>
+          <p style={{ fontWeight:700, color:'#047857', marginBottom:6 }}>GMP신청(기술문서 심사자료)에 이미 작성된 제품 기술설명</p>
+          <p style={{ color:'#065f46', marginBottom:8 }}>아래 내용을 각 서류의 "내용 작성" 란에 옮겨 적으면 실제 제출 내용을 빠르게 채울 수 있습니다.</p>
+          <div style={{ display:'grid', gap:6 }}>
+            {techRef.map(([label, val]) => (
+              <div key={label}>
+                <span style={{ fontWeight:600, color:'#047857' }}>{label}: </span>
+                <span style={{ color:'#065f46' }}>{val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {docList.length===0
         ? (
