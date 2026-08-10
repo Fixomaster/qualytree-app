@@ -7,14 +7,14 @@ import { deptAuth } from '../lib/deptAuth'
 // #301: 부서 선택 정보는 localStorage(브라우저 캐시)에만 저장되어, 캐시를 삭제하면
 // 홈 대시보드 진입 시마다 매번 부서 선택 화면이 강제로 뜨는 문제가 있었다(요청: 삭제).
 // 강제 모달 팝업을 제거하고, 미선택 상태이면 조용히 '전체 보기'(ALL)로 기본 설정한다.
-// (#374 — 이제 deptAuth.setDepartment()가 company_members.last_dept에도 함께 저장하고,
-// ProtectedRoute가 로그인 시 이 기기에 로컬 선택이 없으면 그 값을 이어받으므로, 다른
-// 기기·브라우저로 로그인해도 마지막 선택한 부서가 유지된다.)
+// (#374 — deptAuth.ensureDepartment()를 거쳐서 기본값을 정한다. 예전에는 여기서 바로
+// setDepartment('ALL')을 동기적으로 호출했는데, 그러면 이 효과가 항상 원격
+// last_dept 조회(네트워크, 비동기)보다 먼저 끝나버려서 다른 기기로 로그인해도 절대
+// 저장해둔 부서를 이어받지 못하는 경쟁 조건이 있었다. ensureDepartment는 로컬에 값이
+// 없을 때만 원격을 먼저 확인하고, 그래도 없을 때 최종적으로 ALL로 기본 설정한다.)
 export default function AppLayout({ user, title, subtitle, children }) {
   useEffect(() => {
-    if (!deptAuth.getDepartment()) {
-      deptAuth.setDepartment('ALL')
-    }
+    deptAuth.ensureDepartment()
   }, [])
 
   return (

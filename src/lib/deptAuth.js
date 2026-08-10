@@ -5,7 +5,7 @@
 // 기기로 로그인하면 매번 다시 골라야 했다. company_members.last_dept(Supabase)에도
 // best-effort로 함께 저장해서, 다음에 어느 기기로 로그인하든 마지막 선택을 이어받게 한다.
 // 네트워크 실패해도 로컬 동작은 항상 기존처럼 즉시 동작해야 하므로 절대 await로 막지 않는다.
-import { updateMyLastDept } from './supabase'
+import { updateMyLastDept, getCompanyMembership } from './supabase'
 
 const AUTH_KEY = 'qualytree.auth'
 const DEPT_KEY = 'qualytree.dept'
@@ -65,6 +65,34 @@ export const deptAuth = {
     if (!dept) return
     if (localStorage.getItem(DEPT_KEY)) return
     this.setDepartment(dept, { skipRemote: true })
+  },
+
+  /** #374 — AppLayout이 '선택 없으면 전체보기로 기본 설정'하기 *전에* 반드시 거쳐야 하는
+   *  진입점. 로컬에 선택이 있으면 즉시 그 값을 반환하고(네트워크 없음), 없으면 원격
+   *  last_dept를 먼저 확인한 뒤에야 최종적으로 'ALL'로 기본 설정한다 — 그렇지 않으면
+   *  AppLayout의 동기(sync) 기본값 설정이 항상 비동기 원격 조회보다 먼저 끝나버려서,
+   *  다른 기기로 로그인해도 저장해둔 부서를 이어받지 못하고 매번 '전체보기'로 뜨는
+   *  경쟁 조건(race condition)이 생긴다. 동시에 여러 곳에서 호출돼도 조회는 한 번만
+   *  나가도록 in-flight promise를 캐싱한다.
+   */
+  _ensurePromise: null,
+  async ensureDepartment() {
+    const local = this.getDepartment()
+    if (local) return local
+    if (!this._ensurePromise) {
+      this._ensurePromise = (async () => {
+        try {
+          const m = await getCompanyMembership()
+          if (m?.last_dept) {
+            this.applyRemoteDept(m.last_dept)
+            return this.getDepartment()
+          }
+        } catch { /* ignore — 아래에서 ALL로 기본 설정 */ }
+        if (!this.getDepartment()) this.setDepartment('ALL')
+        return this.getDepartment()
+      })()
+    }
+    return this._ensurePromise
   },
 
   /** 부서 선택 초기화 */
