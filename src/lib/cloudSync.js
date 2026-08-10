@@ -9,8 +9,10 @@
 //
 // 동작 방식:
 //   1) 로그인 + 회사 소속 확인 후 initCloudSync(company)가 1회 호출된다.
-//   2) company_data 테이블에서 그 회사의 모든 (storage_key, value) 행을 가져와
-//      localStorage에 반영한다(원격이 있으면 원격이 우선).
+//   2) company_data 테이블(기존 스키마: company_id/data_type/data_key/payload)에서
+//      data_type='localStorage_sync'인 그 회사의 모든 행을 가져와 localStorage에
+//      반영한다(원격이 있으면 원격이 우선). data_type을 고정 상수로 써서, 이 테이블을
+//      다른 용도로 이미/앞으로 쓰더라도 서로 데이터가 섞이지 않게 한다.
 //   3) 로컬에만 있고 원격에는 아직 없는 키(이번 마이그레이션 이전부터 이 브라우저에
 //      쌓여있던 데이터)는 그대로 원격에 최초 업로드(seed)한다.
 //   4) 이후 localStorage.setItem을 가로채, 동기화 대상 키가 바뀔 때마다 800ms
@@ -24,6 +26,10 @@
 import { supabase, getSupabaseUser } from './supabase'
 
 const TABLE = 'company_data'
+// 기존에 이 테이블은 company_id+data_type+data_key 3중 유니크 제약으로 이미 만들어져
+// 있었다(다른 목적으로 미리 준비된 것으로 보이며 프론트엔드에서 실제로 쓰는 곳은 없었음).
+// localStorage 동기화 용도임을 구분하기 위한 고정 data_type 값.
+const DATA_TYPE = 'localStorage_sync'
 const DEBOUNCE_MS = 800
 
 // 회사 데이터가 아니라 "이 브라우저/이 세션에만" 의미 있는 값 — 동기화 제외
@@ -84,12 +90,11 @@ async function pushKey(key) {
     await supabase.from(TABLE).upsert(
       {
         company_id: currentCompanyId,
-        storage_key: key,
-        value,
-        updated_by: currentUserId || null,
-        updated_by_name: currentUserName || null,
+        data_type: DATA_TYPE,
+        data_key: key,
+        payload: value,
       },
-      { onConflict: 'company_id,storage_key' }
+      { onConflict: 'company_id,data_type,data_key' }
     )
   } catch (e) {
     console.warn('[cloudSync] push 실패:', key, String(e?.message || e))
@@ -134,7 +139,8 @@ function patchStorage() {
     if (isSyncableKey(key) && currentCompanyId) {
       supabase.from(TABLE).delete()
         .eq('company_id', currentCompanyId)
-        .eq('storage_key', key)
+        .eq('data_type', DATA_TYPE)
+        .eq('data_key', key)
         .then(() => {}, () => {})
     }
   }
@@ -151,23 +157,24 @@ async function pullRemote({ skipInFlight } = {}) {
   if (!currentCompanyId) return
   const { data, error } = await supabase
     .from(TABLE)
-    .select('storage_key, value')
+    .select('data_key, payload')
     .eq('company_id', currentCompanyId)
+    .eq('data_type', DATA_TYPE)
   if (error) {
     console.warn('[cloudSync] pull 실패:', String(error?.message || error))
     return
   }
   for (const row of data || []) {
-    if (skipInFlight && inFlightKeys.has(row.storage_key)) continue
+    if (skipInFlight && inFlightKeys.has(row.data_key)) continue
     try {
-      originalSetItem(row.storage_key, valueToRaw(row.value))
+      originalSetItem(row.data_key, valueToRaw(row.payload))
     } catch { /* ignore */ }
   }
   return data || []
 }
 
 async function seedMissingLocalKeys(remoteRows) {
-  const remoteKeys = new Set((remoteRows || []).map(r => r.storage_key))
+  const remoteKeys = new Set((remoteRows || []).map(r => r.data_key))
   const toSeed = []
   for (let i = 0; i < window.localStorage.length; i++) {
     const key = window.localStorage.key(i)
