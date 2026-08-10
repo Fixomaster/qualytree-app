@@ -79,6 +79,23 @@ function valueToRaw(value) {
   return JSON.stringify(value)
 }
 
+function stripNulBytes(value) {
+  if (typeof value === 'string') {
+    return value.indexOf('\u0000') === -1 ? value : value.split('\u0000').join('')
+  }
+  if (Array.isArray(value)) {
+    return value.map(stripNulBytes)
+  }
+  if (value && typeof value === 'object') {
+    const out = {}
+    for (const k of Object.keys(value)) {
+      out[k] = stripNulBytes(value[k])
+    }
+    return out
+  }
+  return value
+}
+
 async function pushKey(key) {
   inFlightKeys.delete(key)
   if (!currentCompanyId) {
@@ -89,13 +106,14 @@ async function pushKey(key) {
   try { raw = originalGetItem(key) } catch { return }
   if (raw == null) return
   const { value } = safeParse(raw)
+  const cleanValue = stripNulBytes(value)
   try {
     const { error } = await supabase.from(TABLE).upsert(
       {
         company_id: currentCompanyId,
         data_type: DATA_TYPE,
         data_key: key,
-        payload: value,
+        payload: cleanValue,
       },
       { onConflict: 'company_id,data_type,data_key' }
     )
