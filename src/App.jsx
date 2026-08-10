@@ -144,7 +144,7 @@ return (
 export default function App() {
 return (
 <>
-<CloudSyncIndicator />
+<ErrorBoundary><CloudSyncIndicator /></ErrorBoundary>
 <Routes>
 <Route path="/" element={<Navigate to="/home" replace />} />
 <Route path="/login" element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
