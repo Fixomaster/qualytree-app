@@ -12,7 +12,7 @@ import CloudSyncIndicator from './components/CloudSyncIndicator'
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
-let ProductsHub, RegulatoryHub, Documents, PreviewHub
+let QualityHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
 
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
@@ -27,8 +27,8 @@ try { Onboarding = React.lazy(() => import(/* @vite-ignore */ './pages/onboardin
 try { WorkOrderQueue = React.lazy(() => import(/* @vite-ignore */ './pages/operations/WorkOrderQueue')) } catch {}
 try { EBatchRecord = React.lazy(() => import(/* @vite-ignore */ './pages/operations/EBatchRecord')) } catch {}
 try { InspectionStages= React.lazy(() => import(/* @vite-ignore */ './pages/operations/InspectionStages')) } catch {}
-// [HIDDEN] try { QualityHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/QualityHub')) } catch {}
-// [HIDDEN] try { QualityTree = React.lazy(() => import(/* @vite-ignore */ './pages/tree/QualityTree')) } catch {}
+try { QualityHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/QualityHub')) } catch {}
+try { QualityTree = React.lazy(() => import(/* @vite-ignore */ './pages/tree/QualityTree')) } catch {}
 try { ProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/products/ProductsHub')) } catch {}
 try { RegulatoryHub = React.lazy(() => import(/* @vite-ignore */ './pages/regulatory/RegulatoryHub')) } catch {}
 try { Documents = React.lazy(() => import(/* @vite-ignore */ './pages/Documents')) } catch {}
@@ -83,7 +83,7 @@ try { SterileControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/st
 // ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
 let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub
-let CompanyHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
+let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
 try { SalesHub = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
 try { ManufacturingHub = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
@@ -96,7 +96,7 @@ try { GmpApplicationHub = React.lazy(() => import(/* @vite-ignore */ './pages/gm
 try { ForeignManufacturerHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ForeignManufacturerHub')) } catch {}
 try { Iso13485Hub = React.lazy(() => import(/* @vite-ignore */ './pages/iso13485/Iso13485Hub')) } catch {}
 try { CompanyHub = React.lazy(() => import(/* @vite-ignore */ './pages/company/CompanyHub')) } catch {}
-// [HIDDEN] try { LogisticsHub = React.lazy(() => import(/* @vite-ignore */ './pages/logistics/LogisticsHub')) } catch {}
+try { LogisticsHub = React.lazy(() => import(/* @vite-ignore */ './pages/logistics/LogisticsHub')) } catch {}
 try { NoticeHub = React.lazy(() => import(/* @vite-ignore */ './pages/notices/NoticeHub')) } catch {}
 try { ResourcePlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/resource-plan/ResourcePlanHub')) } catch {}
 try { QmsOverviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/qms-overview/QmsOverviewHub')) } catch {}
@@ -160,8 +160,8 @@ return (
 <Route path="/operations" element={<ProtectedRoute><LazyRoute Component={WorkOrderQueue} /></ProtectedRoute>} />
 <Route path="/operations/:woId/ebr" element={<ProtectedRoute><LazyRoute Component={EBatchRecord} /></ProtectedRoute>} />
 <Route path="/operations/:woId/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionStages} /></ProtectedRoute>} />
-// [HIDDEN] <Route path="/quality" element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
-// [HIDDEN] <Route path="/tree" element={<ProtectedRoute><LazyRoute Component={QualityTree} /></ProtectedRoute>} />
+<Route path="/quality" element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
+<Route path="/tree" element={<ProtectedRoute><LazyRoute Component={QualityTree} /></ProtectedRoute>} />
 <Route path="/products" element={<ProtectedRoute><LazyRoute Component={ProductsHub} /></ProtectedRoute>} />
 <Route path="/regulatory" element={<ProtectedRoute><LazyRoute Component={RegulatoryHub} /></ProtectedRoute>} />
 <Route path="/documents" element={<ProtectedRoute><LazyRoute Component={Documents} /></ProtectedRoute>} />
@@ -215,7 +215,7 @@ return (
 <Route path="/foreign-manufacturers" element={<ProtectedRoute><LazyRoute Component={ForeignManufacturerHub} /></ProtectedRoute>} />
 <Route path="/iso13485" element={<ProtectedRoute><LazyRoute Component={Iso13485Hub} /></ProtectedRoute>} />
 <Route path="/company" element={<ProtectedRoute><LazyRoute Component={CompanyHub} /></ProtectedRoute>} />
-// [HIDDEN] <Route path="/logistics" element={<ProtectedRoute><LazyRoute Component={LogisticsHub} /></ProtectedRoute>} />
+<Route path="/logistics" element={<ProtectedRoute><LazyRoute Component={LogisticsHub} /></ProtectedRoute>} />
 <Route path="/notices" element={<ProtectedRoute><LazyRoute Component={NoticeHub} /></ProtectedRoute>} />
 <Route path="/resource-plan" element={<ProtectedRoute><LazyRoute Component={ResourcePlanHub} /></ProtectedRoute>} />
 <Route path="/qms-overview" element={<ProtectedRoute><LazyRoute Component={QmsOverviewHub} /></ProtectedRoute>} />
