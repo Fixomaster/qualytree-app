@@ -193,6 +193,20 @@ async function seedMissingLocalKeys(remoteRows) {
   }
 }
 
+// ── 개선과제 #6 — 동기화 상태를 구독 가능한 형태로 노출(로딩 표시용) ──
+// 'idle' | 'syncing' | 'done' | 'error'
+let syncStatus = 'idle'
+const statusListeners = new Set()
+function setSyncStatus(s) {
+  syncStatus = s
+  statusListeners.forEach((fn) => { try { fn(s) } catch { /* ignore */ } })
+}
+export function getSyncStatus() { return syncStatus }
+export function subscribeSyncStatus(fn) {
+  statusListeners.add(fn)
+  return () => statusListeners.delete(fn)
+}
+
 let initializedFor = null
 
 // 로그인 + 회사 소속 확인 후 1회(회사가 바뀌면 재)호출
@@ -208,6 +222,7 @@ export async function initCloudSync(companyId) {
   }
   initializedFor = companyId
   currentCompanyId = companyId
+  setSyncStatus('syncing')
   try {
     const user = await getSupabaseUser()
     currentUserId = user?.id || null
@@ -223,8 +238,10 @@ export async function initCloudSync(companyId) {
     console.info('[cloudSync] 원격에서 받아온 행 수:', (remoteRows || []).length)
     await seedMissingLocalKeys(remoteRows)
     console.info('[cloudSync] 초기화 완료')
+    setSyncStatus('done')
   } catch (e) {
     console.warn('[cloudSync] 초기화 중 오류:', String(e?.message || e))
+    setSyncStatus('error')
   }
 }
 

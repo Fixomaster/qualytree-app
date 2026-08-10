@@ -13,6 +13,7 @@ import { auth } from '../../lib/auth'
 import { buildChainRows, searchChainRows, pivotChainRows, sortChainRows, SORTS } from '../../lib/traceability'
 import { printRecallNotice } from '../../lib/pdfPrint'
 import { downloadRecallCustomerListPdf } from '../../lib/recallPdf'
+import { udi } from '../../lib/udi'
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.distributions'
@@ -132,7 +133,19 @@ export default function TraceabilityHub() {
     { key: 'dist',   label: '배포 이력',      icon: List },
     { key: 'lot',    label: 'LOT 추적',        icon: Hash },
     { key: 'recall', label: '리콜 시뮬레이션', icon: RotateCcw },
+    { key: 'udi',    label: 'UDI 발급 현황',   icon: Boxes },
   ]
+
+  // 개선과제 #30 — UDI 연동 강화. TraceabilityHub의 배포 이력에는 productId가 없고
+  // productName만 있으므로, 여기서는 productName을 키로 사용해 udi.js(기존에 만들어져
+  // 있었지만 어느 화면에서도 쓰이지 않던 UDI 라이프사이클 라이브러리)와 연결한다.
+  const [, setUdiTick] = useState(0)
+  const allUdi = udi.loadAll()
+  const udiByProduct = (name) => allUdi.find(u => u.productId === name || u.productName === name) || null
+  const issueUdiFor = (name) => {
+    udi.issue({ productId: name, productName: name, applicableMarkets: ['MFDS'] })
+    setUdiTick(t => t + 1)
+  }
 
   return (
     <AppLayout user={user} title="제품 추적성" subtitle="ISO 13485 §7.5.9 · LOT 배포 이력 · 고객 추적 · 리콜 시뮬레이션">
@@ -205,6 +218,35 @@ export default function TraceabilityHub() {
                 </div>
             }
           </>
+        )}
+
+        {/* ── UDI 발급 현황 탭 ── */}
+        {tab === 'udi' && (
+          <div className="space-y-2">
+            <div className="text-[12.5px] mb-3" style={{ color: 'var(--ink-mute)' }}>
+              UDI-DI는 제품(모델) 단위로 1회 발급되며, 배포 이력의 제품명과 매칭되어 표시됩니다. GUDID/EUDAMED/MFDS 등 외부DB 동기화 상태는 추후 실제 연동 시 갱신됩니다.
+            </div>
+            {products.length === 0
+              ? <div className="text-center py-12 text-[13px]" style={{ color: 'var(--ink-faint)' }}>배포 이력에 등록된 제품이 없습니다. 먼저 배포 기록을 등록해주세요.</div>
+              : products.map(name => {
+                  const rec = udiByProduct(name)
+                  return (
+                    <div key={name} className="flex items-center justify-between p-3.5 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                      <div>
+                        <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{name}</div>
+                        {rec
+                          ? <div className="text-[11.5px] mt-0.5 font-mono" style={{ color: '#059669' }}>UDI-DI {rec.udiDi} · {rec.issuingAgency}</div>
+                          : <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>UDI 미발급</div>}
+                      </div>
+                      {!rec && (
+                        <button onClick={() => issueUdiFor(name)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold" style={{ background: '#8B5CF6', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                          <Hash size={12} /> UDI 발급
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+          </div>
         )}
 
         {/* ── LOT 추적 탭 ── */}

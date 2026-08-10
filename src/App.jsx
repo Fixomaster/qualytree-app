@@ -6,6 +6,7 @@ import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initCloudSync } from './lib/cloudSync'
 import { getCompanyMembership } from './lib/supabase'
+import CloudSyncIndicator from './components/CloudSyncIndicator'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
@@ -88,7 +89,7 @@ try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase
 try { ManufacturingHub = React.lazy(() => import(/* @vite-ignore */ './pages/manufacturing/ManufacturingHub')) } catch {}
 try { EquipmentHub = React.lazy(() => import(/* @vite-ignore */ './pages/equipment/EquipmentHub')) } catch {}
 try { DevHub = React.lazy(() => import(/* @vite-ignore */ './pages/development/DevHub')) } catch {}
-try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/management/ManagementReviewHub')) } catch {}
+try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/mreview/ManagementReviewHub')) } catch {}
 try { TrainingHub = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
 try { KgmpHub = React.lazy(() => import(/* @vite-ignore */ './pages/kgmp/KgmpHub')) } catch {}
 try { GmpApplicationHub = React.lazy(() => import(/* @vite-ignore */ './pages/gmp-application/GmpApplicationHub')) } catch {}
@@ -142,6 +143,8 @@ return (
 
 export default function App() {
 return (
+<>
+<CloudSyncIndicator />
 <Routes>
 <Route path="/" element={<Navigate to="/home" replace />} />
 <Route path="/login" element={<PublicRoute><LazyRoute Component={Login} /></PublicRoute>} />
@@ -224,5 +227,6 @@ return (
 
 <Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>
+</>
 )
 }

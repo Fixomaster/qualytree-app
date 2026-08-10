@@ -61,6 +61,29 @@ export default function ForeignManufacturerHub() {
   const showToast = (t) => { setToast(t); setTimeout(() => setToast(null), 2400) }
 
   const sites = foreignSites.getAll()
+
+  // 개선과제 #13 — 수입GMP 진행상황 요약(외국제조소·GMP 적합인정서·통관·이상사례·관리기준서를
+  // 한눈에 보는 요약). 각 화면의 localStorage를 그대로 읽어 가볍게 집계만 한다 — 별도
+  // 상태 저장소를 새로 만들지 않고 기존 4개 화면의 데이터를 그대로 반영한다.
+  const importSummary = (() => {
+    const certAll = sites.flatMap((s) => gmpCertificates.getForSite(s.id))
+    const certExpiring = certAll.filter((c) => certStatusOf(c.expiryDate) === '만료임박').length
+    const certExpired = certAll.filter((c) => certStatusOf(c.expiryDate) === '만료').length
+    let clearanceCount = 0
+    try { clearanceCount = (JSON.parse(localStorage.getItem('qualytree.import_clearance') || '[]')).length } catch { /* ignore */ }
+    let adverseOpen = 0
+    try {
+      const adv = JSON.parse(localStorage.getItem('qualytree.import_adverse') || '[]')
+      adverseOpen = adv.filter((i) => !['closed', 'rejected'].includes(i.status)).length
+    } catch { /* ignore */ }
+    let imsStatus = null
+    try {
+      const ims = JSON.parse(localStorage.getItem('qualytree.import_management_standard') || 'null')
+      imsStatus = ims?.docStatus || null
+    } catch { /* ignore */ }
+    return { sitesCount: sites.length, certExpiring, certExpired, clearanceCount, adverseOpen, imsStatus }
+  })()
+  const IMS_STATUS_LABEL = { draft: '작성중', review: '검토중', approval: '승인대기', approved: '승인완료' }
   const [selId, setSelId] = useState(() => searchParams.get('siteId') || sites[0]?.id || null)
   const sel = sites.find((s) => s.id === selId) || sites[0] || null
   const canEdit = permissions.can('importgmp.site.edit')
@@ -108,6 +131,32 @@ export default function ForeignManufacturerHub() {
           <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
             수입업자는 자기 사업장이 아니라 제품을 만드는 외국제조소가 GMP 심사 대상입니다. 제조소별로 개요·GMP 적합인정서·타 인증기관 실사자료를 등록·관리합니다.
           </div>
+        </div>
+
+        {/* 개선과제 #13 — 수입GMP 진행상황 요약 */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5">
+          <a href="#sites" className="p-3 rounded-xl text-center no-underline" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{importSummary.sitesCount}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>등록 외국제조소</div>
+          </a>
+          <div className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[20px] font-bold" style={{ color: importSummary.certExpired > 0 ? '#DC2626' : importSummary.certExpiring > 0 ? '#D97706' : 'var(--ink)' }}>
+              {importSummary.certExpired + importSummary.certExpiring}
+            </div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>GMP 인정서 만료/임박</div>
+          </div>
+          <a href="/import-clearance" className="p-3 rounded-xl text-center no-underline" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{importSummary.clearanceCount}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>수입통관기록</div>
+          </a>
+          <a href="/import-adverse" className="p-3 rounded-xl text-center no-underline" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[20px] font-bold" style={{ color: importSummary.adverseOpen > 0 ? '#D97706' : 'var(--ink)' }}>{importSummary.adverseOpen}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>이상사례 진행중</div>
+          </a>
+          <a href="/import-management-standard" className="p-3 rounded-xl text-center no-underline" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+            <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>{importSummary.imsStatus ? (IMS_STATUS_LABEL[importSummary.imsStatus] || importSummary.imsStatus) : '미작성'}</div>
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>수입관리기준서</div>
+          </a>
         </div>
 
         {dueCerts.length > 0 && (

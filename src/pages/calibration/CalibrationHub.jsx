@@ -201,6 +201,17 @@ export default function CalibrationHub() {
           </div>
         )}
 
+        {/* 개선과제 #29 — 교정 만료 예정(D-30 이내) 사전 알림. 만료 알림은 위에서 이미
+            처리하므로, 여기서는 '아직 만료되지 않았지만 30일 이내로 다가온' 것만 안내 */}
+        {stats.soon > 0 && (
+          <div className="flex items-center gap-3 p-4 rounded-2xl mb-5" style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
+            <Clock size={18} style={{ color: '#D97706', flexShrink: 0 }} />
+            <div className="text-[13px] font-semibold" style={{ color: '#78350F' }}>
+              교정 만료 예정(30일 이내) 장비 {stats.soon}건 — 미리 교정 일정을 잡아주세요.
+            </div>
+          </div>
+        )}
+
         {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
           {TABS.map(t => (
