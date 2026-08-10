@@ -116,8 +116,10 @@ function ProtectedRoute({ children }) {
 React.useEffect(() => {
   let cancelled = false
   getCompanyMembership().then((m) => {
+    console.info('[cloudSync] getCompanyMembership 결과:', m)
     if (!cancelled && m?.company_id) initCloudSync(m.company_id)
-  }).catch(() => {})
+    else if (!cancelled) console.warn('[cloudSync] company_id 없음 — 회사 소속이 확인되지 않아 동기화 미시작', m)
+  }).catch((e) => console.warn('[cloudSync] getCompanyMembership 오류:', String(e?.message || e)))
   return () => { cancelled = true }
 }, [])
 if (!auth.isSignedIn()) return <Navigate to="/login" replace />

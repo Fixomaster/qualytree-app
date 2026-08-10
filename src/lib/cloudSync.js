@@ -81,13 +81,16 @@ function valueToRaw(value) {
 
 async function pushKey(key) {
   inFlightKeys.delete(key)
-  if (!currentCompanyId) return
+  if (!currentCompanyId) {
+    console.warn('[cloudSync] push 스킵(회사 미확인):', key)
+    return
+  }
   let raw
   try { raw = originalGetItem(key) } catch { return }
   if (raw == null) return
   const { value } = safeParse(raw)
   try {
-    await supabase.from(TABLE).upsert(
+    const { error } = await supabase.from(TABLE).upsert(
       {
         company_id: currentCompanyId,
         data_type: DATA_TYPE,
@@ -96,8 +99,13 @@ async function pushKey(key) {
       },
       { onConflict: 'company_id,data_type,data_key' }
     )
+    if (error) {
+      console.warn('[cloudSync] push 실패:', key, error.message, error.code, error.details, error.hint)
+    } else {
+      console.info('[cloudSync] push 성공:', key)
+    }
   } catch (e) {
-    console.warn('[cloudSync] push 실패:', key, String(e?.message || e))
+    console.warn('[cloudSync] push 예외:', key, String(e?.message || e))
   }
 }
 
@@ -189,20 +197,32 @@ let initializedFor = null
 
 // 로그인 + 회사 소속 확인 후 1회(회사가 바뀌면 재)호출
 export async function initCloudSync(companyId) {
-  if (!companyId) return
-  if (initializedFor === companyId) return
+  console.info('[cloudSync] initCloudSync 호출됨, companyId=', companyId)
+  if (!companyId) {
+    console.warn('[cloudSync] companyId가 없어 초기화 중단')
+    return
+  }
+  if (initializedFor === companyId) {
+    console.info('[cloudSync] 이미 초기화됨, 스킵')
+    return
+  }
   initializedFor = companyId
   currentCompanyId = companyId
   try {
     const user = await getSupabaseUser()
     currentUserId = user?.id || null
     currentUserName = user?.user_metadata?.name || user?.email || null
-  } catch { /* ignore */ }
+    console.info('[cloudSync] 현재 사용자:', currentUserId, currentUserName)
+  } catch (e) {
+    console.warn('[cloudSync] getSupabaseUser 실패:', String(e?.message || e))
+  }
 
   patchStorage()
   try {
     const remoteRows = await pullRemote()
+    console.info('[cloudSync] 원격에서 받아온 행 수:', (remoteRows || []).length)
     await seedMissingLocalKeys(remoteRows)
+    console.info('[cloudSync] 초기화 완료')
   } catch (e) {
     console.warn('[cloudSync] 초기화 중 오류:', String(e?.message || e))
   }
