@@ -11,6 +11,7 @@ import {
   signInWithEmail,
   signOutSupabase,
 } from './supabase'
+import { resetCloudSync } from './cloudSync'
 
 const KEY = 'qualytree.auth'
 export const PENDING_JOIN_KEY = 'qualytree.pendingJoin'
@@ -87,6 +88,7 @@ export const auth = {
 
   signOut() {
     localStorage.removeItem(KEY)
+    try { resetCloudSync() } catch { /* ignore */ }
     try {
       signOutSupabase().catch(() => {})
     } catch { /* ignore */ }

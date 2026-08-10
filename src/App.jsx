@@ -4,6 +4,8 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
+import { initCloudSync } from './lib/cloudSync'
+import { getCompanyMembership } from './lib/supabase'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin
@@ -108,6 +110,16 @@ try { ImportManagementStandardHub = React.lazy(() => import(/* @vite-ignore */ '
 
 // ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
+// #368-371 — localStorage → Supabase 동기화: 로그인된 사용자가 보호된 페이지에
+// 진입할 때마다(1회성, 회사 id가 바뀌지 않는 한 재실행 안 됨) 해당 회사의 company_data를
+// 동기화한다. 실패해도 화면은 기존처럼 localStorage만으로 정상 동작하므로 UI를 막지 않는다.
+React.useEffect(() => {
+  let cancelled = false
+  getCompanyMembership().then((m) => {
+    if (!cancelled && m?.company_id) initCloudSync(m.company_id)
+  }).catch(() => {})
+  return () => { cancelled = true }
+}, [])
 if (!auth.isSignedIn()) return <Navigate to="/login" replace />
 return children
 }
