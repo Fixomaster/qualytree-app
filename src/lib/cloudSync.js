@@ -62,6 +62,10 @@ let currentUserId = null
 let currentUserName = null
 const pendingTimers = new Map() // key -> timeout id
 const inFlightKeys = new Set()  // 키가 현재 로컬 편집(디바운스 대기) 중이면 원격 재수신으로 덮어쓰지 않기 위함
+// #375 — 동시편집 충돌 방지: company_data.version 컬럼을 이용한 낙관적 잠금(optimistic
+// concurrency). 이 맵은 "내가 마지막으로 원격에서 확인한 버전"을 키별로 기억해두고,
+// push할 때 그 버전을 조건으로 걸어(CAS) 그 사이 다른 사람이 먼저 저장했는지 감지한다.
+const versionCache = new Map() // key -> 마지막으로 확인한 원격 version
 
 function safeParse(raw) {
   if (raw == null) return { value: null, nonJson: false }
@@ -96,6 +100,22 @@ function stripNulBytes(value) {
   return value
 }
 
+// 원격 행 하나를 다시 읽어와 versionCache를 최신화한다(충돌 감지/복구 공용 헬퍼).
+async function refetchVersion(key) {
+  try {
+    const { data } = await supabase
+      .from(TABLE)
+      .select('payload, version')
+      .eq('company_id', currentCompanyId)
+      .eq('data_type', DATA_TYPE)
+      .eq('data_key', key)
+      .maybeSingle()
+    return data || null
+  } catch {
+    return null
+  }
+}
+
 async function pushKey(key) {
   inFlightKeys.delete(key)
   if (!currentCompanyId) {
@@ -107,21 +127,66 @@ async function pushKey(key) {
   if (raw == null) return
   const { value } = safeParse(raw)
   const cleanValue = stripNulBytes(value)
+
+  const known = versionCache.get(key)
   try {
-    const { error } = await supabase.from(TABLE).upsert(
-      {
+    if (known == null) {
+      // 이 키를 원격에서 한 번도 확인한 적 없음 — 신규 행일 수도, 다른 탭/사용자가 먼저
+      // 만들어뒀을 수도 있다. 먼저 순수 insert를 시도해서 신규 여부를 확실히 가른다.
+      const { error: insErr } = await supabase.from(TABLE).insert({
         company_id: currentCompanyId,
         data_type: DATA_TYPE,
         data_key: key,
         payload: cleanValue,
-      },
-      { onConflict: 'company_id,data_type,data_key' }
-    )
+        version: 1,
+      })
+      if (!insErr) {
+        versionCache.set(key, 1)
+        console.info('[cloudSync] push 성공(신규):', key)
+        return
+      }
+      if (insErr.code !== '23505') {
+        console.warn('[cloudSync] push 실패:', key, insErr.message, insErr.code, insErr.details, insErr.hint)
+        return
+      }
+      // 23505(unique violation) = 이미 원격에 행이 있음 — 그 버전을 확인하고 CAS 경로로 이어간다.
+    }
+
+    const baseVersion = versionCache.get(key) ?? (await refetchVersion(key))?.version
+    if (baseVersion == null) {
+      console.warn('[cloudSync] push 실패:', key, '버전 확인 불가')
+      return
+    }
+
+    const { data: updated, error } = await supabase
+      .from(TABLE)
+      .update({ payload: cleanValue, version: baseVersion + 1 })
+      .eq('company_id', currentCompanyId)
+      .eq('data_type', DATA_TYPE)
+      .eq('data_key', key)
+      .eq('version', baseVersion)
+      .select('version')
+
     if (error) {
       console.warn('[cloudSync] push 실패:', key, error.message, error.code, error.details, error.hint)
-    } else {
-      console.info('[cloudSync] push 성공:', key)
+      return
     }
+    if (!updated || updated.length === 0) {
+      // 충돌: 그 사이 다른 사람(다른 탭/기기)이 먼저 저장했다 — 조용히 내 값으로 덮어쓰지 않고,
+      // 방금 저장된 원격 값을 받아와 이 브라우저에 반영한다(원격 우선). 사용자가 다시 편집하면
+      // 그 다음 push는 이 새 버전을 기준으로 정상 진행된다.
+      console.warn('[cloudSync] 충돌 감지(다른 사용자가 먼저 저장) — 원격 값으로 재동기화:', key)
+      const fresh = await refetchVersion(key)
+      if (fresh) {
+        versionCache.set(key, fresh.version)
+        if (!inFlightKeys.has(key)) {
+          try { originalSetItem(key, valueToRaw(fresh.payload)) } catch { /* ignore */ }
+        }
+      }
+      return
+    }
+    versionCache.set(key, updated[0].version)
+    console.info('[cloudSync] push 성공:', key)
   } catch (e) {
     console.warn('[cloudSync] push 예외:', key, String(e?.message || e))
   }
@@ -183,7 +248,7 @@ async function pullRemote({ skipInFlight } = {}) {
   if (!currentCompanyId) return
   const { data, error } = await supabase
     .from(TABLE)
-    .select('data_key, payload')
+    .select('data_key, payload, version')
     .eq('company_id', currentCompanyId)
     .eq('data_type', DATA_TYPE)
   if (error) {
@@ -191,6 +256,7 @@ async function pullRemote({ skipInFlight } = {}) {
     return
   }
   for (const row of data || []) {
+    versionCache.set(row.data_key, row.version)
     if (skipInFlight && inFlightKeys.has(row.data_key)) continue
     try {
       originalSetItem(row.data_key, valueToRaw(row.payload))
@@ -270,6 +336,7 @@ export function resetCloudSync() {
   currentCompanyId = null
   currentUserId = null
   currentUserName = null
+  versionCache.clear()
 }
 
 export const _internal = { isSyncableKey, EXCLUDE_KEYS }

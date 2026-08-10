@@ -247,6 +247,13 @@ function getDeptKPIs(dept) {
   const eqpInstr = lsRead('qms_eqp_instruments')
   const trnSessions = lsRead('qualytree.training')
 
+  // #373 — DEV/DOC/RA 부서 KPI: 이전에는 'Supabase 연동 후 자동 집계'로 하드코딩되어
+  // 있었으나, 실제로는 각 Hub가 이미 localStorage에 쌓아두는 실데이터로 바로 계산 가능하다.
+  const dhf = lsRead('qualytree.dhf')
+  const validations = lsRead('qualytree.validations')
+  const docRegister = lsRead('qualytree.doc_register')
+  const raProducts = lsRead('qualytree.regulatory_products')
+
   const daysUntilLocal = (d) => {
     if (!d) return null
     const t = new Date(d)
@@ -274,6 +281,22 @@ function getDeptKPIs(dept) {
   const activeWos = wos.filter(w => ['pending', 'in_progress'].includes(w.status)).length
   const openCars = cars.filter(c => c.status === 'open').length
   const activeImps = imps.filter(i => ['approved', 'in_progress'].includes(i.status)).length
+
+  // 설계개발: DHF 기록 중 검토 대기(in_review) 건수 + 진행 중/재밸리데이션 필요 밸리데이션 건수
+  const designPendingReview = dhf.reduce((sum, d) => sum + ((Array.isArray(d.records) ? d.records : []).filter(r => r.status === 'in_review').length), 0)
+  const validationActive = validations.filter(v => ['iq', 'oq', 'pq', 'reval_due'].includes(v.status)).length
+
+  // 문서규정: 정기검토일이 지난 문서(검토 필요) / 30일 이내 도래하는 문서(만료 임박)
+  const docReviewOverdue = docRegister.filter(d => d.status !== 'obsolete' && d.reviewDate && new Date(d.reviewDate) <= new Date()).length
+  const docReviewSoon = docRegister.filter(d => {
+    if (d.status === 'obsolete' || !d.reviewDate) return false
+    const days = daysUntilLocal(d.reviewDate)
+    return days !== null && days > 0 && days <= 30
+  }).length
+
+  // 인허가: 아직 허가번호가 없는(진행 중) 품목 수 / 등록된 허가변경 신청 누적 건수
+  const licenseInProgress = raProducts.filter(p => !p.licenseNo).length
+  const licenseChangesCount = raProducts.reduce((sum, p) => sum + ((Array.isArray(p.licenseChanges) ? p.licenseChanges : []).length), 0)
 
   const BASE = [
     { label: '미결 NCR', value: openNcrs, icon: AlertTriangle, color: openNcrs > 0 ? '#EF4444' : '#10B981', link: '/quality' },
@@ -304,12 +327,12 @@ function getDeptKPIs(dept) {
       { label: '교정 초과', value: calOverdue.length, icon: AlertTriangle, color: calOverdue.length > 0 ? '#EF4444' : '#10B981', link: '/equipment' },
     ],
     DEV: [...BASE,
-      { label: '설계 검토', value: '—', icon: FileText, color: '#8B5CF6', link: '/development', hint: true },
-      { label: '밸리데이션', value: '—', icon: CheckCircle2, color: '#3B82F6', link: '/development', hint: true },
+      { label: '설계 검토', value: designPendingReview, icon: FileText, color: designPendingReview > 0 ? '#8B5CF6' : '#6B7280', link: '/development' },
+      { label: '밸리데이션', value: validationActive, icon: CheckCircle2, color: validationActive > 0 ? '#3B82F6' : '#6B7280', link: '/development' },
     ],
     DOC: [
-      { label: '검토 필요 문서', value: '—', icon: FileText, color: '#F59E0B', link: '/documents', hint: true },
-      { label: '만료 임박', value: '—', icon: Clock, color: '#EF4444', link: '/documents', hint: true },
+      { label: '검토 필요 문서', value: docReviewOverdue, icon: FileText, color: docReviewOverdue > 0 ? '#F59E0B' : '#6B7280', link: '/documents' },
+      { label: '만료 임박', value: docReviewSoon, icon: Clock, color: docReviewSoon > 0 ? '#EF4444' : '#6B7280', link: '/documents' },
       ...BASE,
     ],
     MR: [
@@ -323,8 +346,8 @@ function getDeptKPIs(dept) {
       { label: '이수 완료', value: trnDone.length, icon: CheckCircle2, color: '#10B981', link: '/training' },
     ],
     RA: [...BASE,
-      { label: '허가 검토', value: '—', icon: FileText, color: '#8B5CF6', link: '/regulatory', hint: true },
-      { label: '변경 신고', value: '—', icon: AlertTriangle, color: '#F59E0B', link: '/regulatory', hint: true },
+      { label: '허가 검토', value: licenseInProgress, icon: FileText, color: licenseInProgress > 0 ? '#8B5CF6' : '#6B7280', link: '/regulatory' },
+      { label: '변경 신고', value: licenseChangesCount, icon: AlertTriangle, color: licenseChangesCount > 0 ? '#F59E0B' : '#6B7280', link: '/regulatory' },
     ],
     AUD: [
       { label: '미결 CAR', value: openCars, icon: Search, color: openCars > 0 ? '#EF4444' : '#10B981', link: '/audit' },
@@ -586,9 +609,6 @@ export default function DeptHome() {
               <div className="text-[26px] font-bold" style={{ color: kpi.value === '—' ? 'var(--ink-faint)' : kpi.color }}>
                 {kpi.value}
               </div>
-              {kpi.hint && (
-                <div className="text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>Supabase 연동 후 자동 집계</div>
-              )}
             </button>
           ))}
         </div>

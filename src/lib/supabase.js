@@ -54,7 +54,7 @@ export async function getPlatformOperatorProfile() { const user = await getSupab
   if (!user) return null
   const { data, error } = await supabase
     .from('company_members')
-    .select('id, company_id, permission_level, is_admin, status, name, companies:company_id(*)')
+    .select('id, company_id, permission_level, is_admin, status, name, last_dept, companies:company_id(*)')
     .eq('user_id', user.id)
     .eq('status', 'active')
     .maybeSingle()
@@ -63,6 +63,19 @@ export async function getPlatformOperatorProfile() { const user = await getSupab
     return null
   }
   return data
+}
+
+// #374 — 부서 선택을 계정(Supabase)에 영구 저장 — 지금까지는 브라우저 localStorage에만
+// 저장되어 캐시를 지우거나 다른 기기로 로그인하면 매번 부서를 다시 골라야 했다.
+// update_my_last_dept RPC(SECURITY DEFINER, 본인 행만 수정 가능)로 company_members.last_dept를
+// 갱신한다 — update_my_profile과 동일 패턴. 실패해도 화면 동작에는 영향 없는 best-effort 호출이다.
+export async function updateMyLastDept(dept) {
+  try {
+    const { error } = await supabase.rpc('update_my_last_dept', { p_dept: dept })
+    if (error) console.warn('[Qualytree] updateMyLastDept error:', error.message)
+  } catch (e) {
+    console.warn('[Qualytree] updateMyLastDept threw:', String(e?.message || e))
+  }
 }
 
 // ── 헬퍼: 정식 로그인 ─────────────────────────────────────────────

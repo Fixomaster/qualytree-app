@@ -6,6 +6,7 @@ import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initCloudSync } from './lib/cloudSync'
 import { getCompanyMembership } from './lib/supabase'
+import { deptAuth } from './lib/deptAuth'
 import CloudSyncIndicator from './components/CloudSyncIndicator'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
@@ -120,6 +121,8 @@ React.useEffect(() => {
     console.info('[cloudSync] getCompanyMembership 결과:', m)
     if (!cancelled && m?.company_id) initCloudSync(m.company_id)
     else if (!cancelled) console.warn('[cloudSync] company_id 없음 — 회사 소속이 확인되지 않아 동기화 미시작', m)
+    // #374 — 이 기기/브라우저에 아직 로컬 부서 선택이 없으면, 계정에 저장된 마지막 선택을 이어받는다.
+    if (!cancelled && m?.last_dept) deptAuth.applyRemoteDept(m.last_dept)
   }).catch((e) => console.warn('[cloudSync] getCompanyMembership 오류:', String(e?.message || e)))
   return () => { cancelled = true }
 }, [])

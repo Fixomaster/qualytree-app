@@ -1,5 +1,11 @@
 // src/lib/deptAuth.js
 // 부서 선택 헬퍼 — auth.js를 수정하지 않고 부서 정보를 localStorage에서 관리
+//
+// #374 — 부서 선택은 원래 이 브라우저(로컬 캐시)에만 저장되어, 캐시를 지우거나 다른
+// 기기로 로그인하면 매번 다시 골라야 했다. company_members.last_dept(Supabase)에도
+// best-effort로 함께 저장해서, 다음에 어느 기기로 로그인하든 마지막 선택을 이어받게 한다.
+// 네트워크 실패해도 로컬 동작은 항상 기존처럼 즉시 동작해야 하므로 절대 await로 막지 않는다.
+import { updateMyLastDept } from './supabase'
 
 const AUTH_KEY = 'qualytree.auth'
 const DEPT_KEY = 'qualytree.dept'
@@ -31,8 +37,8 @@ export const deptAuth = {
     return localStorage.getItem(DEPT_KEY) || null
   },
 
-  /** 부서 선택 저장 */
-  setDepartment(dept) {
+  /** 부서 선택 저장 (opts.skipRemote=true면 Supabase로 되쏘지 않음 — 원격값을 그대로 로컬에 반영할 때 사용) */
+  setDepartment(dept, opts = {}) {
     localStorage.setItem(DEPT_KEY, dept)
     // auth 세션에도 반영 (optional)
     try {
@@ -47,6 +53,18 @@ export const deptAuth = {
     try {
       window.dispatchEvent(new CustomEvent('qt-dept-changed', { detail: dept }))
     } catch {}
+    // #374 — Supabase에도 best-effort로 반영 (응답을 기다리지 않음)
+    if (!opts.skipRemote) {
+      try { updateMyLastDept(dept) } catch {}
+    }
+  },
+
+  /** #374 — 로그인 시 원격(company_members.last_dept)에서 당겨온 값을 로컬에만 반영.
+   *  로컬에 이미 선택된 부서가 있으면 덮어쓰지 않는다(현재 세션에서 방금 고른 값이 우선). */
+  applyRemoteDept(dept) {
+    if (!dept) return
+    if (localStorage.getItem(DEPT_KEY)) return
+    this.setDepartment(dept, { skipRemote: true })
   },
 
   /** 부서 선택 초기화 */
