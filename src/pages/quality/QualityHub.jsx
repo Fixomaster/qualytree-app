@@ -258,7 +258,7 @@ function AnalysisTab({ items }) {
 
 /* ───────────────── 격리·처분 탭 ───────────────── */
 function QuarantineTab({ canEdit }) {
-  const items = quarantine.list()
+  const items = quarantine.loadAll()
   if (!items.length) return <EmptyState icon={Package} text="격리된 제품이 없습니다" />
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
