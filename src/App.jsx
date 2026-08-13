@@ -223,6 +223,7 @@ return (
 <Route path="/company" element={<ProtectedRoute><LazyRoute Component={CompanyHub} /></ProtectedRoute>} />
 <Route path="/logistics" element={<ProtectedRoute><LazyRoute Component={LogisticsHub} /></ProtectedRoute>} />
 <Route path="/notices" element={<ProtectedRoute><LazyRoute Component={NoticeHub} /></ProtectedRoute>} />
+<Route path="/product-id" element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
 <Route path="/resource-plan" element={<ProtectedRoute><LazyRoute Component={ResourcePlanHub} /></ProtectedRoute>} />
 <Route path="/qms-overview" element={<ProtectedRoute><LazyRoute Component={QmsOverviewHub} /></ProtectedRoute>} />
 <Route path="/record-master" element={<ProtectedRoute><LazyRoute Component={RecordMasterHub} /></ProtectedRoute>} />
