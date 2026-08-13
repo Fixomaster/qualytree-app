@@ -11,7 +11,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { productDocs, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
@@ -197,7 +197,8 @@ function TechDocsPanel({ canEdit }) {
   )
 }
 
-export default function DesignHistoryHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
+export default function DesignHistoryHub({
+  const navigate = useNavigate(); embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
@@ -953,6 +954,10 @@ function AnalysisView({ analysis, items, setSelectedId, setTab }) {
 
   return (
     <div className="space-y-5">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8}}>
+        <span style={{fontSize:13,color:'#1e40af'}}>📋 DHF 등록·수정은 제품·설계개발 메뉴에서 진행합니다.</span>
+        <button onClick={()=>navigate('/products')} style={{fontSize:12,padding:'4px 12px',background:'#2563EB',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>→ 제품·설계개발</button>
+      </div>
       {/* KPI 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <MiniKpi label="전체 DHF" value={items.length} />
