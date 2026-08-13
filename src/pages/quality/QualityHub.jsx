@@ -4,7 +4,7 @@ import {
   AlertTriangle, CheckCircle2, Clock, Package, FileWarning,
   ChevronDown, ChevronUp, Plus, Search, Filter, BarChart2,
   ArrowRight, RefreshCw, Trash2, Edit2, XCircle, ShieldAlert,
-  AlertCircle, Info, FlaskConical
+  AlertCircle, Info
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -324,7 +324,7 @@ export default function QualityHub() {
   const [tick, setTick] = useState(0)
   const refresh = () => setTick(t => t+1)
 
-  const allItems = useMemo(() => ncr.list ? ncr.list() : [], [tick])
+  const allItems = useMemo(() => ncr.loadAll ? ncr.loadAll() : [], [tick])
 
   const filtered = useMemo(() => allItems.filter(i => {
     if (sevFilter !== 'all' && i.severity !== sevFilter) return false
@@ -339,13 +339,12 @@ export default function QualityHub() {
 
   function handleSave(form) {
     if (editItem) {
-      ncr.update?.(editItem.id, form)
+      ncr.updateStatus(editItem.id, form.status || editItem.status)
+      if (form.rootCause || form.correctiveAction) {
+        ncr.setInvestigationReport(editItem.id, { rootCauseSummary: form.rootCause || '', conclusion: form.correctiveAction || '' })
+      }
     } else {
-      ncr.create?.({
-        ...form,
-        detectedBy: user?.name || user?.email || '—',
-        status: 'open',
-      })
+      ncr.raise({ title: form.title, description: form.description, severity: form.severity, source: { type: form.source } })
     }
     setShowForm(false)
     setEditItem(null)
@@ -354,7 +353,7 @@ export default function QualityHub() {
 
   function handleAdvance(item) {
     const next = STATUS_NEXT[item.status]
-    if (next) { ncr.update?.(item.id, { status: next }); refresh() }
+    if (next) { ncr.updateStatus(item.id, next); refresh() }
   }
 
   return (
