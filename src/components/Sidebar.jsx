@@ -20,6 +20,7 @@ BadgeCheck,
 FileCheck2,
 Globe,
 Building2,
+  Share2,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -106,7 +107,6 @@ items: [
 { to: '/qms-overview', label: 'QMS 개요' },
 { to: '/record-master', label: '기록 대장' },
 { to: '/document-control', label: '문서관리' },
-        { to: '/flow', label: '업무 프로세스 흐름도' },
 ],
 },
 {
@@ -214,6 +214,19 @@ fontWeight: isActive ? 600 : 400,
 <Home size={17} strokeWidth={1.7} />
 <span>홈 대시보드</span>
 </NavLink>
+
+        <NavLink
+          to="/flow"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
+          style={({ isActive }) => ({
+            color: isActive ? 'var(--moss)' : 'var(--ink-soft)',
+            background: isActive ? 'var(--leaf-soft)' : 'transparent',
+            fontWeight: isActive ? 600 : 400,
+          })}
+        >
+          <Share2 size={17} strokeWidth={1.7} />
+          <span>업무 프로세스 흐름도</span>
+        </NavLink>
 
 <NavLink
 to="/notices"
