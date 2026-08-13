@@ -198,6 +198,7 @@ function TechDocsPanel({ canEdit }) {
 }
 
 export default function DesignHistoryHub({
+  const navigate = useNavigate();
   const navigate = useNavigate(); embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const canEdit = user?.level >= 2
@@ -954,6 +955,10 @@ function AnalysisView({ analysis, items, setSelectedId, setTab }) {
 
   return (
     <div className="space-y-5">
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8,marginBottom:4}}>
+        <span style={{fontSize:13,color:'#1e40af'}}>📋 DHF 등록·수정은 제품·설계개발 메뉴에서 진행합니다.</span>
+        <button onClick={()=>navigate('/products')} style={{fontSize:12,padding:'4px 12px',background:'#2563EB',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>→ 제품·설계개발</button>
+      </div>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 16px',background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8}}>
         <span style={{fontSize:13,color:'#1e40af'}}>📋 DHF 등록·수정은 제품·설계개발 메뉴에서 진행합니다.</span>
         <button onClick={()=>navigate('/products')} style={{fontSize:12,padding:'4px 12px',background:'#2563EB',color:'#fff',border:'none',borderRadius:6,cursor:'pointer'}}>→ 제품·설계개발</button>
