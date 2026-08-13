@@ -156,12 +156,50 @@ export default function RegulatoryHub() {
   function handleAmend(id, record) {
     const list = products.map(p => {
       if (p.id !== id) return p
+
+      // 허가변경 시 기존 허가 스냅샷과 새 허가 스냅샷이 각각 history로 남도록 한다.
+      // licenseHistory가 아직 없는 품목(첫 허가변경)은 변경 직전 상태를 v1(최초 허가)로 먼저 seed한다.
+      const history = Array.isArray(p.licenseHistory) ? p.licenseHistory : []
+      const seeded = history.length > 0 ? history : [{
+        id: `v1-${p.id}`,
+        versionNo: 1,
+        snapshot: {
+          productName: p.productName, categoryName: p.categoryName || '', productCode: p.productCode || '',
+          grade: p.grade || '', siteName: p.siteName || '', licenseNo: p.licenseNo || '', licenseDate: p.licenseDate || '',
+        },
+        reason: '최초 허가', detail: '',
+        changeDate: p.licenseDate || (p.savedAt ? p.savedAt.slice(0, 10) : ''),
+        createdAt: p.savedAt || new Date().toISOString(),
+      }]
+
+      const newSnapshot = {
+        productName: (record.productName || '').trim() || p.productName,
+        categoryName: record.categoryName != null ? record.categoryName.trim() : (p.categoryName || ''),
+        productCode: record.productCode != null ? record.productCode.trim() : (p.productCode || ''),
+        grade: record.grade != null ? record.grade : (p.grade || ''),
+        siteName: record.siteName != null ? record.siteName.trim() : (p.siteName || ''),
+        licenseNo: (record.licenseNo || '').trim() || p.licenseNo || '',
+        licenseDate: record.licenseDate || p.licenseDate || '',
+      }
+      const entry = {
+        id: Date.now(),
+        versionNo: seeded.length + 1,
+        snapshot: newSnapshot,
+        reason: record.reason, detail: record.detail,
+        changeDate: record.licenseDate || '',
+        createdAt: new Date().toISOString(),
+      }
+      const nextHistory = [...seeded, entry]
+
+      // 기존 화면(구버전 데이터)과의 호환을 위해 licenseChanges 로그도 함께 유지한다.
       const changes = Array.isArray(p.licenseChanges) ? p.licenseChanges : []
-      const entry = { ...record, id: Date.now(), createdAt: new Date().toISOString() }
-      const next = { ...p, licenseChanges: [entry, ...changes] }
-      if (record.newLicenseNo && record.newLicenseNo.trim()) next.licenseNo = record.newLicenseNo.trim()
-      if (record.changeDate) next.licenseDate = record.changeDate
-      return next
+      const legacyEntry = {
+        id: entry.id, reason: record.reason, detail: record.detail,
+        newLicenseNo: newSnapshot.licenseNo !== p.licenseNo ? newSnapshot.licenseNo : '',
+        changeDate: record.licenseDate, createdAt: entry.createdAt,
+      }
+
+      return { ...p, ...newSnapshot, licenseHistory: nextHistory, licenseChanges: [legacyEntry, ...changes] }
     })
     setProducts(list); saveProducts(list)
   }
@@ -296,7 +334,13 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting, o
                 <p style={{ fontSize:11, color:'#059669', marginTop:6 }}>제조 품목 — 설계·개발(제품·공정)의 동일 품목 "제조허가 취득" 단계 및 허가번호에도 자동 반영되었습니다.</p>
               )}
               {amendForm?.id !== p.id && (
-                <button onClick={() => setAmendForm({ id:p.id, reason:'', detail:'', newLicenseNo:'', changeDate:new Date().toISOString().slice(0,10) })}
+                <button onClick={() => setAmendForm({
+                  id:p.id,
+                  productName:p.productName || '', categoryName:p.categoryName || '', productCode:p.productCode || '',
+                  grade:p.grade || '', siteName:p.siteName || '',
+                  licenseNo:p.licenseNo || '', licenseDate:new Date().toISOString().slice(0,10),
+                  reason:'', detail:'',
+                })}
                   style={{ fontSize:11.5, color:'#047857', background:'none', border:'1px solid #A7F3D0', borderRadius:6, padding:'4px 10px', cursor:'pointer', marginTop:10 }}>
                   허가변경 신청
                 </button>
@@ -331,11 +375,40 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting, o
             </div>
           )}
 
-          {/* #1 — 허가변경 신청 입력 폼: 무엇을·왜 바꾸는지 기록하고, 새 허가번호가 나오면 갱신한다 */}
+          {/* #1 — 허가변경 신청 입력 폼: 기존 등록 정보를 그대로 끌어와 채워두고, 바뀐 항목만 고쳐서 저장한다 */}
           {amendForm?.id === p.id && (
             <div style={{ background:'var(--bg-soft,#f8f9fa)', borderRadius:8, padding:'12px 16px', marginBottom:20 }}>
-              <p style={{ fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:8 }}>허가변경 신청 등록</p>
+              <p style={{ fontSize:12, fontWeight:700, color:'var(--ink)', marginBottom:2 }}>허가변경 신청 등록</p>
+              <p style={{ fontSize:11, color:'var(--ink-faint)', marginBottom:8 }}>기존 허가 정보가 자동으로 채워져 있습니다. 바뀐 항목만 수정하세요.</p>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <input className="input-base" style={{ flex:'1 1 200px', fontSize:12.5 }}
+                    placeholder="품목명" value={amendForm.productName}
+                    onChange={e => setAmendForm(f => ({ ...f, productName:e.target.value }))} />
+                  <input className="input-base" style={{ flex:'1 1 160px', fontSize:12.5 }}
+                    placeholder="분류명" value={amendForm.categoryName}
+                    onChange={e => setAmendForm(f => ({ ...f, categoryName:e.target.value }))} />
+                  <input className="input-base" style={{ flex:'1 1 140px', fontSize:12.5 }}
+                    placeholder="품목코드" value={amendForm.productCode}
+                    onChange={e => setAmendForm(f => ({ ...f, productCode:e.target.value }))} />
+                </div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <input className="input-base" style={{ flex:'0 1 120px', fontSize:12.5 }}
+                    placeholder="등급 (예: 2)" value={amendForm.grade}
+                    onChange={e => setAmendForm(f => ({ ...f, grade:e.target.value }))} />
+                  <input className="input-base" style={{ flex:'1 1 180px', fontSize:12.5 }}
+                    placeholder="업체명(허가권자/거래처)" value={amendForm.siteName}
+                    onChange={e => setAmendForm(f => ({ ...f, siteName:e.target.value }))} />
+                </div>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <input className="input-base" style={{ flex:'1 1 180px', fontSize:12.5 }}
+                    placeholder="허가번호 (변경 없으면 기존 번호 유지)"
+                    value={amendForm.licenseNo}
+                    onChange={e => setAmendForm(f => ({ ...f, licenseNo:e.target.value }))} />
+                  <input type="date" className="input-base" style={{ flex:'0 1 160px', fontSize:12.5 }}
+                    value={amendForm.licenseDate}
+                    onChange={e => setAmendForm(f => ({ ...f, licenseDate:e.target.value }))} />
+                </div>
                 <input className="input-base" style={{ fontSize:12.5 }}
                   placeholder="변경 사유 (예: 제조소 이전, 원재료 변경, 사용목적 추가 등)"
                   value={amendForm.reason}
@@ -344,19 +417,10 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting, o
                   placeholder="변경 내용 상세"
                   value={amendForm.detail}
                   onChange={e => setAmendForm(f => ({ ...f, detail:e.target.value }))} />
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  <input className="input-base" style={{ flex:'1 1 180px', fontSize:12.5 }}
-                    placeholder="새 허가번호 (변경 후 재발급된 경우)"
-                    value={amendForm.newLicenseNo}
-                    onChange={e => setAmendForm(f => ({ ...f, newLicenseNo:e.target.value }))} />
-                  <input type="date" className="input-base" style={{ flex:'0 1 160px', fontSize:12.5 }}
-                    value={amendForm.changeDate}
-                    onChange={e => setAmendForm(f => ({ ...f, changeDate:e.target.value }))} />
-                </div>
                 <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
                   <button className="btn-ghost" style={{ fontSize:12.5 }} onClick={() => setAmendForm(null)}>취소</button>
                   <button className="btn-primary" style={{ fontSize:12.5 }}
-                    disabled={!amendForm.reason.trim()}
+                    disabled={!amendForm.reason.trim() || !amendForm.productName.trim() || !amendForm.licenseNo.trim()}
                     onClick={() => { onAmend(p.id, amendForm); setAmendForm(null) }}>
                     변경사항 저장
                   </button>
@@ -365,8 +429,48 @@ function ProductList({ products, onNew, onDelete, onGrant, onRegisterExisting, o
             </div>
           )}
 
-          {/* #1 — 허가변경 이력 */}
-          {Array.isArray(p.licenseChanges) && p.licenseChanges.length > 0 && (
+          {/* #1 — 허가 이력: 최초 허가부터 각 변경 시점까지의 전체 스냅샷을 버전별로 보존해,
+              기존 허가와 새로 변경된 허가가 각각 하나의 완결된 기록으로 남도록 한다 */}
+          {Array.isArray(p.licenseHistory) && p.licenseHistory.length > 0 ? (
+            <div style={{ marginBottom:20 }}>
+              <p style={{ fontSize:12.5, fontWeight:600, color:'var(--ink)', marginBottom:8 }}>
+                허가 이력 <span style={{ fontWeight:400, color:'var(--ink-faint)' }}>· 총 {p.licenseHistory.length}건</span>
+              </p>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {[...p.licenseHistory].sort((a, b) => b.versionNo - a.versionNo).map((h, idx) => (
+                  <div key={h.id} style={{
+                    background: idx === 0 ? '#ECFDF5' : 'var(--bg-soft,#f8f9fa)',
+                    border: idx === 0 ? '1px solid #A7F3D0' : '1px solid transparent',
+                    borderRadius:8, padding:'10px 14px', fontSize:12,
+                  }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:4 }}>
+                      <span style={{ fontWeight:700, color: idx === 0 ? '#047857' : 'var(--ink)' }}>
+                        v{h.versionNo}{idx === 0 ? ' · 현재 허가' : ''}{h.versionNo === 1 ? ' (최초)' : ''}
+                      </span>
+                      <span style={{ color:'var(--ink-faint)' }}>
+                        {h.changeDate || new Date(h.createdAt).toLocaleDateString('ko-KR')}
+                      </span>
+                    </div>
+                    <p style={{ color:'var(--ink)' }}>
+                      허가번호: {h.snapshot.licenseNo || '—'}{h.snapshot.licenseDate ? ' · 허가일: '+h.snapshot.licenseDate : ''}
+                    </p>
+                    <p style={{ color:'var(--ink-mute)', marginTop:2 }}>
+                      {h.snapshot.productName}
+                      {h.snapshot.categoryName ? ' · '+h.snapshot.categoryName : ''}
+                      {h.snapshot.productCode ? ' · '+h.snapshot.productCode : ''}
+                      {h.snapshot.grade ? ' · '+h.snapshot.grade+'등급' : ''}
+                      {h.snapshot.siteName ? ' · 업체: '+h.snapshot.siteName : ''}
+                    </p>
+                    {h.reason && (
+                      <p style={{ color:'var(--ink-faint)', marginTop:4 }}>
+                        사유: {h.reason}{h.detail ? ' — '+h.detail : ''}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : Array.isArray(p.licenseChanges) && p.licenseChanges.length > 0 && (
             <div style={{ marginBottom:20 }}>
               <p style={{ fontSize:12.5, fontWeight:600, color:'var(--ink)', marginBottom:8 }}>허가변경 이력</p>
               <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
