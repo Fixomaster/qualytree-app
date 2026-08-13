@@ -20,8 +20,7 @@ function lsRead(key, fallback = []) {
     const raw = localStorage.getItem(key)
     if (!raw) return fallback
     const parsed = JSON.parse(raw)
-    // operations는 { workOrders: [...] } 구조, training은 { sessions: [...] } 구조
-    if (key === 'qualytree.operations' && parsed?.workOrders) return parsed.workOrders
+    // training은 { sessions: [...] } 구조
     if (key === 'qualytree.training' && parsed?.sessions) return parsed.sessions
     if (Array.isArray(parsed)) return parsed
     return fallback
@@ -66,17 +65,19 @@ function getMyTasks(dept) {
     }
   })
 
-  // MFG/OPS/ALL: 대기 중 작업지시
-  const wos = lsRead('qualytree.operations')
-  wos.filter(w => ['pending', 'in_progress'].includes(w.status)).forEach(w => {
+  // MFG/OPS/ALL: 대기 중 작업지시 — 생산현황(ManufacturingHub)이 실제로 쓰는 qms_mfg_wo 기준
+  const wos = lsRead('qms_mfg_wo')
+  const ACTIVE_WO_STATUS = ['대기', '진행중', '검사중']
+  wos.filter(w => ACTIVE_WO_STATUS.includes(w.status)).forEach(w => {
     if (['MFG', 'ALL'].includes(dept)) {
+      const overdue = w.dueDate && new Date(w.dueDate) < now
       tasks.push({
-        id: w.woId || w.id, type: 'wo',
-        urgent: w.priority === 'urgent',
-        label: `WO · ${w.productName || w.woId}`,
-        sub: `로트: ${w.lotNumber || '-'} · ${w.status === 'pending' ? '시작 대기' : '진행 중'}`,
-        link: `/operations?id=${w.woId || w.id}`, color: w.priority === 'urgent' ? '#EF4444' : '#3B82F6',
-        createdAt: w.issuedAt || w.createdAt,
+        id: w.id, type: 'wo',
+        urgent: overdue,
+        label: `WO · ${w.product || w.id}`,
+        sub: `로트: ${w.lot || '-'} · ${w.status === '대기' ? '시작 대기' : w.status}${overdue ? ' · ⚠️ 완료예상일 초과' : ''}`,
+        link: `/manufacturing?tab=wo&edit=${w.id}`, color: overdue ? '#EF4444' : '#3B82F6',
+        createdAt: w.startDate,
       })
     }
   })
@@ -235,7 +236,7 @@ function getMyTasks(dept) {
 function getDeptKPIs(dept) {
   const ncrs = lsRead('qualytree.ncrs')
   const capas = lsRead('qualytree.capas')
-  const wos = lsRead('qualytree.operations')
+  const wos = lsRead('qms_mfg_wo')
   const cars = lsRead('qualytree.audit_cars')
   const imps = lsRead('qualytree.improvements')
 
@@ -278,7 +279,7 @@ function getDeptKPIs(dept) {
 
   const openNcrs = ncrs.filter(n => !['closed'].includes(n.status)).length
   const openCapas = capas.filter(c => !['closed', 'verified'].includes(c.status)).length
-  const activeWos = wos.filter(w => ['pending', 'in_progress'].includes(w.status)).length
+  const activeWos = wos.filter(w => ['대기', '진행중', '검사중'].includes(w.status)).length
   const openCars = cars.filter(c => c.status === 'open').length
   const activeImps = imps.filter(i => ['approved', 'in_progress'].includes(i.status)).length
 
@@ -309,8 +310,8 @@ function getDeptKPIs(dept) {
       { label: '미결 고객불만', value: openComplaints.length, icon: Users, color: openComplaints.length > 0 ? '#EF4444' : '#10B981', link: '/sales' },
     ],
     MFG: [...BASE,
-      { label: '활성 작업지시', value: activeWos, icon: Workflow, color: activeWos > 0 ? '#3B82F6' : '#6B7280', link: '/operations' },
-      { label: '진행 중 생산', value: wos.filter(w => w.status === 'in_progress').length, icon: Clock, color: '#F59E0B', link: '/manufacturing' },
+      { label: '활성 작업지시', value: activeWos, icon: Workflow, color: activeWos > 0 ? '#3B82F6' : '#6B7280', link: '/manufacturing?tab=wo' },
+      { label: '진행 중 생산', value: wos.filter(w => w.status === '진행중').length, icon: Clock, color: '#F59E0B', link: '/manufacturing?tab=wo' },
     ],
     PUR: [...BASE,
       { label: '발주 대기', value: pendingPurOrders.length, icon: Clock, color: pendingPurOrders.length > 0 ? '#8B5CF6' : '#6B7280', link: '/purchase' },
@@ -363,7 +364,7 @@ function getDeptKPIs(dept) {
     ALL: [
       { label: '미결 NCR', value: openNcrs, icon: AlertTriangle, color: openNcrs > 0 ? '#EF4444' : '#10B981', link: '/quality' },
       { label: '미결 CAPA', value: openCapas, icon: CheckCircle2, color: '#3B82F6', link: '/quality' },
-      { label: '활성 작업지시', value: activeWos, icon: Workflow, color: '#F59E0B', link: '/operations' },
+      { label: '활성 작업지시', value: activeWos, icon: Workflow, color: '#F59E0B', link: '/manufacturing?tab=wo' },
       { label: '개선 과제', value: activeImps, icon: BarChart2, color: '#8B5CF6', link: '/improvement' },
     ],
   }
@@ -378,9 +379,9 @@ const QUICK_ACTIONS = {
     { label: '문서 조회', link: '/documents', color: '#6B7280', icon: FileText },
   ],
   MFG: [
-    { label: '작업지시 시작', link: '/operations', color: '#3B82F6', icon: Workflow },
+    { label: '작업지시 시작', link: '/manufacturing?tab=wo', color: '#3B82F6', icon: Workflow },
     { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
-    { label: 'EBR 작성', link: '/operations', color: '#8B5CF6', icon: FileText },
+    { label: '공정기록 입력', link: '/manufacturing?tab=proc', color: '#8B5CF6', icon: FileText },
   ],
   PUR: [
     { label: '발주 등록', link: '/purchase', color: '#8B5CF6', icon: Plus },
@@ -434,7 +435,7 @@ const QUICK_ACTIONS = {
   ],
   ALL: [
     { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: Plus },
-    { label: '작업지시', link: '/operations', color: '#3B82F6', icon: Workflow },
+    { label: '작업지시', link: '/manufacturing?tab=wo', color: '#3B82F6', icon: Workflow },
     { label: '개선 등록', link: '/improvement', color: '#10B981', icon: TrendingUp },
     { label: '내부감사', link: '/audit', color: '#8B5CF6', icon: Search },
   ],

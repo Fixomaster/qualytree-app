@@ -160,7 +160,10 @@ return (
 <Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
 <Route path="/section/:cardId" element={<ProtectedRoute><LazyRoute Component={GMPSection} /></ProtectedRoute>} />
 <Route path="/onboarding" element={<ProtectedRoute><LazyRoute Component={Onboarding} /></ProtectedRoute>} />
-<Route path="/operations" element={<ProtectedRoute><LazyRoute Component={WorkOrderQueue} /></ProtectedRoute>} />
+{/* #WO정리 — 작업지시 큐(WorkOrderQueue)는 별도 레거시 데이터(operationsState.js)를 쓰는 예전 화면.
+    현재 사이드메뉴 "생산·제조 > 생산 현황"(ManufacturingHub의 작업지시(WO) 탭)이 실제로 쓰이는 화면이므로
+    옛 목록 경로로 들어오면 항상 그쪽으로 보낸다. */}
+<Route path="/operations" element={<Navigate to="/manufacturing?tab=wo" replace />} />
 <Route path="/operations/:woId/ebr" element={<ProtectedRoute><LazyRoute Component={EBatchRecord} /></ProtectedRoute>} />
 <Route path="/operations/:woId/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionStages} /></ProtectedRoute>} />
 <Route path="/quality" element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
