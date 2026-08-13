@@ -16,6 +16,7 @@ import { productDocs, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
 import { Paperclip } from 'lucide-react'
+import RiskHub from '../risk/RiskHub'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.dhf'
@@ -352,6 +353,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
             { key: 'detail', label: '상세 보기', disabled: !selectedId },
             { key: 'techdocs', label: '기술문서(인허가)' },
             { key: 'analysis', label: '현황 분석' },
+            { key: 'risk', label: '위험관리 (ISO 14971)' },
           ].map(t => (
             <button key={t.key}
               onClick={() => !t.disabled && setTab(t.key)}
@@ -495,6 +497,11 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
         {/* ── 현황 분석 탭 ── */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} items={items} setSelectedId={setSelectedId} setTab={setTab} />
+        )}
+
+        {/* 위험관리 (ISO 14971) 연동 뷰 */}
+        {tab === 'risk' && (
+          <RiskHub embedded={true} productKey={selected?.productKey || null} productLabel={selected?.productName || ''} />
         )}
     </div>
   )
