@@ -96,6 +96,7 @@ items: [
 label: '설계·개발', icon: Code2,
 items: [
 { to: '/products', label: '제품·설계개발' },
+{ to: '/design-history', label: '설계이력파일(DHF)' },
 ],
 },
 {
