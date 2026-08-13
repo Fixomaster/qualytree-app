@@ -197,9 +197,8 @@ function TechDocsPanel({ canEdit }) {
   )
 }
 
-export default function DesignHistoryHub({
-  const navigate = useNavigate();
-  const navigate = useNavigate(); embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
+export default function DesignHistoryHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
+  const navigate = useNavigate()
   const user = auth.current()
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
