@@ -37,7 +37,7 @@ const EMPTY_ITEM = {
   productName: '', lotNo: '', qty: '', poNo: '', quoteNo: '',
   stage: '발주', inspectionResult: '적합', receivedQty: '', shippedQty: '',
 }
-const EMPTY = { customsNo: '', clearanceDate: '', notes: '' }
+const EMPTY = { customsNo: '', clearanceDate: '', hsCode: '', amount: '', storageCondition: '', notes: '' }
 
 export default function ImportClearanceHub() {
   const user = auth.current()
@@ -219,6 +219,30 @@ export default function ImportClearanceHub() {
                     value={form.clearanceDate} onChange={e => setF('clearanceDate', e.target.value)} />
                 </label>
               </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <label className="block">
+                  <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>HS 코드 (품목분류번호)</span>
+                  <input className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }}
+                    placeholder="예: 9018.90"
+                    value={form.hsCode} onChange={e => setF('hsCode', e.target.value)} />
+                </label>
+                <label className="block">
+                  <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>수입 금액 (원)</span>
+                  <input className="input-base" type="number" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }}
+                    placeholder="0"
+                    value={form.amount} onChange={e => setF('amount', e.target.value)} />
+                </label>
+              </div>
+              <label className="block mt-3">
+                <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>보관 조건</span>
+                <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }}
+                  value={form.storageCondition} onChange={e => setF('storageCondition', e.target.value)}>
+                  <option value="">상온</option>
+                  <option value="cold">냉장 (2~8℃)</option>
+                  <option value="frozen">냉동 (-20℃ 이하)</option>
+                  <option value="other">기타</option>
+                </select>
+              </label>
               <label className="block mt-3">
                 <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>비고</span>
                 <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight: 48 }}
