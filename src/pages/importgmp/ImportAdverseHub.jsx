@@ -7,6 +7,7 @@ import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, AlertTriangle, CheckCircle2, MessageSquare,
   FileWarning, BarChart2, List, AlertOctagon,
+  Globe,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -101,6 +102,7 @@ export default function ImportAdverseHub() {
   const [searchParams] = useSearchParams()
   const [items, setItems] = useState(() => lsR())
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'list')
+  const [fItems, setFItems] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.import_adverse_foreign') || '[]') } catch { return [] } })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sevFilter, setSevFilter] = useState('all')
@@ -177,6 +179,7 @@ export default function ImportAdverseHub() {
     { key: 'list', label: '이상사례 목록', icon: List },
     { key: 'stats', label: '현황 분석', icon: BarChart2 },
     { key: 'mdr', label: 'MFDS 보고 현황', icon: FileWarning },
+    { key: 'foreign', label: '해외이상사례', icon: Globe },
   ]
 
   return (
@@ -277,6 +280,7 @@ export default function ImportAdverseHub() {
 
           {/* ── MFDS 보고 현황 탭 ── */}
           {tab === 'mdr' && <MdrView items={items} onEdit={openEdit} />}
+            {tab === 'foreign' && <ForeignView items={fItems} setItems={setFItems} />}
 
         </div>
 
@@ -695,7 +699,96 @@ function R2({ children }) { return <div className="grid grid-cols-1 md:grid-cols
 function F({ l, children }) {
   return (
     <div>
-      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
+      <
+function ForeignView({ items, setItems }) {
+  const LS_F = 'qualytree.import_adverse_foreign'
+  const EMPTY_F = { productName: '', country: '', occurrenceDate: '', receivedDate: '', description: '', foreignAction: '', domesticAction: '', status: '검토중', notes: '' }
+  const [form, setForm] = React.useState(null)
+  const [editId, setEditId] = React.useState(null)
+  const fld = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const save = () => {
+    if (!form.productName || !form.occurrenceDate) return
+    const arr = editId ? items.map(x => x.id === editId ? { ...form, id: editId } : x) : [...items, { ...form, id: 'FAE-' + Date.now() }]
+    setItems(arr); localStorage.setItem(LS_F, JSON.stringify(arr))
+    setForm(null); setEditId(null)
+  }
+  const del = id => {
+    const arr = items.filter(x => x.id !== id)
+    setItems(arr); localStorage.setItem(LS_F, JSON.stringify(arr))
+  }
+  const openEdit = it => { setForm({ ...it }); setEditId(it.id) }
+  const STATUS_OPTS = ['검토중', '조치완료', '해당없음']
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>해외 이상사례 수신 이력</h2>
+        <button onClick={() => setForm({ ...EMPTY_F })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}><Plus size={13} />신규 등록</button>
+      </div>
+      {form !== null && (
+        <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>제품명 *</label>
+              <input value={form.productName} onChange={e => fld('productName', e.target.value)} placeholder="제품명 입력" className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>발생국가</label>
+              <input value={form.country} onChange={e => fld('country', e.target.value)} placeholder="예: 독일, 미국" className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>발생일자 *</label>
+              <input type="date" value={form.occurrenceDate} onChange={e => fld('occurrenceDate', e.target.value)} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>수신일자</label>
+              <input type="date" value={form.receivedDate} onChange={e => fld('receivedDate', e.target.value)} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+          </div>
+          <div className="space-y-2 mb-3">
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>사례 내용</label>
+              <textarea value={form.description} onChange={e => fld('description', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>해외 규제기관 조치</label>
+              <textarea value={form.foreignAction} onChange={e => fld('foreignAction', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>국내 대응 조치</label>
+              <textarea value={form.domesticAction} onChange={e => fld('domesticAction', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select value={form.status} onChange={e => fld('status', e.target.value)} className="rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }}>
+              {STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <button onClick={() => { setForm(null); setEditId(null) }} className="px-4 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+            <button onClick={save} className="px-4 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>{editId ? '수정 저장' : '등록'}</button>
+          </div>
+        </div>
+      )}
+      {items.length === 0 && form === null ? (
+        <div className="flex flex-col items-center py-16 text-center">
+          <Globe size={40} strokeWidth={1} className="mb-3 opacity-30" style={{ color: '#DC2626' }} />
+          <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>해외 이상사례 없음</p>
+          <p className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>해외 제조사로부터 수신한 이상사례를 등록하세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map(it => (
+            <div key={it.id} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>{it.productName}</span>
+                    <span className="shrink-0 text-[10.5px] px-2 py-0.5 rounded-full font-medium" style={{ background: it.status === '조치완료' ? '#d1fae5' : '#fef3c7', color: it.status === '조치완료' ? '#065f46' : '#92400e' }}>{it.status}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
+                    {it.country && <span>국가: {it.country}</span>}
+                    {it.occurrenceDate && <span>발생: {it.occurrenceDate}</span>}
+                    {it.receivedDate && <span>수신: {it.receivedDate}</span>}
+                  </div>
+                  {it.description && <p className="text-[12px] mt-1.5 line-clamp-2" style={{ color: 'var(--ink-soft)' }}>{it.description}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(it)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '4px' }}><Edit3 size={14} /></button>
+                  <button onClick={() => del(it.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '4px' }}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
       {children}
     </div>
   )
