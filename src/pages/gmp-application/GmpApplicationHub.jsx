@@ -200,7 +200,7 @@ function ApplyInfoTab({ nav }) {
   // 품목군·품목명·등급·허가번호의 단일 출처(SSoT)이기 때문 — 중복 입력을 막기 위함.
   const licensedProducts = useMemo(() => {
     try {
-      const list = JSON.parse(localStorage.getItem('qualytree.regulatory_products') || '[]')
+      const list = JSON.parse(localStorage.getItem('qualytree.gmp_applications') || '[]')
       return (Array.isArray(list) ? list : []).filter((p) => !!p.licenseNo)
     } catch { return [] }
   }, [])
