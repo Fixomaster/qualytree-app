@@ -562,7 +562,7 @@ function GmpCertificatesCard({ siteId, canEdit, onAction }) {
 /* ================================================================
    타 인증기관 실사자료 (제조소당 N건)
    ================================================================ */
-const EMPTY_REPORT = { issuer: '', auditType: '', auditDate: '', notes: '' }
+const EMPTY_REPORT = { issuer: '', certType: 'CE', auditDate: '', expiryDate: '', notes: '' }
 
 function OtherAuditReportsCard({ siteId, canEdit, onAction }) {
   const [list, setList] = useState(() => otherAuditReports.getForSite(siteId))
@@ -619,10 +619,14 @@ function OtherAuditReportsCard({ siteId, canEdit, onAction }) {
       )}
       {adding && (
         <div className="rounded-lg p-3 mb-3" style={{ background: 'var(--bg-soft)' }}>
-          <div className="grid sm:grid-cols-3 gap-2">
+          <div className="grid sm:grid-cols-2 gap-2">
             <Field label="인증기관" value={form.issuer} onChange={(v) => setF('issuer', v)} placeholder="예: TÜV SÜD" />
-            <Field label="실사 유형" value={form.auditType} onChange={(v) => setF('auditType', v)} placeholder="예: ISO 13485 정기심사" />
-            <Field label="실사일" type="date" value={form.auditDate} onChange={(v) => setF('auditDate', v)} />
+            <SelectField label="인증 종류" value={form.certType} onChange={(v) => setF('certType', v)}
+              options={[{v:'CE',l:'CE 인증'}, {v:'FDA',l:'FDA 510(k)/PMA'}, {v:'ISO',l:'ISO 13485'}, {v:'기타',l:'기타'}]} />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-2 mt-2">
+            <Field label="심사일" type="date" value={form.auditDate} onChange={(v) => setF('auditDate', v)} />
+            <Field label="만료일" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} />
           </div>
           <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} className="mt-2" />
           <div className="flex gap-2 mt-2">
@@ -702,6 +706,18 @@ function TextAreaField({ label, value, onChange, placeholder, className = '' }) 
     <label className={`block ${className}`}>
       <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
       <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight: 60 }} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
+    </label>
+  )
+}
+
+function SelectField({ label, value, onChange, options, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
+      <select className="input-base" style={{ padding: '0.4rem 0.6rem', fontSize: 13 }}
+        value={value} onChange={e => onChange(e.target.value)}>
+        {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+      </select>
     </label>
   )
 }
