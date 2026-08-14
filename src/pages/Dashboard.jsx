@@ -186,9 +186,49 @@ export default function Dashboard() {
   const dueForeignCertCount = useMemo(() => foreignGmpCerts.dueOrExpired().length, [tick]);
   const hasIso13485Cert = !!(onboarding.load().certs || {}).iso13485;
 
-  return (
+  
+  const expiryAlerts = useMemo(() => {
+    const today = new Date(); today.setHours(0,0,0,0)
+    const alerts = []
+    try {
+      const cals = JSON.parse(localStorage.getItem('qualytree.calibrations') || '[]')
+      cals.forEach(c => {
+        if(!c.nextDate) return
+        const diff = Math.ceil((new Date(c.nextDate) - today) / 86400000)
+        if(diff <= 30) alerts.push({ label: c.name || c.equipment || '교정', diff })
+      })
+    } catch {}
+    try {
+      const auds = JSON.parse(localStorage.getItem('qualytree.audits') || '[]')
+      auds.forEach(a => {
+        if(!a.auditDate) return
+        const diff = Math.ceil((new Date(a.auditDate) - today) / 86400000)
+        if(diff <= 30) alerts.push({ label: a.title || a.auditType || '감사', diff })
+      })
+    } catch {}
+    return alerts.sort((a,b) => a.diff - b.diff)
+  }, [])
+return (
     <AppLayout user={auth.current()} title="GMP 대시보드" subtitle="KGMP 통합 현황 · 수입사 GMP 현황 · ISO 13485 현황 — 필요 문서를 확인하고 입력·수정·저장합니다">
       <div className="min-h-screen bg-slate-50 px-6 py-6">
+        {expiryAlerts.length > 0 && (
+          <div className="mb-4 bg-amber-50 rounded-xl border border-amber-200 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-amber-600 font-bold">⚠</span>
+              <h3 className="text-sm font-semibold text-amber-700">만료 임박 알림 ({expiryAlerts.length})</h3>
+            </div>
+            <div className="space-y-1.5">
+              {expiryAlerts.map((a, i) => (
+                <div key={i} className="flex items-center justify-between py-1 border-b border-amber-100 last:border-0">
+                  <span className="text-sm text-slate-700">{a.label}</span>
+                  <span className={'text-xs font-medium px-2 py-0.5 rounded-full ' + (a.diff < 0 ? 'bg-red-100 text-red-600' : a.diff <= 7 ? 'bg-orange-100 text-orange-600' : 'bg-yellow-100 text-yellow-700')}>
+                    {a.diff < 0 ? 'D+' + Math.abs(a.diff) : a.diff === 0 ? 'D-Day' : 'D-' + a.diff}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <PanelKgmp kgmp={kgmp} />
         <PanelImportGmp kgmp={kgmpImporter} dueCertCount={dueForeignCertCount} />
         {hasIso13485Cert && <PanelIso13485 kgmp={kgmpIso13485} />}
