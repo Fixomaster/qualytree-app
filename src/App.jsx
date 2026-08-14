@@ -138,7 +138,7 @@ function LazyRoute({ Component, fallback }) {
 if (!Component) return fallback || <Navigate to="/home" replace />
 return (
 <ErrorBoundary>
-<React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>ë¡ë© ì¤...</div>}>
+<React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>Loading.....</div>}>
 <Component />
 </React.Suspense>
 </ErrorBoundary>
