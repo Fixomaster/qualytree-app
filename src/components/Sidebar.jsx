@@ -27,8 +27,8 @@ import { auth } from '../lib/auth'
 import { menuPermissions, getUserDept } from '../lib/menuPermissions'
 import { deptAuth, DEPT_LIST } from '../lib/deptAuth'
 
-// ì¨ë³´ë© STEP3(ì¡°ì§ë)ìì ë±ë¡í ë¶ì ì´ë¦ì ì½ì´, ë·° ì í ëª©ë¡(DEPT_LIST)ì íì¬ ì¤ì 
-// ì¡°ì§ì ë§ì¶° ì¶ë ¤ë¸ë¤. ë§¤ì¹­ëë ê² ê±°ì ìì¼ë©´(ì: ì¨ë³´ë© ì ) ì ì²´ ëª©ë¡ì ê·¸ëë¡ ë³´ì¬ì¤ë¤.
+// 온보딩 STEP3(조직도)에서 등록한 부서 이름을 읽어, 뷰 전환 목록(DEPT_LIST)을 회사 실제
+// 조직에 맞춰 추려낸다. 매칭되는 게 거의 없으면(예: 온보딩 전) 전체 목록을 그대로 보여준다.
 function loadOnboardingDeptNames() {
   try {
     const raw = localStorage.getItem('qualytree.onboarding')
@@ -40,7 +40,7 @@ function loadOnboardingDeptNames() {
 function relevantDeptOptions() {
   const names = loadOnboardingDeptNames()
   if (!names.length) return DEPT_LIST
-  const norm = (s) => (s || '').replace(/[Â·\s]/g, '')
+  const norm = (s) => (s || '').replace(/[·\s]/g, '')
   const hit = (label) => names.some((n) => {
     const a = norm(n); const b = norm(label)
     return a.includes(b) || b.includes(a) || a.includes(b.slice(0, 2))
@@ -51,97 +51,97 @@ function relevantDeptOptions() {
 
 const DOMAINS = [
 {
-label: 'ìì£¼Â·ê³ ê°', icon: TrendingUp,
+label: '수주·고객', icon: TrendingUp,
 items: [
-{ to: '/sales', label: 'ìì íí©' },
-{ to: '/customer-req', label: 'ê³ ê° ìêµ¬ì¬í­ ê²í ' },
-{ to: '/complaints', label: 'ê³ ê°ë¶ë§ ê´ë¦¬' },
+{ to: '/sales', label: '영업 현황' },
+{ to: '/customer-req', label: '고객 요구사항 검토' },
+{ to: '/complaints', label: '고객불만 관리' },
 ],
 },
 {
-label: 'êµ¬ë§¤Â·ìì¬', icon: ShoppingCart,
+label: '구매·자재', icon: ShoppingCart,
 items: [
-{ to: '/purchase', label: 'êµ¬ë§¤ íí©' },
-{ to: '/supplier', label: 'ê³µê¸ìì²´ ê´ë¦¬' },
-{ to: '/purchase-info', label: 'êµ¬ë§¤ì ë³´Â·ììê²ì¬' },
+{ to: '/purchase', label: '구매 현황' },
+{ to: '/supplier', label: '공급업체 관리' },
+{ to: '/purchase-info', label: '구매정보·수입검사' },
 ],
 },
 {
-label: 'ìì°Â·ì ì¡°', icon: Factory,
+label: '생산·제조', icon: Factory,
 items: [
-{ to: '/manufacturing', label: 'ìì° íí©' },
-{ to: '/process-validation', label: 'ê³µì ì í¨ì±íì¸(ì¤í)' },
-{ to: '/traceability', label: 'ì íì¶ì ì±ê´ë¦¬' },
-{ to: '/product-id', label: 'ì íìë³Â·ìí' },
-{ to: '/customer-property', label: 'ê³ ê°ìì°ê´ë¦¬' },
-{ to: '/preservation', label: 'ì íë³´ì¡´Â·ì·¨ê¸' },
-{ to: '/inventory', label: 'ì¬ê³ Â·ì¶ê³ ê´ë¦¬' },
-{ to: '/cleanliness', label: 'ì²­ê²°Â·ì¤ì¼ ê´ë¦¬' },
-{ to: '/sterile', label: 'ë©¸ê·  ìë£ê¸°ê¸°' },
-{ to: '/service', label: 'ì¤ì¹Â·ìë¹ì¤' },
+{ to: '/manufacturing', label: '생산 현황' },
+{ to: '/process-validation', label: '공정유효성확인(실행)' },
+{ to: '/traceability', label: '제품추적성관리' },
+{ to: '/product-id', label: '제품식별·상태' },
+{ to: '/customer-property', label: '고객자산관리' },
+{ to: '/preservation', label: '제품보존·취급' },
+{ to: '/inventory', label: '재고·출고관리' },
+{ to: '/cleanliness', label: '청결·오염 관리' },
+{ to: '/sterile', label: '멸균 의료기기' },
+{ to: '/service', label: '설치·서비스' },
 ],
 },
 {
-label: 'íì§Â·ê²ì¬', icon: ShieldCheck,
+label: '품질·검사', icon: ShieldCheck,
 items: [
-{ to: '/inspection', label: 'ê³µì Â·ìµì¢ ê²ì¬' },
-{ to: '/quality', label: 'NCRÂ·ë¶ì í©' },
-{ to: '/improvement', label: 'CAPAÂ·ê°ì ' },
-{ to: '/change-control',label: 'ë³ê²½ê´ë¦¬' },
-{ to: '/audit', label: 'ë´ë¶ê°ì¬' },
-{ to: '/workenv', label: 'ììíê²½ê´ë¦¬' },
-{ to: '/measurement', label: 'ì¸¡ì Â·ë¶ìÂ·ê°ì ' },
-{ to: '/kpi-dashboard', label: 'íì§ KPI' },
+{ to: '/inspection', label: '공정·최종 검사' },
+{ to: '/quality', label: 'NCR·부적합' },
+{ to: '/improvement', label: 'CAPA·개선' },
+{ to: '/change-control',label: '변경관리' },
+{ to: '/audit', label: '내부감사' },
+{ to: '/workenv', label: '작업환경관리' },
+{ to: '/measurement', label: '측정·분석·개선' },
+{ to: '/kpi-dashboard', label: '품질 KPI' },
 ],
 },
 {
-label: 'ì¤ê³Â·ê°ë°', icon: Code2,
+label: '설계·개발', icon: Code2,
 items: [
-{ to: '/products', label: 'ì íÂ·ì¤ê³ê°ë°' },
-{ to: '/design-history', label: 'ì¤ê³ì´ë ¥íì¼(DHF)' },
+{ to: '/products', label: '제품·설계개발' },
+{ to: '/design-history', label: '설계이력파일(DHF)' },
 ],
 },
 {
-label: 'ë¬¸ìÂ·ê·ì ', icon: FileText,
+label: '문서·규정', icon: FileText,
 items: [
-{ to: '/qms-overview', label: 'QMS ê°ì' },
-{ to: '/record-master', label: 'ê¸°ë¡ ëì¥' },
-{ to: '/document-control', label: 'ë¬¸ìê´ë¦¬' },
+{ to: '/qms-overview', label: 'QMS 개요' },
+{ to: '/record-master', label: '기록 대장' },
+{ to: '/document-control', label: '문서관리' },
 ],
 },
 {
-label: 'ì¤ë¹Â·êµì ', icon: Wrench,
+label: '설비·교정', icon: Wrench,
 items: [
-{ to: '/equipment', label: 'ì¤ë¹ íí©' },
-{ to: '/calibration', label: 'êµì ê´ë¦¬' },
-{ to: '/infrastructure', label: 'ì¸íë¼ê´ë¦¬' },
+{ to: '/equipment', label: '설비 현황' },
+{ to: '/calibration', label: '교정관리' },
+{ to: '/infrastructure', label: '인프라관리' },
 ],
 },
 {
-label: 'êµì¡Â·ì¸ë ¥', icon: GraduationCap,
+label: '교육·인력', icon: GraduationCap,
 items: [
-{ to: '/training', label: 'êµì¡íë ¨' },
-{ to: '/competency', label: 'ì­ëê´ë¦¬' },
-{ to: '/org-responsibility', label: 'ì¡°ì§Â·ì±ì' },
-{ to: '/resource-plan', label: 'ìì ê³í' },
+{ to: '/training', label: '교육훈련' },
+{ to: '/competency', label: '역량관리' },
+{ to: '/org-responsibility', label: '조직·책임' },
+{ to: '/resource-plan', label: '자원 계획' },
 ],
 },
 {
-label: 'ê²½ìÂ·ì ëµ', icon: BarChart3,
+label: '경영·전략', icon: BarChart3,
 items: [
-{ to: '/management-review', label: 'ê²½ìê²í ' },
-{ to: '/quality-plan', label: 'íì§ê³í' },
-{ to: '/management-commitment', label: 'ê²½ììì§Â·íì§ë°©ì¹¨Â·ëª©í' },
+{ to: '/management-review', label: '경영검토' },
+{ to: '/quality-plan', label: '품질계획' },
+{ to: '/management-commitment', label: '경영의지·품질방침·목표' },
 ],
 },
 ]
 
 const IMP_ITEMS = [
-{ to: '/foreign-manufacturers', label: 'ì¸êµ­ì ì¡°ì GMP' },
-{ to: '/import-products', label: 'íëª© íê° íí©' },
-{ to: '/import-clearance', label: 'ìì íµê´ ê¸°ë¡' },
-{ to: '/import-adverse', label: 'ì´ìì¬ë¡ ë³´ê³ ' },
-{ to: '/import-management-standard', label: 'ììê´ë¦¬ê¸°ì¤ì' },
+{ to: '/foreign-manufacturers', label: '외국제조소 GMP' },
+{ to: '/import-products', label: '품목 허가 현황' },
+{ to: '/import-clearance', label: '수입 통관 기록' },
+{ to: '/import-adverse', label: '이상사례 보고' },
+{ to: '/import-management-standard', label: '수입관리기준서' },
 ]
 
 export default function Sidebar() {
@@ -149,8 +149,8 @@ const loc = useLocation()
 const cur = auth.current()
 const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
 
-// #6/#7: ë¶ì ë³´ê¸° ì í â CEO/ë§¤ëì ê° ë¶ìë³ ë©ë´Â·ëìë³´ëë¥¼ ë°ê¿ë³¼ ì ìëë¡.
-// ìµìì ì¨ë³´ë© ì¡°ì§ëì ë±ë¡ë ë¶ì ê¸°ì¤ì¼ë¡ ì¶ë ¤ "ë¶ìëªì´ ëë¬´ ë§ë¤"ë ë¬¸ì ë¥¼ ì¤ì¸ë¤.
+// #6/#7: 부서 보기 전환 — CEO/매니저가 부서별 메뉴·대시보드를 바꿔볼 수 있도록.
+// 옵션은 온보딩 조직도에 등록된 부서 기준으로 추려 "부서명이 너무 많다"는 문제를 줄인다.
 const canSwitchDept = (cur?.level ?? 0) >= 2
 const [dept, setDeptState] = useState(() => deptAuth.getDepartment() || 'ALL')
 useEffect(() => {
@@ -222,7 +222,7 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <Home size={17} strokeWidth={1.7} />
-<span>í ëìë³´ë</span>
+<span>홈 대시보드</span>
 </NavLink>
 
         <NavLink
@@ -235,7 +235,7 @@ fontWeight: isActive ? 600 : 400,
           })}
         >
           <Share2 size={17} strokeWidth={1.7} />
-          <span>ìë¬´ íë¡ì¸ì¤ íë¦ë</span>
+          <span>업무 프로세스 흐름도</span>
         </NavLink>
 
 <NavLink
@@ -248,7 +248,7 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <Megaphone size={17} strokeWidth={1.7} />
-<span>ê³µì§ì¬í­</span>
+<span>공지사항</span>
 </NavLink>
 
 <div
@@ -268,7 +268,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <IdCard size={16} strokeWidth={1.7} />
-<span>ê¸°ë³¸ì ë³´</span>
+<span>기본정보</span>
 </NavLink>
 
 <NavLink
@@ -281,7 +281,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <BadgeCheck size={16} strokeWidth={1.7} />
-<span>ì¸íê°</span>
+<span>인허가</span>
 </NavLink>
 
 <NavLink
@@ -294,7 +294,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <FileCheck2 size={16} strokeWidth={1.7} />
-<span>GMP ì ì²­</span>
+<span>GMP 신청</span>
 </NavLink>
 
 <div className="mb-0.5">
@@ -312,7 +312,7 @@ width: '100%',
 }}
 >
 <Globe size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
-<span className="flex-1 text-left">ìì GMP</span>
+<span className="flex-1 text-left">수입 GMP</span>
 <ChevronRight
 size={13}
 strokeWidth={2}
@@ -360,7 +360,7 @@ width: '100%',
 }}
 >
 <Building2 size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
-<span className="flex-1 text-left">ì ì¡° GMP</span>
+<span className="flex-1 text-left">제조 GMP</span>
 <ChevronRight
 size={13}
 strokeWidth={2}
@@ -450,7 +450,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 })}
 >
 <Crown size={16} strokeWidth={1.7} />
-<span>ì´ìì ì½ì</span>
+<span>운영자 콘솔</span>
 </NavLink>
 <NavLink
 to="/operator/plans"
@@ -461,7 +461,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 })}
 >
 <Crown size={16} strokeWidth={1.7} />
-<span>íëÂ·ìê¸ ê´ë¦¬</span>
+<span>플랜·요금 관리</span>
 </NavLink>
 </>
 )}
@@ -469,7 +469,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 {canSwitchDept && (
 <div className="px-3 mt-4 mb-2">
 <div className="font-mono text-[10px] tracking-[0.2em] uppercase mb-1.5" style={{ color: 'var(--ink-faint)' }}>
-ë¶ì ë³´ê¸° ì í
+부서 보기 전환
 </div>
 <select
 value={dept}
@@ -494,7 +494,7 @@ className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5"
 style={{ color: 'var(--ink-faint)', cursor: 'not-allowed' }}
 >
 <Settings size={16} strokeWidth={1.7} />
-<span className="flex-1">ê´ë¦¬ì ì¤ì </span>
+<span className="flex-1">관리자 설정</span>
 <span className="font-mono text-[9px]" style={{ color: 'var(--ink-faint)' }}>SOON</span>
 </div>
 </nav>
@@ -511,8 +511,8 @@ color: loc.pathname.startsWith('/onboarding') ? 'var(--bg)' : 'var(--moss)',
 <div className="font-mono text-[9.5px] tracking-[0.18em] uppercase opacity-80">
 START HERE
 </div>
-<div className="mt-1 text-[13.5px] font-medium leading-tight">ì¨ë³´ë© ì§í</div>
-<div className="text-[12px] mt-0.5 opacity-80">5ë¶ì´ë©´ ììë©ëë¤</div>
+<div className="mt-1 text-[13.5px] font-medium leading-tight">온보딩 진행</div>
+<div className="text-[12px] mt-0.5 opacity-80">5분이면 시작됩니다</div>
 </NavLink>
 </div>
 </aside>
