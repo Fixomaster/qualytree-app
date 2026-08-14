@@ -26,6 +26,7 @@ import Logo from './Logo'
 import { auth } from '../lib/auth'
 import { menuPermissions, getUserDept } from '../lib/menuPermissions'
 import { deptAuth, DEPT_LIST } from '../lib/deptAuth'
+import GlobalSearch from './GlobalSearch'
 
 // 온보딩 STEP3(조직도)에서 등록한 부서 이름을 읽어, 뷰 전환 목록(DEPT_LIST)을 회사 실제
 // 조직에 맞춰 추려낸다. 매칭되는 게 거의 없으면(예: 온보딩 전) 전체 목록을 그대로 보여준다.
@@ -215,6 +216,7 @@ v0.3
 </div>
 
 <nav className="flex-1 px-3 py-3 overflow-y-auto">
+      <GlobalSearch />
 <NavLink
 to="/home"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
