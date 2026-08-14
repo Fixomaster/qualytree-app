@@ -162,6 +162,9 @@ const deptOptions = useMemo(() => relevantDeptOptions(), [])
 
 const isAdmin = cur?.isCompanyAdmin || (cur?.level ?? 0) >= 3
   const userDept = getUserDept(cur?.email)
+  const ob = useMemo(() => { try { return JSON.parse(localStorage.getItem('qualytree.onboarding') || '{}') } catch { return {} } }, [])
+  const hasKGMP = ob.certs?.kgmp === true
+  const hasImport = ob.certs?.kgmp_importer === true
   const allowedMenus = useMemo(() => {
     if (isAdmin) return null
     return menuPermissions.getDeptAllowedMenus(userDept)
@@ -299,6 +302,8 @@ fontWeight: isActive ? 600 : 500,
 <span>인허가</span>
 </NavLink>
 
+{hasImport && (
+<>
 <NavLink
 to="/gmp-application"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
@@ -447,6 +452,8 @@ fontWeight: isActive ? 600 : 400,
 </div>
 )}
 </div>
+</>
+)}
 
 {auth.identityKind() === 'operator' && (
 <>
