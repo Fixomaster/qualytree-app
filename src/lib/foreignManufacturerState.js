@@ -18,6 +18,7 @@ function defaultState() {
     sites: [],
     gmpCertificates: [],
     otherAuditReports: [],
+    inspectionSchedules: [],
   }
 }
 
@@ -187,4 +188,30 @@ export const otherAuditReports = {
   getAll() {
     return load().otherAuditReports
   },
+}
+
+export const inspectionSchedules = {
+  add(siteId, item) {
+    const s = load()
+    const rec = { id: uid(), siteId, scheduledDate: '', conductedDate: '', inspector: '', result: '', findings: '', action: '', notes: '', ...item }
+    s.inspectionSchedules = [...s.inspectionSchedules, rec]
+    save(s)
+    return rec
+  },
+  update(id, patch) {
+    const s = load()
+    s.inspectionSchedules = s.inspectionSchedules.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    save(s)
+    return s
+  },
+  delete(id) {
+    const s = load()
+    s.inspectionSchedules = s.inspectionSchedules.filter((r) => r.id !== id)
+    save(s)
+    return s
+  },
+  getForSite(siteId) {
+    return load().inspectionSchedules.filter((r) => r.siteId === siteId).sort((a, b) => (b.scheduledDate || '').localeCompare(a.scheduledDate || ''))
+  },
+  getAll() { return load().inspectionSchedules },
 }
