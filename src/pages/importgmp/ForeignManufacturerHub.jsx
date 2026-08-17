@@ -23,6 +23,7 @@ import {
   foreignSites,
   gmpCertificates,
   otherAuditReports,
+  inspectionSchedules,
   ENTRUSTED_RELATION,
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
@@ -448,6 +449,7 @@ function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) 
 
       <GmpCertificatesCard siteId={site.id} canEdit={canEdit} onAction={onAction} />
       <OtherAuditReportsCard siteId={site.id} canEdit={canEdit} onAction={onAction} />
+      <InspectionScheduleCard siteId={site.id} canEdit={canEdit} />
     </div>
   )
 }
@@ -562,7 +564,107 @@ function GmpCertificatesCard({ siteId, canEdit, onAction }) {
 /* ================================================================
    타 인증기관 실사자료 (제조소당 N건)
    ================================================================ */
-const EMPTY_REPORT = { issuer: '', certType: 'CE', auditDate: '', expiryDate: '', notes: '' }
+cons
+const EMPTY_INSP = { scheduledDate: '', conductedDate: '', inspector: '', result: '', findings: '', action: '', notes: '' }
+
+function InspectionScheduleCard({ siteId, canEdit }) {
+  const [list, setList] = useState(() => inspectionSchedules.getForSite(siteId))
+  const [adding, setAdding] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState(EMPTY_INSP)
+  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const reload = () => setList(inspectionSchedules.getForSite(siteId))
+
+  const save = () => {
+    if (!form.scheduledDate) return
+    if (editId) { inspectionSchedules.update(editId, form) }
+    else { inspectionSchedules.add(siteId, form) }
+    reload(); setAdding(false); setEditId(null); setForm(EMPTY_INSP)
+  }
+
+  const del = (id) => { inspectionSchedules.delete(id); reload() }
+
+  const openEdit = (rec) => { setForm({ ...rec }); setEditId(rec.id); setAdding(true) }
+
+  const RESULT_OPTS = ['', '적합', '부적합', '조건부적합', '예정']
+
+  return (
+    <div className="mt-6 rounded-2xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-[13.5px] font-bold" style={{ color: 'var(--ink)' }}>실태조사 일정</h3>
+        {canEdit && !adding && (
+          <button onClick={() => { setAdding(true); setEditId(null); setForm(EMPTY_INSP) }}
+            className="flex items-center gap-1 text-[12px] px-2.5 py-1 rounded-lg font-semibold"
+            style={{ background: 'var(--brand)', color: 'white', border: 'none', cursor: 'pointer' }}>
+            <Plus size={12} />일정 추가
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+            <Field label="예정일 *" value={form.scheduledDate} onChange={(v) => setF('scheduledDate', v)} type="date" />
+            <Field label="실시일" value={form.conductedDate} onChange={(v) => setF('conductedDate', v)} type="date" />
+            <Field label="실태조사자" value={form.inspector} onChange={(v) => setF('inspector', v)} placeholder="담당자 이름" />
+            <div>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>결과</label>
+              <select value={form.result} onChange={(e) => setF('result', e.target.value)}
+                className="w-full rounded-lg px-3 py-2 text-[12.5px]"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', color: 'var(--ink)' }}>
+                {RESULT_OPTS.map(o => <option key={o} value={o}>{o || '선택'}</option>)}
+              </select>
+            </div>
+          </div>
+          <TextAreaField label="지적사항" value={form.findings} onChange={(v) => setF('findings', v)} rows={2} />
+          <TextAreaField label="시정조치" value={form.action} onChange={(v) => setF('action', v)} rows={2} />
+          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} rows={1} />
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => { setAdding(false); setEditId(null); setForm(EMPTY_INSP) }}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              style={{ background: 'var(--bg-card)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+            <button onClick={save}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+              style={{ background: 'var(--brand)', color: 'white', border: 'none', cursor: 'pointer' }}>{editId ? '수정' : '저장'}</button>
+          </div>
+        </div>
+      )}
+
+      {list.length === 0 && !adding ? (
+        <p className="text-[12px] py-4 text-center" style={{ color: 'var(--ink-faint)' }}>등록된 실태조사 일정이 없습니다.</p>
+      ) : (
+        <div className="space-y-2">
+          {list.map(rec => {
+            const resultColor = rec.result === '적합' ? '#065f46' : rec.result === '부적합' ? '#991b1b' : '#92400e'
+            const resultBg = rec.result === '적합' ? '#d1fae5' : rec.result === '부적합' ? '#fee2e2' : '#fef3c7'
+            return (
+              <div key={rec.id} className="flex items-start justify-between gap-3 px-4 py-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{rec.scheduledDate || '일정 미정'}</span>
+                    {rec.conductedDate && <span className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>실시: {rec.conductedDate}</span>}
+                    {rec.result && <span className="text-[10.5px] px-2 py-0.5 rounded-full font-medium" style={{ background: resultBg, color: resultColor }}>{rec.result}</span>}
+                  </div>
+                  {rec.inspector && <p className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>조사자: {rec.inspector}</p>}
+                  {rec.findings && <p className="text-[11.5px] mt-1" style={{ color: 'var(--ink-soft)' }}>지적: {rec.findings}</p>}
+                </div>
+                {canEdit && (
+                  <div className="flex gap-1 shrink-0">
+                    <button onClick={() => openEdit(rec)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '4px' }}><Edit3 size={13} /></button>
+                    <button onClick={() => del(rec.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '4px' }}><Trash2 size={13} /></button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+t EMPTY_REPORT = { issuer: '', certType: 'CE', auditDate: '', expiryDate: '', notes: '' }
 
 function OtherAuditReportsCard({ siteId, canEdit, onAction }) {
   const [list, setList] = useState(() => otherAuditReports.getForSite(siteId))
