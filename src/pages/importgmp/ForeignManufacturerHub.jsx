@@ -210,6 +210,7 @@ export default function ForeignManufacturerHub() {
         </div>
 
       </div>
+      <SiteProductMatrix sites={sites} />
       </CertGate>
     </AppLayout>
   )
@@ -218,6 +219,59 @@ export default function ForeignManufacturerHub() {
 /* ================================================================
    제조소 상세 — 기본정보 + GMP 적합인정서 + 타 인증기관 실사자료
    ================================================================ */
+
+function SiteProductMatrix({ sites }) {
+  const [open, setOpen] = useState(false)
+  const rows = sites.flatMap(site =>
+    (site.products || []).map(p => ({ siteName: site.name || '(이름 없음)', group: p.group || '', productName: p.name || '', grade: p.grade || '' }))
+  )
+  return (
+    <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--bg-card)' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-5 py-3 text-left"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink)' }}
+      >
+        <span className="text-[13.5px] font-bold">제조소-품목 연결 현황</span>
+        <span className="flex items-center gap-2">
+          <span className="text-[12px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{rows.length}건</span>
+          {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </span>
+      </button>
+      {open && (
+        rows.length === 0 ? (
+          <p className="text-[12px] py-6 text-center" style={{ color: 'var(--ink-faint)' }}>등록된 제조소 또는 품목이 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]" style={{ borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-soft)', borderTop: '1px solid var(--border)' }}>
+                  {['외국제조소', '품목군', '품목명', '등급'].map(h => (
+                    <th key={h} className="text-left px-4 py-2 font-semibold" style={{ color: 'var(--ink-mute)', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td className="px-4 py-2 font-medium" style={{ color: 'var(--ink)', maxWidth: 180 }}>{r.siteName}</td>
+                    <td className="px-4 py-2" style={{ color: 'var(--ink-soft)' }}>{r.group}</td>
+                    <td className="px-4 py-2" style={{ color: 'var(--ink)' }}>{r.productName}</td>
+                    <td className="px-4 py-2 text-center">
+                      {r.grade && <span className="inline-block text-[11px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{r.grade}등급</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+
 function SiteDetail({ site, canEdit, onAction, onChanged, onDelete, allSites }) {
   const [form, setForm] = useState(site)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
