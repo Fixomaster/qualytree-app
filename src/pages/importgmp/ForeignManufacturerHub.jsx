@@ -163,6 +163,13 @@ export default function ForeignManufacturerHub() {
         {dueCerts.length > 0 && (
           <div className="card-base p-3.5 mb-5 flex items-start gap-2.5" style={{ background: 'var(--amber-soft)' }}>
             <AlertTriangle size={16} style={{ color: 'var(--amber)' }} className="shrink-0 mt-0.5" />
+        <div style={{background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:8,padding:'10px 16px',marginBottom:16,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <div style={{width:20,height:20,borderRadius:'50%',background:'#16A34A',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>i</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:'#166534',marginBottom:3}}>해외 완제품 제조소 전용</div>
+            <div style={{fontSize:12,color:'#14532D',lineHeight:1.6}}>수입 의료기기의 해외 제조소(제품별 GMP 적합인정·실태조사·인증 관리)를 담당합니다. 원부자재·부품 등 국내 공급업체는 <b>공급업체 관리</b> 메뉴에서 관리하세요.</div>
+          </div>
+        </div>
             <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
               <b>GMP 적합인정서 {dueCerts.length}건</b>이 만료되었거나 90일 이내 만료 예정입니다. 정기갱신심사는 유효기한 만료일 90일 전까지 신청해야 합니다.
             </div>
