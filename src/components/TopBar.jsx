@@ -12,8 +12,8 @@ export default function TopBar({ user, title, subtitle }) {
   const [showRoleSwap, setShowRoleSwap] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
 
-  // 홈(부서별 대시보드)에서는 뒤로가기가 의미 없으므로 숨긴다. 그 외 화면에서는 항상 표시 —
-  // 브라우저 히스토리가 있으면 뒤로 이동, 새로고침 등으로 히스토리가 없으면 홈으로 이동.
+  // í(ë¶ìë³ ëìë³´ë)ììë ë¤ë¡ê°ê¸°ê° ìë¯¸ ìì¼ë¯ë¡ ì¨ê¸´ë¤. ê·¸ ì¸ íë©´ììë í­ì íì â
+  // ë¸ë¼ì°ì  íì¤í ë¦¬ê° ìì¼ë©´ ë¤ë¡ ì´ë, ìë¡ê³ ì¹¨ ë±ì¼ë¡ íì¤í ë¦¬ê° ìì¼ë©´ íì¼ë¡ ì´ë.
   const isHome = location.pathname === '/home'
   const goBack = () => {
     if (window.history.length > 2) nav(-1)
@@ -29,7 +29,7 @@ export default function TopBar({ user, title, subtitle }) {
     auth.setLevel(lv)
     setShowRoleSwap(false)
     setMenuOpen(false)
-    // 화면 전체 새로고침 — 권한 게이트 즉시 반영
+    // íë©´ ì ì²´ ìë¡ê³ ì¹¨ â ê¶í ê²ì´í¸ ì¦ì ë°ì
     window.location.reload()
   }
 
@@ -49,8 +49,8 @@ export default function TopBar({ user, title, subtitle }) {
         {!isHome && (
           <button
             onClick={goBack}
-            aria-label="이전 화면으로 돌아가기"
-            title="이전 화면으로"
+            aria-label="ì´ì  íë©´ì¼ë¡ ëìê°ê¸°"
+            title="ì´ì  íë©´ì¼ë¡"
             className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition"
             style={{ color: 'var(--ink-soft)', background: 'var(--bg-soft)' }}
           >
@@ -78,29 +78,21 @@ export default function TopBar({ user, title, subtitle }) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* search */}
-        <div
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full"
-          style={{
-            background: 'var(--bg-soft)',
-            color: 'var(--ink-mute)',
-            minWidth: 240,
-          }}
+        {/* search — Ctrl+K triggers GlobalSearch */}
+        <button
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer"
+          style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)', minWidth: 240, border: 'none', textAlign: 'left' }}
+          onClick={() => window.dispatchEvent(new CustomEvent('openSearch'))}
         >
           <Search size={14} />
-          <input
-            type="text"
-            placeholder="제품·공정·문서 검색…"
-            className="bg-transparent outline-none text-[13px] flex-1"
-            style={{ color: 'var(--ink)' }}
-          />
+          <span style={{ fontSize: 13, flex: 1 }}>검색...</span>
           <span
             className="font-mono text-[10px] px-1.5 py-0.5 rounded"
             style={{ background: 'var(--bg)', color: 'var(--ink-faint)' }}
           >
-            ⌘K
+            Ctrl+K
           </span>
-        </div>
+        </button>
 
         {/* notifications */}
         <button
@@ -131,7 +123,7 @@ export default function TopBar({ user, title, subtitle }) {
             <span className="text-[13px] hidden sm:inline" style={{ color: 'var(--ink)' }}>
               {user?.name || user?.email?.split('@')[0]}
             </span>
-            {/* 권한 배지 */}
+            {/* ê¶í ë°°ì§ */}
             <span
               className="font-mono text-[9.5px] tracking-wider px-1.5 py-0.5 rounded uppercase hidden sm:inline"
               style={{
@@ -139,7 +131,7 @@ export default function TopBar({ user, title, subtitle }) {
                 color: levelFg(currentLevel),
                 fontWeight: 500,
               }}
-              title={`${levelInfo.ko} · Level ${currentLevel}`}
+              title={`${levelInfo.ko} Â· Level ${currentLevel}`}
             >
               {levelInfo.short}
             </span>
@@ -166,16 +158,16 @@ export default function TopBar({ user, title, subtitle }) {
                     className="text-[11.5px] font-medium"
                     style={{ color: levelFg(currentLevel) }}
                   >
-                    {levelInfo.ko} · Level {currentLevel}
+                    {levelInfo.ko} Â· Level {currentLevel}
                   </span>
                 </div>
               </div>
 
-              {/* 시연용 역할 전환 */}
+              {/* ìì°ì© ì­í  ì í */}
               {!showRoleSwap ? (
                 <MenuItem
                   icon={UserCog}
-                  label="권한 전환 (시연용)"
+                  label="ê¶í ì í (ìì°ì©)"
                   onClick={() => setShowRoleSwap(true)}
                 />
               ) : (
@@ -215,7 +207,7 @@ export default function TopBar({ user, title, subtitle }) {
                             className="ml-auto text-[10px]"
                             style={{ color: 'var(--moss)' }}
                           >
-                            ✓
+                            â
                           </span>
                         )}
                       </button>
@@ -225,13 +217,13 @@ export default function TopBar({ user, title, subtitle }) {
                     className="text-[10.5px] mt-2"
                     style={{ color: 'var(--ink-faint)' }}
                   >
-                    실제 운영에선 SSO·MFA로 결정됩니다 (§11.3)
+                    ì¤ì  ì´ììì  SSOÂ·MFAë¡ ê²°ì ë©ëë¤ (Â§11.3)
                   </div>
                 </div>
               )}
 
-              <MenuItem icon={UserIcon} label="프로필 설정" onClick={() => { setMenuOpen(false); setProfileOpen(true) }} />
-              <MenuItem icon={LogOut} label="로그아웃" onClick={onSignOut} danger />
+              <MenuItem icon={UserIcon} label="íë¡í ì¤ì " onClick={() => { setMenuOpen(false); setProfileOpen(true) }} />
+              <MenuItem icon={LogOut} label="ë¡ê·¸ìì" onClick={onSignOut} danger />
             </div>
           )}
         </div>
