@@ -414,6 +414,27 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
           </div>
         </div>
       )}
+    
+      {(() => {
+        try {
+          const KEY = 'qualytree' + String.fromCharCode(46) + 'complaints'
+          const all = JSON.parse(localStorage.getItem(KEY) || '[]')
+          const linked = all.filter(c => c.adverseId === item.id)
+          if (linked.length === 0) return null
+          return (
+            <div style={{marginTop:12,padding:'8px 12px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:6}}>
+              <div style={{fontSize:12,fontWeight:600,color:'#0369a1',marginBottom:6}}>연결된 고객불만 ({linked.length})</div>
+              {linked.map(c => (
+                <div key={c.id} style={{fontSize:11,padding:'3px 0',borderBottom:'1px solid #e0f2fe',display:'flex',gap:8}}>
+                  <span style={{color:'#64748b',minWidth:120}}>{c.id}</span>
+                  <span style={{flex:1,color:'#1e293b'}}>{c.title || c.productName}</span>
+                  <span style={{color:'#0ea5e9'}}>{c.status}</span>
+                </div>
+              ))}
+            </div>
+          )
+        } catch { return null }
+      })()}
     </div>
   )
 }
