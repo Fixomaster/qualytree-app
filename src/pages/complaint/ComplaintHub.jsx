@@ -109,7 +109,7 @@ const emptyForm = () => ({
   category: '', severity: 'none', productName: '', lotNo: '', serialNo: '',
   description: '', immediateAction: '',
   mdrRequired: false, mdrReportDate: '', mdrRefNo: '',
-  ncrId: '', capaId: '',
+  ncrId: '', capaId: '', adverseId: '',
   assignee: '', dueDate: '', status: 'received',
   investigation: '', rootCause: '', corrective: '',
   closedDate: '', notes: '',
@@ -386,6 +386,7 @@ function ComplaintRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClo
             <InfoRow k="마감일" v={item.dueDate} />
             <InfoRow k="NCR 연결" v={item.ncrId || '없음'} />
             <InfoRow k="CAPA 연결" v={item.capaId || '없음'} />
+            <InfoRow k="이상사례 연결" v={item.adverseId || '없음'} />
           </div>
           {/* 조사 결과 */}
           {(item.investigation || item.rootCause || item.corrective) && (
@@ -687,6 +688,7 @@ function ComplaintForm({ form, fld, editId, onSubmit, onClose }) {
               <R2>
                 <F l="NCR 연결 번호"><input value={form.ncrId} onChange={e => fld('ncrId', e.target.value)} placeholder="예: NCR-2026-00001" style={IS} className="w-full" /></F>
                 <F l="CAPA 연결 번호"><input value={form.capaId} onChange={e => fld('capaId', e.target.value)} placeholder="예: CAPA-2026-00001" style={IS} className="w-full" /></F>
+                <F l="이상사례 연결 번호"><input value={form.adverseId} onChange={e => fld('adverseId', e.target.value)} placeholder="예: IAE-20260801" style={IS} className="w-full" /></F>
               </R2>
 
               {/* 조사 결과 */}
