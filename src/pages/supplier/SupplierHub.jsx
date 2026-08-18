@@ -32,7 +32,7 @@ function genId(prefix) {
 }
 
 // ── 상수 ─────────────────────────────────────────────────────
-const CATEGORIES = ['원자재', '부품·반제품', '완제품', '소모품', '설비·장비', '서비스·외주', '포장재', '기타']
+const CATEGORIES = ['원자재', '부품·반제품', '소모품', '설비·장비', '서비스·외주', '포장재', '기타']
 const GRADES     = [
   { value: 'A', label: 'A등급 — 우수', color: '#059669', bg: '#D1FAE5' },
   { value: 'B', label: 'B등급 — 양호', color: '#2563EB', bg: '#DBEAFE' },
@@ -231,6 +231,15 @@ export default function SupplierHub() {
           quickActions={[{ label: '공급업체 등록', icon: Plus, onClick: openNewSup, primary: true }]}
           workflow={['공급업체 등록', '초기 평가', '승인 등록', '정기 재평가', 'IQC 실시', '이력 관리']}
         />
+
+        {/* 역할 안내 */}
+        <div style={{background:'#EFF6FF',border:'1px solid #BFDBFE',borderRadius:8,padding:'10px 16px',marginBottom:16,display:'flex',gap:10,alignItems:'flex-start'}}>
+          <div style={{width:20,height:20,borderRadius:'50%',background:'#2563EB',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>i</div>
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:'#1D4ED8',marginBottom:3}}>국내 공급업체 전용</div>
+            <div style={{fontSize:12,color:'#3730A3',lineHeight:1.6}}>원부자재·부품·소모품·서비스 등 국내 공급업체를 관리합니다. 수입 완제품의 해외 제조소는 <b>수입GMP → 외국제조소</b> 메뉴에서 관리하세요.</div>
+          </div>
+        </div>
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
