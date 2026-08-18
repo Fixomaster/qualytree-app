@@ -2,16 +2,17 @@
 import React, { useEffect } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import GlobalSearch from './GlobalSearch'
 import { deptAuth } from '../lib/deptAuth'
 
-// #301: 부서 선택 정보는 localStorage(브라우저 캐시)에만 저장되어, 캐시를 삭제하면
-// 홈 대시보드 진입 시마다 매번 부서 선택 화면이 강제로 뜨는 문제가 있었다(요청: 삭제).
-// 강제 모달 팝업을 제거하고, 미선택 상태이면 조용히 '전체 보기'(ALL)로 기본 설정한다.
-// (#374 — deptAuth.ensureDepartment()를 거쳐서 기본값을 정한다. 예전에는 여기서 바로
-// setDepartment('ALL')을 동기적으로 호출했는데, 그러면 이 효과가 항상 원격
-// last_dept 조회(네트워크, 비동기)보다 먼저 끝나버려서 다른 기기로 로그인해도 절대
-// 저장해둔 부서를 이어받지 못하는 경쟁 조건이 있었다. ensureDepartment는 로컬에 값이
-// 없을 때만 원격을 먼저 확인하고, 그래도 없을 때 최종적으로 ALL로 기본 설정한다.)
+// #301: ë¶ì ì í ì ë³´ë localStorage(ë¸ë¼ì°ì  ìºì)ìë§ ì ì¥ëì´, ìºìë¥¼ ì­ì íë©´
+// í ëìë³´ë ì§ì ìë§ë¤ ë§¤ë² ë¶ì ì í íë©´ì´ ê°ì ë¡ ë¨ë ë¬¸ì ê° ììë¤(ìì²­: ì­ì ).
+// ê°ì  ëª¨ë¬ íìì ì ê±°íê³ , ë¯¸ì í ìíì´ë©´ ì¡°ì©í 'ì ì²´ ë³´ê¸°'(ALL)ë¡ ê¸°ë³¸ ì¤ì íë¤.
+// (#374 â deptAuth.ensureDepartment()ë¥¼ ê±°ì³ì ê¸°ë³¸ê°ì ì íë¤. ìì ìë ì¬ê¸°ì ë°ë¡
+// setDepartment('ALL')ì ëê¸°ì ì¼ë¡ í¸ì¶íëë°, ê·¸ë¬ë©´ ì´ í¨ê³¼ê° í­ì ìê²©
+// last_dept ì¡°í(ë¤í¸ìí¬, ë¹ëê¸°)ë³´ë¤ ë¨¼ì  ëëë²ë ¤ì ë¤ë¥¸ ê¸°ê¸°ë¡ ë¡ê·¸ì¸í´ë ì ë
+// ì ì¥í´ë ë¶ìë¥¼ ì´ì´ë°ì§ ëª»íë ê²½ì ì¡°ê±´ì´ ììë¤. ensureDepartmentë ë¡ì»¬ì ê°ì´
+// ìì ëë§ ìê²©ì ë¨¼ì  íì¸íê³ , ê·¸ëë ìì ë ìµì¢ì ì¼ë¡ ALLë¡ ê¸°ë³¸ ì¤ì íë¤.)
 export default function AppLayout({ user, title, subtitle, children }) {
   useEffect(() => {
     deptAuth.ensureDepartment()
@@ -22,6 +23,7 @@ export default function AppLayout({ user, title, subtitle, children }) {
       <Sidebar />
       <div className="flex-1 min-w-0">
         <TopBar user={user} title={title} subtitle={subtitle} />
+        <GlobalSearch />
         <main>{children}</main>
       </div>
     </div>
