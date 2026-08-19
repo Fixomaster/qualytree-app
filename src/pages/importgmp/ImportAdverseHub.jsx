@@ -720,7 +720,12 @@ function R2({ children }) { return <div className="grid grid-cols-1 md:grid-cols
 function F({ l, children }) {
   return (
     <div>
-      <
+<label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
+      {children}
+    </div>
+  )
+}
+
 function ForeignView({ items, setItems }) {
   const LS_F = 'qualytree.import_adverse_foreign'
   const EMPTY_F = { productName: '', country: '', occurrenceDate: '', receivedDate: '', description: '', foreignAction: '', domesticAction: '', status: '검토중', notes: '' }
@@ -806,11 +811,6 @@ function ForeignView({ items, setItems }) {
           ))}
         </div>
       )}
-    </div>
-  )
-}
-label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
-      {children}
     </div>
   )
 }
