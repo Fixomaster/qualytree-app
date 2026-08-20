@@ -1,12 +1,14 @@
 // src/pages/importgmp/ImportAdverseHub.jsx
-// ìë£ê¸°ê¸°ë² Â§30ì¡° â ìì ìë£ê¸°ê¸° ì´ìì¬ë¡ ë³´ê³ . ComplaintHub.jsx(ê³ ê°ë¶ë§ê´ë¦¬)ì ëì¼í
-// êµ¬ì¡°(ì ìâì¡°ì¬âê·ì ë³´ê³ âì¢ê²°, ìë ìíì°ì , ì¹ì¸ì ê²ì¦ ì¢ê²°)ë¥¼ ë°ë¥¸ë¤. (#298)
+// 의료기기법 §30조 — 수입 의료기기 이상사례 보고. ComplaintHub.jsx(고객불만관리)와 동일한
+// 구조(접수→조사→규제보고→종결, 자동 상태산정, 승인자 검증 종결)를 따른다. (#298)
 import React, { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, AlertTriangle, CheckCircle2, MessageSquare,
-  FileWarning, TrendingUp, BarChart2, List, OctagonAlert,
+  FileWarning, BarChart2, List, AlertOctagon,
+  Globe,
+  TrendingUp,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -15,8 +17,8 @@ import { auth } from '../../lib/auth'
 import { companyDocs } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 
-// ìì íëª© íê°íí©ì ë±ë¡ë íëª©ëª â ì´ìì¬ë¡ì 'ì íëª'ì ìì  ìë ¥ì´ ìëë¼
-// ë±ë¡ë ìì íëª© ê¸°ì¤ì¼ë¡ ê²ìí´ì ì ííëë¡ íë¤.
+// 수입 품목 허가현황에 등록된 품목명 — 이상사례의 '제품명'은 자유 입력이 아니라
+// 등록된 수입 품목 기준으로 검색해서 선택하도록 한다.
 function importProductNames() {
   try {
     const raw = localStorage.getItem('qualytree.import_products')
@@ -31,76 +33,77 @@ function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
 function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
 function genId() { return `IAE-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
-const REPORT_TYPE_OPTIONS = ['ìë°ë³´ê³ ', 'ê³ ê°ë¶ë§']
+const REPORT_TYPE_OPTIONS = ['자발보고', '고객불만']
 
 const SEVERITIES = [
-  { value: 'critical', label: 'ì¬ê° â ì¬ë§/ì¤ìí´', color: '#991B1B', bg: '#FEE2E2' },
-  { value: 'major',    label: 'ì¤ì â ìë£ì  ì²ì¹ íì', color: '#DC2626', bg: '#FEE2E2' },
-  { value: 'minor',    label: 'ê²½ë¯¸ â ê²½ë¯¸í ìí´/ë¶í¸', color: '#D97706', bg: '#FEF3C7' },
-  { value: 'none',     label: 'í´ë¹ìì â ë¶ì ìì', color: '#059669', bg: '#D1FAE5' },
+  { value: 'critical', label: '심각 — 사망/중상해', color: '#991B1B', bg: '#FEE2E2' },
+  { value: 'major',    label: '중요 — 의료적 처치 필요', color: '#DC2626', bg: '#FEE2E2' },
+  { value: 'minor',    label: '경미 — 경미한 상해/불편', color: '#D97706', bg: '#FEF3C7' },
+  { value: 'none',     label: '해당없음 — 부상 없음', color: '#059669', bg: '#D1FAE5' },
 ]
 
-// #24 â ë°ë ¤ í­ëª© ì­ì . ë±ë¡ë ì´ìì¬ë¡ë ì ìâì¡°ì¬â(ìë¬´ë³´ê³  ì)ë³´ê³ âì²ë¦¬âì¢ê²°ë¡ë§ íë¬ê°ë¤.
+// #24 — 반려 항목 삭제. 등록된 이상사례는 접수→조사→(의무보고 시)보고→처리→종결로만 흘러간다.
 const STATUSES = [
-  { value: 'received',      label: 'ì ì',       color: '#6B7280', bg: '#F3F4F6' },
-  { value: 'investigating', label: 'ì¡°ì¬ ì¤',    color: '#2563EB', bg: '#DBEAFE' },
-  { value: 'reporting',     label: 'ê·ì  ë³´ê³ ',  color: '#7C3AED', bg: '#EDE9FE' },
-  { value: 'resolving',     label: 'ì²ë¦¬ ì¤',    color: '#D97706', bg: '#FEF3C7' },
-  { value: 'closed',        label: 'ì¢ê²°',       color: '#059669', bg: '#D1FAE5' },
+  { value: 'received',      label: '접수',       color: '#6B7280', bg: '#F3F4F6' },
+  { value: 'investigating', label: '조사 중',    color: '#2563EB', bg: '#DBEAFE' },
+  { value: 'reporting',     label: '규제 보고',  color: '#7C3AED', bg: '#EDE9FE' },
+  { value: 'resolving',     label: '처리 중',    color: '#D97706', bg: '#FEF3C7' },
+  { value: 'closed',        label: '종결',       color: '#059669', bg: '#D1FAE5' },
 ]
-// #25 â ì¡°ì¹ ê³¼ì  ìí¬íë¡ì° ë¨ê³(íì¥ ë·°ì ì¤íí¼ íìì©)
+// #25 — 조치 과정 워크플로우 단계(확장 뷰의 스테퍼 표시용)
 const WORKFLOW_STEPS = [
-  { value: 'received',      label: 'ì ì' },
-  { value: 'investigating', label: 'ì¡°ì¬ ì¤' },
-  { value: 'reporting',     label: 'ê·ì  ë³´ê³ ' },
-  { value: 'resolving',     label: 'ì²ë¦¬ ì¤' },
-  { value: 'closed',        label: 'ì¢ê²°' },
+  { value: 'received',      label: '접수' },
+  { value: 'investigating', label: '조사 중' },
+  { value: 'reporting',     label: '규제 보고' },
+  { value: 'resolving',     label: '처리 중' },
+  { value: 'closed',        label: '종결' },
 ]
 
-// MFDS ë³´ê³  íë¨ ê¸°ì¤ ìë´
+// MFDS 보고 판단 기준 안내
 const MDR_GUIDE = [
-  'ì¬ë§ ëë ì¬ê°í ë¶ìì ì´ëíê±°ë ì´ëí  ê°ë¥ì±ì´ ìë ê²½ì°',
-  'ì íì ê¸°ë¥ ë¶ë, ë³ì§ ëë ë¶ì ì í ë¼ë²¨ë§ì¼ë¡ ì¸í´ ë°ìí ê²½ì°',
-  'ëì¼ ì´ìì¬ë¡ê° ë°ë³µëì´ ìì  ë¦¬ì¤í¬ê° ìë¤ê³  íë¨ëë ê²½ì°',
-  'ìì ì¡°ì¹(Recall) ëë íì¥ ìì (FSC)ì´ íìí ê²½ì°',
+  '사망 또는 심각한 부상을 초래했거나 초래할 가능성이 있는 경우',
+  '제품의 기능 불량, 변질 또는 부적절한 라벨링으로 인해 발생한 경우',
+  '동일 이상사례가 반복되어 안전 리스크가 있다고 판단되는 경우',
+  '시정조치(Recall) 또는 현장 수정(FSC)이 필요한 경우',
 ]
 
-// ì²ë¦¬ ìíë ìì ì íì´ ìëë¼ ìì±ë ë´ì©(ì¡°ì¬ê²°ê³¼Â·ê·¼ë³¸ìì¸Â·ìì ì¡°ì¹Â·MFDSë³´ê³  ë±)ì ë°ë¼
-// ìëì¼ë¡ ì§íëë¤. ë°ë ¤/ì¢ê²°(ì¹ì¸)ë§ ì¬ëì´ ì§ì  ê²°ì íë ì¢ê²° ìíë¡ ì·¨ê¸íë¤.
+// 처리 상태는 임의 선택이 아니라 작성된 내용(조사결과·근본원인·시정조치·MFDS보고 등)에 따라
+// 자동으로 진행된다. 반려/종결(승인)만 사람이 직접 결정하는 종결 상태로 취급한다.
 function deriveAdverseStatus(f) {
   if (f.status === 'closed') return f.status
   const hasInvestigation = !!(f.investigation && f.investigation.trim())
   const hasRootCause = !!(f.rootCause && f.rootCause.trim())
   const hasCorrective = !!(f.corrective && f.corrective.trim())
-  if (f.reportType === 'ìë¬´ë³´ê³ ' && !f.reportDate && (hasInvestigation || hasRootCause || hasCorrective)) return 'reporting'
+  if (f.reportType === '의무보고' && !f.reportDate && (hasInvestigation || hasRootCause || hasCorrective)) return 'reporting'
   if (hasCorrective) return 'resolving'
   if (hasInvestigation || hasRootCause) return 'investigating'
   return 'received'
 }
-// ì¢ê²° ì¹ì¸ ê°ë¥ ì¬ë¶ â ì¡°ì¬Â·ê·¼ë³¸ìì¸Â·ìì ì¡°ì¹ê° ëª¨ë ìì±ëê³ (ìë¬´ë³´ê³  ì ë³´ê³ ê¹ì§ ìë£) ìì§ ì¢ê²° ì ì¸ ê²½ì°.
+// 종결 승인 가능 여부 — 조사·근본원인·시정조치가 모두 작성되고(의무보고 시 보고까지 완료) 아직 종결 전인 경우.
 function readyToClose(item) {
   if (item.status === 'closed') return false
   const ok = !!(item.investigation?.trim() && item.rootCause?.trim() && item.corrective?.trim())
   if (!ok) return false
-  if (item.reportType === 'ìë¬´ë³´ê³ ' && !item.reportDate) return false
+  if (item.reportType === '의무보고' && !item.reportDate) return false
   return true
 }
 
 const emptyForm = () => ({
   productName: '', incidentDate: new Date().toISOString().slice(0, 10),
-  reportDate: '', reportNo: '', reportType: 'ìë°ë³´ê³ ', mdrCriteria: [], severity: 'none',
+  reportDate: '', reportNo: '', reportType: '자발보고', mdrCriteria: [], severity: 'none',
   description: '', immediateAction: '',
   assignee: '', dueDate: '', status: 'received',
   investigation: '', rootCause: '', corrective: '', followup: '',
   closedDate: '', notes: '',
 })
 
-// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 메인 ─────────────────────────────────────────────────────
 export default function ImportAdverseHub() {
   const user = auth.current()
   const [searchParams] = useSearchParams()
   const [items, setItems] = useState(() => lsR())
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'list')
+  const [fItems, setFItems] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.import_adverse_foreign') || '[]') } catch { return [] } })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [sevFilter, setSevFilter] = useState('all')
@@ -115,8 +118,8 @@ export default function ImportAdverseHub() {
   const openEdit = item => { setForm({ ...item }); setEditId(item.id); setShowForm(true) }
 
   const submit = () => {
-    if (!form.productName || !form.description) return alert('ì íëªê³¼ ì´ìì¬ë¡ ë´ì©ì íììëë¤.')
-    if (!form.incidentDate) return alert('ë°ìì¼ì ìë ¥íì¸ì.')
+    if (!form.productName || !form.description) return alert('제품명과 이상사례 내용은 필수입니다.')
+    if (!form.incidentDate) return alert('발생일을 입력하세요.')
     const now = new Date().toISOString()
     const withStatus = { ...form, status: deriveAdverseStatus(form) }
     if (editId) {
@@ -127,27 +130,27 @@ export default function ImportAdverseHub() {
     setShowForm(false)
   }
 
-  const remove = id => { if (!confirm('ì­ì íìê² ìµëê¹?')) return; save(items.filter(i => i.id !== id)) }
+  const remove = id => { if (!confirm('삭제하시겠습니까?')) return; save(items.filter(i => i.id !== id)) }
   const fld = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  // ì¢ê²°ì ìíê° íë ë°ê¾¸ë ê²ì¼ë¡ ëëì§ ìê³ , ê¸°ë³¸ì ë³´ì ë±ë¡ë íì§ì±ìì ëë
-  // ëíì´ì¬ ë³¸ì¸ë§ ì¹ì¸ì ì±ëªì ìë ¥í´ ê²í Â·ì¹ì¸í´ì¼ ì¢ê²° ì²ë¦¬ëë¤.
+  // 종결은 상태값 하나 바꾸는 것으로 끝나지 않고, 기본정보에 등록된 품질책임자 또는
+  // 대표이사 본인만 승인자 성명을 입력해 검토·승인해야 종결 처리된다.
   const approveClose = id => {
     const item = items.find(i => i.id === id)
     if (!item || !readyToClose(item)) return
     const qmName = ((companyDocs.getQualityManager() || {}).name || '').trim()
     const ceoName = ((onboarding.load().company || {}).ceo || '').trim()
     if (!qmName && !ceoName) {
-      alert('ê¸°ë³¸ì ë³´ì íì§ì±ìì ëë ëíì´ì¬ê° ë±ë¡ëì´ ìì§ ììµëë¤. ë¨¼ì  ê¸°ë³¸ì ë³´ìì ë±ë¡íì¸ì.')
+      alert('기본정보에 품질책임자 또는 대표이사가 등록되어 있지 않습니다. 먼저 기본정보에서 등록하세요.')
       return
     }
-    const who = [qmName && `íì§ì±ìì(${qmName})`, ceoName && `ëíì´ì¬(${ceoName})`].filter(Boolean).join(' ëë ')
-    const input = window.prompt(`ì´ìì¬ë¡ ì¢ê²° ì¹ì¸ â ${who} ë³¸ì¸ë§ ì¹ì¸í  ì ììµëë¤.\nì¹ì¸ì ì±ëªì ìë ¥íì¸ì:`, '')
+    const who = [qmName && `품질책임자(${qmName})`, ceoName && `대표이사(${ceoName})`].filter(Boolean).join(' 또는 ')
+    const input = window.prompt(`이상사례 종결 승인 — ${who} 본인만 승인할 수 있습니다.\n승인자 성명을 입력하세요:`, '')
     if (input === null) return
     const approver = input.trim()
-    if (!approver) { alert('ì¹ì¸ì ì±ëªì ìë ¥í´ì¼ í©ëë¤.'); return }
+    if (!approver) { alert('승인자 성명을 입력해야 합니다.'); return }
     if (approver !== qmName && approver !== ceoName) {
-      alert('ìë ¥í ì´ë¦ì´ ë±ë¡ë íì§ì±ìì ëë ëíì´ì¬ì ì¼ì¹íì§ ìì ì¹ì¸í  ì ììµëë¤.')
+      alert('입력한 이름이 등록된 품질책임자 또는 대표이사와 일치하지 않아 승인할 수 없습니다.')
       return
     }
     save(items.map(i => i.id === id ? { ...i, status: 'closed', closedDate: new Date().toISOString().slice(0, 10), approvedBy: approver } : i))
@@ -167,42 +170,43 @@ export default function ImportAdverseHub() {
   const stats = {
     total: items.length,
     open: items.filter(i => !['closed', 'rejected'].includes(i.status)).length,
-    mandatory: items.filter(i => i.reportType === 'ìë¬´ë³´ê³ ').length,
+    mandatory: items.filter(i => i.reportType === '의무보고').length,
     critical: items.filter(i => ['critical', 'major'].includes(i.severity)).length,
     closed: items.filter(i => i.status === 'closed').length,
     thisMonth: items.filter(i => i.incidentDate?.startsWith(new Date().toISOString().slice(0, 7))).length,
   }
 
   const TABS = [
-    { key: 'list', label: 'ì´ìì¬ë¡ ëª©ë¡', icon: List },
-    { key: 'stats', label: 'íí© ë¶ì', icon: BarChart2 },
+    { key: 'list', label: '이상사례 목록', icon: List },
+    { key: 'stats', label: '현황 분석', icon: BarChart2 },
+    { key: 'mdr', label: 'MFDS 보고 현황', icon: FileWarning },
+    { key: 'foreign', label: '해외이상사례', icon: Globe },
     { key: 'trend', label: '트렌드 분석', icon: TrendingUp },
-    { key: 'mdr', label: 'MFDS ë³´ê³  íí©', icon: FileWarning },
-  ]
+]
 
   return (
-    <AppLayout user={user} title="ì´ìì¬ë¡ ë³´ê³ " subtitle="ìë£ê¸°ê¸°ë² Â§30ì¡° Â· ìì ìë£ê¸°ê¸° ì´ìì¬ë¡ MFDS ë³´ê³  ì´ë ¥ ê´ë¦¬">
-      <CertGate certId="kgmp_importer" label="ìì GMP">
+    <AppLayout user={user} title="이상사례 보고" subtitle="의료기기법 §30조 · 수입 의료기기 이상사례 MFDS 보고 이력 관리">
+      <CertGate certId="kgmp_importer" label="수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
           <HubBanner
-            title="ì´ìì¬ë¡ ë³´ê³ "
-            subtitle="ìë£ê¸°ê¸°ë² Â§30ì¡° Â· ì´ìì¬ë¡ ì ì Â· ì¡°ì¬ Â· ìì ì¡°ì¹ Â· MFDS ê·ì  ë³´ê³ "
-            icon={OctagonAlert}
+            title="이상사례 보고"
+            subtitle="의료기기법 §30조 · 이상사례 접수 · 조사 · 시정조치 · MFDS 규제 보고"
+            icon={AlertOctagon}
             color="#EF4444"
-            quickActions={[{ label: 'ì´ìì¬ë¡ ë±ë¡', icon: Plus, onClick: openNew, primary: true }]}
-            workflow={['ì´ìì¬ë¡ ì¸ì§', 'ì´ê¸° íê°', 'ì¡°ì¬', 'ìì ì¡°ì¹', 'MFDS ë³´ê³ ', 'ì¢ê²°']}
+            quickActions={[{ label: '이상사례 등록', icon: Plus, onClick: openNew, primary: true }]}
+            workflow={['이상사례 인지', '초기 평가', '조사', '시정조치', 'MFDS 보고', '종결']}
           />
 
           {/* KPI */}
           <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
             {[
-              { label: 'ì´ ì ì', count: stats.total, color: '#6B7280' },
-              { label: 'ì²ë¦¬ ì¤', count: stats.open, color: '#2563EB' },
-              { label: 'ì¬ê°/ì¤ì', count: stats.critical, color: '#DC2626' },
-              { label: 'ìë¬´ë³´ê³ ', count: stats.mandatory, color: '#7C3AED' },
-              { label: 'ì´ë² ë¬', count: stats.thisMonth, color: '#D97706' },
-              { label: 'ì¢ê²°', count: stats.closed, color: '#059669' },
+              { label: '총 접수', count: stats.total, color: '#6B7280' },
+              { label: '처리 중', count: stats.open, color: '#2563EB' },
+              { label: '심각/중요', count: stats.critical, color: '#DC2626' },
+              { label: '의무보고', count: stats.mandatory, color: '#7C3AED' },
+              { label: '이번 달', count: stats.thisMonth, color: '#D97706' },
+              { label: '종결', count: stats.closed, color: '#059669' },
             ].map(s => (
               <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <div className="text-[20px] font-bold" style={{ color: s.color }}>{s.count}</div>
@@ -211,20 +215,20 @@ export default function ImportAdverseHub() {
             ))}
           </div>
 
-          {/* MFDS ë¯¸ë³´ê³  ê²½ê³  */}
-          {items.filter(i => i.reportType === 'ìë¬´ë³´ê³ ' && !i.reportDate && i.status !== 'closed').length > 0 && (
+          {/* MFDS 미보고 경고 */}
+          {items.filter(i => i.reportType === '의무보고' && !i.reportDate && i.status !== 'closed').length > 0 && (
             <div className="flex items-center gap-3 p-4 rounded-2xl mb-5" style={{ background: '#EDE9FE', border: '1px solid #C4B5FD' }}>
               <FileWarning size={18} style={{ color: '#7C3AED', flexShrink: 0 }} />
               <div>
                 <div className="text-[13px] font-bold" style={{ color: '#4C1D95' }}>
-                  MFDS ê·ì  ë³´ê³  ë¯¸ìë£ {items.filter(i => i.reportType === 'ìë¬´ë³´ê³ ' && !i.reportDate && i.status !== 'closed').length}ê±´
+                  MFDS 규제 보고 미완료 {items.filter(i => i.reportType === '의무보고' && !i.reportDate && i.status !== 'closed').length}건
                 </div>
-                <div className="text-[12px]" style={{ color: '#6D28D9' }}>ìì½ì² ì´ìì¬ë¡ ë³´ê³  ê¸°íì íì¸íì¸ì (ì¬ë§/ì¤ìí´: ì¦ì, ê¸°í: 30ì¼ ì´ë´)</div>
+                <div className="text-[12px]" style={{ color: '#6D28D9' }}>식약처 이상사례 보고 기한을 확인하세요 (사망/중상해: 즉시, 기타: 30일 이내)</div>
               </div>
             </div>
           )}
 
-          {/* í­ */}
+          {/* 탭 */}
           <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
             {TABS.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
@@ -235,24 +239,24 @@ export default function ImportAdverseHub() {
             ))}
           </div>
 
-          {/* ââ ëª©ë¡ í­ ââ */}
+          {/* ── 목록 탭 ── */}
           {tab === 'list' && (
             <>
               <div className="flex gap-3 mb-4 flex-wrap">
                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl flex-1 min-w-[180px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                   <Search size={14} style={{ color: 'var(--ink-faint)' }} />
-                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="ì íëª Â· ë²í¸ Â· ë´ì© ê²ì..." className="flex-1 text-[13px] outline-none" style={{ background: 'none', border: 'none', color: 'var(--ink)' }} />
+                  <input value={search} onChange={e => setSearch(e.target.value)} placeholder="제품명 · 번호 · 내용 검색..." className="flex-1 text-[13px] outline-none" style={{ background: 'none', border: 'none', color: 'var(--ink)' }} />
                 </div>
                 <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                  <option value="all">ì ì²´ ìí</option>
+                  <option value="all">전체 상태</option>
                   {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
                 <select value={sevFilter} onChange={e => setSevFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                  <option value="all">ì ì²´ ì¬ê°ë</option>
-                  {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label.split(' â ')[0]}</option>)}
+                  <option value="all">전체 심각도</option>
+                  {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label.split(' — ')[0]}</option>)}
                 </select>
                 <button onClick={openNew} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> ì´ìì¬ë¡ ë±ë¡
+                  <Plus size={14} /> 이상사례 등록
                 </button>
               </div>
 
@@ -273,11 +277,27 @@ export default function ImportAdverseHub() {
             </>
           )}
 
-          {/* ââ íí© ë¶ì í­ ââ */}
+          {/* ── 현황 분석 탭 ── */}
           {tab === 'stats' && <StatsView items={items} />}
 
-          {/* ââ MFDS ë³´ê³  íí© í­ ââ */}
+          {/* ── MFDS 보고 현황 탭 ── */}
           {tab === 'mdr' && <MdrView items={items} onEdit={openEdit} />}
+            {tab === 'foreign' && <ForeignView items={fItems} setItems={setFItems} />}
+{tab === 'trend' && (() => {
+  const byMonth = {}
+  items.forEach(it => { const d = it.reportDate||it.date||it.occurrenceDate||''; const k = d?d.slice(0,7):'미입력'; byMonth[k]=(byMonth[k]||0)+1 })
+  const months = Object.keys(byMonth).sort()
+  const bySev = {}
+  items.forEach(it => { const s=it.severity||it.seriousness||'미분류'; bySev[s]=(bySev[s]||0)+1 })
+  const maxV = months.length ? Math.max(...Object.values(byMonth)) : 1
+  return (
+    <div className="space-y-6 p-4">
+      <div className="bg-white rounded-xl p-4 shadow-sm border"><h3 className="font-semibold mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-blue-500" />월별 발생 건수</h3>{months.length===0?<p className="text-gray-400 text-sm">데이터 없음</p>:<div className="space-y-2">{months.map(m=><div key={m} className="flex items-center gap-2"><span className="text-xs w-20 text-gray-500">{m}</span><div className="flex-1 bg-gray-100 rounded-full h-4"><div className="bg-blue-400 h-4 rounded-full" style={{width:Math.round(byMonth[m]/maxV*100)+'%'}} /></div><span className="text-xs w-6 text-right">{byMonth[m]}</span></div>)}</div>}</div>
+      <div className="bg-white rounded-xl p-4 shadow-sm border"><h3 className="font-semibold mb-3">중증도별 분류</h3><div className="grid grid-cols-2 gap-2">{Object.entries(bySev).map(([s,n])=><div key={s} className="bg-gray-50 rounded-lg p-3 flex justify-between"><span className="text-sm text-gray-600">{s}</span><span className="font-bold text-blue-600">{n}</span></div>)}</div></div>
+      <div className="bg-blue-50 rounded-xl p-4 text-sm text-blue-700">종 <b>{items.length}</b>건 | {months[0]||'-'} ~ {months[months.length-1]||'-'}</div>
+    </div>
+  )
+})()}
 
         </div>
 
@@ -287,7 +307,7 @@ export default function ImportAdverseHub() {
   )
 }
 
-// ââ ì´ìì¬ë¡ í ì»´í¬ëí¸ ââââââââââââââââââââââââââââââââââââââ
+// ── 이상사례 행 컴포넌트 ──────────────────────────────────────
 function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose }) {
   const st = STATUSES.find(s => s.value === item.status) || STATUSES[0]
   const canClose = readyToClose(item)
@@ -307,11 +327,11 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{item.id}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: st.bg, color: st.color }}>{st.label}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: sev.bg, color: sev.color }}>{sev.label.split(' â ')[0]}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: sev.bg, color: sev.color }}>{sev.label.split(' — ')[0]}</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>{item.reportType}</span>
-            {item.reportType === 'ìë¬´ë³´ê³ ' && (
+            {item.reportType === '의무보고' && (
               <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: '#EDE9FE', color: '#7C3AED' }}>
-                {item.reportDate ? 'â ë³´ê³ ìë£' : 'â  ë³´ê³ íì'}
+                {item.reportDate ? '✓ 보고완료' : '⚠ 보고필요'}
               </span>
             )}
           </div>
@@ -322,18 +342,18 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
         </div>
 
         <div className="text-right flex-shrink-0 mr-1">
-          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>ë°ìì¼</div>
+          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>발생일</div>
           <div className="text-[12px] font-medium" style={{ color: 'var(--ink)' }}>{item.incidentDate || '-'}</div>
           {item.dueDate && (
             <div className="text-[11px]" style={{ color: daysUntil(item.dueDate) < 0 ? '#DC2626' : 'var(--ink-faint)' }}>
-              ë§ê° {item.dueDate}
+              마감 {item.dueDate}
             </div>
           )}
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
           {canClose && (
-            <button onClick={e => { e.stopPropagation(); onApproveClose() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', cursor: 'pointer' }}>ì¢ê²° ì¹ì¸</button>
+            <button onClick={e => { e.stopPropagation(); onApproveClose() }} className="px-2 py-1 rounded-lg text-[10.5px] font-bold" style={{ background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0', cursor: 'pointer' }}>종결 승인</button>
           )}
           <button onClick={e => { e.stopPropagation(); onEdit() }} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}><Edit3 size={13} /></button>
           <button onClick={e => { e.stopPropagation(); onDelete() }} className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer' }}><Trash2 size={13} /></button>
@@ -361,27 +381,27 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
             })}
           </div>
           <div>
-            <SL>ì í ì ë³´</SL>
-            <InfoRow k="ì íëª" v={item.productName} />
-            <InfoRow k="ë°ìì¼" v={item.incidentDate} />
-            <InfoRow k="ë³´ê³  ì í" v={item.reportType} />
+            <SL>제품 정보</SL>
+            <InfoRow k="제품명" v={item.productName} />
+            <InfoRow k="발생일" v={item.incidentDate} />
+            <InfoRow k="보고 유형" v={item.reportType} />
           </div>
           <div>
-            <SL>ì´ìì¬ë¡ ë´ì©</SL>
+            <SL>이상사례 내용</SL>
             <div className="text-[12.5px] p-2 rounded-lg mb-3" style={{ background: 'var(--bg-soft)', color: 'var(--ink)', lineHeight: 1.6 }}>{item.description}</div>
             {item.immediateAction && <>
-              <SL>ì¦ê° ì¡°ì¹</SL>
+              <SL>즉각 조치</SL>
               <div className="text-[12px] p-2 rounded-lg mb-2" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{item.immediateAction}</div>
             </>}
-            <SL>ì¡°ì¬ ë° ì²ë¦¬</SL>
-            <InfoRow k="ë´ë¹ì" v={item.assignee} />
-            <InfoRow k="ë§ê°ì¼" v={item.dueDate} />
+            <SL>조사 및 처리</SL>
+            <InfoRow k="담당자" v={item.assignee} />
+            <InfoRow k="마감일" v={item.dueDate} />
           </div>
           {(item.investigation || item.rootCause || item.corrective) && (
             <div className="md:col-span-2">
-              <SL>ì¡°ì¬ ê²°ê³¼ / ê·¼ë³¸ ìì¸ / ìì  ì¡°ì¹</SL>
+              <SL>조사 결과 / 근본 원인 / 시정 조치</SL>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[['ì¡°ì¬ ê²°ê³¼', item.investigation], ['ê·¼ë³¸ ìì¸', item.rootCause], ['ìì  ì¡°ì¹', item.corrective]].map(([k, v]) => v && (
+                {[['조사 결과', item.investigation], ['근본 원인', item.rootCause], ['시정 조치', item.corrective]].map(([k, v]) => v && (
                   <div key={k}>
                     <div className="text-[10px] font-bold mb-1" style={{ color: 'var(--ink-faint)' }}>{k}</div>
                     <div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink)', lineHeight: 1.5 }}>{v}</div>
@@ -392,25 +412,46 @@ function AdverseRow({ item, expanded, onToggle, onEdit, onDelete, onApproveClose
           )}
           {item.followup && (
             <div className="md:col-span-2">
-              <SL>íì ì¡°ì¹</SL>
+              <SL>후속 조치</SL>
               <div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{item.followup}</div>
             </div>
           )}
-          {item.reportType === 'ìë¬´ë³´ê³ ' && (
+          {item.reportType === '의무보고' && (
             <div className="md:col-span-2 p-3 rounded-xl" style={{ background: '#EDE9FE', border: '1px solid #C4B5FD' }}>
-              <div className="text-[12px] font-bold mb-1" style={{ color: '#4C1D95' }}>ð MFDS ê·ì  ë³´ê³  ì ë³´</div>
+              <div className="text-[12px] font-bold mb-1" style={{ color: '#4C1D95' }}>🏛 MFDS 규제 보고 정보</div>
               <div className="grid grid-cols-2 gap-2 text-[12px]">
-                <InfoRow k="ë³´ê³ ì¼" v={item.reportDate || '(ë¯¸ë³´ê³ )'} />
-                <InfoRow k="ì ì ë²í¸" v={item.reportNo || '-'} />
+                <InfoRow k="보고일" v={item.reportDate || '(미보고)'} />
+                <InfoRow k="접수 번호" v={item.reportNo || '-'} />
               </div>
             </div>
           )}
           <div className="md:col-span-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-            ë±ë¡: {item.createdBy} Â· {item.createdAt?.slice(0, 10) || '-'}
-            {item.closedDate && ` Â· ì¢ê²°: ${item.closedDate}${item.approvedBy ? ` (ì¹ì¸: ${item.approvedBy})` : ''}`}
+            등록: {item.createdBy} · {item.createdAt?.slice(0, 10) || '-'}
+            {item.closedDate && ` · 종결: ${item.closedDate}${item.approvedBy ? ` (승인: ${item.approvedBy})` : ''}`}
           </div>
         </div>
       )}
+    
+      {(() => {
+        try {
+          const KEY = 'qualytree' + String.fromCharCode(46) + 'complaints'
+          const all = JSON.parse(localStorage.getItem(KEY) || '[]')
+          const linked = all.filter(c => c.adverseId === item.id)
+          if (linked.length === 0) return null
+          return (
+            <div style={{marginTop:12,padding:'8px 12px',background:'#f0f9ff',border:'1px solid #bae6fd',borderRadius:6}}>
+              <div style={{fontSize:12,fontWeight:600,color:'#0369a1',marginBottom:6}}>연결된 고객불만 ({linked.length})</div>
+              {linked.map(c => (
+                <div key={c.id} style={{fontSize:11,padding:'3px 0',borderBottom:'1px solid #e0f2fe',display:'flex',gap:8}}>
+                  <span style={{color:'#64748b',minWidth:120}}>{c.id}</span>
+                  <span style={{flex:1,color:'#1e293b'}}>{c.title || c.productName}</span>
+                  <span style={{color:'#0ea5e9'}}>{c.status}</span>
+                </div>
+              ))}
+            </div>
+          )
+        } catch { return null }
+      })()}
     </div>
   )
 }
@@ -426,13 +467,13 @@ function InfoRow({ k, v }) {
 }
 function daysUntil(d) { return d ? Math.ceil((new Date(d) - new Date()) / 86400000) : null }
 
-// ââ íí© ë¶ì âââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 현황 분석 ─────────────────────────────────────────────────
 function StatsView({ items }) {
   const months = []
   for (let i = 5; i >= 0; i--) {
     const d = new Date(); d.setMonth(d.getMonth() - i)
     const key = d.toISOString().slice(0, 7)
-    months.push({ key, label: `${d.getMonth() + 1}ì`, count: items.filter(item => item.incidentDate?.startsWith(key)).length })
+    months.push({ key, label: `${d.getMonth() + 1}월`, count: items.filter(item => item.incidentDate?.startsWith(key)).length })
   }
   const maxMonth = Math.max(...months.map(m => m.count), 1)
 
@@ -442,7 +483,7 @@ function StatsView({ items }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ìë³ ì ì ì¶ì´</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>월별 접수 추이</div>
         <div className="flex items-end gap-2 h-32">
           {months.map(m => (
             <div key={m.key} className="flex-1 flex flex-col items-center gap-1">
@@ -455,7 +496,7 @@ function StatsView({ items }) {
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ì²ë¦¬ íí©</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>처리 현황</div>
         <div className="space-y-2">
           {byStatus.filter(s => s.count > 0).map(s => (
             <div key={s.value} className="flex items-center gap-2">
@@ -467,24 +508,24 @@ function StatsView({ items }) {
               <div className="text-[12px] font-bold w-6 text-right" style={{ color: 'var(--ink)' }}>{s.count}</div>
             </div>
           ))}
-          {items.length === 0 && <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>ë°ì´í° ìì</div>}
+          {items.length === 0 && <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>데이터 없음</div>}
         </div>
         <div className="mt-3 pt-3 flex items-center gap-2" style={{ borderTop: '1px solid var(--line)' }}>
           <CheckCircle2 size={14} style={{ color: '#059669' }} />
-          <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>ì¢ê²°ë¥ </span>
+          <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>종결률</span>
           <span className="text-[16px] font-bold" style={{ color: '#059669' }}>{closeRate}%</span>
         </div>
       </div>
 
       <div className="p-5 rounded-2xl md:col-span-2" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ì¬ê°ë ë¶í¬</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>심각도 분포</div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {SEVERITIES.map(s => {
             const cnt = items.filter(i => i.severity === s.value).length
             return (
               <div key={s.value} className="p-3 rounded-xl text-center" style={{ background: s.bg }}>
                 <div className="text-[22px] font-bold" style={{ color: s.color }}>{cnt}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: s.color, opacity: 0.8 }}>{s.label.split(' â ')[0]}</div>
+                <div className="text-[10px] mt-0.5" style={{ color: s.color, opacity: 0.8 }}>{s.label.split(' — ')[0]}</div>
               </div>
             )
           })}
@@ -494,14 +535,14 @@ function StatsView({ items }) {
   )
 }
 
-// ââ MFDS ë³´ê³  íí© í­ ââââââââââââââââââââââââââââââââââââââââââ
+// ── MFDS 보고 현황 탭 ──────────────────────────────────────────
 function MdrView({ items, onEdit }) {
-  const mdrItems = items.filter(i => i.reportType === 'ìë¬´ë³´ê³ ')
+  const mdrItems = items.filter(i => i.reportType === '의무보고')
 
   return (
     <div>
       <div className="p-4 rounded-2xl mb-5" style={{ background: '#EDE9FE', border: '1px solid #C4B5FD' }}>
-        <div className="text-[13px] font-bold mb-2" style={{ color: '#4C1D95' }}>ð MFDS(ìë£ê¸°ê¸° ì´ìì¬ë¡) ìë¬´ë³´ê³  íë¨ ê¸°ì¤</div>
+        <div className="text-[13px] font-bold mb-2" style={{ color: '#4C1D95' }}>🏛 MFDS(의료기기 이상사례) 의무보고 판단 기준</div>
         <div className="space-y-1">
           {MDR_GUIDE.map((g, i) => (
             <div key={i} className="flex items-start gap-2 text-[12px]" style={{ color: '#5B21B6' }}>
@@ -511,21 +552,21 @@ function MdrView({ items, onEdit }) {
           ))}
         </div>
         <div className="mt-3 text-[11px]" style={{ color: '#7C3AED' }}>
-          â» ìì½ì² ë³´ê³  ê¸°í: ì¬ë§/ì¤ìí´ â ì¦ì(ì¸ì§ í 24h ì´ë´) ~ 30ì¼ ì´ë´ / ê¸°í â 30ì¼ ì´ë´
+          ※ 식약처 보고 기한: 사망/중상해 → 즉시(인지 후 24h 이내) ~ 30일 이내 / 기타 → 30일 이내
         </div>
       </div>
 
       {mdrItems.length === 0 ? (
         <div className="text-center py-16" style={{ color: 'var(--ink-faint)' }}>
           <FileWarning size={40} strokeWidth={1.2} className="mx-auto mb-3 opacity-30" />
-          <div>ìë¬´ë³´ê³  ëì ì´ìì¬ë¡ê° ììµëë¤</div>
+          <div>의무보고 대상 이상사례가 없습니다</div>
         </div>
       ) : (
         <div className="space-y-3">
           {mdrItems.filter(i => !i.reportDate).length > 0 && (
             <div>
               <div className="text-[12px] font-bold mb-2 flex items-center gap-2" style={{ color: '#DC2626' }}>
-                <AlertTriangle size={13} /> ë¯¸ë³´ê³  ({mdrItems.filter(i => !i.reportDate).length}ê±´)
+                <AlertTriangle size={13} /> 미보고 ({mdrItems.filter(i => !i.reportDate).length}건)
               </div>
               {mdrItems.filter(i => !i.reportDate).map(item => <MdrRow key={item.id} item={item} onEdit={onEdit} />)}
             </div>
@@ -533,7 +574,7 @@ function MdrView({ items, onEdit }) {
           {mdrItems.filter(i => i.reportDate).length > 0 && (
             <div>
               <div className="text-[12px] font-bold mb-2 flex items-center gap-2" style={{ color: '#059669' }}>
-                <CheckCircle2 size={13} /> ë³´ê³  ìë£ ({mdrItems.filter(i => i.reportDate).length}ê±´)
+                <CheckCircle2 size={13} /> 보고 완료 ({mdrItems.filter(i => i.reportDate).length}건)
               </div>
               {mdrItems.filter(i => i.reportDate).map(item => <MdrRow key={item.id} item={item} onEdit={onEdit} />)}
             </div>
@@ -557,23 +598,23 @@ function MdrRow({ item, onEdit }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>{item.id}</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: sev.bg, color: sev.color }}>{sev.label.split(' â ')[0]}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: sev.bg, color: sev.color }}>{sev.label.split(' — ')[0]}</span>
         </div>
         <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{item.productName || '-'}</div>
-        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>ë°ì {item.incidentDate} ({incidentDays}ì¼ ê²½ê³¼)</div>
+        <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>발생 {item.incidentDate} ({incidentDays}일 경과)</div>
       </div>
       <div className="text-right flex-shrink-0">
         {done ? (
           <>
-            <div className="text-[11px] font-bold" style={{ color: '#059669' }}>ë³´ê³  ìë£</div>
+            <div className="text-[11px] font-bold" style={{ color: '#059669' }}>보고 완료</div>
             <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{item.reportDate}</div>
-            <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>ì ìë²í¸: {item.reportNo || '-'}</div>
+            <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>접수번호: {item.reportNo || '-'}</div>
           </>
         ) : (
           <>
-            <div className="text-[11px] font-bold" style={{ color: '#DC2626' }}>ë¯¸ë³´ê³ </div>
-            <div className="text-[11px]" style={{ color: '#D97706' }}>{incidentDays}ì¼ ê²½ê³¼</div>
-            <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>í´ë¦­íì¬ ë³´ê³  ì ë³´ ìë ¥</div>
+            <div className="text-[11px] font-bold" style={{ color: '#DC2626' }}>미보고</div>
+            <div className="text-[11px]" style={{ color: '#D97706' }}>{incidentDays}일 경과</div>
+            <div className="text-[10px]" style={{ color: 'var(--ink-faint)' }}>클릭하여 보고 정보 입력</div>
           </>
         )}
       </div>
@@ -581,25 +622,25 @@ function MdrRow({ item, onEdit }) {
   )
 }
 
-// ââ ì´ìì¬ë¡ ë±ë¡/ìì  í¼ ëª¨ë¬ ââââââââââââââââââââââââââââââââ
+// ── 이상사례 등록/수정 폼 모달 ────────────────────────────────
 function AdverseForm({ form, fld, editId, onSubmit, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }} onClick={onClose}>
       <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 700, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28 }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? 'ì´ìì¬ë¡ ìì ' : 'ì´ìì¬ë¡ ë±ë¡'}</div>
+          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? '이상사례 수정' : '이상사례 등록'}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><X size={20} /></button>
         </div>
 
         <div className="space-y-3">
           <R2>
-            <F l="ì íëª * (ë±ë¡ íëª© ê²ì)">
-              <input value={form.productName} onChange={e => fld('productName', e.target.value)} style={IS} className="w-full" list="adverse-product-list" placeholder="ì íëª ìë ¥ ëë ê²ì..." />
+            <F l="제품명 * (등록 품목 검색)">
+              <input value={form.productName} onChange={e => fld('productName', e.target.value)} style={IS} className="w-full" list="adverse-product-list" placeholder="제품명 입력 또는 검색..." />
               <datalist id="adverse-product-list">{importProductNames().map(n => <option key={n} value={n} />)}</datalist>
             </F>
-            <F l="ë°ìì¼ *"><input type="date" value={form.incidentDate} onChange={e => fld('incidentDate', e.target.value)} style={IS} className="w-full" /></F>
+            <F l="발생일 *"><input type="date" value={form.incidentDate} onChange={e => fld('incidentDate', e.target.value)} style={IS} className="w-full" /></F>
           </R2>
-          <F l="MFDS ìë¬´ë³´ê³  í´ë¹ ì¬ë¶ (ìë ê¸°ì¤ ì¤ íëë¼ë í´ë¹ëë©´ ìë¬´ë³´ê³ ë¡ ìë ë¶ë¥ë©ëë¤)">
+          <F l="MFDS 의무보고 해당 여부 (아래 기준 중 하나라도 해당되면 의무보고로 자동 분류됩니다)">
             <div className="space-y-1.5 p-2.5 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
               {MDR_GUIDE.map((g, i) => (
                 <label key={i} className="flex items-start gap-2 cursor-pointer">
@@ -608,7 +649,7 @@ function AdverseForm({ form, fld, editId, onSubmit, onClose }) {
                       const cur = form.mdrCriteria || []
                       const next = e.target.checked ? [...cur, i] : cur.filter(x => x !== i)
                       fld('mdrCriteria', next)
-                      fld('reportType', next.length > 0 ? 'ìë¬´ë³´ê³ ' : (REPORT_TYPE_OPTIONS.includes(form.reportType) ? form.reportType : REPORT_TYPE_OPTIONS[0]))
+                      fld('reportType', next.length > 0 ? '의무보고' : (REPORT_TYPE_OPTIONS.includes(form.reportType) ? form.reportType : REPORT_TYPE_OPTIONS[0]))
                     }} style={{ width: 15, height: 15, marginTop: 1, flexShrink: 0 }} />
                   <span className="text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{g}</span>
                 </label>
@@ -617,74 +658,74 @@ function AdverseForm({ form, fld, editId, onSubmit, onClose }) {
           </F>
           {(form.mdrCriteria || []).length > 0 ? (
             <div className="p-2.5 rounded-xl text-[11.5px] font-semibold" style={{ background: '#EDE9FE', color: '#4C1D95', border: '1px solid #C4B5FD' }}>
-              MFDS ìë¬´ë³´ê³  ëìì¼ë¡ ë¶ë¥ëììµëë¤. ë±ë¡ í ì¡°ì¬ ì§íì ë°ë¼ 'MFDS ê·ì  ë³´ê³  ì ë³´'ì ì ìë²í¸ë¥¼ ìë ¥íì¸ì.
+              MFDS 의무보고 대상으로 분류되었습니다. 등록 후 조사 진행에 따라 'MFDS 규제 보고 정보'에 접수번호를 입력하세요.
             </div>
           ) : (
-            <F l="ë³´ê³  ì í">
+            <F l="보고 유형">
               <select value={form.reportType} onChange={e => fld('reportType', e.target.value)} style={IS} className="w-full">
                 {REPORT_TYPE_OPTIONS.map(o => <option key={o}>{o}</option>)}
               </select>
             </F>
           )}
 
-          <F l="ì¬ê°ë (ë¶ìÂ·í¼í´ ìì¤)">
+          <F l="심각도 (부상·피해 수준)">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {SEVERITIES.map(s => (
                 <button key={s.value} type="button" onClick={() => fld('severity', s.value)}
                   className="p-2 rounded-xl text-[11px] font-semibold text-center transition"
                   style={{ background: form.severity === s.value ? s.bg : 'var(--bg-soft)', color: form.severity === s.value ? s.color : 'var(--ink-faint)', border: `2px solid ${form.severity === s.value ? s.color : 'transparent'}`, cursor: 'pointer' }}>
-                  {s.label.split(' â ')[0]}<div style={{ fontSize: 9, fontWeight: 400, marginTop: 2 }}>{s.label.split(' â ')[1]}</div>
+                  {s.label.split(' — ')[0]}<div style={{ fontSize: 9, fontWeight: 400, marginTop: 2 }}>{s.label.split(' — ')[1]}</div>
                 </button>
               ))}
             </div>
           </F>
 
-          <F l="ì´ìì¬ë¡ ë´ì© *"><textarea value={form.description} onChange={e => fld('description', e.target.value)} rows={3} placeholder="ë°ì ê²½ì, ì¦ì, ê´ë ¨ íì/ì¬ì©ì ì ë³´ ë±ì ê¸°ì¬í©ëë¤." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-          <F l="ì¦ê° ì¡°ì¹ (íì¥ ì¡°ì¹ ë±)"><textarea value={form.immediateAction} onChange={e => fld('immediateAction', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+          <F l="이상사례 내용 *"><textarea value={form.description} onChange={e => fld('description', e.target.value)} rows={3} placeholder="발생 경위, 증상, 관련 환자/사용자 정보 등을 기재합니다." style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+          <F l="즉각 조치 (현장 조치 등)"><textarea value={form.immediateAction} onChange={e => fld('immediateAction', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
 
           <R2>
-            <F l="ë´ë¹ì"><input value={form.assignee} onChange={e => fld('assignee', e.target.value)} style={IS} className="w-full" /></F>
-            <F l="ì²ë¦¬ ë§ê°ì¼"><input type="date" value={form.dueDate} onChange={e => fld('dueDate', e.target.value)} style={IS} className="w-full" /></F>
+            <F l="담당자"><input value={form.assignee} onChange={e => fld('assignee', e.target.value)} style={IS} className="w-full" /></F>
+            <F l="처리 마감일"><input type="date" value={form.dueDate} onChange={e => fld('dueDate', e.target.value)} style={IS} className="w-full" /></F>
           </R2>
 
           {editId && (
             <>
-              {form.reportType === 'ìë¬´ë³´ê³ ' && (
+              {form.reportType === '의무보고' && (
                 <div className="p-4 rounded-xl" style={{ background: '#EDE9FE', border: '1px solid #C4B5FD' }}>
-                  <div className="text-[13px] font-semibold mb-2" style={{ color: '#4C1D95' }}>MFDS ê·ì  ë³´ê³  ì ë³´</div>
+                  <div className="text-[13px] font-semibold mb-2" style={{ color: '#4C1D95' }}>MFDS 규제 보고 정보</div>
                   <R2>
-                    <F l="ë³´ê³ ì¼"><input type="date" value={form.reportDate} onChange={e => fld('reportDate', e.target.value)} style={IS} className="w-full" /></F>
-                    <F l="ìì½ì² ì ì ë²í¸"><input value={form.reportNo} onChange={e => fld('reportNo', e.target.value)} placeholder="ì ì ë²í¸" style={IS} className="w-full" /></F>
+                    <F l="보고일"><input type="date" value={form.reportDate} onChange={e => fld('reportDate', e.target.value)} style={IS} className="w-full" /></F>
+                    <F l="식약처 접수 번호"><input value={form.reportNo} onChange={e => fld('reportNo', e.target.value)} placeholder="접수 번호" style={IS} className="w-full" /></F>
                   </R2>
                 </div>
               )}
 
-              <div className="text-[11.5px] font-bold pt-1" style={{ color: 'var(--ink-faint)' }}>ì§í ìí© (ì ì í ì¡°ì¬Â·ì²ë¦¬ ì§íì ë°ë¼ ìë ¥)</div>
-              <F l="ì¡°ì¬ ê²°ê³¼"><textarea value={form.investigation} onChange={e => fld('investigation', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+              <div className="text-[11.5px] font-bold pt-1" style={{ color: 'var(--ink-faint)' }}>진행 상황 (접수 후 조사·처리 진행에 따라 입력)</div>
+              <F l="조사 결과"><textarea value={form.investigation} onChange={e => fld('investigation', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
               <R2>
-                <F l="ê·¼ë³¸ ìì¸"><textarea value={form.rootCause} onChange={e => fld('rootCause', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
-                <F l="ìì  ì¡°ì¹"><textarea value={form.corrective} onChange={e => fld('corrective', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+                <F l="근본 원인"><textarea value={form.rootCause} onChange={e => fld('rootCause', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+                <F l="시정 조치"><textarea value={form.corrective} onChange={e => fld('corrective', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
               </R2>
-              <F l="íì ì¡°ì¹ (ì í íì, CAPA ì°ê³ ë±)"><textarea value={form.followup} onChange={e => fld('followup', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+              <F l="후속 조치 (제품 회수, CAPA 연계 등)"><textarea value={form.followup} onChange={e => fld('followup', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
 
               {(() => {
                 const computed = STATUSES.find(s => s.value === deriveAdverseStatus(form)) || STATUSES[0]
                 return (
                   <div className="p-3 rounded-xl flex items-center justify-between" style={{ background: computed.bg, border: `1px solid ${computed.color}40` }}>
-                    <span className="text-[12px]" style={{ color: computed.color }}>ì²ë¦¬ ìí (ìì± ë´ì© ê¸°ì¤ ìë ì°ì )</span>
+                    <span className="text-[12px]" style={{ color: computed.color }}>처리 상태 (작성 내용 기준 자동 산정)</span>
                     <span className="text-[12.5px] font-bold" style={{ color: computed.color }}>{computed.label}</span>
                   </div>
                 )
               })()}
             </>
           )}
-          <F l="ë¹ê³ "><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
+          <F l="비고"><textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} style={{ ...IS, resize: 'vertical' }} className="w-full" /></F>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>ì·¨ì</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
           <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>
-            {editId ? 'ìì  ì ì¥' : 'ì´ìì¬ë¡ ë±ë¡'}
+            {editId ? '수정 저장' : '이상사례 등록'}
           </button>
         </div>
       </div>
@@ -696,8 +737,97 @@ function R2({ children }) { return <div className="grid grid-cols-1 md:grid-cols
 function F({ l, children }) {
   return (
     <div>
-      <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
+<label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-faint)' }}>{l}</label>
       {children}
+    </div>
+  )
+}
+
+function ForeignView({ items, setItems }) {
+  const LS_F = 'qualytree.import_adverse_foreign'
+  const EMPTY_F = { productName: '', country: '', occurrenceDate: '', receivedDate: '', description: '', foreignAction: '', domesticAction: '', status: '검토중', notes: '' }
+  const [form, setForm] = React.useState(null)
+  const [editId, setEditId] = React.useState(null)
+  const fld = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const save = () => {
+    if (!form.productName || !form.occurrenceDate) return
+    const arr = editId ? items.map(x => x.id === editId ? { ...form, id: editId } : x) : [...items, { ...form, id: 'FAE-' + Date.now() }]
+    setItems(arr); localStorage.setItem(LS_F, JSON.stringify(arr))
+    setForm(null); setEditId(null)
+  }
+  const del = id => {
+    const arr = items.filter(x => x.id !== id)
+    setItems(arr); localStorage.setItem(LS_F, JSON.stringify(arr))
+  }
+  const openEdit = it => { setForm({ ...it }); setEditId(it.id) }
+  const STATUS_OPTS = ['검토중', '조치완료', '해당없음']
+  return (
+    <div className="mt-2">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>해외 이상사례 수신 이력</h2>
+        <button onClick={() => setForm({ ...EMPTY_F })} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}><Plus size={13} />신규 등록</button>
+      </div>
+      {form !== null && (
+        <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+          <div className="grid sm:grid-cols-2 gap-3 mb-3">
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>제품명 *</label>
+              <input value={form.productName} onChange={e => fld('productName', e.target.value)} placeholder="제품명 입력" className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>발생국가</label>
+              <input value={form.country} onChange={e => fld('country', e.target.value)} placeholder="예: 독일, 미국" className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>발생일자 *</label>
+              <input type="date" value={form.occurrenceDate} onChange={e => fld('occurrenceDate', e.target.value)} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>수신일자</label>
+              <input type="date" value={form.receivedDate} onChange={e => fld('receivedDate', e.target.value)} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }} /></div>
+          </div>
+          <div className="space-y-2 mb-3">
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>사례 내용</label>
+              <textarea value={form.description} onChange={e => fld('description', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>해외 규제기관 조치</label>
+              <textarea value={form.foreignAction} onChange={e => fld('foreignAction', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+            <div><label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-mute)' }}>국내 대응 조치</label>
+              <textarea value={form.domesticAction} onChange={e => fld('domesticAction', e.target.value)} rows={2} className="w-full rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)', resize: 'vertical' }} /></div>
+          </div>
+          <div className="flex items-center gap-3">
+            <select value={form.status} onChange={e => fld('status', e.target.value)} className="rounded-lg px-3 py-2 text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--border)', color: 'var(--ink)' }}>
+              {STATUS_OPTS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <button onClick={() => { setForm(null); setEditId(null) }} className="px-4 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+            <button onClick={save} className="px-4 py-2 rounded-lg text-[12.5px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>{editId ? '수정 저장' : '등록'}</button>
+          </div>
+        </div>
+      )}
+      {items.length === 0 && form === null ? (
+        <div className="flex flex-col items-center py-16 text-center">
+          <Globe size={40} strokeWidth={1} className="mb-3 opacity-30" style={{ color: '#DC2626' }} />
+          <p className="text-[14px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>해외 이상사례 없음</p>
+          <p className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>해외 제조사로부터 수신한 이상사례를 등록하세요.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map(it => (
+            <div key={it.id} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>{it.productName}</span>
+                    <span className="shrink-0 text-[10.5px] px-2 py-0.5 rounded-full font-medium" style={{ background: it.status === '조치완료' ? '#d1fae5' : '#fef3c7', color: it.status === '조치완료' ? '#065f46' : '#92400e' }}>{it.status}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
+                    {it.country && <span>국가: {it.country}</span>}
+                    {it.occurrenceDate && <span>발생: {it.occurrenceDate}</span>}
+                    {it.receivedDate && <span>수신: {it.receivedDate}</span>}
+                  </div>
+                  {it.description && <p className="text-[12px] mt-1.5 line-clamp-2" style={{ color: 'var(--ink-soft)' }}>{it.description}</p>}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(it)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-mute)', padding: '4px' }}><Edit3 size={14} /></button>
+                  <button onClick={() => del(it.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', padding: '4px' }}><Trash2 size={14} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -706,109 +836,12 @@ const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10p
 function EmptyState({ onAdd }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
-      <OctagonAlert size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#DC2626' }} />
-      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>ë±ë¡ë ì´ìì¬ë¡ ìì</div>
-      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>ì´ìì¬ë¡ë¥¼ ë±ë¡íê³  ì²´ê³ì ì¼ë¡ ì²ë¦¬íì¸ì</div>
+      <AlertOctagon size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#DC2626' }} />
+      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>등록된 이상사례 없음</div>
+      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>이상사례를 등록하고 체계적으로 처리하세요</div>
       <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>
-        <Plus size={15} /> ì²« ë²ì§¸ ì´ìì¬ë¡ ë±ë¡
+        <Plus size={15} /> 첫 번째 이상사례 등록
       </button>
     </div>
-      {tab === 'trend' && (
-        <div style={{ padding: '16px 0' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            {/* 제품별 신호 감지 */}
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px', gridColumn: '1/-1' }}>
-              <p style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>제품별 이상사례 신호 감지</p>
-              <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '12px' }}>동일 제품에서 3건 이상 이상사례 발생 시 신호로 분류</p>
-              {(() => {
-                const byProduct = {};
-                items.forEach(it => {
-                  const p = it.productName || '미분류';
-                  byProduct[p] = (byProduct[p] || []);
-                  byProduct[p].push(it);
-                });
-                const signals = Object.entries(byProduct).filter(([,arr]) => arr.length >= 3).sort((a,b) => b[1].length - a[1].length);
-                const normal = Object.entries(byProduct).filter(([,arr]) => arr.length < 3).sort((a,b) => b[1].length - a[1].length);
-                return signals.length === 0 && normal.length === 0 ? (
-                  <p style={{ fontSize: '13px', color: '#9ca3af' }}>등록된 이상사례가 없습니다</p>
-                ) : (
-                  <div>
-                    {signals.map(([name, arr]) => (
-                      <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', marginBottom: '6px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
-                        <span style={{ fontSize: '12px', background: '#dc2626', color: 'white', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>신호</span>
-                        <span style={{ fontSize: '13px', fontWeight: 500, flex: 1 }}>{name}</span>
-                        <span style={{ fontSize: '13px', color: '#dc2626', fontWeight: 700 }}>{arr.length}건</span>
-                      </div>
-                    ))}
-                    {normal.slice(0, 5).map(([name, arr]) => (
-                      <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', marginBottom: '6px', background: '#f9fafb', borderRadius: '8px' }}>
-                        <span style={{ fontSize: '12px', background: '#e5e7eb', color: '#374151', padding: '2px 8px', borderRadius: '12px' }}>관찰</span>
-                        <span style={{ fontSize: '13px', flex: 1 }}>{name}</span>
-                        <span style={{ fontSize: '13px', color: '#374151' }}>{arr.length}건</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* 월별 발생 추이 */}
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px' }}>
-              <p style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>월별 발생 추이 (최근 12개월)</p>
-              {(() => {
-                const now = new Date();
-                const months = [];
-                for (let i = 11; i >= 0; i--) {
-                  const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                  months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
-                }
-                const byMonth = {};
-                months.forEach(m => byMonth[m] = 0);
-                items.forEach(it => {
-                  if (it.incidentDate) {
-                    const key = it.incidentDate.slice(0,7);
-                    if (byMonth[key] !== undefined) byMonth[key]++;
-                  }
-                });
-                const max = Math.max(...Object.values(byMonth), 1);
-                return (
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '100px' }}>
-                    {months.map(m => (
-                      <div key={m} title={m + ': ' + byMonth[m] + '건'} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-                        <div style={{ width: '100%', background: byMonth[m] > 0 ? '#f87171' : '#e5e7eb', borderRadius: '3px 3px 0 0', height: Math.max(4, (byMonth[m]/max)*80) + 'px' }} />
-                        <span style={{ fontSize: '9px', color: '#9ca3af', writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{m.slice(5)}</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* 중증도 분포 */}
-            <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '20px' }}>
-              <p style={{ fontWeight: 600, marginBottom: '12px', fontSize: '14px' }}>중증도 분포</p>
-              {(() => {
-                const bySev = {};
-                items.forEach(it => { const s = it.severity || '미분류'; bySev[s] = (bySev[s]||0)+1; });
-                const total = items.length || 1;
-                const sevColors = { '사망': '#991b1b', '생명위협': '#dc2626', '심각한 부상': '#f97316', '입원': '#eab308', '의료처치필요': '#3b82f6', '경미': '#22c55e', '미분류': '#9ca3af' };
-                return Object.entries(bySev).sort((a,b)=>b[1]-a[1]).map(([s,cnt]) => (
-                  <div key={s} style={{ marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
-                      <span style={{ color: '#374151' }}>{s}</span>
-                      <span style={{ color: '#6b7280' }}>{cnt}건 ({Math.round(cnt/total*100)}%)</span>
-                    </div>
-                    <div style={{ height: '6px', background: '#f3f4f6', borderRadius: '3px' }}>
-                      <div style={{ height: '6px', background: sevColors[s]||'#6b7280', borderRadius: '3px', width: (cnt/total*100)+'%' }} />
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-
-          </div>
-        </div>
-      )}
-
   )
 }
