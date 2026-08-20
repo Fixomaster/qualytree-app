@@ -106,14 +106,14 @@ try { RecordMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/reco
 
 // ââ ìì GMP ì ê· íë¸ ââââââââââââââââââââââââââââââââââââââââââââââ
 let ImportProductsHub, ImportClearanceHub, ImportAdverseHub, ImportManagementStandardHub
-let RecallHub
-let FSCAHub
-let CSVHub
-let StabilityHub
 try { ImportProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportProductsHub')) } catch {}
 try { ImportClearanceHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportClearanceHub')) } catch {}
 try { ImportAdverseHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportAdverseHub')) } catch {}
 try { ImportManagementStandardHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportManagementStandardHub')) } catch {}
+let RecallHub
+let FSCAHub
+let CSVHub
+let StabilityHub
 try { RecallHub = React.lazy(() => import(/* @vite-ignore */ './pages/recall/RecallHub')) } catch {}
 try { FSCAHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/FSCAHub')) } catch {}
 try { CSVHub = React.lazy(() => import(/* @vite-ignore */ './pages/csv/CSVHub')) } catch {}
@@ -241,12 +241,12 @@ return (
 <Route path="/import-clearance" element={<ProtectedRoute><LazyRoute Component={ImportClearanceHub} /></ProtectedRoute>} />
 <Route path="/import-adverse"   element={<ProtectedRoute><LazyRoute Component={ImportAdverseHub} /></ProtectedRoute>} />
 <Route path="/import-management-standard" element={<ProtectedRoute><LazyRoute Component={ImportManagementStandardHub} /></ProtectedRoute>} />
-
-<Route path="*" element={<Navigate to="/home" replace />
 <Route path="/recall" element={<ProtectedRoute><LazyRoute Component={RecallHub} /></ProtectedRoute>} />
 <Route path="/fsca" element={<ProtectedRoute><LazyRoute Component={FSCAHub} /></ProtectedRoute>} />
 <Route path="/csv" element={<ProtectedRoute><LazyRoute Component={CSVHub} /></ProtectedRoute>} />
-<Route path="/stability" element={<ProtectedRoute><LazyRoute Component={StabilityHub} /></ProtectedRoute>} />} />
+<Route path="/stability" element={<ProtectedRoute><LazyRoute Component={StabilityHub} /></ProtectedRoute>} />
+
+<Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>
 </>
 )
