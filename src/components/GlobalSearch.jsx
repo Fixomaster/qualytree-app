@@ -1,6 +1,7 @@
 // src/components/GlobalSearch.jsx
-// #117 전체 검색 — 24개 허브 통합 검색 + Ctrl+K | UI v2
+// #117 전체 검색 — 24개 허브 통합 검색 + Ctrl+K | UI v2 + Portal fix
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Search, X, ArrowUpRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -32,41 +33,22 @@ const KNOWN_HUBS = [
 ]
 
 const HUB_COLOR = {
-  '교정':         'bg-blue-50 text-blue-700',
-  '내부심사':     'bg-blue-50 text-blue-700',
-  'CAR':          'bg-blue-50 text-blue-700',
-  '고객불만':     'bg-red-50 text-red-700',
-  '이상사례':     'bg-red-50 text-red-700',
-  'NCR':          'bg-red-50 text-red-700',
-  '위험관리':     'bg-orange-50 text-orange-700',
-  '변경관리':     'bg-orange-50 text-orange-700',
-  '공급업체':     'bg-violet-50 text-violet-700',
-  '공급업체평가': 'bg-violet-50 text-violet-700',
-  '외국제조소':   'bg-violet-50 text-violet-700',
-  '개선/CAPA':    'bg-green-50 text-green-700',
-  '설비':         'bg-teal-50 text-teal-700',
-  '문서관리':     'bg-amber-50 text-amber-700',
-  '역량':         'bg-indigo-50 text-indigo-700',
-  '교육':         'bg-indigo-50 text-indigo-700',
-  '추적성':       'bg-cyan-50 text-cyan-700',
-  '검사':         'bg-cyan-50 text-cyan-700',
-  '영업':         'bg-emerald-50 text-emerald-700',
-  '구매':         'bg-emerald-50 text-emerald-700',
-  '생산':         'bg-emerald-50 text-emerald-700',
-  '인허가':       'bg-purple-50 text-purple-700',
-  '공지사항':     'bg-gray-100 text-gray-600',
-  '기록':         'bg-gray-100 text-gray-600',
+  '교정': 'bg-blue-50 text-blue-700', '내부심사': 'bg-blue-50 text-blue-700', 'CAR': 'bg-blue-50 text-blue-700',
+  '고객불만': 'bg-red-50 text-red-700', '이상사례': 'bg-red-50 text-red-700', 'NCR': 'bg-red-50 text-red-700',
+  '위험관리': 'bg-orange-50 text-orange-700', '변경관리': 'bg-orange-50 text-orange-700',
+  '공급업체': 'bg-violet-50 text-violet-700', '공급업체평가': 'bg-violet-50 text-violet-700', '외국제조소': 'bg-violet-50 text-violet-700',
+  '개선/CAPA': 'bg-green-50 text-green-700', '설비': 'bg-teal-50 text-teal-700',
+  '문서관리': 'bg-amber-50 text-amber-700', '역량': 'bg-indigo-50 text-indigo-700', '교육': 'bg-indigo-50 text-indigo-700',
+  '추적성': 'bg-cyan-50 text-cyan-700', '검사': 'bg-cyan-50 text-cyan-700',
+  '영업': 'bg-emerald-50 text-emerald-700', '구매': 'bg-emerald-50 text-emerald-700', '생산': 'bg-emerald-50 text-emerald-700',
+  '인허가': 'bg-purple-50 text-purple-700', '공지사항': 'bg-gray-100 text-gray-600', '기록': 'bg-gray-100 text-gray-600',
 }
 
 const QUICK_HUBS = [
-  { label: '교정',     path: '/calibration' },
-  { label: '내부심사', path: '/audit' },
-  { label: '고객불만', path: '/complaints' },
-  { label: '위험관리', path: '/risk' },
-  { label: 'NCR',      path: '/ncr' },
-  { label: '문서관리', path: '/document-control' },
-  { label: '공급업체', path: '/supplier' },
-  { label: '검사',     path: '/inspection' },
+  { label: '교정', path: '/calibration' }, { label: '내부심사', path: '/audit' },
+  { label: '고객불만', path: '/complaints' }, { label: '위험관리', path: '/risk' },
+  { label: 'NCR', path: '/ncr' }, { label: '문서관리', path: '/document-control' },
+  { label: '공급업체', path: '/supplier' }, { label: '검사', path: '/inspection' },
 ]
 
 function getPreview(item, fields) {
@@ -88,16 +70,10 @@ function searchStorage(query) {
       const arr = JSON.parse(raw)
       if (!Array.isArray(arr)) continue
       for (const item of arr) {
-        const matched = hub.tf.some(f => {
-          const v = item[f]
-          return typeof v === 'string' && v.toLowerCase().includes(q)
-        })
-        if (matched) {
-          hits.push({ hub, item })
-          if (hits.length >= 60) return hits
-        }
+        const matched = hub.tf.some(f => { const v = item[f]; return typeof v === 'string' && v.toLowerCase().includes(q) })
+        if (matched) { hits.push({ hub, item }); if (hits.length >= 60) return hits }
       }
-    } catch (_) { /* skip */ }
+    } catch (_) {}
   }
   return hits
 }
@@ -111,62 +87,44 @@ export default function GlobalSearch() {
   const listRef = useRef(null)
   const navigate = useNavigate()
 
-  const close = useCallback(() => {
-    setOpen(false)
-    setQuery('')
-    setResults([])
-    setSel(0)
-  }, [])
+  const close = useCallback(() => { setOpen(false); setQuery(''); setResults([]); setSel(0) }, [])
 
   useEffect(() => {
     const onOpen = () => setOpen(true)
-    const onKey = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setOpen(true) }
-    }
+    const onKey = (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setOpen(true) } }
     window.addEventListener('openSearch', onOpen)
     window.addEventListener('keydown', onKey)
-    return () => {
-      window.removeEventListener('openSearch', onOpen)
-      window.removeEventListener('keydown', onKey)
-    }
+    return () => { window.removeEventListener('openSearch', onOpen); window.removeEventListener('keydown', onKey) }
   }, [])
 
-  useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 50)
-  }, [open])
-
+  useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 50) }, [open])
   useEffect(() => {
     if (query.trim().length < 1) { setResults([]); setSel(0); return }
-    setResults(searchStorage(query))
-    setSel(0)
+    setResults(searchStorage(query)); setSel(0)
   }, [query])
 
   const go = useCallback((idx) => {
-    const r = results[idx]
-    if (!r) return
-    close()
-    navigate(r.hub.path)
+    const r = results[idx]; if (!r) return; close(); navigate(r.hub.path)
   }, [results, close, navigate])
 
   const onKeyDown = (e) => {
     if (e.key === 'Escape') { close(); return }
     if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, results.length - 1)) }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setSel(s => Math.max(s - 1, 0)) }
-    if (e.key === 'Enter')     { e.preventDefault(); go(sel) }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(s - 1, 0)) }
+    if (e.key === 'Enter') { e.preventDefault(); go(sel) }
   }
 
   useEffect(() => {
     if (!listRef.current) return
-    const el = listRef.current.children[sel]
-    el?.scrollIntoView({ block: 'nearest' })
+    listRef.current.children[sel]?.scrollIntoView({ block: 'nearest' })
   }, [sel])
 
   if (!open) return null
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center"
-      style={{ paddingTop: '10vh', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
+      className="fixed inset-0 z-[9999] flex items-start justify-center"
+      style={{ paddingTop: '10vh', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
       onMouseDown={(e) => { if (e.target === e.currentTarget) close() }}
     >
       <div
@@ -177,20 +135,12 @@ export default function GlobalSearch() {
         <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
           <Search size={20} className="text-gray-400 flex-shrink-0" />
           <input
-            ref={inputRef}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={onKeyDown}
+            ref={inputRef} value={query} onChange={e => setQuery(e.target.value)} onKeyDown={onKeyDown}
             placeholder="허브 데이터 전체 검색..."
             className="flex-1 text-[15px] text-gray-900 placeholder-gray-400 outline-none bg-transparent"
           />
           {query ? (
-            <button
-              onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }}
-              className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
-            >
-              <X size={16} />
-            </button>
+            <button onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus() }} className="text-gray-400 hover:text-gray-600 flex-shrink-0"><X size={16} /></button>
           ) : (
             <kbd className="flex-shrink-0 hidden sm:inline-flex items-center px-2 py-1 text-xs text-gray-400 bg-gray-100 rounded font-mono">ESC</kbd>
           )}
@@ -202,11 +152,8 @@ export default function GlobalSearch() {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">빠른 이동</p>
               <div className="flex flex-wrap gap-2">
                 {QUICK_HUBS.map(h => (
-                  <button
-                    key={h.path}
-                    onClick={() => { close(); navigate(h.path) }}
-                    className="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-lg border border-gray-200 hover:border-blue-200 transition-all"
-                  >
+                  <button key={h.path} onClick={() => { close(); navigate(h.path) }}
+                    className="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 rounded-lg border border-gray-200 hover:border-blue-200 transition-all">
                     {h.label}
                   </button>
                 ))}
@@ -227,27 +174,16 @@ export default function GlobalSearch() {
                   const subVal = getPreview(r.item, [...r.hub.tf].reverse()) || ''
                   const badge = HUB_COLOR[r.hub.label] || 'bg-gray-100 text-gray-600'
                   return (
-                    <button
-                      key={i}
-                      onMouseEnter={() => setSel(i)}
-                      onClick={() => go(i)}
-                      className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors ${i === sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
-                    >
+                    <button key={i} onMouseEnter={() => setSel(i)} onClick={() => go(i)}
+                      className={`w-full flex items-center gap-3 px-5 py-3 text-left transition-colors ${i === sel ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>
-                            {r.hub.label}
-                          </span>
+                          <span className={`flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${badge}`}>{r.hub.label}</span>
                           <span className="text-sm text-gray-900 truncate">{title}</span>
                         </div>
-                        {subVal && title !== subVal && (
-                          <p className="text-xs text-gray-400 mt-0.5 truncate">{subVal}</p>
-                        )}
+                        {subVal && title !== subVal && <p className="text-xs text-gray-400 mt-0.5 truncate">{subVal}</p>}
                       </div>
-                      <ArrowUpRight
-                        size={14}
-                        className={`flex-shrink-0 transition-opacity ${i === sel ? 'text-blue-500 opacity-100' : 'opacity-0'}`}
-                      />
+                      <ArrowUpRight size={14} className={`flex-shrink-0 transition-opacity ${i === sel ? 'text-blue-500 opacity-100' : 'opacity-0'}`} />
                     </button>
                   )
                 })}
@@ -257,9 +193,7 @@ export default function GlobalSearch() {
 
           {query && results.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 text-center">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                <Search size={20} className="text-gray-300" />
-              </div>
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3"><Search size={20} className="text-gray-300" /></div>
               <p className="text-sm font-medium text-gray-700">결과 없음</p>
               <p className="text-xs text-gray-400 mt-1">&ldquo;{query}&rdquo;와 일치하는 데이터가 없습니다</p>
             </div>
@@ -267,21 +201,12 @@ export default function GlobalSearch() {
         </div>
 
         <div className="flex items-center gap-4 px-5 py-2.5 border-t border-gray-100 bg-gray-50">
-          <span className="flex items-center gap-1.5 text-xs text-gray-400">
-            <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">↑↓</kbd>
-            탐색
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-gray-400">
-            <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">Enter</kbd>
-            열기
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-gray-400">
-            <kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">ESC</kbd>
-            닫기
-          </span>
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">↑↓</kbd>탐색</span>
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">Enter</kbd>열기</span>
+          <span className="flex items-center gap-1.5 text-xs text-gray-400"><kbd className="px-1.5 py-0.5 bg-white border border-gray-200 rounded text-gray-500 font-mono text-[11px]">ESC</kbd>닫기</span>
           <span className="ml-auto text-xs text-gray-400">24개 허브 검색</span>
         </div>
       </div>
     </div>
-  )
+  ), document.body)
 }
