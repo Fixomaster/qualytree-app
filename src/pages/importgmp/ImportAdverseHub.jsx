@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, AlertTriangle, CheckCircle2, MessageSquare,
-  FileWarning, TrendingUp, BarChart2, List, AlertOctagon,
+  FileWarning, TrendingUp, BarChart2, List, OctagonAlert,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -188,7 +188,7 @@ export default function ImportAdverseHub() {
           <HubBanner
             title="ì´ìì¬ë¡ ë³´ê³ "
             subtitle="ìë£ê¸°ê¸°ë² Â§30ì¡° Â· ì´ìì¬ë¡ ì ì Â· ì¡°ì¬ Â· ìì ì¡°ì¹ Â· MFDS ê·ì  ë³´ê³ "
-            icon={AlertOctagon}
+            icon={OctagonAlert}
             color="#EF4444"
             quickActions={[{ label: 'ì´ìì¬ë¡ ë±ë¡', icon: Plus, onClick: openNew, primary: true }]}
             workflow={['ì´ìì¬ë¡ ì¸ì§', 'ì´ê¸° íê°', 'ì¡°ì¬', 'ìì ì¡°ì¹', 'MFDS ë³´ê³ ', 'ì¢ê²°']}
@@ -706,7 +706,7 @@ const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10p
 function EmptyState({ onAdd }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
-      <AlertOctagon size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#DC2626' }} />
+      <OctagonAlert size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#DC2626' }} />
       <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>ë±ë¡ë ì´ìì¬ë¡ ìì</div>
       <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>ì´ìì¬ë¡ë¥¼ ë±ë¡íê³  ì²´ê³ì ì¼ë¡ ì²ë¦¬íì¸ì</div>
       <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#DC2626', color: 'white', border: 'none', cursor: 'pointer' }}>
