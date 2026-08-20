@@ -179,7 +179,7 @@ export default function RecallHub() {
   return (
     <AppLayout>
       <HubBanner
-        icon={<RotateCcw size={22} />}
+        icon={RotateCcw}
         title="리콜 / 회수 관리"
         subtitle="의료기기 회수 프로세스 추적 및 규제기관 보고 관리 (KGMP 제9장 / 수입GMP)"
         color="red"
