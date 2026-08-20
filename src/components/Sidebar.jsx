@@ -149,19 +149,6 @@ const IMP_ITEMS = [
 { to: '/stability', label: '안정성 시험 관리' }
 ]
 
-const MFG_ITEMS = [
-  { to: '/manufacturing', label: '생산 현황' },
-  { to: '/process_validation', label: '공정유효성확인' },
-  { to: '/inspection', label: '공정·최종 검사' },
-  { to: '/quality', label: 'NCR·부적합' },
-  { to: '/improvement', label: 'CAPA·개선' },
-  { to: '/equipment', label: '설비 현황' },
-  { to: '/calibration', label: '교정관리' },
-  { to: '/workenv', label: '작업환경관리' },
-  { to: '/cleanliness', label: '청결·오염 관리' },
-  { to: '/sterile', label: '멸균 의료기기' },
-]
-
 export default function Sidebar() {
 const loc = useLocation()
 const cur = auth.current()
@@ -413,8 +400,43 @@ flexShrink: 0,
 </button>
 
 {mfgOpen && (
+<div className="ml-3 mt-0.5 mb-1">
+{visibleDomains.map((domain) => {
+const i = DOMAINS.indexOf(domain)
+const isActive = domain.items.some(item => loc.pathname.startsWith(item.to))
+const isOpen = open[i]
+return (
+<div key={i} className="mb-0.5">
+<button
+onClick={() => toggle(i)}
+className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition"
+style={{
+color: isActive ? 'var(--moss)' : 'var(--ink)',
+background: isOpen ? 'var(--bg-soft)' : isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: 500,
+textAlign: 'left',
+border: 'none',
+cursor: 'pointer',
+width: '100%',
+}}
+>
+<domain.icon size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
+<span className="flex-1 text-left">{domain.label}</span>
+<ChevronRight
+size={13}
+strokeWidth={2}
+style={{
+transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+transition: 'transform 0.15s',
+color: 'var(--ink-faint)',
+flexShrink: 0,
+}}
+/>
+</button>
+
+{isOpen && (
 <div className="ml-5 mt-0.5 mb-1">
-{MFG_ITEMS.map(item => (
+{domain.items.map(item => (
 <NavLink
 key={item.to}
 to={item.to}
@@ -428,6 +450,14 @@ fontWeight: isActive ? 600 : 400,
 {item.label}
 </NavLink>
 ))}
+</div>
+)}
+</div>
+)
+})}
+<div style={{borderTop:'1px solid var(--border-faint)',marginTop:4,paddingTop:4}}>
+{[{to:'/recall',label:'리콜/회수 관리'},{to:'/fsca',label:'FSCA 안전성조치'},{to:'/csv',label:'CSV 유효성확인'},{to:'/stability',label:'안정성 시험 관리'}].map(item=>(<NavLink key={item.to} to={item.to} className="flex items-center px-3 py-1.5 rounded-lg text-[12.5px] mb-0.5 transition" style={({isActive})=>({color:isActive?'var(--moss)':'var(--ink-soft)',background:isActive?'var(--leaf-soft)':'transparent',fontWeight:isActive?600:400})}>{item.label}</NavLink>))}
+</div>
 </div>
 )}
 </div>
