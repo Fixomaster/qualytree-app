@@ -144,10 +144,10 @@ const IMP_ITEMS = [
 { to: '/foreign-manufacturers', label: '외국제조소 GMP' },
 { to: '/import-products', label: '품목 허가 현황' },
 { to: '/import-clearance', label: '수입 통관 기록' },
-{ to: '/post-market-safety', label: '시판후안전관리' },
 { to: '/import-management-standard', label: '수입관리기준서' },
 { to: '/csv', label: 'CSV 유효성확인' },
 { to: '/stability', label: '안정성 시험 관리' }
+{ to: '/post-market-safety', label: '시판후안전관리' },
 ]
 
 export default function Sidebar() {
