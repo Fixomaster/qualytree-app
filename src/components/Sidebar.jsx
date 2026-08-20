@@ -28,8 +28,8 @@ import { menuPermissions, getUserDept } from '../lib/menuPermissions'
 import { deptAuth, DEPT_LIST } from '../lib/deptAuth'
 import GlobalSearch from './GlobalSearch'
 
-// ì¨ë³´ë© STEP3(ì¡°ì§ë)ìì ë±ë¡í ë¶ì ì´ë¦ì ì½ì´, ë·° ì í ëª©ë¡(DEPT_LIST)ì íì¬ ì¤ì 
-// ì¡°ì§ì ë§ì¶° ì¶ë ¤ë¸ë¤. ë§¤ì¹­ëë ê² ê±°ì ìì¼ë©´(ì: ì¨ë³´ë© ì ) ì ì²´ ëª©ë¡ì ê·¸ëë¡ ë³´ì¬ì¤ë¤.
+// Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© STEP3(Ã¬Â¡Â°Ã¬Â§ÂÃ«ÂÂ)Ã¬ÂÂÃ¬ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã¬ÂÂ´Ã«Â¦ÂÃ¬ÂÂ Ã¬ÂÂ½Ã¬ÂÂ´, Ã«Â·Â° Ã¬Â ÂÃ­ÂÂ Ã«ÂªÂ©Ã«Â¡Â(DEPT_LIST)Ã¬ÂÂ Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¤Ã¬Â Â
+// Ã¬Â¡Â°Ã¬Â§ÂÃ¬ÂÂ Ã«Â§ÂÃ¬Â¶Â° Ã¬Â¶ÂÃ«Â Â¤Ã«ÂÂ¸Ã«ÂÂ¤. Ã«Â§Â¤Ã¬Â¹Â­Ã«ÂÂÃ«ÂÂ ÃªÂ²Â ÃªÂ±Â°Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂ¼Ã«Â©Â´(Ã¬ÂÂ: Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã¬Â Â) Ã¬Â ÂÃ¬Â²Â´ Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ ÃªÂ·Â¸Ã«ÂÂÃ«Â¡Â Ã«Â³Â´Ã¬ÂÂ¬Ã¬Â¤ÂÃ«ÂÂ¤.
 function loadOnboardingDeptNames() {
   try {
     const raw = localStorage.getItem('qualytree.onboarding')
@@ -41,7 +41,7 @@ function loadOnboardingDeptNames() {
 function relevantDeptOptions() {
   const names = loadOnboardingDeptNames()
   if (!names.length) return DEPT_LIST
-  const norm = (s) => (s || '').replace(/[Â·\s]/g, '')
+  const norm = (s) => (s || '').replace(/[ÃÂ·\s]/g, '')
   const hit = (label) => names.some((n) => {
     const a = norm(n); const b = norm(label)
     return a.includes(b) || b.includes(a) || a.includes(b.slice(0, 2))
@@ -52,105 +52,102 @@ function relevantDeptOptions() {
 
 const DOMAINS = [
 {
-label: 'ìì£¼Â·ê³ ê°', icon: TrendingUp,
+label: 'Ã¬ÂÂÃ¬Â£Â¼ÃÂ·ÃªÂ³Â ÃªÂ°Â', icon: TrendingUp,
 items: [
-{ to: '/sales', label: 'ìì íí©' },
-{ to: '/customer-req', label: 'ê³ ê° ìêµ¬ì¬í­ ê²í ' },
-{ to: '/complaints', label: 'ê³ ê°ë¶ë§ ê´ë¦¬' },
+{ to: '/sales', label: 'Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂÃ­ÂÂ©' },
+{ to: '/customer-req', label: 'ÃªÂ³Â ÃªÂ°Â Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ ÃªÂ²ÂÃ­ÂÂ ' },
+{ to: '/complaints', label: 'ÃªÂ³Â ÃªÂ°ÂÃ«Â¶ÂÃ«Â§Â ÃªÂ´ÂÃ«Â¦Â¬' },
 ],
 },
 {
-label: 'êµ¬ë§¤Â·ìì¬', icon: ShoppingCart,
+label: 'ÃªÂµÂ¬Ã«Â§Â¤ÃÂ·Ã¬ÂÂÃ¬ÂÂ¬', icon: ShoppingCart,
 items: [
-{ to: '/purchase', label: 'êµ¬ë§¤ íí©' },
-{ to: '/supplier', label: 'ê³µê¸ìì²´ ê´ë¦¬' },
-{ to: '/purchase-info', label: 'êµ¬ë§¤ì ë³´Â·ììê²ì¬' },
+{ to: '/purchase', label: 'ÃªÂµÂ¬Ã«Â§Â¤ Ã­ÂÂÃ­ÂÂ©' },
+{ to: '/supplier', label: 'ÃªÂ³ÂµÃªÂ¸ÂÃ¬ÂÂÃ¬Â²Â´ ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/purchase-info', label: 'ÃªÂµÂ¬Ã«Â§Â¤Ã¬Â ÂÃ«Â³Â´ÃÂ·Ã¬ÂÂÃ¬ÂÂÃªÂ²ÂÃ¬ÂÂ¬' },
 ],
 },
 {
-label: 'ìì°Â·ì ì¡°', icon: Factory,
+label: 'Ã¬ÂÂÃ¬ÂÂ°ÃÂ·Ã¬Â ÂÃ¬Â¡Â°', icon: Factory,
 items: [
-{ to: '/manufacturing', label: 'ìì° íí©' },
-{ to: '/process-validation', label: 'ê³µì ì í¨ì±íì¸(ì¤í)' },
-{ to: '/traceability', label: 'ì íì¶ì ì±ê´ë¦¬' },
-{ to: '/product-id', label: 'ì íìë³Â·ìí' },
-{ to: '/customer-property', label: 'ê³ ê°ìì°ê´ë¦¬' },
-{ to: '/preservation', label: 'ì íë³´ì¡´Â·ì·¨ê¸' },
-{ to: '/inventory', label: 'ì¬ê³ Â·ì¶ê³ ê´ë¦¬' },
-{ to: '/cleanliness', label: 'ì²­ê²°Â·ì¤ì¼ ê´ë¦¬' },
-{ to: '/sterile', label: 'ë©¸ê·  ìë£ê¸°ê¸°' },
-{ to: '/service', label: 'ì¤ì¹Â·ìë¹ì¤' },
+{ to: '/manufacturing', label: 'Ã¬ÂÂÃ¬ÂÂ° Ã­ÂÂÃ­ÂÂ©' },
+{ to: '/process-validation', label: 'ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸(Ã¬ÂÂ¤Ã­ÂÂ)' },
+{ to: '/traceability', label: 'Ã¬Â ÂÃ­ÂÂÃ¬Â¶ÂÃ¬Â ÂÃ¬ÂÂ±ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/product-id', label: 'Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃ«Â³ÂÃÂ·Ã¬ÂÂÃ­ÂÂ' },
+{ to: '/customer-property', label: 'ÃªÂ³Â ÃªÂ°ÂÃ¬ÂÂÃ¬ÂÂ°ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/preservation', label: 'Ã¬Â ÂÃ­ÂÂÃ«Â³Â´Ã¬Â¡Â´ÃÂ·Ã¬Â·Â¨ÃªÂ¸Â' },
+{ to: '/inventory', label: 'Ã¬ÂÂ¬ÃªÂ³Â ÃÂ·Ã¬Â¶ÂÃªÂ³Â ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/cleanliness', label: 'Ã¬Â²Â­ÃªÂ²Â°ÃÂ·Ã¬ÂÂ¤Ã¬ÂÂ¼ ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/sterile', label: 'Ã«Â©Â¸ÃªÂ·Â  Ã¬ÂÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â°' },
+{ to: '/service', label: 'Ã¬ÂÂ¤Ã¬Â¹ÂÃÂ·Ã¬ÂÂÃ«Â¹ÂÃ¬ÂÂ¤' },
 ],
 },
 {
-label: 'íì§Â·ê²ì¬', icon: ShieldCheck,
+label: 'Ã­ÂÂÃ¬Â§ÂÃÂ·ÃªÂ²ÂÃ¬ÂÂ¬', icon: ShieldCheck,
 items: [
-{ to: '/inspection', label: 'ê³µì Â·ìµì¢ ê²ì¬' },
-{ to: '/quality', label: 'NCRÂ·ë¶ì í©' },
-{ to: '/improvement', label: 'CAPAÂ·ê°ì ' },
-{ to: '/change-control',label: 'ë³ê²½ê´ë¦¬' },
-{ to: '/audit', label: 'ë´ë¶ê°ì¬' },
-{ to: '/workenv', label: 'ììíê²½ê´ë¦¬' },
-{ to: '/measurement', label: 'ì¸¡ì Â·ë¶ìÂ·ê°ì ' },
-{ to: '/kpi-dashboard', label: 'íì§ KPI' },
-    { to: '/recall', label: 'ë¦¬ì½/íì ê´ë¦¬' },
-    { to: '/fsca', label: 'FSCA ìì ì±ì¡°ì¹' },
-    { to: '/csv', label: 'CSV ì í¨ì±íì¸' },
-    { to: '/stability', label: 'ìì ì± ìí ê´ë¦¬' },
+{ to: '/inspection', label: 'ÃªÂ³ÂµÃ¬Â ÂÃÂ·Ã¬ÂµÂÃ¬Â¢Â ÃªÂ²ÂÃ¬ÂÂ¬' },
+{ to: '/quality', label: 'NCRÃÂ·Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ©' },
+{ to: '/improvement', label: 'CAPAÃÂ·ÃªÂ°ÂÃ¬ÂÂ ' },
+{ to: '/change-control',label: 'Ã«Â³ÂÃªÂ²Â½ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/audit', label: 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ°ÂÃ¬ÂÂ¬' },
+{ to: '/workenv', label: 'Ã¬ÂÂÃ¬ÂÂÃ­ÂÂÃªÂ²Â½ÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/measurement', label: 'Ã¬Â¸Â¡Ã¬Â ÂÃÂ·Ã«Â¶ÂÃ¬ÂÂÃÂ·ÃªÂ°ÂÃ¬ÂÂ ' },
+{ to: '/kpi-dashboard', label: 'Ã­ÂÂÃ¬Â§Â KPI' },
+    { to: '/post-market-safety', label: '시판후안전관리' },
+    { to: '/csv', label: 'CSV Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸' },
+    { to: '/stability', label: 'Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂ± Ã¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬' },
 ],
 },
 {
-label: 'ì¤ê³Â·ê°ë°', icon: Code2,
+label: 'Ã¬ÂÂ¤ÃªÂ³ÂÃÂ·ÃªÂ°ÂÃ«Â°Â', icon: Code2,
 items: [
-{ to: '/products', label: 'ì íÂ·ì¤ê³ê°ë°' },
-{ to: '/design-history', label: 'ì¤ê³ì´ë ¥íì¼(DHF)' },
+{ to: '/products', label: 'Ã¬Â ÂÃ­ÂÂÃÂ·Ã¬ÂÂ¤ÃªÂ³ÂÃªÂ°ÂÃ«Â°Â' },
+{ to: '/design-history', label: 'Ã¬ÂÂ¤ÃªÂ³ÂÃ¬ÂÂ´Ã«Â Â¥Ã­ÂÂÃ¬ÂÂ¼(DHF)' },
 ],
 },
 {
-label: 'ë¬¸ìÂ·ê·ì ', icon: FileText,
+label: 'Ã«Â¬Â¸Ã¬ÂÂÃÂ·ÃªÂ·ÂÃ¬Â Â', icon: FileText,
 items: [
-{ to: '/qms-overview', label: 'QMS ê°ì' },
-{ to: '/record-master', label: 'ê¸°ë¡ ëì¥' },
-{ to: '/document-control', label: 'ë¬¸ìê´ë¦¬' },
+{ to: '/qms-overview', label: 'QMS ÃªÂ°ÂÃ¬ÂÂ' },
+{ to: '/record-master', label: 'ÃªÂ¸Â°Ã«Â¡Â Ã«ÂÂÃ¬ÂÂ¥' },
+{ to: '/document-control', label: 'Ã«Â¬Â¸Ã¬ÂÂÃªÂ´ÂÃ«Â¦Â¬' },
 ],
 },
 {
-label: 'ì¤ë¹Â·êµì ', icon: Wrench,
+label: 'Ã¬ÂÂ¤Ã«Â¹ÂÃÂ·ÃªÂµÂÃ¬Â Â', icon: Wrench,
 items: [
-{ to: '/equipment', label: 'ì¤ë¹ íí©' },
-{ to: '/calibration', label: 'êµì ê´ë¦¬' },
-{ to: '/infrastructure', label: 'ì¸íë¼ê´ë¦¬' },
+{ to: '/equipment', label: 'Ã¬ÂÂ¤Ã«Â¹Â Ã­ÂÂÃ­ÂÂ©' },
+{ to: '/calibration', label: 'ÃªÂµÂÃ¬Â ÂÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/infrastructure', label: 'Ã¬ÂÂ¸Ã­ÂÂÃ«ÂÂ¼ÃªÂ´ÂÃ«Â¦Â¬' },
 ],
 },
 {
-label: 'êµì¡Â·ì¸ë ¥', icon: GraduationCap,
+label: 'ÃªÂµÂÃ¬ÂÂ¡ÃÂ·Ã¬ÂÂ¸Ã«Â Â¥', icon: GraduationCap,
 items: [
-{ to: '/training', label: 'êµì¡íë ¨' },
-{ to: '/competency', label: 'ì­ëê´ë¦¬' },
-{ to: '/org-responsibility', label: 'ì¡°ì§Â·ì±ì' },
-{ to: '/resource-plan', label: 'ìì ê³í' },
+{ to: '/training', label: 'ÃªÂµÂÃ¬ÂÂ¡Ã­ÂÂÃ«Â Â¨' },
+{ to: '/competency', label: 'Ã¬ÂÂ­Ã«ÂÂÃªÂ´ÂÃ«Â¦Â¬' },
+{ to: '/org-responsibility', label: 'Ã¬Â¡Â°Ã¬Â§ÂÃÂ·Ã¬Â±ÂÃ¬ÂÂ' },
+{ to: '/resource-plan', label: 'Ã¬ÂÂÃ¬ÂÂ ÃªÂ³ÂÃ­ÂÂ' },
 ],
 },
 {
-label: 'ê²½ìÂ·ì ëµ', icon: BarChart3,
+label: 'ÃªÂ²Â½Ã¬ÂÂÃÂ·Ã¬Â ÂÃ«ÂÂµ', icon: BarChart3,
 items: [
-{ to: '/management-review', label: 'ê²½ìê²í ' },
-{ to: '/quality-plan', label: 'íì§ê³í' },
-{ to: '/management-commitment', label: 'ê²½ììì§Â·íì§ë°©ì¹¨Â·ëª©í' },
+{ to: '/management-review', label: 'ÃªÂ²Â½Ã¬ÂÂÃªÂ²ÂÃ­ÂÂ ' },
+{ to: '/quality-plan', label: 'Ã­ÂÂÃ¬Â§ÂÃªÂ³ÂÃ­ÂÂ' },
+{ to: '/management-commitment', label: 'ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃÂ·Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ÃÂ·Ã«ÂªÂ©Ã­ÂÂ' },
 ],
 },
 ]
 
 const IMP_ITEMS = [
-{ to: '/foreign-manufacturers', label: 'ì¸êµ­ì ì¡°ì GMP' },
-{ to: '/import-products', label: 'íëª© íê° íí©' },
-{ to: '/import-clearance', label: 'ìì íµê´ ê¸°ë¡' },
-{ to: '/import-adverse', label: 'ì´ìì¬ë¡ ë³´ê³ ' },
-{ to: '/import-management-standard', label: 'ììê´ë¦¬ê¸°ì¤ì' },,
-{ to: '/recall', label: 'ë¦¬ì½/íì ê´ë¦¬' },
-{ to: '/fsca', label: 'FSCA ìì ì±ì¡°ì¹' },
-{ to: '/csv', label: 'CSV ì í¨ì±íì¸' },
-{ to: '/stability', label: 'ìì ì± ìí ê´ë¦¬' }
+{ to: '/foreign-manufacturers', label: 'Ã¬ÂÂ¸ÃªÂµÂ­Ã¬Â ÂÃ¬Â¡Â°Ã¬ÂÂ GMP' },
+{ to: '/import-products', label: 'Ã­ÂÂÃ«ÂªÂ© Ã­ÂÂÃªÂ°Â Ã­ÂÂÃ­ÂÂ©' },
+{ to: '/import-clearance', label: 'Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂµÃªÂ´Â ÃªÂ¸Â°Ã«Â¡Â' },
+{ to: '/post-market-safety', label: '시판후안전관리' },
+{ to: '/import-management-standard', label: 'Ã¬ÂÂÃ¬ÂÂÃªÂ´ÂÃ«Â¦Â¬ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ' },
+{ to: '/csv', label: 'CSV Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸' },
+{ to: '/stability', label: 'Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂ± Ã¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬' }
 ]
 
 export default function Sidebar() {
@@ -158,8 +155,8 @@ const loc = useLocation()
 const cur = auth.current()
 const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
 
-// #6/#7: ë¶ì ë³´ê¸° ì í â CEO/ë§¤ëì ê° ë¶ìë³ ë©ë´Â·ëìë³´ëë¥¼ ë°ê¿ë³¼ ì ìëë¡.
-// ìµìì ì¨ë³´ë© ì¡°ì§ëì ë±ë¡ë ë¶ì ê¸°ì¤ì¼ë¡ ì¶ë ¤ "ë¶ìëªì´ ëë¬´ ë§ë¤"ë ë¬¸ì ë¥¼ ì¤ì¸ë¤.
+// #6/#7: Ã«Â¶ÂÃ¬ÂÂ Ã«Â³Â´ÃªÂ¸Â° Ã¬Â ÂÃ­ÂÂ Ã¢ÂÂ CEO/Ã«Â§Â¤Ã«ÂÂÃ¬Â ÂÃªÂ°Â Ã«Â¶ÂÃ¬ÂÂÃ«Â³Â Ã«Â©ÂÃ«ÂÂ´ÃÂ·Ã«ÂÂÃ¬ÂÂÃ«Â³Â´Ã«ÂÂÃ«Â¥Â¼ Ã«Â°ÂÃªÂ¿ÂÃ«Â³Â¼ Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ«Â¡Â.
+// Ã¬ÂÂµÃ¬ÂÂÃ¬ÂÂ Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã¬Â¡Â°Ã¬Â§ÂÃ«ÂÂÃ¬ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã«Â¶ÂÃ¬ÂÂ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â¶ÂÃ«Â Â¤ "Ã«Â¶ÂÃ¬ÂÂÃ«ÂªÂÃ¬ÂÂ´ Ã«ÂÂÃ«Â¬Â´ Ã«Â§ÂÃ«ÂÂ¤"Ã«ÂÂ Ã«Â¬Â¸Ã¬Â ÂÃ«Â¥Â¼ Ã¬Â¤ÂÃ¬ÂÂ¸Ã«ÂÂ¤.
 const canSwitchDept = (cur?.level ?? 0) >= 2
 const [dept, setDeptState] = useState(() => deptAuth.getDepartment() || 'ALL')
 useEffect(() => {
@@ -235,7 +232,7 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <Home size={17} strokeWidth={1.7} />
-<span>í ëìë³´ë</span>
+<span>Ã­ÂÂ Ã«ÂÂÃ¬ÂÂÃ«Â³Â´Ã«ÂÂ</span>
 </NavLink>
 
         <NavLink
@@ -248,7 +245,7 @@ fontWeight: isActive ? 600 : 400,
           })}
         >
           <Share2 size={17} strokeWidth={1.7} />
-          <span>ìë¬´ íë¡ì¸ì¤ íë¦ë</span>
+          <span>Ã¬ÂÂÃ«Â¬Â´ Ã­ÂÂÃ«Â¡ÂÃ¬ÂÂ¸Ã¬ÂÂ¤ Ã­ÂÂÃ«Â¦ÂÃ«ÂÂ</span>
         </NavLink>
 
 <NavLink
@@ -261,7 +258,7 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <Megaphone size={17} strokeWidth={1.7} />
-<span>ê³µì§ì¬í­</span>
+<span>ÃªÂ³ÂµÃ¬Â§ÂÃ¬ÂÂ¬Ã­ÂÂ­</span>
 </NavLink>
 
 {isAdmin && (
@@ -275,7 +272,7 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <ShieldCheck size={17} strokeWidth={1.7} />
-<span>ê¶í ê´ë¦¬</span>
+<span>ÃªÂ¶ÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬</span>
 </NavLink>
 )}
 
@@ -296,7 +293,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <IdCard size={16} strokeWidth={1.7} />
-<span>ê¸°ë³¸ì ë³´</span>
+<span>ÃªÂ¸Â°Ã«Â³Â¸Ã¬Â ÂÃ«Â³Â´</span>
 </NavLink>
 
 <NavLink
@@ -309,7 +306,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <BadgeCheck size={16} strokeWidth={1.7} />
-<span>ì¸íê°</span>
+<span>Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â</span>
 </NavLink>
 
 {hasImport && (
@@ -324,7 +321,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <FileCheck2 size={16} strokeWidth={1.7} />
-<span>GMP ì ì²­</span>
+<span>GMP Ã¬ÂÂ Ã¬Â²Â­</span>
 </NavLink>
 
 <div className="mb-0.5">
@@ -342,7 +339,7 @@ width: '100%',
 }}
 >
 <Globe size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
-<span className="flex-1 text-left">ìì GMP</span>
+<span className="flex-1 text-left">Ã¬ÂÂÃ¬ÂÂ GMP</span>
 <ChevronRight
 size={13}
 strokeWidth={2}
@@ -390,7 +387,7 @@ width: '100%',
 }}
 >
 <Building2 size={16} strokeWidth={1.7} style={{ flexShrink: 0 }} />
-<span className="flex-1 text-left">ì ì¡° GMP</span>
+<span className="flex-1 text-left">Ã¬Â ÂÃ¬Â¡Â° GMP</span>
 <ChevronRight
 size={13}
 strokeWidth={2}
@@ -482,7 +479,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 })}
 >
 <Crown size={16} strokeWidth={1.7} />
-<span>ì´ìì ì½ì</span>
+<span>Ã¬ÂÂ´Ã¬ÂÂÃ¬ÂÂ Ã¬Â½ÂÃ¬ÂÂ</span>
 </NavLink>
 <NavLink
 to="/operator/plans"
@@ -493,7 +490,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 })}
 >
 <Crown size={16} strokeWidth={1.7} />
-<span>íëÂ·ìê¸ ê´ë¦¬</span>
+<span>Ã­ÂÂÃ«ÂÂÃÂ·Ã¬ÂÂÃªÂ¸Â ÃªÂ´ÂÃ«Â¦Â¬</span>
 </NavLink>
 </>
 )}
@@ -501,7 +498,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 {canSwitchDept && (
 <div className="px-3 mt-4 mb-2">
 <div className="font-mono text-[10px] tracking-[0.2em] uppercase mb-1.5" style={{ color: 'var(--ink-faint)' }}>
-ë¶ì ë³´ê¸° ì í
+Ã«Â¶ÂÃ¬ÂÂ Ã«Â³Â´ÃªÂ¸Â° Ã¬Â ÂÃ­ÂÂ
 </div>
 <select
 value={dept}
@@ -526,7 +523,7 @@ className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5"
 style={{ color: 'var(--ink-faint)', cursor: 'not-allowed' }}
 >
 <Settings size={16} strokeWidth={1.7} />
-<span className="flex-1">ê´ë¦¬ì ì¤ì </span>
+<span className="flex-1">ÃªÂ´ÂÃ«Â¦Â¬Ã¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â</span>
 <span className="font-mono text-[9px]" style={{ color: 'var(--ink-faint)' }}>SOON</span>
 </div>
 </nav>
@@ -543,8 +540,8 @@ color: loc.pathname.startsWith('/onboarding') ? 'var(--bg)' : 'var(--moss)',
 <div className="font-mono text-[9.5px] tracking-[0.18em] uppercase opacity-80">
 START HERE
 </div>
-<div className="mt-1 text-[13.5px] font-medium leading-tight">ì¨ë³´ë© ì§í</div>
-<div className="text-[12px] mt-0.5 opacity-80">5ë¶ì´ë©´ ììë©ëë¤</div>
+<div className="mt-1 text-[13.5px] font-medium leading-tight">Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã¬Â§ÂÃ­ÂÂ</div>
+<div className="text-[12px] mt-0.5 opacity-80">5Ã«Â¶ÂÃ¬ÂÂ´Ã«Â©Â´ Ã¬ÂÂÃ¬ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤</div>
 </NavLink>
 </div>
 </aside>
