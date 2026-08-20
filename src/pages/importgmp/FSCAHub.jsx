@@ -198,7 +198,7 @@ export default function FSCAHub() {
   return (
     <AppLayout>
       <HubBanner
-        icon={<Shield size={22} />}
+        icon={Shield}
         title="FSCA — 현장 안전성 시정조치"
         subtitle="Field Safety Corrective Action: 이상사례 기반 안전 조치 계획·실행·완료 관리 (수입GMP)"
         color="orange"
