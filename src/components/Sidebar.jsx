@@ -93,6 +93,10 @@ items: [
 { to: '/workenv', label: '작업환경관리' },
 { to: '/measurement', label: '측정·분석·개선' },
 { to: '/kpi-dashboard', label: '품질 KPI' },
+    { to: '/recall', label: '리콜/회수 관리' },
+    { to: '/fsca', label: 'FSCA 안전성조치' },
+    { to: '/csv', label: 'CSV 유효성확인' },
+    { to: '/stability', label: '안정성 시험 관리' },
 ],
 },
 {
