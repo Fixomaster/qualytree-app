@@ -189,7 +189,7 @@ export default function StabilityHub() {
   return (
     <AppLayout>
       <HubBanner
-        icon={<Thermometer size={22} />}
+        icon={Thermometer}
         title="안정성 시험 관리"
         subtitle="유효기간 설정을 위한 안정성 시험 계획·실시·기록 관리 (제조GMP 제8장 §QA-3)"
         color="teal"
