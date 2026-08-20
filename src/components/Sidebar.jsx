@@ -402,7 +402,7 @@ flexShrink: 0,
 {mfgOpen && (
 <div className="ml-3 mt-0.5 mb-1">
 {visibleDomains.map((domain) => {
-const i = DOMAINS.indexOf(domain)
+const i = DOMAINS.findIndex(dd => dd.label === domain.label)
 const isActive = domain.items.some(item => loc.pathname.startsWith(item.to))
 const isOpen = open[i]
 return (
@@ -455,9 +455,6 @@ fontWeight: isActive ? 600 : 400,
 </div>
 )
 })}
-<div style={{borderTop:'1px solid var(--border-faint)',marginTop:4,paddingTop:4}}>
-{[{to:'/recall',label:'리콜/회수 관리'},{to:'/fsca',label:'FSCA 안전성조치'},{to:'/csv',label:'CSV 유효성확인'},{to:'/stability',label:'안정성 시험 관리'}].map(item=>(<NavLink key={item.to} to={item.to} className="flex items-center px-3 py-1.5 rounded-lg text-[12.5px] mb-0.5 transition" style={({isActive})=>({color:isActive?'var(--moss)':'var(--ink-soft)',background:isActive?'var(--leaf-soft)':'transparent',fontWeight:isActive?600:400})}>{item.label}</NavLink>))}
-</div>
 </div>
 )}
 </div>
