@@ -185,19 +185,6 @@ export default function AdminPermissionsHub() {
                         const isOpen = openDomains[domain] !== false
 
                         
-  const [approvalHubs, setApprovalHubs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('qt_approval_hubs') || '[]') } catch { return [] }
-  })
-  const APPROVAL_HUBS = [
-    ['calibration', '교정 관리'], ['audit', '내부 감사'],
-    ['supplier', '공급업체 관리'], ['ncr', '부적합'],
-    ['complaint', '고객 불만'], ['change', '변경 관리'],
-    ['inspection', '검사 관리'],
-  ]
-  const toggleHub = (id) => {
-    const next = approvalHubs.includes(id) ? approvalHubs.filter(x => x !== id) : [...approvalHubs, id]
-    setApprovalHubs(next); localStorage.setItem('qt_approval_hubs', JSON.stringify(next))
-  }
 return (
                           <div key={domain} className="border border-slate-200 rounded-lg overflow-hidden">
                             <div className="flex items-center gap-2.5 px-3 py-2 bg-slate-50 cursor-pointer hover:bg-slate-100"
@@ -287,19 +274,6 @@ return (
           </>
         )}
         {tab === 'approval' && (
-        <>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-slate-500">승인 플로우를 활성화할 허브를 선택하세요.</p>
-            <div className="grid grid-cols-2 gap-2">
-              {APPROVAL_HUBS.map(([id, label]) => (
-                <label key={id} className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer">
-                  <input type="checkbox" checked={approvalHubs.includes(id)} onChange={() => toggleHub(id)} className="w-4 h-4 accent-blue-600" />
-                  <span className="text-sm font-medium text-slate-700">{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        </>
         )}
       </div>
     </AppLayout>
