@@ -539,7 +539,7 @@ export default function DeptHome() {
               </div>
               <div className="mt-3 text-[13px]" style={{ color: 'var(--ink-soft)' }}>
                 {tasks.length > 0
-                  ? `오늘 처리할 업무가 <strong>${tasks.length}건</strong> 있습니다.`
+                  ? <>오늘 처리할 업무가 <strong>{tasks.length}건</strong> 있습니다.</>
                   : '오늘은 처리할 긴급 업무가 없습니다. 수고하셨습니다! 🎉'}
               </div>
             </div>
