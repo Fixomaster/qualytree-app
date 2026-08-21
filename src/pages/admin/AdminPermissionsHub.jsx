@@ -23,17 +23,6 @@ export default function AdminPermissionsHub() {
   const user = auth.current()
   const level = user?.level ?? user?.permissionLevel ?? 0
 
-  if (level < 3 && !user?.isCompanyAdmin) {
-    return (
-      <AppLayout user={user} title="권한 관리" subtitle="관리자 전용">
-        <div className="px-6 py-16 text-center text-slate-500">
-          <ShieldCheck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-          <p>매니저 이상만 접근할 수 있습니다.</p>
-        </div>
-      </AppLayout>
-    )
-  }
-
   const depts = useMemo(() => loadOnboardingDepts(), [])
   const [tab, setTab] = useState('menus')
 
@@ -110,6 +99,18 @@ export default function AdminPermissionsHub() {
 
   const ROLE_LABEL = { 1: '작업자', 2: '검사관', 3: '매니저', operator: '작업자', inspector: '검사관', manager: '매니저' }
   const STATUS_CLS = { active: 'bg-emerald-100 text-emerald-700', pending: 'bg-amber-100 text-amber-700', suspended: 'bg-slate-200 text-slate-500' }
+
+
+  if (level < 3 && !user?.isCompanyAdmin) {
+    return (
+      <AppLayout user={user} title="권한 관리" subtitle="관리자 전용">
+        <div className="px-6 py-16 text-center text-slate-500">
+          <ShieldCheck className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+          <p>매니저 이상만 접근할 수 있습니다.</p>
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout user={user} title="권한 관리" subtitle="부서별 메뉴 접근 설정">
