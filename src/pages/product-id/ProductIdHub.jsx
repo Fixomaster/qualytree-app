@@ -193,7 +193,7 @@ export default function ProductIdHub() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 16, gap: 8 }}>
           <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #E5E7EB' }}>
-            {[['board', 'më¦„ ë³´ë“œ'], ['analysis', 'í˜„í™© ë¶„ì„']].map(([v, l]) => (
+            {[['board', 'm흐름 보드'], ['analysis', '현황 분석']].map(([v, l]) => (
               <button key={v} onClick={() => setViewMode(v)}
                 style={{ padding: '7px 14px', border: 'none', background: 'transparent',
                   fontSize: 13, fontWeight: viewMode === v ? 700 : 400,
