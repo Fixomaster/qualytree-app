@@ -121,12 +121,12 @@ const INIT_INVENTORY = [
   {id:'MAT-001',name:'Ti-6Al-4V 봉재 φ12mm',unit:'kg',stock:'24.5',min:'10',location:'A-01-03',lot:'LOT-2406-012',status:'정상'},
   {id:'MAT-002',name:'UHMWPE GUR1020',unit:'kg',stock:'3.2',min:'5',location:'A-02-01',lot:'LOT-2405-008',status:'부족'},
   {id:'MAT-003',name:'SCS M3.5 반제품',unit:'EA',stock:'320',min:'100',location:'B-01-02',lot:'LOT-2405-015',status:'정상'},
-  {id:'MAT-004',name:'UDI 라벨 (8806526)',unit:'매',stock:'180',min:'500',location:'C-02-01',lot:'LOT-2406-0 3',status:'부족'},
+  {id:'MAT-004',name:'UDI 라벨 (8806526)',unit:'매',stock:'180',min:'500',location:'C-02-01',lot:'LOT-2406-013',status:'부족'},
   {id:'MAT-005',name:'멸균 파우치 85×210mm',unit:'EA',stock:'2400',min:'1000',location:'C-01-03',lot:'LOT-2406-005',status:'정상'},
 ]
 const INIT_IQC = [
   {id:'IQC-2406-015',date:'24-06-20',po:'PO-2406-006',vendor:'태양포장㈜',items:'UDI 라벨',qty:'2,000매',inspector:'김검사',nc:'—',status:'합격'},
-  {id:'IQC-2406-014',date:'24-06-18',po:'PO-2406-005',vendor:'세진코팅㈜',items:'아노다이징 처리품',qty:'200EA',inspector:'이검사',nc:'NC-2406-0 3',status:'조건부'},
+  {id:'IQC-2406-014',date:'24-06-18',po:'PO-2406-005',vendor:'세진코팅㈜',items:'아노다이징 처리품',qty:'200EA',inspector:'이검사',nc:'NC-2406-013',status:'조건부'},
   {id:'IQC-2406-013',date:'24-06-15',po:'PO-2406-004',vendor:'대한금속㈜',items:'Ti봉재 φ10mm',qty:'8kg',inspector:'김검사',nc:'—',status:'합격'},
 ]
 const INIT_FIN = [
