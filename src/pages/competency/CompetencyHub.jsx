@@ -189,7 +189,8 @@ export default function CompetencyHub() {
   }, [matrixData, employees])
 
   return (
-    <AppLayout user={user} title="역량 관리" subtitle="ISO 13485 §6.2 인적자원 · 직무별 역량 요구사항 · GAP 분석">
+    <AppLayout user={user}>
+      <HubBanner icon={GraduationCap} title="역량·교육훈련 관리" subtitle="ISO 13485 §6.2 인적자원 · 직무별 역량 요구사항 · GAP 분석" color="#7c3aed" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 탭 */}
