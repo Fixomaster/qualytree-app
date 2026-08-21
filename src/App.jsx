@@ -1,5 +1,5 @@
-// src/App.jsx Ã¢ÂÂ v4: ZERO static page imports. Only auth + react-router-dom stay static.
-// Every page is lazy+vite-ignore Ã¢ÂÂ Vite builds nothing page-level at compile time.
+// src/App.jsx — v4: ZERO static page imports. Only auth + react-router-dom stay static.
+// Every page is lazy+vite-ignore → Vite builds nothing page-level at compile time.
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { auth } from './lib/auth'
@@ -9,7 +9,7 @@ import { getCompanyMembership } from './lib/supabase'
 import { deptAuth } from './lib/deptAuth'
 import CloudSyncIndicator from './components/CloudSyncIndicator'
 
-// Ã¢ÂÂÃ¢ÂÂ ÃªÂ¸Â°Ã¬Â¡Â´ Ã­ÂÂÃ¬ÂÂ´Ã¬Â§Â (pre-existing) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 기존 페이지 (pre-existing) ──────────────────────────────────────
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
@@ -36,7 +36,7 @@ try { RegulatoryHub = React.lazy(() => import(/* @vite-ignore */ './pages/regula
 try { Documents = React.lazy(() => import(/* @vite-ignore */ './pages/Documents')) } catch {}
 try { PreviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/PreviewHub')) } catch {}
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂ ÃªÂ·Â Ã­ÂÂÃ«Â¸Â (Tasks #28-#61) Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 신규 허브 (Tasks #28-#61) ────────────────────────────────────────
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
 let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
@@ -82,7 +82,7 @@ try { MeasurementPlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/m
 try { CleanlinessHub = React.lazy(() => import(/* @vite-ignore */ './pages/cleanliness/CleanlinessHub')) } catch {}
 try { SterileControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/sterile-control/SterileControlHub')) } catch {}
 
-// Ã¢ÂÂÃ¢ÂÂ CEO Ã¬Â¶ÂÃªÂ°Â Ã­ÂÂÃ«Â¸Â Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
 let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub
 let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
@@ -104,7 +104,7 @@ try { ResourcePlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/reso
 try { QmsOverviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/qms-overview/QmsOverviewHub')) } catch {}
 try { RecordMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/record-master/RecordMasterHub')) } catch {}
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ GMP Ã¬ÂÂ ÃªÂ·Â Ã­ÂÂÃ«Â¸Â Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 수입 GMP 신규 허브 ──────────────────────────────────────────────
 let ImportProductsHub, ImportClearanceHub, ImportManagementStandardHub
 try { ImportProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportProductsHub')) } catch {}
 try { ImportClearanceHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ImportClearanceHub')) } catch {}
@@ -116,20 +116,20 @@ try { PostMarketSafetyHub = React.lazy(() => import(/* @vite-ignore */ './pages/
 try { CSVHub = React.lazy(() => import(/* @vite-ignore */ './pages/csv/CSVHub')) } catch {}
 try { StabilityHub = React.lazy(() => import(/* @vite-ignore */ './pages/stability/StabilityHub')) } catch {}
 
-// Ã¢ÂÂÃ¢ÂÂ Route guards Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── Route guards ─────────────────────────────────────────────────────
 function ProtectedRoute({ children }) {
-// #368-371 Ã¢ÂÂ localStorage Ã¢ÂÂ Supabase Ã«ÂÂÃªÂ¸Â°Ã­ÂÂ: Ã«Â¡ÂÃªÂ·Â¸Ã¬ÂÂ¸Ã«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©Ã¬ÂÂÃªÂ°Â Ã«Â³Â´Ã­ÂÂ¸Ã«ÂÂ Ã­ÂÂÃ¬ÂÂ´Ã¬Â§ÂÃ¬ÂÂ
-// Ã¬Â§ÂÃ¬ÂÂÃ­ÂÂ  Ã«ÂÂÃ«Â§ÂÃ«ÂÂ¤(1Ã­ÂÂÃ¬ÂÂ±, Ã­ÂÂÃ¬ÂÂ¬ idÃªÂ°Â Ã«Â°ÂÃ«ÂÂÃ¬Â§Â Ã¬ÂÂÃ«ÂÂ Ã­ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ¤Ã­ÂÂ Ã¬ÂÂ Ã«ÂÂ¨) Ã­ÂÂ´Ã«ÂÂ¹ Ã­ÂÂÃ¬ÂÂ¬Ã¬ÂÂ company_dataÃ«Â¥Â¼
-// Ã«ÂÂÃªÂ¸Â°Ã­ÂÂÃ­ÂÂÃ«ÂÂ¤. Ã¬ÂÂ¤Ã­ÂÂ¨Ã­ÂÂ´Ã«ÂÂ Ã­ÂÂÃ«Â©Â´Ã¬ÂÂ ÃªÂ¸Â°Ã¬Â¡Â´Ã¬Â²ÂÃ«ÂÂ¼ localStorageÃ«Â§ÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â ÂÃ¬ÂÂ Ã«ÂÂÃ¬ÂÂÃ­ÂÂÃ«Â¯ÂÃ«Â¡Â UIÃ«Â¥Â¼ Ã«Â§ÂÃ¬Â§Â Ã¬ÂÂÃ«ÂÂÃ«ÂÂ¤.
+// #368-371 — localStorage → Supabase 동기화: 로그인된 사용자가 보호된 페이지에
+// 진입할 때마다(1회성, 회사 id가 바뀌지 않는 한 재실행 안 됨) 해당 회사의 company_data를
+// 동기화한다. 실패해도 화면은 기존처럼 localStorage만으로 정상 동작하므로 UI를 막지 않는다.
 React.useEffect(() => {
   let cancelled = false
   getCompanyMembership().then((m) => {
-    console.info('[cloudSync] getCompanyMembership ÃªÂ²Â°ÃªÂ³Â¼:', m)
+    console.info('[cloudSync] getCompanyMembership 결과:', m)
     if (!cancelled && m?.company_id) initCloudSync(m.company_id)
-    else if (!cancelled) console.warn('[cloudSync] company_id Ã¬ÂÂÃ¬ÂÂ Ã¢ÂÂ Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ´ Ã­ÂÂÃ¬ÂÂ¸Ã«ÂÂÃ¬Â§Â Ã¬ÂÂÃ¬ÂÂ Ã«ÂÂÃªÂ¸Â°Ã­ÂÂ Ã«Â¯Â¸Ã¬ÂÂÃ¬ÂÂ', m)
-    // #374 Ã¢ÂÂ Ã¬ÂÂ´ ÃªÂ¸Â°ÃªÂ¸Â°/Ã«Â¸ÂÃ«ÂÂ¼Ã¬ÂÂ°Ã¬Â ÂÃ¬ÂÂ Ã¬ÂÂÃ¬Â§Â Ã«Â¡ÂÃ¬Â»Â¬ Ã«Â¶ÂÃ¬ÂÂ Ã¬ÂÂ Ã­ÂÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂ¼Ã«Â©Â´, ÃªÂ³ÂÃ¬Â ÂÃ¬ÂÂ Ã¬Â ÂÃ¬ÂÂ¥Ã«ÂÂ Ã«Â§ÂÃ¬Â§ÂÃ«Â§Â Ã¬ÂÂ Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ´Ã¬ÂÂ´Ã«Â°ÂÃ«ÂÂÃ«ÂÂ¤.
+    else if (!cancelled) console.warn('[cloudSync] company_id 없음 — 회사 소속이 확인되지 않아 동기화 미시작', m)
+    // #374 — 이 기기/브라우저에 아직 로컬 부서 선택이 없으면, 계정에 저장된 마지막 선택을 이어받는다.
     if (!cancelled && m?.last_dept) deptAuth.applyRemoteDept(m.last_dept)
-  }).catch((e) => console.warn('[cloudSync] getCompanyMembership Ã¬ÂÂ¤Ã«Â¥Â:', String(e?.message || e)))
+  }).catch((e) => console.warn('[cloudSync] getCompanyMembership 오류:', String(e?.message || e)))
   return () => { cancelled = true }
 }, [])
 if (!auth.isSignedIn()) return <Navigate to="/login" replace />
@@ -167,9 +167,9 @@ return (
 <Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
 <Route path="/section/:cardId" element={<ProtectedRoute><LazyRoute Component={GMPSection} /></ProtectedRoute>} />
 <Route path="/onboarding" element={<ProtectedRoute><LazyRoute Component={Onboarding} /></ProtectedRoute>} />
-{/* #WOÃ¬Â ÂÃ«Â¦Â¬ Ã¢ÂÂ Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃ¬ÂÂ Ã­ÂÂ(WorkOrderQueue)Ã«ÂÂ Ã«Â³ÂÃ«ÂÂ Ã«Â ÂÃªÂ±Â°Ã¬ÂÂ Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°(operationsState.js)Ã«Â¥Â¼ Ã¬ÂÂ°Ã«ÂÂ Ã¬ÂÂÃ¬Â Â Ã­ÂÂÃ«Â©Â´.
-    Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¬Ã¬ÂÂ´Ã«ÂÂÃ«Â©ÂÃ«ÂÂ´ "Ã¬ÂÂÃ¬ÂÂ°ÃÂ·Ã¬Â ÂÃ¬Â¡Â° > Ã¬ÂÂÃ¬ÂÂ° Ã­ÂÂÃ­ÂÂ©"(ManufacturingHubÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃ¬ÂÂ(WO) Ã­ÂÂ­)Ã¬ÂÂ´ Ã¬ÂÂ¤Ã¬Â ÂÃ«Â¡Â Ã¬ÂÂ°Ã¬ÂÂ´Ã«ÂÂ Ã­ÂÂÃ«Â©Â´Ã¬ÂÂ´Ã«Â¯ÂÃ«Â¡Â
-    Ã¬ÂÂ Ã«ÂªÂ©Ã«Â¡Â ÃªÂ²Â½Ã«Â¡ÂÃ«Â¡Â Ã«ÂÂ¤Ã¬ÂÂ´Ã¬ÂÂ¤Ã«Â©Â´ Ã­ÂÂ­Ã¬ÂÂ ÃªÂ·Â¸Ã¬ÂªÂ½Ã¬ÂÂ¼Ã«Â¡Â Ã«Â³Â´Ã«ÂÂ¸Ã«ÂÂ¤. */}
+{/* #WO정리 — 작업지시 큐(WorkOrderQueue)는 별도 레거시 데이터(operationsState.js)를 쓰는 예전 화면.
+    현재 사이드메뉴 "생산·제조 > 생산 현황"(ManufacturingHub의 작업지시(WO) 탭)이 실제로 쓰이는 화면이므로
+    옛 목록 경로로 들어오면 항상 그쪽으로 보낸다. */}
 <Route path="/operations" element={<Navigate to="/manufacturing?tab=wo" replace />} />
 <Route path="/operations/:woId/ebr" element={<ProtectedRoute><LazyRoute Component={EBatchRecord} /></ProtectedRoute>} />
 <Route path="/operations/:woId/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionStages} /></ProtectedRoute>} />

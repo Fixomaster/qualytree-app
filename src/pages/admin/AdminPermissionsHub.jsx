@@ -273,8 +273,6 @@ return (
             )}
           </>
         )}
-        {tab === 'approval' && (
-        )}
       </div>
     </AppLayout>
   )

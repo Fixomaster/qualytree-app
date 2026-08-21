@@ -1,5 +1,5 @@
-// src/pages/product-id/ProductIdHub.jsx â€” Â§7.5.8 ì œí’ˆì‹ë³„Â·ì¶”ì  ëŒ€ì‹œë³´ë“œ
-// ì½ê¸° ì „ìš©: ê° í—ˆë¸Œì—ì„œ ìž…ë ¥ëœ ë°ì´í„°ë¥¼ í† ëŒ€ë¡œ ì œí’ˆ ìœ„ì¹˜Â·ìƒíƒœë¥¼ ìžë™ í‘œì‹œ
+// src/pages/product-id/ProductIdHub.jsx — §7.5.8 제품식별·추적 대시보드
+// 읽기 전용: 각 허브에서 입력된 데이터를 토대로 제품 위치·상태를 자동 표시
 import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -18,38 +18,38 @@ function loadItems(key) {
 }
 
 const INSP_CFG = {
-  pending:    { label: 'ê²€ì‚¬ ëŒ€ê¸°',  color: '#9CA3AF', bg: '#F3F4F6', icon: Clock },
-  pass:       { label: 'í•©ê²©',       color: '#059669', bg: '#D1FAE5', icon: CheckCircle2 },
-  fail:       { label: 'ë¶ˆí•©ê²©',     color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
-  quarantine: { label: 'ê²©ë¦¬',       color: '#D97706', bg: '#FEF3C7', icon: AlertTriangle },
-  released:   { label: 'ì¶œí•˜ ìŠ¹ì¸',  color: '#2563EB', bg: '#DBEAFE', icon: ShieldCheck },
-  in_process: { label: 'ê³µì • ì¤‘',    color: '#7C3AED', bg: '#EDE9FE', icon: RefreshCw },
+  pending:    { label: '검사 대기',  color: '#9CA3AF', bg: '#F3F4F6', icon: Clock },
+  pass:       { label: '합격',       color: '#059669', bg: '#D1FAE5', icon: CheckCircle2 },
+  fail:       { label: '불합격',     color: '#DC2626', bg: '#FEE2E2', icon: XCircle },
+  quarantine: { label: '격리',       color: '#D97706', bg: '#FEF3C7', icon: AlertTriangle },
+  released:   { label: '출하 승인',  color: '#2563EB', bg: '#DBEAFE', icon: ShieldCheck },
+  in_process: { label: '공정 중',    color: '#7C3AED', bg: '#EDE9FE', icon: RefreshCw },
 }
 
 const PHASES = [
   {
-    id: 'purchase', label: 'êµ¬ë§¤ / ìž…ê³ ', icon: ShoppingCart,
+    id: 'purchase', label: '구매 / 입고', icon: ShoppingCart,
     color: '#0891B2', bg: '#ECFEFF', border: '#A5F3FC',
-    route: '/purchase', hint: 'êµ¬ë§¤ìžìž¬ í—ˆë¸Œë¡œ ì´ë™',
-    stages: ['ìž…ê³  ê²€ì‚¬ (IQC)', 'ì›ìžìž¬ ì°½ê³ '],
+    route: '/purchase', hint: '구매자재 허브로 이동',
+    stages: ['입고 검사 (IQC)', '원자재 창고'],
   },
   {
-    id: 'manufacturing', label: 'ìƒì‚°', icon: Wrench,
+    id: 'manufacturing', label: '생산', icon: Wrench,
     color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE',
-    route: '/manufacturing', hint: 'ìƒì‚° í—ˆë¸Œë¡œ ì´ë™',
-    stages: ['ê³µì • íˆ¬ìž…', 'ë°˜ì œí’ˆ (WIP)', 'ê³µì • ê²€ì‚¬'],
+    route: '/manufacturing', hint: '생산 허브로 이동',
+    stages: ['공정 투입', '반제품 (WIP)', '공정 검사'],
   },
   {
-    id: 'inspection', label: 'ê²€ì‚¬ / í’ˆì§ˆ', icon: FlaskConical,
+    id: 'inspection', label: '검사 / 품질', icon: FlaskConical,
     color: '#D97706', bg: '#FFFBEB', border: '#FDE68A',
-    route: '/inspection', hint: 'ê²€ì‚¬ í—ˆë¸Œë¡œ ì´ë™',
-    stages: ['ìµœì¢… ê²€ì‚¬', 'ì™„ì œí’ˆ ì°½ê³ ', 'í¬ìž¥', 'ê²©ë¦¬ êµ¬ì—­'],
+    route: '/inspection', hint: '검사 허브로 이동',
+    stages: ['최종 검사', '완제품 창고', '포장', '격리 구역'],
   },
   {
-    id: 'shipping', label: 'ì¶œí•˜', icon: Truck,
+    id: 'shipping', label: '출하', icon: Truck,
     color: '#059669', bg: '#ECFDF5', border: '#A7F3D0',
-    route: '/sales', hint: 'ì˜ì—… í—ˆë¸Œë¡œ ì´ë™',
-    stages: ['ì¶œí•˜ ì¤€ë¹„', 'ì¶œí•˜ ì™„ë£Œ'],
+    route: '/sales', hint: '영업 허브로 이동',
+    stages: ['출하 준비', '출하 완료'],
   },
 ]
 
@@ -73,7 +73,7 @@ function ProductCard({ item, hasNcr, hasQuar, expanded, onToggle }) {
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0,
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.productName || '(ì´ë¦„ ì—†ìŒ)'}
+            {item.productName || '(이름 없음)'}
           </p>
           <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0' }}>
             {item.lotNo ? `LOT: ${item.lotNo}` : item.serialNo ? `S/N: ${item.serialNo}` : item.productCode || ''}
@@ -82,18 +82,18 @@ function ProductCard({ item, hasNcr, hasQuar, expanded, onToggle }) {
         <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
           <Bdg bg={insp.bg} color={insp.color}>{insp.label}</Bdg>
           {hasNcr && <Bdg bg="#FEF2F2" color="#DC2626">NCR</Bdg>}
-          {hasQuar && <Bdg bg="#FEF3C7" color="#D97706">ê²©ë¦¬</Bdg>}
+          {hasQuar && <Bdg bg="#FEF3C7" color="#D97706">격리</Bdg>}
           {expanded ? <ChevronUp size={14} color="#9CA3AF" /> : <ChevronDown size={14} color="#9CA3AF" />}
         </div>
       </div>
       {expanded && (
         <div style={{ padding: '0 12px 10px', borderTop: '1px solid #F3F4F6', fontSize: 12, color: '#6B7280' }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-            {item.deviceClass && <span>ë“±ê¸‰: {item.deviceClass}</span>}
-            {item.qty && <span>ìˆ˜ëŸ‰: {item.qty}</span>}
-            {item.currentStage && <span>ìœ„ì¹˜: {item.currentStage}</span>}
-            {item.inspectedDate && <span>ê²€ì‚¬ì¼: {item.inspectedDate}</span>}
-            {item.expiryDate && <span>ìœ íš¨ê¸°í•œ: {item.expiryDate}</span>}
+            {item.deviceClass && <span>등급: {item.deviceClass}</span>}
+            {item.qty && <span>수량: {item.qty}</span>}
+            {item.currentStage && <span>위치: {item.currentStage}</span>}
+            {item.inspectedDate && <span>검사일: {item.inspectedDate}</span>}
+            {item.expiryDate && <span>유효기한: {item.expiryDate}</span>}
           </div>
           {item.notes && (
             <p style={{ marginTop: 6, color: '#374151', fontStyle: 'italic' }}>{item.notes}</p>
@@ -143,19 +143,19 @@ export default function ProductIdHub() {
     <AppLayout>
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
 
-        {/* í—¤ë” */}
+        {/* 헤더 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', margin: 0 }}>
-              ì œí’ˆ ì‹ë³„ Â· ìƒíƒœ ì¶”ì 
+              제품 식별 · 상태 추적
             </h1>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
-              ISO 13485 Â§7.5.8 â€” êµ¬ë§¤ â†’ ìƒì‚° â†’ ê²€ì‚¬ â†’ ì¶œí•˜ íë¦„ì—ì„œ ê° ì œí’ˆì˜ ìœ„ì¹˜ì™€ ìƒíƒœë¥¼ ìžë™ í‘œì‹œí•©ë‹ˆë‹¤.
+              ISO 13485 §7.5.8 — 구매 → 생산 → 검사 → 출하 흐름에서 각 제품의 위치와 상태를 자동 표시합니다.
             </p>
           </div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <span style={{ fontSize: 12, color: '#9CA3AF' }}>
-              ì´ {allItems.length}ê°œ{ncrItems.length > 0 ? ` | NCR ${ncrItems.length}ê±´` : ''}
+              총 {allItems.length}개{ncrItems.length > 0 ? ` | NCR ${ncrItems.length}건` : ''}
             </span>
             <button onClick={() => setTick(t => t + 1)}
               style={{ padding: 7, background: '#fff', border: '1px solid #E5E7EB',
@@ -165,12 +165,12 @@ export default function ProductIdHub() {
           </div>
         </div>
 
-        {/* íë¦„ ìš”ì•½ ë°” */}
+        {/* 흐름 요약 바 */}
         <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderRadius: 12, overflow: 'hidden',
           border: '1px solid #E5E7EB' }}>
           {PHASES.map((ph, idx) => {
             const cnt = filtered.filter(i =>
-              ph.stages.includes(i.currentStage || 'ìž…ê³  ê²€ì‚¬ (IQC)')
+              ph.stages.includes(i.currentStage || '입고 검사 (IQC)')
             ).length
             const Icon = ph.icon
             return (
@@ -183,13 +183,13 @@ export default function ProductIdHub() {
                   {idx < 3 && <ArrowRight size={11} color="#D1D5DB" style={{ marginLeft: 'auto' }} />}
                 </div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: cnt > 0 ? ph.color : '#D1D5DB' }}>{cnt}</div>
-                <div style={{ fontSize: 11, color: '#9CA3AF' }}>ê±´</div>
+                <div style={{ fontSize: 11, color: '#9CA3AF' }}>건</div>
               </div>
             )
           })}
         </div>
 
-        {/* íƒ­ + ê²€ìƒ‰ */}
+        {/* 탭 + 검색 */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           marginBottom: 16, gap: 8 }}>
           <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #E5E7EB' }}>
@@ -209,20 +209,20 @@ export default function ProductIdHub() {
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%',
                 transform: 'translateY(-50%)', color: '#9CA3AF' }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="ì œí’ˆëª…, LOT, ì½”ë“œ"
+                placeholder="제품명, LOT, 코드"
                 style={{ ...inputSt, paddingLeft: 28, width: 180 }} />
             </div>
           )}
         </div>
 
-        {/* íë¦„ ë³´ë“œ */}
+        {/* 흐름 보드 */}
         {viewMode === 'board' && (
           allItems.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: '#9CA3AF' }}>
               <Package size={40} style={{ margin: '0 auto 12px', opacity: .4 }} />
-              <p style={{ fontSize: 14, margin: 0 }}>ë“±ë¡ëœ ì œí’ˆì´ ì—†ìŠµë‹ˆë‹¤.</p>
+              <p style={{ fontSize: 14, margin: 0 }}>등록된 제품이 없습니다.</p>
               <p style={{ fontSize: 12, margin: '8px 0 16px', color: '#D1D5DB' }}>
-                ê° í—ˆë¸Œì—ì„œ ì œí’ˆÂ·LOTì„ ë“±ë¡í•˜ë©´ ì—¬ê¸°ì— ìžë™ìœ¼ë¡œ í‘œì‹œë©ë‹ˆë‹¤.
+                각 허브에서 제품·LOT을 등록하면 여기에 자동으로 표시됩니다.
               </p>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                 {PHASES.map(ph => {
@@ -242,7 +242,7 @@ export default function ProductIdHub() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {PHASES.map(ph => {
                 const items = filtered.filter(i =>
-                  ph.stages.includes(i.currentStage || 'ìž…ê³  ê²€ì‚¬ (IQC)')
+                  ph.stages.includes(i.currentStage || '입고 검사 (IQC)')
                 )
                 const Icon = ph.icon
                 const collapsed = collapsedPhase[ph.id]
@@ -274,7 +274,7 @@ export default function ProductIdHub() {
                       <div style={{ padding: 8, minHeight: 60 }}>
                         {items.length === 0 ? (
                           <p style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', padding: '12px 0' }}>
-                            í•´ë‹¹ ë‹¨ê³„ ì—†ìŒ
+                            해당 단계 없음
                           </p>
                         ) : items.map(item => (
                           <ProductCard key={item.id} item={item}
@@ -292,13 +292,13 @@ export default function ProductIdHub() {
           )
         )}
 
-        {/* í˜„í™© ë¶„ì„ */}
+        {/* 현황 분석 */}
         {viewMode === 'analysis' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 14 }}>ê²€ì‚¬ ìƒíƒœ ë¶„í¬</h3>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 14 }}>검사 상태 분포</h3>
               {allItems.length === 0
-                ? <p style={{ color: '#9CA3AF', fontSize: 13 }}>ë°ì´í„° ì—†ìŒ</p>
+                ? <p style={{ color: '#9CA3AF', fontSize: 13 }}>데이터 없음</p>
                 : (
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     {Object.entries(INSP_CFG).map(([k, v]) => (
@@ -313,11 +313,11 @@ export default function ProductIdHub() {
             </div>
 
             <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 14 }}>ê³µì • ë‹¨ê³„ë³„ ë¶„í¬</h3>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 14 }}>공정 단계별 분포</h3>
               {allItems.length === 0
-                ? <p style={{ color: '#9CA3AF', fontSize: 13 }}>ë°ì´í„° ì—†ìŒ</p>
+                ? <p style={{ color: '#9CA3AF', fontSize: 13 }}>데이터 없음</p>
                 : PHASES.map(ph => {
-                  const cnt = allItems.filter(i => ph.stages.includes(i.currentStage || 'ìž…ê³  ê²€ì‚¬ (IQC)')).length
+                  const cnt = allItems.filter(i => ph.stages.includes(i.currentStage || '입고 검사 (IQC)')).length
                   const pct = allItems.length ? (cnt / allItems.length) * 100 : 0
                   const Icon = ph.icon
                   return (
@@ -328,7 +328,7 @@ export default function ProductIdHub() {
                           <Icon size={13} color={ph.color} />
                           <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{ph.label}</span>
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: ph.color }}>{cnt}ê±´</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: ph.color }}>{cnt}건</span>
                       </div>
                       <div style={{ height: 8, background: '#F3F4F6', borderRadius: 4, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${pct}%`, background: ph.color,
@@ -342,23 +342,23 @@ export default function ProductIdHub() {
             {(ncrItems.length > 0 || quarItems.length > 0) && (
               <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: 20 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 700, color: '#DC2626', marginBottom: 12 }}>
-                  ì£¼ì˜ í•­ëª© (NCR Â· ê²©ë¦¬ ì—°ê³„)
+                  주의 항목 (NCR · 격리 연계)
                 </h3>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#DC2626' }}>{ncrItems.length}</div>
-                    <div style={{ fontSize: 11, color: '#DC2626' }}>ë¯¸ê²° NCR</div>
+                    <div style={{ fontSize: 11, color: '#DC2626' }}>미결 NCR</div>
                   </div>
                   <div style={{ flex: 1, background: '#fff', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
                     <div style={{ fontSize: 20, fontWeight: 800, color: '#D97706' }}>{quarItems.length}</div>
-                    <div style={{ fontSize: 11, color: '#D97706' }}>ê²©ë¦¬ ì œí’ˆ</div>
+                    <div style={{ fontSize: 11, color: '#D97706' }}>격리 제품</div>
                   </div>
                 </div>
                 <button onClick={() => navigate('/quality')}
                   style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 5,
                     background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626',
                     fontSize: 12, padding: 0, fontWeight: 600 }}>
-                  <ArrowRight size={12} />NCR Â· ë¶€ì í•© í—ˆë¸Œë¡œ ì´ë™
+                  <ArrowRight size={12} />NCR · 부적합 허브로 이동
                 </button>
               </div>
             )}
