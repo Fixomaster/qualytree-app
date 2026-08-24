@@ -625,7 +625,6 @@ function GmpCertificatesCard({ siteId, canEdit, onAction }) {
 /* ================================================================
    타 인증기관 실사자료 (제조소당 N건)
    ================================================================ */
-cons
 const EMPTY_INSP = { scheduledDate: '', conductedDate: '', inspector: '', result: '', findings: '', action: '', notes: '' }
 
 function InspectionScheduleCard({ siteId, canEdit }) {
