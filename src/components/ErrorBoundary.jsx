@@ -80,6 +80,16 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ fontSize: 13, color: 'var(--ink-faint, #9ca3af)', marginBottom: 20, maxWidth: 420 }}>
             일시적인 오류일 수 있습니다. 새로고침해도 계속되면 관리자에게 문의해주세요.
           </p>
+          {this.state.error && (
+            <pre style={{
+              fontSize: 11, color: 'var(--ink-faint, #9ca3af)', marginBottom: 16,
+              maxWidth: 520, textAlign: 'left', background: '#f9fafb',
+              padding: '8px 12px', borderRadius: 6, overflow: 'auto',
+              wordBreak: 'break-all', border: '1px solid #e5e7eb'
+            }}>
+              {String(this.state.error?.message || this.state.error)}
+            </pre>
+          )}
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={this.handleReload} className="btn-primary" style={{ cursor: 'pointer' }}>
               새로고침
