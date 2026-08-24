@@ -11,9 +11,6 @@ import {
   X,
   AlertTriangle,
   Save,
-  Badge,
-  ChevronUp,
-  ChevronDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -31,6 +28,11 @@ import {
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
 import CertGate from '../../components/CertGate'
+
+// Inline SVG icons (resolved locally instead of lucide-react to prevent build issues)
+const Badge = ({children, className=''}) => <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${className}`}>{children}</span>
+const ChevronUp = ({size=16,className=''}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="18 15 12 9 6 15"/></svg>
+const ChevronDown = ({size=16,className=''}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="6 9 12 15 18 9"/></svg>
 
 // #4 — 신청서(의료기기 적합성인정등 심사 신청서, 제7조제1항제2호 구비서류) 양식과 동일하게
 // "기타 서류" 단일 다중첨부 대신 항목별 개별 서류 슬롯으로 구성한다.
