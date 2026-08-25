@@ -299,7 +299,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
               {stageTitle('#22C55E', '✓ 종결 완료')}
               {r.approvals && r.approvals.map(a => (
                 <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
-                  {a.role}: <strong style={{ color: 'var(--ink) }}>{a.name}</strong>
+                  {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong>
                   {a.note ? <span> — {a.note}</span> : null}
                   <span> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})</span>
                 </div>
