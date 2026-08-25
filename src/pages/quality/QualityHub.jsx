@@ -1,518 +1,266 @@
-// src/pages/quality/QualityHub.jsx — §8.3 NCR 부적합 관리
+// src/pages/quality/QualityHub.jsx — ISO 13485 §8.3 NCR·부적합 관리
 import React, { useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { ShieldAlert, Plus, Search, Edit3, Trash2, X, Package } from 'lucide-react'
+import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 
-const NCR_KEY     = 'qualytree.ncrs'
-const NCR_CNT_KEY = 'qualytree.ncrCounter'
-const QUAR_KEY    = 'qualytree.quarantineItems'
+const LS_KEY = 'qualytree.ncrs'
+const CNT_KEY = 'qualytree.ncrCounter'
 
-function lsRead(key) { try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] } }
-function lsSave(key, val) { localStorage.setItem(key, JSON.stringify(val)) }
-
-function nextNcrId() {
-  const n = parseInt(localStorage.getItem(NCR_CNT_KEY) || '0', 10) + 1
-  localStorage.setItem(NCR_CNT_KEY, String(n))
-  return `NCR-${new Date().getFullYear()}-${String(n).padStart(4, '0')}`
-}
-function nextQuarId() {
-  const arr = lsRead(QUAR_KEY)
-  return `QUAR-${new Date().getFullYear()}-${String(arr.length + 1).padStart(3, '0')}`
-}
-function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6) }
-
-/* ── 공통 UI ── */
-function Badge({ label, color }) {
-  const colors = {
-    red:    'bg-red-100 text-red-700',
-    orange: 'bg-orange-100 text-orange-700',
-    yellow: 'bg-yellow-100 text-yellow-700',
-    green:  'bg-green-100 text-green-700',
-    blue:   'bg-blue-100 text-blue-700',
-    gray:   'bg-gray-100 text-gray-600',
-  }
-  return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${colors[color] || colors.gray}`}>{label}</span>
+function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
+function lsWrite(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)) }
+function nextId() {
+  const n = parseInt(localStorage.getItem(CNT_KEY) || '0', 10) + 1
+  localStorage.setItem(CNT_KEY, String(n))
+  return 'NCR-' + new Date().getFullYear() + '-' + String(n).padStart(4, '0')
 }
 
-function severityColor(s) {
-  if (s === '중대') return 'red'
-  if (s === '중등도') return 'orange'
-  return 'yellow'
+const SEV_STYLE = {
+  Critical: { background: '#FEE2E2', color: '#DC2626' },
+  Major:    { background: '#FEF3C7', color: '#D97706' },
+  Minor:    { background: '#D1FAE5', color: '#059669' },
 }
-function ncrStatusColor(s) {
-  if (s === '종결') return 'green'
-  if (s === '처리완료') return 'blue'
-  if (s === '조사중') return 'orange'
-  return 'gray'
+const ST_STYLE = {
+  open:          { background: '#FEE2E2', color: '#DC2626' },
+  investigating: { background: '#FEF3C7', color: '#D97706' },
+  contained:     { background: '#DBEAFE', color: '#2563EB' },
+  corrected:     { background: '#D1FAE5', color: '#059669' },
+  closed:        { background: '#F3F4F6', color: '#6B7280' },
 }
-function quarStatusColor(s) {
-  if (s === '해제') return 'green'
-  if (s === '처리중') return 'orange'
-  return 'red'
+const ST_KO = { open: '미결', investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
+const ST_FLOW = { open: 'investigating', investigating: 'contained', contained: 'corrected', corrected: 'closed' }
+
+function Badge({ label, s }) {
+  return <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, ...s }}>{label}</span>
 }
 
-function FRow({ label, children }) {
+function Modal({ title, onClose, children }) {
   return (
-    <div>
-      <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
+          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{title}</span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)', fontSize: 22 }}>\u00d7</button>
+        </div>
+        <div style={{ padding: '16px 20px' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
+const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none', width: '100%', boxSizing: 'border-box' }
+
+function FL({ label, children }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-faint)', marginBottom: 4 }}>{label}</div>
       {children}
     </div>
   )
 }
-function FInput({ value, onChange, placeholder, type = 'text', required }) {
-  return (
-    <input
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      required={required}
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
-    />
-  )
-}
-function FSel({ value, onChange, options }) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 bg-white"
-    >
-      {options.map(o => <option key={o} value={o}>{o}</option>)}
-    </select>
-  )
-}
-function FTA({ value, onChange, placeholder, rows = 3 }) {
-  return (
-    <textarea
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
-    />
-  )
-}
 
-function Stats({ items }) {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-      {items.map(({ label, value, color }) => (
-        <div key={label} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-          <p className="text-xs text-gray-500">{label}</p>
-          <p className={`text-2xl font-bold mt-1 ${color || 'text-gray-800'}`}>{value}</p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function FormShell({ title, onClose, onSubmit, children }) {
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={18} /></button>
-        </div>
-        <form onSubmit={onSubmit} className="p-5 space-y-4">
-          {children}
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 border border-gray-200 rounded-xl py-2 text-sm text-gray-600 hover:bg-gray-50">취소</button>
-            <button type="submit"
-              className="flex-1 bg-red-600 text-white rounded-xl py-2 text-sm font-medium hover:bg-red-700">저장</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════
-   NCR 탭
-══════════════════════════════════════════ */
-const NCR_EMPTY = {
-  ncrId: '', date: '', productName: '', lotNo: '',
-  defectType: '원자재', severity: '경미',
-  description: '', disposition: '격리',
-  assignee: '', status: '등록'
-}
-
-function NcrTab() {
-  const [records, setRecords] = useState(() => lsRead(NCR_KEY))
-  const [search, setSearch] = useState('')
-  const [form, setForm] = useState(null)   // null | { ...fields, _id? }
-  const [editing, setEditing] = useState(null)
-
-  function save(items) { setRecords(items); lsSave(NCR_KEY, items) }
-
-  function openNew() {
-    setForm({ ...NCR_EMPTY, date: new Date().toISOString().slice(0, 10), ncrId: nextNcrId() })
-    setEditing(null)
-  }
-  function openEdit(r) { setForm({ ...r }); setEditing(r._id) }
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (editing) {
-      save(records.map(r => r._id === editing ? { ...form, _id: editing } : r))
-    } else {
-      save([{ ...form, _id: newId() }, ...records])
-    }
-    setForm(null)
-  }
-
-  function del(id) {
-    if (!window.confirm('삭제하시겠습니까?')) return
-    save(records.filter(r => r._id !== id))
-  }
-
-  const filtered = useMemo(() => {
-    if (!search) return records
-    const q = search.toLowerCase()
-    return records.filter(r =>
-      (r.ncrId || '').toLowerCase().includes(q) ||
-      (r.productName || '').toLowerCase().includes(q) ||
-      (r.lotNo || '').toLowerCase().includes(q) ||
-      (r.defectType || '').includes(q) ||
-      (r.status || '').includes(q)
-    )
-  }, [records, search])
-
-  const total = records.length
-  const active = records.filter(r => r.status !== '종결').length
-  const critical = records.filter(r => r.severity === '중대').length
-  const closed = records.filter(r => r.status === '종결').length
-
-  return (
-    <div>
-      <Stats items={[
-        { label: '전체 NCR', value: total, color: 'text-gray-800' },
-        { label: '진행중', value: active, color: 'text-orange-600' },
-        { label: '중대', value: critical, color: 'text-red-600' },
-        { label: '종결', value: closed, color: 'text-green-600' },
-      ]} />
-
-      <div className="flex gap-2 mb-4">
-        <div className="flex-1 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="NCR번호, 제품명, 로트번호 검색..."
-            className="w-full border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
-          />
-        </div>
-        <button onClick={openNew}
-          className="flex items-center gap-1 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-700">
-          <Plus size={14} /> 등록
-        </button>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <ShieldAlert size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">등록된 NCR이 없습니다</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(r => (
-            <div key={r._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-mono text-xs font-semibold text-red-600">{r.ncrId}</span>
-                    <Badge label={r.severity} color={severityColor(r.severity)} />
-                    <Badge label={r.status} color={ncrStatusColor(r.status)} />
-                    <Badge label={r.defectType} color="gray" />
-                  </div>
-                  <p className="text-sm font-medium text-gray-800 truncate">{r.productName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {r.date} {r.lotNo ? `· Lot: ${r.lotNo}` : ''} {r.assignee ? `· 담당: ${r.assignee}` : ''}
-                  </p>
-                  {r.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{r.description}</p>}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEdit(r)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                    <Edit3 size={14} />
-                  </button>
-                  <button onClick={() => del(r._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {form && (
-        <FormShell
-          title={editing ? 'NCR 수정' : 'NCR 등록'}
-          onClose={() => setForm(null)}
-          onSubmit={handleSubmit}
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="NCR 번호">
-              <FInput value={form.ncrId} onChange={v => setForm(f => ({ ...f, ncrId: v }))} />
-            </FRow>
-            <FRow label="발생일">
-              <FInput type="date" value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} required />
-            </FRow>
-          </div>
-          <FRow label="제품명">
-            <FInput value={form.productName} onChange={v => setForm(f => ({ ...f, productName: v }))} placeholder="제품명 입력" required />
-          </FRow>
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="로트/배치번호">
-              <FInput value={form.lotNo} onChange={v => setForm(f => ({ ...f, lotNo: v }))} placeholder="Lot No." />
-            </FRow>
-            <FRow label="담당자">
-              <FInput value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))} placeholder="담당자명" />
-            </FRow>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="부적합 유형">
-              <FSel value={form.defectType} onChange={v => setForm(f => ({ ...f, defectType: v }))}
-                options={['원자재', '공정중', '완제품', '고객반품', '기타']} />
-            </FRow>
-            <FRow label="심각도">
-              <FSel value={form.severity} onChange={v => setForm(f => ({ ...f, severity: v }))}
-                options={['경미', '중등도', '중대']} />
-            </FRow>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="처리방법">
-              <FSel value={form.disposition} onChange={v => setForm(f => ({ ...f, disposition: v }))}
-                options={['격리', '사용중지', '반품', '폐기', '재작업', '특채']} />
-            </FRow>
-            <FRow label="상태">
-              <FSel value={form.status} onChange={v => setForm(f => ({ ...f, status: v }))}
-                options={['등록', '조사중', '처리완료', '종결']} />
-            </FRow>
-          </div>
-          <FRow label="부적합 내용">
-            <FTA value={form.description} onChange={v => setForm(f => ({ ...f, description: v }))}
-              placeholder="부적합 내용 및 원인을 상세히 기술하세요" />
-          </FRow>
-        </FormShell>
-      )}
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════
-   격리 현황 탭
-══════════════════════════════════════════ */
-const QUAR_EMPTY = {
-  quarId: '', date: '', productName: '', lotNo: '',
-  qty: '', unit: 'EA', location: '',
-  reason: '', status: '격리중'
-}
-
-function QuarantineTab() {
-  const [records, setRecords] = useState(() => lsRead(QUAR_KEY))
-  const [search, setSearch] = useState('')
-  const [form, setForm] = useState(null)
-  const [editing, setEditing] = useState(null)
-
-  function save(items) { setRecords(items); lsSave(QUAR_KEY, items) }
-
-  function openNew() {
-    setForm({ ...QUAR_EMPTY, date: new Date().toISOString().slice(0, 10), quarId: nextQuarId() })
-    setEditing(null)
-  }
-  function openEdit(r) { setForm({ ...r }); setEditing(r._id) }
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (editing) {
-      save(records.map(r => r._id === editing ? { ...form, _id: editing } : r))
-    } else {
-      save([{ ...form, _id: newId() }, ...records])
-    }
-    setForm(null)
-  }
-
-  function del(id) {
-    if (!window.confirm('삭제하시겠습니까?')) return
-    save(records.filter(r => r._id !== id))
-  }
-
-  const filtered = useMemo(() => {
-    if (!search) return records
-    const q = search.toLowerCase()
-    return records.filter(r =>
-      (r.quarId || '').toLowerCase().includes(q) ||
-      (r.productName || '').toLowerCase().includes(q) ||
-      (r.lotNo || '').toLowerCase().includes(q) ||
-      (r.status || '').includes(q)
-    )
-  }, [records, search])
-
-  const active = records.filter(r => r.status === '격리중').length
-  const processing = records.filter(r => r.status === '처리중').length
-  const released = records.filter(r => r.status === '해제').length
-
-  return (
-    <div>
-      <Stats items={[
-        { label: '전체', value: records.length, color: 'text-gray-800' },
-        { label: '격리중', value: active, color: 'text-red-600' },
-        { label: '처리중', value: processing, color: 'text-orange-600' },
-        { label: '해제', value: released, color: 'text-green-600' },
-      ]} />
-
-      <div className="flex gap-2 mb-4">
-        <div className="flex-1 relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="제품명, 로트번호 검색..."
-            className="w-full border border-gray-200 rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
-          />
-        </div>
-        <button onClick={openNew}
-          className="flex items-center gap-1 bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-700">
-          <Plus size={14} /> 등록
-        </button>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Package size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm">격리 항목이 없습니다</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(r => (
-            <div key={r._id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="font-mono text-xs font-semibold text-red-600">{r.quarId}</span>
-                    <Badge label={r.status} color={quarStatusColor(r.status)} />
-                  </div>
-                  <p className="text-sm font-medium text-gray-800">{r.productName}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {r.date}
-                    {r.lotNo ? ` · Lot: ${r.lotNo}` : ''}
-                    {r.qty ? ` · 수량: ${r.qty} ${r.unit}` : ''}
-                    {r.location ? ` · 위치: ${r.location}` : ''}
-                  </p>
-                  {r.reason && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{r.reason}</p>}
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button onClick={() => openEdit(r)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                    <Edit3 size={14} />
-                  </button>
-                  <button onClick={() => del(r._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {form && (
-        <FormShell
-          title={editing ? '격리 항목 수정' : '격리 항목 등록'}
-          onClose={() => setForm(null)}
-          onSubmit={handleSubmit}
-        >
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="격리 번호">
-              <FInput value={form.quarId} onChange={v => setForm(f => ({ ...f, quarId: v }))} />
-            </FRow>
-            <FRow label="격리 일자">
-              <FInput type="date" value={form.date} onChange={v => setForm(f => ({ ...f, date: v }))} required />
-            </FRow>
-          </div>
-          <FRow label="제품명">
-            <FInput value={form.productName} onChange={v => setForm(f => ({ ...f, productName: v }))} placeholder="제품명 입력" required />
-          </FRow>
-          <div className="grid grid-cols-2 gap-3">
-            <FRow label="로트번호">
-              <FInput value={form.lotNo} onChange={v => setForm(f => ({ ...f, lotNo: v }))} placeholder="Lot No." />
-            </FRow>
-            <FRow label="보관 위치">
-              <FInput value={form.location} onChange={v => setForm(f => ({ ...f, location: v }))} placeholder="창고 위치" />
-            </FRow>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <FRow label="수량">
-              <FInput value={form.qty} onChange={v => setForm(f => ({ ...f, qty: v }))} placeholder="0" />
-            </FRow>
-            <FRow label="단위">
-              <FSel value={form.unit} onChange={v => setForm(f => ({ ...f, unit: v }))}
-                options={['EA', 'BOX', 'KG', 'L', 'SET']} />
-            </FRow>
-            <FRow label="상태">
-              <FSel value={form.status} onChange={v => setForm(f => ({ ...f, status: v }))}
-                options={['격리중', '처리중', '해제']} />
-            </FRow>
-          </div>
-          <FRow label="격리 사유">
-            <FTA value={form.reason} onChange={v => setForm(f => ({ ...f, reason: v }))}
-              placeholder="격리 사유를 입력하세요" />
-          </FRow>
-        </FormShell>
-      )}
-    </div>
-  )
-}
-
-/* ══════════════════════════════════════════
-   메인
-══════════════════════════════════════════ */
-const TABS = [
-  { key: 'ncr',        label: 'NCR 부적합', icon: ShieldAlert },
-  { key: 'quarantine', label: '격리 현황',   icon: Package },
-]
+const empty = () => ({ title: '', severity: 'Major', source: 'manual', description: '', detectedAt: new Date().toISOString().slice(0,10), detectedBy: '', containment: '', rootCause: '', correctiveAction: '' })
 
 export default function QualityHub() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'ncr'
+  const [records, setRecords] = useState(() => lsRead())
+  const [search, setSearch]   = useState('')
+  const [sevF, setSevF]       = useState('all')
+  const [stF, setStF]         = useState('all')
+  const [modal, setModal]     = useState(false)
+  const [form, setForm]       = useState(empty())
+  const [exp, setExp]         = useState(null)
 
-  function setTab(key) {
-    setSearchParams({ tab: key })
+  const reload = () => setRecords(lsRead())
+
+  const filtered = useMemo(() =>
+    records.filter(r => {
+      if (sevF !== 'all' && r.severity !== sevF) return false
+      if (stF  !== 'all' && r.status   !== stF)  return false
+      if (search && !r.title?.toLowerCase().includes(search.toLowerCase()) && !r.id?.includes(search)) return false
+      return true
+    }), [records, search, sevF, stF])
+
+  const counts = useMemo(() => {
+    let open = 0, crit = 0, closed = 0
+    records.forEach(r => {
+      if (r.status === 'open' || r.status === 'investigating') open++
+      if (r.severity === 'Critical') crit++
+      if (r.status === 'closed') closed++
+    })
+    return { total: records.length, open, crit, closed }
+  }, [records])
+
+  function save() {
+    if (!form.title.trim()) return alert('제목을 입력하세요')
+    const all = lsRead()
+    all.unshift({ ...form, id: nextId(), status: 'open', createdAt: new Date().toISOString() })
+    lsWrite(all)
+    reload()
+    setModal(false)
   }
+
+  function advance(id) {
+    const all = lsRead()
+    const r = all.find(x => x.id === id)
+    if (!r || !ST_FLOW[r.status]) return
+    r.status = ST_FLOW[r.status]
+    lsWrite(all)
+    reload()
+  }
+
+  function remove(id) {
+    if (!confirm('삭제하시겠습니까?')) return
+    lsWrite(lsRead().filter(r => r.id !== id))
+    reload()
+  }
+
+  const card = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 10 }
+  const statCard = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 18px', flex: 1, minWidth: 0 }
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto px-4 pb-10">
-        <HubBanner
-          icon={ShieldAlert}
-          title="NCR·부적합 관리"
-          subtitle="부적합 사항 등록 · 격리 현황 관리 (ISO 13485 §8.3)"
-          color="#dc2626"
-        />
+      <HubBanner
+        icon={<ShieldAlert size={22} color="#DC2626" />}
+        title="NCR\u00b7\ubd80\uc801\ud569 \uad00\ub9ac"
+        subtitle="ISO 13485 \u00a78.3 \u2014 \ubd80\uc801\ud569 \uc81c\ud488 \uc2dd\ubcc4\u00b7\uaca9\ub9ac\u00b7\uc2dc\uc815 \uad00\ub9ac"
+        color="#DC2626"
+      />
 
-        {/* 탭 */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
-          {TABS.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                activeTab === key
-                  ? 'bg-white text-red-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Icon size={14} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'ncr'        && <NcrTab />}
-        {activeTab === 'quarantine' && <QuarantineTab />}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        {[
+          { label: '\uc804\uccb4 NCR', value: counts.total, color: 'var(--ink)' },
+          { label: '\ucc98\ub9ac\uc911', value: counts.open, color: '#D97706' },
+          { label: 'Critical', value: counts.crit, color: '#DC2626' },
+          { label: '\uc885\uacb0', value: counts.closed, color: '#059669' },
+        ].map(s => (
+          <div key={s.label} style={statCard}>
+            <div style={{ fontSize: 10, color: 'var(--ink-faint)', fontWeight: 700, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
+          </div>
+        ))}
       </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="NCR\ubc88\ud638 \ub610\ub294 \uc81c\ubaa9 \uac80\uc0c9" style={{ ...IS, paddingLeft: 30 }} />
+        </div>
+        <select value={sevF} onChange={e => setSevF(e.target.value)} style={{ ...IS, width: 'auto' }}>
+          <option value="all">\uc804\uccb4 \uc2ec\uac01\ub3c4</option>
+          <option value="Critical">Critical</option>
+          <option value="Major">Major</option>
+          <option value="Minor">Minor</option>
+        </select>
+        <select value={stF} onChange={e => setStF(e.target.value)} style={{ ...IS, width: 'auto' }}>
+          <option value="all">\uc804\uccb4 \uc0c1\ud0dc</option>
+          {Object.entries(ST_KO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <button onClick={() => { setForm(empty()); setModal(true) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          <Plus size={14} /> NCR \ub4f1\ub85d
+        </button>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-faint)' }}>
+          <ShieldAlert size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
+          <div style={{ fontSize: 14 }}>\ub4f1\ub85d\ub41c NCR\uc774 \uc5c6\uc2b5\ub2c8\ub2e4</div>
+        </div>
+      ) : filtered.map(r => {
+        const sev = SEV_STYLE[r.severity] || SEV_STYLE.Minor
+        const st  = ST_STYLE[r.status]   || ST_STYLE.open
+        const isE = exp === r.id
+        const nextSt = ST_FLOW[r.status]
+        return (
+          <div key={r.id} style={card}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+                  <Badge label={r.severity} s={sev} />
+                  <Badge label={ST_KO[r.status] || r.status} s={st} />
+                  <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{r.id}</span>
+                </div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', marginBottom: 4 }}>{r.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>\ubc1c\uacac\uc77c: {r.detectedAt} \u00b7 \ubc1c\uacac\uc790: {r.detectedBy || '\u2014'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                {nextSt && (
+                  <button onClick={() => advance(r.id)}
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', cursor: 'pointer', fontWeight: 600 }}>
+                    \u2192 {ST_KO[nextSt]}
+                  </button>
+                )}
+                <button onClick={() => setExp(isE ? null : r.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
+                  {isE ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+                </button>
+                <button onClick={() => remove(r.id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}>
+                  <X size={15}/>
+                </button>
+              </div>
+            </div>
+            {isE && (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12 }}>
+                {[
+                  ['\ubc1c\uc0dd \uc720\ud615', r.source || '\u2014'],
+                  ['\uc124\uba85', r.description || '\u2014'],
+                  ['\uaca9\ub9ac\u00b7\ubd09\uc07c \uc870\uce58', r.containment || '\u2014'],
+                  ['\uadfc\ubcf8\uc6d0\uc778', r.rootCause || '\u2014'],
+                  ['\uc2dc\uc815\uc870\uce58', r.correctiveAction || '\u2014'],
+                ].map(([k, v]) => (
+                  <div key={k}>
+                    <div style={{ fontWeight: 700, color: 'var(--ink-faint)', fontSize: 10, marginBottom: 2 }}>{k}</div>
+                    <div style={{ color: 'var(--ink)' }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {modal && (
+        <Modal title="NCR \uc2e0\uaddc \ub4f1\ub85d" onClose={() => setModal(false)}>
+          <FL label="\uc81c\ubaa9 *">
+            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="\ubd80\uc801\ud569 \uc0ac\ud56d \uc81c\ubaa9" style={IS} />
+          </FL>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <FL label="\uc2ec\uac01\ub3c4">
+              <select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} style={IS}>
+                <option>Critical</option><option>Major</option><option>Minor</option>
+              </select>
+            </FL>
+            <FL label="\ubc1c\uc0dd \uc720\ud615">
+              <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} style={IS}>
+                <option value="manual">\uc218\ub3d9 \uc785\ub825</option>
+                <option value="iqc">\uc218\uc785 \uac80\uc0ac</option>
+                <option value="oos">OOS</option>
+                <option value="audit">\ub0b4\ubd80 \uc2ec\uc0ac</option>
+                <option value="complaint">\uace0\uac1d \ubd88\ub9cc</option>
+              </select>
+            </FL>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <FL label="\ubc1c\uacac\uc77c">
+              <input type="date" value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} style={IS} />
+            </FL>
+            <FL label="\ubc1c\uacac\uc790">
+              <input value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} placeholder="\uc774\ub984" style={IS} />
+            </FL>
+          </div>
+          <FL label="\uc124\uba85">
+            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} style={{ ...IS, resize: 'vertical' }} />
+          </FL>
+          <FL label="\uaca9\ub9ac\u00b7\ubd09\uc07c \uc870\uce58">
+            <textarea value={form.containment} onChange={e => setForm(f => ({ ...f, containment: e.target.value }))} rows={2} style={{ ...IS, resize: 'vertical' }} />
+          </FL>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setModal(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 13 }}>\ucde8\uc18c</button>
+            <button onClick={save} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>\ub4f1\ub85d</button>
+          </div>
+        </Modal>
+      )}
     </AppLayout>
   )
 }
