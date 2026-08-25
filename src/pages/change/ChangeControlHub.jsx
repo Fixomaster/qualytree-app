@@ -206,6 +206,7 @@ export default function ChangeControlHub() {
 
 // ── 변경 항목 행 ──────────────────────────────────────────────
 function ChangeRow({ ccr: r, review, ia, expanded, onToggle, onChanged }) {
+  const user = auth.current()
   const tm = TARGET_META[r.targetType] || TARGET_META.product
   const sm = STATUS_META[review.status] || STATUS_META[REVIEW_STATUS.PENDING_IMPACT]
   const TIcon = tm.icon
