@@ -144,7 +144,10 @@ export default function QualityManualHub() {
   const [manual, setManual] = useState(() => {
     try {
       const saved = localStorage.getItem(LS_KEY)
-      return saved ? { ...DEFAULT_MANUAL, ...JSON.parse(saved) } : { ...DEFAULT_MANUAL }
+      if (!saved) return { ...DEFAULT_MANUAL }
+      const p = JSON.parse(saved)
+      const ensureArr = k => Array.isArray(p[k]) ? p[k] : DEFAULT_MANUAL[k] || []
+      return { ...DEFAULT_MANUAL, ...p, deviceClasses: ensureArr('deviceClasses'), exclusions: ensureArr('exclusions'), procedureRefs: ensureArr('procedureRefs'), distributionList: ensureArr('distributionList'), revisionHistory: ensureArr('revisionHistory') }
     } catch { return { ...DEFAULT_MANUAL } }
   })
   const [editing, setEditing] = useState(false)
