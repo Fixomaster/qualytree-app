@@ -11,11 +11,8 @@ import {
   X,
   AlertTriangle,
   Save,
-  ChevronUp,
-  ChevronDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
-const Badge = ({ children, className = '' }) => <span className={className}>{children}</span>
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
