@@ -15,7 +15,6 @@ import {
   ChevronDown,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
-const Badge = ({ children, className = '' }) => <span className={className}>{children}</span>
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { fileStore } from '../../lib/fileStore'
@@ -31,6 +30,7 @@ import {
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
 import CertGate from '../../components/CertGate'
+const Badge = ({ children, className = '' }) => <span className={className}>{children}</span>
 
 // #4 — 신청서(의료기기 적합성인정등 심사 신청서, 제7조제1항제2호 구비서류) 양식과 동일하게
 // "기타 서류" 단일 다중첨부 대신 항목별 개별 서류 슬롯으로 구성한다.
