@@ -1,15 +1,15 @@
 /**
- * Qualytree Change Review — 변경관리(ECR/ECN) 심사 워크플로우 레이어
+ * Qualytree Change Review â ë³ê²½ê´ë¦¬(ECR/ECN) ì¬ì¬ ìí¬íë¡ì° ë ì´ì´
  *
- * lib/changeControl.js 가 자동 기록하는 CCR(구성 변경 기록)은 "무엇이 바뀌었는지"만
- * 담는다. 이 모듈은 그 CCR 1건 당 "영향평가 → 승인/반려 → 이행완료"라는
- * 사람이 수행하는 심사 단계를 별도로 추적한다 (CCR 원본은 불변 — 심사 상태만 여기서 관리).
+ * lib/changeControl.js ê° ìë ê¸°ë¡íë CCR(êµ¬ì± ë³ê²½ ê¸°ë¡)ì "ë¬´ìì´ ë°ëìëì§"ë§
+ * ë´ëë¤. ì´ ëª¨ëì ê·¸ CCR 1ê±´ ë¹ "ìí¥íê° â ì¹ì¸/ë°ë ¤ â ì´íìë£"ë¼ë
+ * ì¬ëì´ ìííë ì¬ì¬ ë¨ê³ë¥¼ ë³ëë¡ ì¶ì íë¤ (CCR ìë³¸ì ë¶ë³ â ì¬ì¬ ìíë§ ì¬ê¸°ì ê´ë¦¬).
  *
- * 적용 원칙:
- * - ISO 13485 §4.1.4 / §7.3.9 변경 관리 — 영향평가·승인·이행 기록
- * - Project Instructions §13.15 구성 관리
+ * ì ì© ìì¹:
+ * - ISO 13485 Â§4.1.4 / Â§7.3.9 ë³ê²½ ê´ë¦¬ â ìí¥íê°Â·ì¹ì¸Â·ì´í ê¸°ë¡
+ * - Project Instructions Â§13.15 êµ¬ì± ê´ë¦¬
  *
- * 데이터 구조:
+ * ë°ì´í° êµ¬ì¡°:
  *   localStorage('qualytree.changeReview') = [
  *     {
  *       ccrId: "CCR-2026-0001",
@@ -26,11 +26,11 @@ import { auth } from './auth'
 const KEY = 'qualytree.changeReview'
 
 export const REVIEW_STATUS = {
-  PENDING_IMPACT: 'pending_impact',     // 영향평가 대기
-  PENDING_APPROVAL: 'pending_approval', // 승인 대기
-  APPROVED: 'approved',                 // 승인(이행 대기)
-  REJECTED: 'rejected',                 // 반려
-  COMPLETED: 'completed',               // 이행 완료
+  PENDING_IMPACT: 'pending_impact',     // ìí¥íê° ëê¸°
+  PENDING_APPROVAL: 'pending_approval', // ì¹ì¸ ëê¸°
+  APPROVED: 'approved',                 // ì¹ì¸(ì´í ëê¸°)
+  REJECTED: 'rejected',                 // ë°ë ¤
+  COMPLETED: 'completed',               // ì´í ìë£
 }
 
 function loadAll() {
@@ -62,7 +62,7 @@ function upsert(ccrId, patch) {
 }
 
 export const changeReview = {
-  /** CCR 1건의 심사 상태 조회 (없으면 기본값 = 영향평가 대기) */
+  /** CCR 1ê±´ì ì¬ì¬ ìí ì¡°í (ìì¼ë©´ ê¸°ë³¸ê° = ìí¥íê° ëê¸°) */
   get(ccrId) {
     return loadAll().find((r) => r.ccrId === ccrId) || { ccrId, status: REVIEW_STATUS.PENDING_IMPACT }
   },
@@ -71,12 +71,18 @@ export const changeReview = {
     return loadAll()
   },
 
-  /** 영향평가 작성 완료 → 승인 대기로 전환 */
+  /** ìí¥íê° ìì± ìë£ â ì¹ì¸ ëê¸°ë¡ ì í */
   submitImpact(ccrId) {
-    return upsert(ccrId, { status: REVIEW_STATUS.PENDING_APPROVAL })
+    const cur = auth.current()
+    return upsert(ccrId, {
+      status: REVIEW_STATUS.PENDING_APPROVAL,
+      requestedByEmail: cur?.email || null,
+      requestedByName: cur?.name || cur?.email || null,
+      requestedAt: new Date().toISOString(),
+    })
   },
 
-  /** 승인 — 승인자는 항상 현재 로그인 사용자 (수기 입력 불가) */
+  /** ì¹ì¸ â ì¹ì¸ìë í­ì íì¬ ë¡ê·¸ì¸ ì¬ì©ì (ìê¸° ìë ¥ ë¶ê°) */
   approve(ccrId, note) {
     const cur = auth.current()
     return upsert(ccrId, {
@@ -87,7 +93,7 @@ export const changeReview = {
     })
   },
 
-  /** 반려 */
+  /** ë°ë ¤ */
   reject(ccrId, note) {
     const cur = auth.current()
     return upsert(ccrId, {
@@ -98,12 +104,12 @@ export const changeReview = {
     })
   },
 
-  /** 반려 후 재작성 요청 — 영향평가 단계로 되돌림 */
+  /** ë°ë ¤ í ì¬ìì± ìì²­ â ìí¥íê° ë¨ê³ë¡ ëëë¦¼ */
   reopen(ccrId) {
     return upsert(ccrId, { status: REVIEW_STATUS.PENDING_IMPACT })
   },
 
-  /** 이행 완료 — 완료일은 항상 클릭 시점 자동 기록 (수기 입력 불가) */
+  /** ì´í ìë£ â ìë£ì¼ì í­ì í´ë¦­ ìì  ìë ê¸°ë¡ (ìê¸° ìë ¥ ë¶ê°) */
   complete(ccrId, note) {
     const cur = auth.current()
     return upsert(ccrId, {
