@@ -1,9 +1,11 @@
 // src/pages/quality/QualityHub.jsx — ISO 13485 §8.3 NCR·부적합 관리
 import React, { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { evaluateForCAPA, capa, CAPA_STATUS } from '../../lib/capaState'
+import { auth } from '../../lib/auth'
 
 const LS_KEY = 'qualytree.ncrs'
 const CNT_KEY = 'qualytree.ncrCounter'
@@ -40,12 +42,15 @@ export default function QualityHub() {
 
   function save() {
     if (!form.title.trim()) return alert('제목을 입력하세요')
+    const cur = auth.current()
     const all = lsRead()
     const newRecord = {
       ...form,
       id: nextId(),
       status: 'investigating',
       createdAt: new Date().toISOString(),
+      createdByEmail: cur?.email || '',
+      createdByName: cur?.name || '',
       containment: '',
       containmentSkipped: false,
       containmentAt: null,
@@ -84,7 +89,7 @@ export default function QualityHub() {
     closed: ncrs.filter(r => r.status === 'closed').length,
   }), [ncrs])
 
-  const card = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }
+  const statCard = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }
   const btn = (bg, fg = '#fff') => ({ background: bg, color: fg, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 })
   const inp = { width: '100%', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--bg-card)', color: 'var(--ink)', fontSize: 14, boxSizing: 'border-box' }
 
@@ -95,7 +100,7 @@ export default function QualityHub() {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 20 }}>
         {[['전체', stats.total, 'var(--ink)'], ['조사중', stats.investigating, '#EAB308'], ['격리완료', stats.contained, '#3B82F6'], ['시정완료', stats.corrected, '#8B5CF6'], ['종결', stats.closed, '#22C55E']].map(([label, n, color]) => (
-          <div key={label} style={card}>
+          <div key={label} style={statCard}>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>{n}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{label}</div>
           </div>
@@ -121,7 +126,7 @@ export default function QualityHub() {
           onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
           onUpdate={patch => updateRecord(r.id, patch)}
           onRemove={() => remove(r.id)}
-          btn={btn} inp={inp} />
+          btn={btn} inp={inp} onReload={reload} />
       ))}
 
       {/* Register Modal */}
@@ -133,7 +138,7 @@ export default function QualityHub() {
               <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModal(false)}><X size={18} /></button>
             </div>
             {[
-              ['제목', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적함 내용 요약" />],
+              ['제목', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적합 내용 요약" />],
               ['심각도', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
               ['발생출처', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
               ['발견일', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
@@ -156,43 +161,41 @@ export default function QualityHub() {
   )
 }
 
-function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
-  const [containmentText, setContainmentText] = useState(r.containment || '')
-  const [containmentSkip, setContainmentSkip] = useState(r.containmentSkipped || false)
-  const [reviewerName, setReviewerName] = useState('')
-  const [approverName, setApproverName] = useState('')
+function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload }) {
+  const curUser = auth.current()
+  const isApprover = (curUser?.level || 0) >= 3
+  const [approveNote, setApproveNote] = useState('')
 
   const linkedCapas = getLinkedCapas(r.id)
   const capasDone = linkedCapas.length === 0 || linkedCapas.every(c => c.status === CAPA_STATUS.CLOSED)
 
-  function doContainment() {
-    if (!containmentSkip && !containmentText.trim()) return alert('격리 조치 내용을 입력하거나 "격리 불필요"를 체크하세요')
-    onUpdate({ status: 'contained', containment: containmentText, containmentSkipped: containmentSkip, containmentAt: new Date().toISOString() })
-  }
-
   function doCorrect() {
-    if (!capasDone) return alert('연결된 CAPA가 아직 완료되지 않았습니다. CAPA를 먼저 종결하세요.')
+    if (!capasDone) return alert('연결된 CAPA가 아직 완료되지 않았습니다. CAPA·개선 메뉴에서 CAPA를 종결하세요.')
     onUpdate({ status: 'corrected', correctedAt: new Date().toISOString() })
   }
 
-  function doClose() {
-    if (!reviewerName.trim() || !approverName.trim()) return alert('검토자와 승인자 이름을 모두 입력하세요')
+  function doApprove() {
     onUpdate({
       status: 'closed',
       closedAt: new Date().toISOString(),
-      approvals: [
-        { role: '검토자', name: reviewerName, signedAt: new Date().toISOString() },
-        { role: '승인자', name: approverName, signedAt: new Date().toISOString() },
-      ],
+      approvals: [{
+        role: '승인자',
+        name: curUser?.name || '미확인',
+        email: curUser?.email || '',
+        level: curUser?.level || 0,
+        note: approveNote,
+        signedAt: new Date().toISOString(),
+      }],
     })
   }
 
   const stageBox = (color) => ({ border: `1px solid ${color}`, borderRadius: 10, padding: 14, marginBottom: 12 })
   const stageTitle = (color, text) => <div style={{ fontWeight: 700, fontSize: 13, color, marginBottom: 10 }}>{text}</div>
+  const linkBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#EAB308', color: '#fff', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 600 }
 
   return (
     <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
-      {/* Header row */}
+      {/* Header */}
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onToggle}>
         <span style={{ fontSize: 11, fontWeight: 700, color: SEV_COLOR[r.severity] || '#64748B', background: (SEV_COLOR[r.severity] || '#64748B') + '22', padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{r.severity}</span>
         <span style={{ fontSize: 11, color: 'var(--ink-faint)', whiteSpace: 'nowrap' }}>{r.id}</span>
@@ -209,29 +212,21 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
             <span>출처: {r.source}</span>
             <span>발견일: {r.detectedAt || '-'}</span>
             <span>발견자: {r.detectedBy || '-'}</span>
-            <span>등록일: {r.createdAt ? r.createdAt.slice(0, 10) : '-'}</span>
+            <span>등록자: {r.createdByName || '-'}</span>
           </div>
           {r.description && (
             <div style={{ fontSize: 13, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, marginBottom: 14, lineHeight: 1.6 }}>{r.description}</div>
           )}
 
-          {/* Stage 1 — 격리 조치 */}
+          {/* Stage 1 — 격리 조치 메뉴로 이동 */}
           {r.status === 'investigating' && (
             <div style={stageBox('#EAB308')}>
               {stageTitle('#EAB308', '① 격리 조치')}
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 10, cursor: 'pointer' }}>
-                <input type="checkbox" checked={containmentSkip} onChange={e => setContainmentSkip(e.target.checked)} />
-                격리 불필요 (해당 없음)
-              </label>
-              {!containmentSkip && (
-                <textarea
-                  style={{ ...inp, minHeight: 72, resize: 'vertical', marginBottom: 10 }}
-                  placeholder="격리·봉쇄 조치 내용을 입력하세요"
-                  value={containmentText}
-                  onChange={e => setContainmentText(e.target.value)}
-                />
-              )}
-              <button style={btn('#EAB308')} onClick={doContainment}>격리완료로 전환</button>
+              <p style={{ fontSize: 13, color: 'var(--ink-faint)', margin: '0 0 12px', lineHeight: 1.6 }}>
+                격리 여부(격리 실시 / 격리 불필요)를 격리관리 메뉴에서 결정해주세요.
+                결정 완료 시 자동으로 다음 단계로 전환됩니다.
+              </p>
+              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>격리관리 메뉴로 이동 →</Link>
             </div>
           )}
 
@@ -240,7 +235,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
             <div style={stageBox('#3B82F6')}>
               {stageTitle('#3B82F6', '② CAPA 진행 확인')}
               {r.containmentSkipped
-                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨</div>
+                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨 ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
                 : r.containment
                   ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {r.containment}</div>
                   : null}
@@ -252,10 +247,15 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
                       <span style={{ fontWeight: 600, color: c.status === CAPA_STATUS.CLOSED ? '#22C55E' : '#F97316' }}>{c.status}</span>
                     </div>
                   ))}
-                  {!capasDone && <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>CAPA가 아직 완료되지 않았습니다. ImprovementHub에서 CAPA를 종결한 후 시정완료 처리하세요.</div>}
+                  {!capasDone && (
+                    <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>
+                      CAPA 완료 후 자동으로 시정완료로 전환됩니다.
+                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPA·개선 메뉴 →</Link>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>자동 생성된 CAPA 없음 (Critical 또는 반복 Major NCR이 아닌 경우 직접 시정 가능)</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>자동 생성 CAPA 없음 (Critical·반복 Major NCR이 아닌 경우 직접 시정완료 가능)</div>
               )}
               <button
                 style={btn(capasDone ? '#8B5CF6' : '#CBD5E1', capasDone ? '#fff' : '#94A3B8')}
@@ -264,21 +264,32 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
             </div>
           )}
 
-          {/* Stage 3 — 검토·승인 서명 */}
+          {/* Stage 3 — 역할 기반 승인 */}
           {r.status === 'corrected' && (
             <div style={stageBox('#8B5CF6')}>
-              {stageTitle('#8B5CF6', '③ 검토·승인 서명')}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>검토자 성명</label>
-                  <input style={inp} value={reviewerName} onChange={e => setReviewerName(e.target.value)} placeholder="검토자 이름" />
+              {stageTitle('#8B5CF6', '③ 검토·승인')}
+              {isApprover ? (
+                <>
+                  <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 10 }}>
+                    승인자: <strong style={{ color: 'var(--ink)' }}>{curUser?.name}</strong> (Level {curUser?.level})
+                  </div>
+                  <textarea
+                    style={{ ...inp, minHeight: 60, resize: 'vertical', marginBottom: 10 }}
+                    placeholder="승인 의견 (선택)"
+                    value={approveNote}
+                    onChange={e => setApproveNote(e.target.value)}
+                  />
+                  <button style={btn('#22C55E')} onClick={doApprove}>승인하고 종결</button>
+                </>
+              ) : (
+                <div style={{ padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>승인 대기 중</div>
+                  <div style={{ color: 'var(--ink-faint)', lineHeight: 1.6 }}>
+                    Level 3 이상 관리자의 승인이 필요합니다.<br />
+                    관리자가 이 NCR을 열면 승인 버튼이 표시됩니다.
+                  </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>승인자 성명</label>
-                  <input style={inp} value={approverName} onChange={e => setApproverName(e.target.value)} placeholder="승인자 이름" />
-                </div>
-              </div>
-              <button style={btn('#22C55E')} onClick={doClose}>종결 (전자서명)</button>
+              )}
             </div>
           )}
 
@@ -288,7 +299,9 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
               {stageTitle('#22C55E', '✓ 종결 완료')}
               {r.approvals && r.approvals.map(a => (
                 <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
-                  {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})
+                  {a.role}: <strong style={{ color: 'var(--ink) }}>{a.name}</strong>
+                  {a.note ? <span> — {a.note}</span> : null}
+                  <span> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})</span>
                 </div>
               ))}
               {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>종결일: {r.closedAt.slice(0, 10)}</div>}
