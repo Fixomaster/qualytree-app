@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import { evaluateForCAPA, capa } from '../../lib/capaState'
 
 const LS_KEY = 'qualytree.ncrs'
 const CNT_KEY = 'qualytree.ncrCounter'
@@ -93,8 +94,11 @@ export default function QualityHub() {
   function save() {
     if (!form.title.trim()) return alert('제목을 입력하세요')
     const all = lsRead()
-    all.unshift({ ...form, id: nextId(), status: 'open', createdAt: new Date().toISOString() })
+    const newRecord = { ...form, id: nextId(), status: 'open', createdAt: new Date().toISOString() }
+    all.unshift(newRecord)
     lsWrite(all)
+    const capaT = evaluateForCAPA(newRecord)
+    if (capaT) capa.raise({ title: capaT.suggestedTitle, description: capaT.reason, trigger: capaT.trigger, triggerReason: capaT.reason, sourceNcrIds: [newRecord.id] })
     reload()
     setModal(false)
   }
