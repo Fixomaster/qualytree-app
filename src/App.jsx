@@ -13,7 +13,7 @@ import CloudSyncIndicator from './components/CloudSyncIndicator'
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
-let QualityHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
+let QualityHub, ContainmentHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
 
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
@@ -30,6 +30,7 @@ try { WorkOrderQueue = React.lazy(() => import(/* @vite-ignore */ './pages/opera
 try { EBatchRecord = React.lazy(() => import(/* @vite-ignore */ './pages/operations/EBatchRecord')) } catch {}
 try { InspectionStages= React.lazy(() => import(/* @vite-ignore */ './pages/operations/InspectionStages')) } catch {}
 try { QualityHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/QualityHub')) } catch {}
+try { ContainmentHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/ContainmentHub')) } catch {}
 try { QualityTree = React.lazy(() => import(/* @vite-ignore */ './pages/tree/QualityTree')) } catch {}
 try { ProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/products/ProductsHub')) } catch {}
 try { RegulatoryHub = React.lazy(() => import(/* @vite-ignore */ './pages/regulatory/RegulatoryHub')) } catch {}
@@ -174,6 +175,7 @@ return (
 <Route path="/operations/:woId/ebr" element={<ProtectedRoute><LazyRoute Component={EBatchRecord} /></ProtectedRoute>} />
 <Route path="/operations/:woId/inspection" element={<ProtectedRoute><LazyRoute Component={InspectionStages} /></ProtectedRoute>} />
 <Route path="/quality" element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
+<Route path="/containment" element={<ProtectedRoute><LazyRoute Component={ContainmentHub} /></ProtectedRoute>} />
 <Route path="/tree" element={<ProtectedRoute><LazyRoute Component={QualityTree} /></ProtectedRoute>} />
 <Route path="/products" element={<ProtectedRoute><LazyRoute Component={ProductsHub} /></ProtectedRoute>} />
 <Route path="/regulatory" element={<ProtectedRoute><LazyRoute Component={RegulatoryHub} /></ProtectedRoute>} />
