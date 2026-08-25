@@ -1,4 +1,4 @@
-// src/pages/quality/QualityHub.jsx — ISO 13485 §8.3 NCR·부적합 관리
+// src/pages/quality/QualityHub.jsx â ISO 13485 Â§8.3 NCRÂ·ë¶ì í© ê´ë¦¬
 import React, { useState, useMemo } from 'react'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
@@ -27,7 +27,7 @@ const ST_STYLE = {
   corrected:     { background: '#D1FAE5', color: '#059669' },
   closed:        { background: '#F3F4F6', color: '#6B7280' },
 }
-const ST_KO = { open: '미결', investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
+const ST_KO = { open: 'ë¯¸ê²°', investigating: 'ì¡°ì¬ì¤', contained: 'ê²©ë¦¬ìë£', corrected: 'ìì ìë£', closed: 'ì¢ê²°' }
 const ST_FLOW = { open: 'investigating', investigating: 'contained', contained: 'corrected', corrected: 'closed' }
 
 function Badge({ label, s }) {
@@ -91,7 +91,7 @@ export default function QualityHub() {
   }, [records])
 
   function save() {
-    if (!form.title.trim()) return alert('제목을 입력하세요')
+    if (!form.title.trim()) return alert('ì ëª©ì ìë ¥íì¸ì')
     const all = lsRead()
     all.unshift({ ...form, id: nextId(), status: 'open', createdAt: new Date().toISOString() })
     lsWrite(all)
@@ -109,7 +109,7 @@ export default function QualityHub() {
   }
 
   function remove(id) {
-    if (!confirm('삭제하시겠습니까?')) return
+    if (!confirm('ì­ì íìê² ìµëê¹?')) return
     lsWrite(lsRead().filter(r => r.id !== id))
     reload()
   }
@@ -120,7 +120,7 @@ export default function QualityHub() {
   return (
     <AppLayout>
       <HubBanner
-        icon={<ShieldAlert size={22} color="#DC2626" />}
+        icon={ShieldAlert}
         title="NCR\u00b7\ubd80\uc801\ud569 \uad00\ub9ac"
         subtitle="ISO 13485 \u00a78.3 \u2014 \ubd80\uc801\ud569 \uc81c\ud488 \uc2dd\ubcc4\u00b7\uaca9\ub9ac\u00b7\uc2dc\uc815 \uad00\ub9ac"
         color="#DC2626"
