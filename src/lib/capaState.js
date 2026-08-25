@@ -215,6 +215,20 @@ export const capa = {
 
     saveAll(all)
 
+    // Auto-advance NCR to corrected when CAPA is closed
+    if (newStatus === CAPA_STATUS.CLOSED) {
+      try {
+        const _ncrs = JSON.parse(localStorage.getItem('qualytree.ncrs') || '[]')
+        const _cap = all[idx]
+        const _upd = _ncrs.map(n =>
+          _cap.sourceNcrIds && _cap.sourceNcrIds.includes(n.id) && n.status === 'contained'
+            ? { ...n, status: 'corrected', correctedAt: new Date().toISOString() }
+            : n
+        )
+        localStorage.setItem('qualytree.ncrs', JSON.stringify(_upd))
+      } catch {}
+    }
+
     commitChange({
       targetEid: eid(ENTITY_TYPES.CAPA, id),
       action: CHANGE_ACTIONS.UPDATE,
