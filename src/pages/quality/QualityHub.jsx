@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
-import { evaluateForCAPA, capa } from '../../lib/capaState'
+import { evaluateForCAPA, capa, CAPA_STATUS } from '../../lib/capaState'
 
 const LS_KEY = 'qualytree.ncrs'
 const CNT_KEY = 'qualytree.ncrCounter'
@@ -16,98 +16,52 @@ function nextId() {
   return 'NCR-' + new Date().getFullYear() + '-' + String(n).padStart(4, '0')
 }
 
-const SEV_STYLE = {
-  Critical: { background: '#FEE2E2', color: '#DC2626' },
-  Major:    { background: '#FEF3C7', color: '#D97706' },
-  Minor:    { background: '#D1FAE5', color: '#059669' },
-}
-const ST_STYLE = {
-  open:          { background: '#FEE2E2', color: '#DC2626' },
-  investigating: { background: '#FEF3C7', color: '#D97706' },
-  contained:     { background: '#DBEAFE', color: '#2563EB' },
-  corrected:     { background: '#D1FAE5', color: '#059669' },
-  closed:        { background: '#F3F4F6', color: '#6B7280' },
-}
-const ST_KO = { open: '미결', investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
-const ST_FLOW = { open: 'investigating', investigating: 'contained', contained: 'corrected', corrected: 'closed' }
-
-function Badge({ label, s }) {
-  return <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700, ...s }}>{label}</span>
+function getLinkedCapas(ncrId) {
+  try {
+    const all = JSON.parse(localStorage.getItem('qualytree.capas') || '[]')
+    return all.filter(c => Array.isArray(c.sourceNcrIds) && c.sourceNcrIds.includes(ncrId))
+  } catch { return [] }
 }
 
-function Modal({ title, onClose, children }) {
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-      <div style={{ background: 'var(--bg-card)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--line)' }}>
-          <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)' }}>{title}</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)', fontSize: 22 }}>×</button>
-        </div>
-        <div style={{ padding: '16px 20px' }}>{children}</div>
-      </div>
-    </div>
-  )
-}
-
-const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none', width: '100%', boxSizing: 'border-box' }
-
-function FL({ label, children }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--ink-faint)', marginBottom: 4 }}>{label}</div>
-      {children}
-    </div>
-  )
-}
-
-const empty = () => ({ title: '', severity: 'Major', source: 'manual', description: '', detectedAt: new Date().toISOString().slice(0,10), detectedBy: '', containment: '', rootCause: '', correctiveAction: '' })
+const STATUS_LABEL = { investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
+const STATUS_COLOR = { investigating: '#EAB308', contained: '#3B82F6', corrected: '#8B5CF6', closed: '#22C55E' }
+const SEV_COLOR = { Critical: '#DC2626', Major: '#F97316', Minor: '#64748B' }
+const SEVERITIES = ['Critical', 'Major', 'Minor']
+const SOURCES = ['내부검사', '고객불만', '공급업체', '공정', '기타']
 
 export default function QualityHub() {
-  const [records, setRecords] = useState(() => lsRead())
-  const [search, setSearch]   = useState('')
-  const [sevF, setSevF]       = useState('all')
-  const [stF, setStF]         = useState('all')
-  const [modal, setModal]     = useState(false)
-  const [form, setForm]       = useState(empty())
-  const [exp, setExp]         = useState(null)
+  const [ncrs, setNcrs] = useState(lsRead)
+  const [search, setSearch] = useState('')
+  const [modal, setModal] = useState(false)
+  const [expanded, setExpanded] = useState(null)
+  const [form, setForm] = useState({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' })
 
-  const reload = () => setRecords(lsRead())
-
-  const filtered = useMemo(() =>
-    records.filter(r => {
-      if (sevF !== 'all' && r.severity !== sevF) return false
-      if (stF  !== 'all' && r.status   !== stF)  return false
-      if (search && !r.title?.toLowerCase().includes(search.toLowerCase()) && !r.id?.includes(search)) return false
-      return true
-    }), [records, search, sevF, stF])
-
-  const counts = useMemo(() => {
-    let open = 0, crit = 0, closed = 0
-    records.forEach(r => {
-      if (r.status === 'open' || r.status === 'investigating') open++
-      if (r.severity === 'Critical') crit++
-      if (r.status === 'closed') closed++
-    })
-    return { total: records.length, open, crit, closed }
-  }, [records])
+  function reload() { setNcrs(lsRead()) }
 
   function save() {
     if (!form.title.trim()) return alert('제목을 입력하세요')
     const all = lsRead()
-    const newRecord = { ...form, id: nextId(), status: 'open', createdAt: new Date().toISOString() }
+    const newRecord = {
+      ...form,
+      id: nextId(),
+      status: 'investigating',
+      createdAt: new Date().toISOString(),
+      containment: '',
+      containmentSkipped: false,
+      containmentAt: null,
+      approvals: [],
+    }
     all.unshift(newRecord)
     lsWrite(all)
     const capaT = evaluateForCAPA(newRecord)
     if (capaT) capa.raise({ title: capaT.suggestedTitle, description: capaT.reason, trigger: capaT.trigger, triggerReason: capaT.reason, sourceNcrIds: [newRecord.id] })
     reload()
     setModal(false)
+    setExpanded(newRecord.id)
   }
 
-  function advance(id) {
-    const all = lsRead()
-    const r = all.find(x => x.id === id)
-    if (!r || !ST_FLOW[r.status]) return
-    r.status = ST_FLOW[r.status]
+  function updateRecord(id, patch) {
+    const all = lsRead().map(r => r.id === id ? { ...r, ...patch } : r)
     lsWrite(all)
     reload()
   }
@@ -118,153 +72,235 @@ export default function QualityHub() {
     reload()
   }
 
-  const card = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 10 }
-  const statCard = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: '14px 18px', flex: 1, minWidth: 0 }
+  const filtered = useMemo(() =>
+    ncrs.filter(r => r.title.toLowerCase().includes(search.toLowerCase()) || r.id.includes(search)),
+    [ncrs, search])
+
+  const stats = useMemo(() => ({
+    total: ncrs.length,
+    investigating: ncrs.filter(r => r.status === 'investigating').length,
+    contained: ncrs.filter(r => r.status === 'contained').length,
+    corrected: ncrs.filter(r => r.status === 'corrected').length,
+    closed: ncrs.filter(r => r.status === 'closed').length,
+  }), [ncrs])
+
+  const card = { background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 16px', textAlign: 'center' }
+  const btn = (bg, fg = '#fff') => ({ background: bg, color: fg, border: 'none', borderRadius: 8, padding: '7px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 })
+  const inp = { width: '100%', padding: '8px 10px', border: '1px solid var(--line)', borderRadius: 8, background: 'var(--bg-card)', color: 'var(--ink)', fontSize: 14, boxSizing: 'border-box' }
 
   return (
     <AppLayout>
-      <HubBanner
-        icon={ShieldAlert}
-        title="NCR·부적합 관리"
-        subtitle="ISO 13485 §8.3 — 부적합 제품 식별·격리·시정 관리"
-        color="#DC2626"
-      />
+      <HubBanner icon={ShieldAlert} title="NCR·부적합 관리" subtitle="ISO 13485 §8.3" color="#DC2626" />
 
-      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        {[
-          { label: '전체 NCR', value: counts.total, color: 'var(--ink)' },
-          { label: '처리중', value: counts.open, color: '#D97706' },
-          { label: 'Critical', value: counts.crit, color: '#DC2626' },
-          { label: '종결', value: counts.closed, color: '#059669' },
-        ].map(s => (
-          <div key={s.label} style={statCard}>
-            <div style={{ fontSize: 10, color: 'var(--ink-faint)', fontWeight: 700, marginBottom: 4 }}>{s.label}</div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: s.color }}>{s.value}</div>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 20 }}>
+        {[['전체', stats.total, 'var(--ink)'], ['조사중', stats.investigating, '#EAB308'], ['격리완료', stats.contained, '#3B82F6'], ['시정완료', stats.corrected, '#8B5CF6'], ['종결', stats.closed, '#22C55E']].map(([label, n, color]) => (
+          <div key={label} style={card}>
+            <div style={{ fontSize: 22, fontWeight: 700, color }}>{n}</div>
+            <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+      {/* Toolbar */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="번호 또는 제목 검색" style={{ ...IS, paddingLeft: 30 }} />
+          <input style={{ ...inp, paddingLeft: 30 }} placeholder="NCR ID 또는 제목 검색" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <select value={sevF} onChange={e => setSevF(e.target.value)} style={{ ...IS, width: 'auto' }}>
-          <option value="all">전체 심각도</option>
-          <option value="Critical">Critical</option>
-          <option value="Major">Major</option>
-          <option value="Minor">Minor</option>
-        </select>
-        <select value={stF} onChange={e => setStF(e.target.value)} style={{ ...IS, width: 'auto' }}>
-          <option value="all">전체 상태</option>
-          {Object.entries(ST_KO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <button onClick={() => { setForm(empty()); setModal(true) }}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#DC2626', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          <Plus size={14} /> NCR 등록
+        <button style={btn('#DC2626')} onClick={() => { setForm({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' }); setModal(true) }}>
+          <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />부적합 등록
         </button>
       </div>
 
-      {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--ink-faint)' }}>
-          <ShieldAlert size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
-          <div style={{ fontSize: 14 }}>등록된 NCR이 없습니다</div>
-        </div>
-      ) : filtered.map(r => {
-        const sev = SEV_STYLE[r.severity] || SEV_STYLE.Minor
-        const st  = ST_STYLE[r.status]   || ST_STYLE.open
-        const isE = exp === r.id
-        const nextSt = ST_FLOW[r.status]
-        return (
-          <div key={r.id} style={card}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
-                  <Badge label={r.severity} s={sev} />
-                  <Badge label={ST_KO[r.status] || r.status} s={st} />
-                  <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{r.id}</span>
-                </div>
-                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)', marginBottom: 4 }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>발견일: {r.detectedAt} · 발견자: {r.detectedBy || '—'}</div>
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-                {nextSt && (
-                  <button onClick={() => advance(r.id)}
-                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', cursor: 'pointer', fontWeight: 600 }}>
-                    → {ST_KO[nextSt]}
-                  </button>
-                )}
-                <button onClick={() => setExp(isE ? null : r.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
-                  {isE ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-                </button>
-                <button onClick={() => remove(r.id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}>
-                  <X size={15}/>
-                </button>
-              </div>
-            </div>
-            {isE && (
-              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 12 }}>
-                {[
-                  ['발생 유형', r.source || '—'],
-                  ['설명', r.description || '—'],
-                  ['격리·봉쁼 조치', r.containment || '—'],
-                  ['근본원인', r.rootCause || '—'],
-                  ['시정조치', r.correctiveAction || '—'],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <div style={{ fontWeight: 700, color: 'var(--ink-faint)', fontSize: 10, marginBottom: 2 }}>{k}</div>
-                    <div style={{ color: 'var(--ink)' }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
+      {/* List */}
+      {filtered.length === 0 && <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: 40 }}>등록된 부적합이 없습니다</div>}
+      {filtered.map(r => (
+        <NcrCard key={r.id} r={r}
+          expanded={expanded === r.id}
+          onToggle={() => setExpanded(expanded === r.id ? null : r.id)}
+          onUpdate={patch => updateRecord(r.id, patch)}
+          onRemove={() => remove(r.id)}
+          btn={btn} inp={inp} />
+      ))}
 
+      {/* Register Modal */}
       {modal && (
-        <Modal title="NCR 신규 등록" onClose={() => setModal(false)}>
-          <FL label="제목 *">
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적합 사항 제목" style={IS} />
-          </FL>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <FL label="심각도">
-              <select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))} style={IS}>
-                <option>Critical</option><option>Major</option><option>Minor</option>
-              </select>
-            </FL>
-            <FL label="발생 유형">
-              <select value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))} style={IS}>
-                <option value="manual">수동 입력</option>
-                <option value="iqc">수입 검사</option>
-                <option value="oos">OOS</option>
-                <option value="audit">내부 심사</option>
-                <option value="complaint">고객 불만</option>
-              </select>
-            </FL>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: 500, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>부적합 신규 등록</h3>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModal(false)}><X size={18} /></button>
+            </div>
+            {[
+              ['제목', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적함 내용 요약" />],
+              ['심각도', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['발생출처', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['발견일', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
+              ['발견자', <input style={inp} value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} />],
+              ['상세내용', <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />],
+            ].map(([label, el]) => (
+              <div key={label} style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>{label}</label>
+                {el}
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
+              <button style={btn('transparent', 'var(--ink)')} onClick={() => setModal(false)}>취소</button>
+              <button style={btn('#DC2626')} onClick={save}>등록</button>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <FL label="발견일">
-              <input type="date" value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} style={IS} />
-            </FL>
-            <FL label="발견자">
-              <input value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} placeholder="이름" style={IS} />
-            </FL>
-          </div>
-          <FL label="설명">
-            <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} style={{ ...IS, resize: 'vertical' }} />
-          </FL>
-          <FL label="격리·봉쁼 조치">
-            <textarea value={form.containment} onChange={e => setForm(f => ({ ...f, containment: e.target.value }))} rows={2} style={{ ...IS, resize: 'vertical' }} />
-          </FL>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button onClick={() => setModal(false)} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--line)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer', fontSize: 13 }}>취소</button>
-            <button onClick={save} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>등록</button>
-          </div>
-        </Modal>
+        </div>
       )}
     </AppLayout>
+  )
+}
+
+function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp }) {
+  const [containmentText, setContainmentText] = useState(r.containment || '')
+  const [containmentSkip, setContainmentSkip] = useState(r.containmentSkipped || false)
+  const [reviewerName, setReviewerName] = useState('')
+  const [approverName, setApproverName] = useState('')
+
+  const linkedCapas = getLinkedCapas(r.id)
+  const capasDone = linkedCapas.length === 0 || linkedCapas.every(c => c.status === CAPA_STATUS.CLOSED)
+
+  function doContainment() {
+    if (!containmentSkip && !containmentText.trim()) return alert('격리 조치 내용을 입력하거나 "격리 불필요"를 체크하세요')
+    onUpdate({ status: 'contained', containment: containmentText, containmentSkipped: containmentSkip, containmentAt: new Date().toISOString() })
+  }
+
+  function doCorrect() {
+    if (!capasDone) return alert('연결된 CAPA가 아직 완료되지 않았습니다. CAPA를 먼저 종결하세요.')
+    onUpdate({ status: 'corrected', correctedAt: new Date().toISOString() })
+  }
+
+  function doClose() {
+    if (!reviewerName.trim() || !approverName.trim()) return alert('검토자와 승인자 이름을 모두 입력하세요')
+    onUpdate({
+      status: 'closed',
+      closedAt: new Date().toISOString(),
+      approvals: [
+        { role: '검토자', name: reviewerName, signedAt: new Date().toISOString() },
+        { role: '승인자', name: approverName, signedAt: new Date().toISOString() },
+      ],
+    })
+  }
+
+  const stageBox = (color) => ({ border: `1px solid ${color}`, borderRadius: 10, padding: 14, marginBottom: 12 })
+  const stageTitle = (color, text) => <div style={{ fontWeight: 700, fontSize: 13, color, marginBottom: 10 }}>{text}</div>
+
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, marginBottom: 10, overflow: 'hidden' }}>
+      {/* Header row */}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={onToggle}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: SEV_COLOR[r.severity] || '#64748B', background: (SEV_COLOR[r.severity] || '#64748B') + '22', padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{r.severity}</span>
+        <span style={{ fontSize: 11, color: 'var(--ink-faint)', whiteSpace: 'nowrap' }}>{r.id}</span>
+        <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{r.title}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLOR[r.status], background: STATUS_COLOR[r.status] + '22', padding: '2px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>{STATUS_LABEL[r.status]}</span>
+        {expanded ? <ChevronUp size={16} color="var(--ink-faint)" /> : <ChevronDown size={16} color="var(--ink-faint)" />}
+      </div>
+
+      {/* Expanded */}
+      {expanded && (
+        <div style={{ borderTop: '1px solid var(--line)', padding: 16 }}>
+          {/* Meta */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14, fontSize: 13, color: 'var(--ink-faint)' }}>
+            <span>출처: {r.source}</span>
+            <span>발견일: {r.detectedAt || '-'}</span>
+            <span>발견자: {r.detectedBy || '-'}</span>
+            <span>등록일: {r.createdAt ? r.createdAt.slice(0, 10) : '-'}</span>
+          </div>
+          {r.description && (
+            <div style={{ fontSize: 13, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, marginBottom: 14, lineHeight: 1.6 }}>{r.description}</div>
+          )}
+
+          {/* Stage 1 — 격리 조치 */}
+          {r.status === 'investigating' && (
+            <div style={stageBox('#EAB308')}>
+              {stageTitle('#EAB308', '① 격리 조치')}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 10, cursor: 'pointer' }}>
+                <input type="checkbox" checked={containmentSkip} onChange={e => setContainmentSkip(e.target.checked)} />
+                격리 불필요 (해당 없음)
+              </label>
+              {!containmentSkip && (
+                <textarea
+                  style={{ ...inp, minHeight: 72, resize: 'vertical', marginBottom: 10 }}
+                  placeholder="격리·봉쇄 조치 내용을 입력하세요"
+                  value={containmentText}
+                  onChange={e => setContainmentText(e.target.value)}
+                />
+              )}
+              <button style={btn('#EAB308')} onClick={doContainment}>격리완료로 전환</button>
+            </div>
+          )}
+
+          {/* Stage 2 — CAPA 확인 후 시정완료 */}
+          {r.status === 'contained' && (
+            <div style={stageBox('#3B82F6')}>
+              {stageTitle('#3B82F6', '② CAPA 진행 확인')}
+              {r.containmentSkipped
+                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨</div>
+                : r.containment
+                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {r.containment}</div>
+                  : null}
+              {linkedCapas.length > 0 ? (
+                <div style={{ marginBottom: 10 }}>
+                  {linkedCapas.map(c => (
+                    <div key={c.id} style={{ fontSize: 13, padding: '6px 10px', background: 'var(--bg)', borderRadius: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
+                      <span>{c.id} — {c.title}</span>
+                      <span style={{ fontWeight: 600, color: c.status === CAPA_STATUS.CLOSED ? '#22C55E' : '#F97316' }}>{c.status}</span>
+                    </div>
+                  ))}
+                  {!capasDone && <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>CAPA가 아직 완료되지 않았습니다. ImprovementHub에서 CAPA를 종결한 후 시정완료 처리하세요.</div>}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>자동 생성된 CAPA 없음 (Critical 또는 반복 Major NCR이 아닌 경우 직접 시정 가능)</div>
+              )}
+              <button
+                style={btn(capasDone ? '#8B5CF6' : '#CBD5E1', capasDone ? '#fff' : '#94A3B8')}
+                onClick={doCorrect}
+              >시정완료로 전환</button>
+            </div>
+          )}
+
+          {/* Stage 3 — 검토·승인 서명 */}
+          {r.status === 'corrected' && (
+            <div style={stageBox('#8B5CF6')}>
+              {stageTitle('#8B5CF6', '③ 검토·승인 서명')}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>검토자 성명</label>
+                  <input style={inp} value={reviewerName} onChange={e => setReviewerName(e.target.value)} placeholder="검토자 이름" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>승인자 성명</label>
+                  <input style={inp} value={approverName} onChange={e => setApproverName(e.target.value)} placeholder="승인자 이름" />
+                </div>
+              </div>
+              <button style={btn('#22C55E')} onClick={doClose}>종결 (전자서명)</button>
+            </div>
+          )}
+
+          {/* Stage 4 — 종결 */}
+          {r.status === 'closed' && (
+            <div style={stageBox('#22C55E')}>
+              {stageTitle('#22C55E', '✓ 종결 완료')}
+              {r.approvals && r.approvals.map(a => (
+                <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
+                  {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})
+                </div>
+              ))}
+              {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>종결일: {r.closedAt.slice(0, 10)}</div>}
+            </div>
+          )}
+
+          {/* Delete */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+            <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, cursor: 'pointer' }} onClick={onRemove}>삭제</button>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
