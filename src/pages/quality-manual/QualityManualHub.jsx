@@ -1,5 +1,5 @@
 // src/pages/quality-manual/QualityManualHub.jsx
-// ISO 13485 §4.2.1 — 품질 매뉴얼
+// ISO 13485 Â§4.2.1 â íì§ ë§¤ë´ì¼
 import React, { useState, useMemo } from 'react'
 import {
   Save, Edit2, Plus, Trash2, BookOpen, FileText,
@@ -11,132 +11,132 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
-// ── 상수 ─────────────────────────────────────────────────────
+// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_KEY = 'qualytree.quality_manual'
 
-// ISO 13485:2016 조항별 프로세스 목록 (§4.2.1(c) 참조 필수)
+// ISO 13485:2016 ì¡°í­ë³ íë¡ì¸ì¤ ëª©ë¡ (Â§4.2.1(c) ì°¸ì¡° íì)
 const ISO_SECTIONS = [
-  { clause: '4',     title: '품질경영시스템 일반 요구사항' },
-  { clause: '4.1',   title: '일반 요구사항 (QMS 수립·유지·개선)' },
-  { clause: '4.2',   title: '문서화 요구사항' },
-  { clause: '4.2.1', title: '일반 (문서화된 QMS)' },
-  { clause: '4.2.2', title: '품질 매뉴얼' },
-  { clause: '4.2.3', title: '의료기기 파일' },
-  { clause: '4.2.4', title: '문서 관리' },
-  { clause: '4.2.5', title: '기록 관리' },
-  { clause: '5',     title: '경영자 책임' },
-  { clause: '5.1',   title: '경영 의지' },
-  { clause: '5.2',   title: '고객 중시' },
-  { clause: '5.3',   title: '품질 방침' },
-  { clause: '5.4',   title: '기획' },
-  { clause: '5.5',   title: '책임·권한·의사소통' },
-  { clause: '5.6',   title: '경영 검토' },
-  { clause: '6',     title: '자원 관리' },
-  { clause: '6.1',   title: '자원 확보' },
-  { clause: '6.2',   title: '인적 자원' },
-  { clause: '6.3',   title: '인프라' },
-  { clause: '6.4',   title: '작업 환경' },
-  { clause: '7',     title: '제품 실현' },
-  { clause: '7.1',   title: '제품 실현 기획' },
-  { clause: '7.2',   title: '고객 관련 프로세스' },
-  { clause: '7.3',   title: '설계 및 개발' },
-  { clause: '7.4',   title: '구매' },
-  { clause: '7.5',   title: '생산 및 서비스 제공' },
-  { clause: '7.6',   title: '모니터링·측정 장비 관리' },
-  { clause: '8',     title: '측정·분석·개선' },
-  { clause: '8.1',   title: '일반 (모니터링·측정·분석·개선 기획)' },
-  { clause: '8.2',   title: '모니터링 및 측정' },
-  { clause: '8.3',   title: '부적합 제품 관리' },
-  { clause: '8.4',   title: '데이터 분석' },
-  { clause: '8.5',   title: '개선' },
+  { clause: '4',     title: 'íì§ê²½ììì¤í ì¼ë° ìêµ¬ì¬í­' },
+  { clause: '4.1',   title: 'ì¼ë° ìêµ¬ì¬í­ (QMS ìë¦½Â·ì ì§Â·ê°ì )' },
+  { clause: '4.2',   title: 'ë¬¸ìí ìêµ¬ì¬í­' },
+  { clause: '4.2.1', title: 'ì¼ë° (ë¬¸ìíë QMS)' },
+  { clause: '4.2.2', title: 'íì§ ë§¤ë´ì¼' },
+  { clause: '4.2.3', title: 'ìë£ê¸°ê¸° íì¼' },
+  { clause: '4.2.4', title: 'ë¬¸ì ê´ë¦¬' },
+  { clause: '4.2.5', title: 'ê¸°ë¡ ê´ë¦¬' },
+  { clause: '5',     title: 'ê²½ìì ì±ì' },
+  { clause: '5.1',   title: 'ê²½ì ìì§' },
+  { clause: '5.2',   title: 'ê³ ê° ì¤ì' },
+  { clause: '5.3',   title: 'íì§ ë°©ì¹¨' },
+  { clause: '5.4',   title: 'ê¸°í' },
+  { clause: '5.5',   title: 'ì±ìÂ·ê¶íÂ·ìì¬ìíµ' },
+  { clause: '5.6',   title: 'ê²½ì ê²í ' },
+  { clause: '6',     title: 'ìì ê´ë¦¬' },
+  { clause: '6.1',   title: 'ìì íë³´' },
+  { clause: '6.2',   title: 'ì¸ì  ìì' },
+  { clause: '6.3',   title: 'ì¸íë¼' },
+  { clause: '6.4',   title: 'ìì íê²½' },
+  { clause: '7',     title: 'ì í ì¤í' },
+  { clause: '7.1',   title: 'ì í ì¤í ê¸°í' },
+  { clause: '7.2',   title: 'ê³ ê° ê´ë ¨ íë¡ì¸ì¤' },
+  { clause: '7.3',   title: 'ì¤ê³ ë° ê°ë°' },
+  { clause: '7.4',   title: 'êµ¬ë§¤' },
+  { clause: '7.5',   title: 'ìì° ë° ìë¹ì¤ ì ê³µ' },
+  { clause: '7.6',   title: 'ëª¨ëí°ë§Â·ì¸¡ì  ì¥ë¹ ê´ë¦¬' },
+  { clause: '8',     title: 'ì¸¡ì Â·ë¶ìÂ·ê°ì ' },
+  { clause: '8.1',   title: 'ì¼ë° (ëª¨ëí°ë§Â·ì¸¡ì Â·ë¶ìÂ·ê°ì  ê¸°í)' },
+  { clause: '8.2',   title: 'ëª¨ëí°ë§ ë° ì¸¡ì ' },
+  { clause: '8.3',   title: 'ë¶ì í© ì í ê´ë¦¬' },
+  { clause: '8.4',   title: 'ë°ì´í° ë¶ì' },
+  { clause: '8.5',   title: 'ê°ì ' },
 ]
 
-// Qualytree 내 구현 허브 매핑
+// Qualytree ë´ êµ¬í íë¸ ë§¤í
 const QUALYTREE_HUBS = [
-  { path: '/quality-objectives',     label: '품질 목표 관리',     clause: '5.4' },
-  { path: '/org-responsibility',     label: '조직·책임 관리',     clause: '5.5' },
-  { path: '/management-review',      label: '경영 검토',          clause: '5.6' },
-  { path: '/competency',             label: '역량 관리',          clause: '6.2' },
-  { path: '/infrastructure',         label: '인프라 관리',        clause: '6.3' },
-  { path: '/work-env',               label: '작업환경 관리',      clause: '6.4' },
-  { path: '/quality-plan',           label: '품질 계획',          clause: '7.1' },
-  { path: '/customer-req',           label: '고객 요구사항 검토', clause: '7.2' },
-  { path: '/dhf',                    label: '설계 이력 파일',     clause: '7.3' },
-  { path: '/suppliers',              label: '공급업체 관리',      clause: '7.4' },
-  { path: '/purchase-verification',  label: '구매 정보·수입검사', clause: '7.4' },
-  { path: '/inspection',             label: '공정·최종 검사',     clause: '7.5' },
-  { path: '/validation',             label: '공정 유효성 확인',   clause: '7.5' },
-  { path: '/traceability',           label: '제품 식별·추적성',   clause: '7.5' },
-  { path: '/preservation',           label: '제품 보존·취급',     clause: '7.5' },
-  { path: '/service',                label: '설치·서비스',        clause: '7.5' },
-  { path: '/calibration',            label: '교정 관리',          clause: '7.6' },
-  { path: '/quality-dashboard',      label: '품질 KPI 대시보드',  clause: '8' },
-  { path: '/complaints',             label: '고객불만 관리',      clause: '8.2' },
-  { path: '/audit',                  label: '내부감사',           clause: '8.2' },
-  { path: '/quality',                label: 'NCR / 부적합 관리',  clause: '8.3' },
-  { path: '/risk',                   label: '위험관리 (FMEA)',    clause: '8' },
-  { path: '/change-control',         label: '변경 관리',          clause: '4.1' },
-  { path: '/doc-control',            label: '문서 관리 대장',     clause: '4.2' },
-  { path: '/improvement',            label: '개선 활동',          clause: '8.5' },
+  { path: '/quality-objectives',     label: 'íì§ ëª©í ê´ë¦¬',     clause: '5.4' },
+  { path: '/org-responsibility',     label: 'ì¡°ì§Â·ì±ì ê´ë¦¬',     clause: '5.5' },
+  { path: '/management-review',      label: 'ê²½ì ê²í ',          clause: '5.6' },
+  { path: '/competency',             label: 'ì­ë ê´ë¦¬',          clause: '6.2' },
+  { path: '/infrastructure',         label: 'ì¸íë¼ ê´ë¦¬',        clause: '6.3' },
+  { path: '/work-env',               label: 'ììíê²½ ê´ë¦¬',      clause: '6.4' },
+  { path: '/quality-plan',           label: 'íì§ ê³í',          clause: '7.1' },
+  { path: '/customer-req',           label: 'ê³ ê° ìêµ¬ì¬í­ ê²í ', clause: '7.2' },
+  { path: '/dhf',                    label: 'ì¤ê³ ì´ë ¥ íì¼',     clause: '7.3' },
+  { path: '/suppliers',              label: 'ê³µê¸ìì²´ ê´ë¦¬',      clause: '7.4' },
+  { path: '/purchase-verification',  label: 'êµ¬ë§¤ ì ë³´Â·ììê²ì¬', clause: '7.4' },
+  { path: '/inspection',             label: 'ê³µì Â·ìµì¢ ê²ì¬',     clause: '7.5' },
+  { path: '/validation',             label: 'ê³µì  ì í¨ì± íì¸',   clause: '7.5' },
+  { path: '/traceability',           label: 'ì í ìë³Â·ì¶ì ì±',   clause: '7.5' },
+  { path: '/preservation',           label: 'ì í ë³´ì¡´Â·ì·¨ê¸',     clause: '7.5' },
+  { path: '/service',                label: 'ì¤ì¹Â·ìë¹ì¤',        clause: '7.5' },
+  { path: '/calibration',            label: 'êµì  ê´ë¦¬',          clause: '7.6' },
+  { path: '/quality-dashboard',      label: 'íì§ KPI ëìë³´ë',  clause: '8' },
+  { path: '/complaints',             label: 'ê³ ê°ë¶ë§ ê´ë¦¬',      clause: '8.2' },
+  { path: '/audit',                  label: 'ë´ë¶ê°ì¬',           clause: '8.2' },
+  { path: '/quality',                label: 'NCR / ë¶ì í© ê´ë¦¬',  clause: '8.3' },
+  { path: '/risk',                   label: 'ìíê´ë¦¬ (FMEA)',    clause: '8' },
+  { path: '/change-control',         label: 'ë³ê²½ ê´ë¦¬',          clause: '4.1' },
+  { path: '/doc-control',            label: 'ë¬¸ì ê´ë¦¬ ëì¥',     clause: '4.2' },
+  { path: '/improvement',            label: 'ê°ì  íë',          clause: '8.5' },
 ]
 
-// 핵심 프로세스 상호작용 (텍스트 기반 플로우)
+// íµì¬ íë¡ì¸ì¤ ìí¸ìì© (íì¤í¸ ê¸°ë° íë¡ì°)
 const PROCESS_INTERACTIONS = [
-  { from: '고객 요구사항',    to: '품질 계획',         arrow: true },
-  { from: '품질 계획',        to: '설계·개발',         arrow: true },
-  { from: '설계·개발',        to: '구매',              arrow: true },
-  { from: '구매',             to: '수입검사 (IQC)',     arrow: true },
-  { from: '수입검사 (IQC)',   to: '생산·서비스',       arrow: true },
-  { from: '생산·서비스',      to: '공정 검사',         arrow: true },
-  { from: '공정 검사',        to: '최종 검사·출하',    arrow: true },
-  { from: '최종 검사·출하',   to: '고객',              arrow: true },
-  { from: '고객',             to: '고객불만·피드백',   arrow: true },
-  { from: '고객불만·피드백',  to: 'CAPA·개선',         arrow: true },
-  { from: 'CAPA·개선',        to: '경영 검토',         arrow: true },
+  { from: 'ê³ ê° ìêµ¬ì¬í­',    to: 'íì§ ê³í',         arrow: true },
+  { from: 'íì§ ê³í',        to: 'ì¤ê³Â·ê°ë°',         arrow: true },
+  { from: 'ì¤ê³Â·ê°ë°',        to: 'êµ¬ë§¤',              arrow: true },
+  { from: 'êµ¬ë§¤',             to: 'ììê²ì¬ (IQC)',     arrow: true },
+  { from: 'ììê²ì¬ (IQC)',   to: 'ìì°Â·ìë¹ì¤',       arrow: true },
+  { from: 'ìì°Â·ìë¹ì¤',      to: 'ê³µì  ê²ì¬',         arrow: true },
+  { from: 'ê³µì  ê²ì¬',        to: 'ìµì¢ ê²ì¬Â·ì¶í',    arrow: true },
+  { from: 'ìµì¢ ê²ì¬Â·ì¶í',   to: 'ê³ ê°',              arrow: true },
+  { from: 'ê³ ê°',             to: 'ê³ ê°ë¶ë§Â·í¼ëë°±',   arrow: true },
+  { from: 'ê³ ê°ë¶ë§Â·í¼ëë°±',  to: 'CAPAÂ·ê°ì ',         arrow: true },
+  { from: 'CAPAÂ·ê°ì ',        to: 'ê²½ì ê²í ',         arrow: true },
 ]
 
-const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', '미분류', '해당 없음']
+const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', 'ë¯¸ë¶ë¥', 'í´ë¹ ìì']
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-// ── 기본 매뉴얼 구조 ─────────────────────────────────────────
+// ââ ê¸°ë³¸ ë§¤ë´ì¼ êµ¬ì¡° âââââââââââââââââââââââââââââââââââââââââ
 const DEFAULT_MANUAL = {
-  // 기본 정보
+  // ê¸°ë³¸ ì ë³´
   companyName: '',
   manualNo: 'QM-001',
-  title: '품질 매뉴얼',
+  title: 'íì§ ë§¤ë´ì¼',
   revision: 'Rev.0',
   issueDate: today(),
   effectiveDate: today(),
   preparedBy: '', reviewedBy: '', approvedBy: '',
 
-  // §4.2.1(a) — QMS 범위
+  // Â§4.2.1(a) â QMS ë²ì
   scope: '',
-  deviceTypes: '',         // 적용 의료기기 종류
-  deviceClasses: [],       // 기기 등급
-  activities: '',          // 조직 활동 (설계/제조/판매 등)
+  deviceTypes: '',         // ì ì© ìë£ê¸°ê¸° ì¢ë¥
+  deviceClasses: [],       // ê¸°ê¸° ë±ê¸
+  activities: '',          // ì¡°ì§ íë (ì¤ê³/ì ì¡°/íë§¤ ë±)
 
-  // §4.2.1(b) — 제외 사항
+  // Â§4.2.1(b) â ì ì¸ ì¬í­
   hasExclusions: false,
   exclusions: [],          // [{clause, reason}]
 
-  // §4.2.1(c) — 문서화된 절차 참조
+  // Â§4.2.1(c) â ë¬¸ìíë ì ì°¨ ì°¸ì¡°
   procedureRefs: [],       // [{sop, title, clause, docNo}]
 
-  // 품질 방침 (§5.3)
+  // íì§ ë°©ì¹¨ (Â§5.3)
   qualityPolicy: '',
 
-  // 프로세스 맵 사용자 정의 메모
+  // íë¡ì¸ì¤ ë§µ ì¬ì©ì ì ì ë©ëª¨
   processNotes: '',
 
-  // 배포 목록
+  // ë°°í¬ ëª©ë¡
   distributionList: [],    // [{dept, name, copyNo}]
 
-  // 개정 이력
+  // ê°ì  ì´ë ¥
   revisionHistory: [],     // [{rev, date, description, by}]
 }
 
-// ── 메인 ─────────────────────────────────────────────────────
+// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function QualityManualHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
@@ -166,85 +166,85 @@ export default function QualityManualHub() {
   const D = draft || manual
   const F = (k, v) => setDraft(d => ({ ...d, [k]: v }))
 
-  // 제외 사항 관리
+  // ì ì¸ ì¬í­ ê´ë¦¬
   function addExclusion() { F('exclusions', [...(D.exclusions || []), { id: Date.now(), clause: '', reason: '' }]) }
-  function updateExclusion(id, field, value) { F('exclusions', D.exclusions.map(e => e.id === id ? { ...e, [field]: value } : e)) }
+  function updateExclusion(id, field, value) { F('exclusions', (Array.isArray(D.exclusions)?D.exclusions:[]).map(e => e.id === id ? { ...e, [field]: value } : e)) }
   function removeExclusion(id) { F('exclusions', D.exclusions.filter(e => e.id !== id)) }
 
-  // 절차 참조 관리
+  // ì ì°¨ ì°¸ì¡° ê´ë¦¬
   function addProcRef() { F('procedureRefs', [...(D.procedureRefs || []), { id: Date.now(), sop: '', title: '', clause: '', docNo: '' }]) }
-  function updateProcRef(id, field, value) { F('procedureRefs', D.procedureRefs.map(p => p.id === id ? { ...p, [field]: value } : p)) }
+  function updateProcRef(id, field, value) { F('procedureRefs', (Array.isArray(D.procedureRefs)?D.procedureRefs:[]).map(p => p.id === id ? { ...p, [field]: value } : p)) }
   function removeProcRef(id) { F('procedureRefs', D.procedureRefs.filter(p => p.id !== id)) }
 
-  // 배포 관리
+  // ë°°í¬ ê´ë¦¬
   function addDist() { F('distributionList', [...(D.distributionList || []), { id: Date.now(), dept: '', name: '', copyNo: '' }]) }
-  function updateDist(id, field, value) { F('distributionList', D.distributionList.map(d => d.id === id ? { ...d, [field]: value } : d)) }
+  function updateDist(id, field, value) { F('distributionList', (Array.isArray(D.distributionList)?D.distributionList:[]).map(d => d.id === id ? { ...d, [field]: value } : d)) }
   function removeDist(id) { F('distributionList', D.distributionList.filter(d => d.id !== id)) }
 
-  // 개정 이력 추가
+  // ê°ì  ì´ë ¥ ì¶ê°
   function addRevision() {
     const rev = { id: Date.now(), rev: '', date: today(), description: '', by: user?.name || '' }
     F('revisionHistory', [...(D.revisionHistory || []), rev])
   }
-  function updateRev(id, field, value) { F('revisionHistory', D.revisionHistory.map(r => r.id === id ? { ...r, [field]: value } : r)) }
+  function updateRev(id, field, value) { F('revisionHistory', (Array.isArray(D.revisionHistory)?D.revisionHistory:[]).map(r => r.id === id ? { ...r, [field]: value } : r)) }
   function removeRev(id) { F('revisionHistory', D.revisionHistory.filter(r => r.id !== id)) }
 
-  // 완성도 체크
+  // ìì±ë ì²´í¬
   const completeness = useMemo(() => {
     const m = manual
     const checks = [
-      { label: 'QMS 범위 등록',         done: !!(m.scope?.trim()) },
-      { label: '품질 방침 등록',         done: !!(m.qualityPolicy?.trim()) },
-      { label: '절차 참조 1건 이상',     done: (m.procedureRefs?.length || 0) > 0 },
-      { label: '승인자 서명',            done: !!(m.approvedBy?.trim()) },
-      { label: '유효일 설정',            done: !!(m.effectiveDate) },
-      { label: '배포 목록 등록',         done: (m.distributionList?.length || 0) > 0 },
-      { label: '제외 사항 처리',         done: !m.hasExclusions || (m.exclusions?.length || 0) > 0 },
+      { label: 'QMS ë²ì ë±ë¡',         done: !!(m.scope?.trim()) },
+      { label: 'íì§ ë°©ì¹¨ ë±ë¡',         done: !!(m.qualityPolicy?.trim()) },
+      { label: 'ì ì°¨ ì°¸ì¡° 1ê±´ ì´ì',     done: (m.procedureRefs?.length || 0) > 0 },
+      { label: 'ì¹ì¸ì ìëª',            done: !!(m.approvedBy?.trim()) },
+      { label: 'ì í¨ì¼ ì¤ì ',            done: !!(m.effectiveDate) },
+      { label: 'ë°°í¬ ëª©ë¡ ë±ë¡',         done: (m.distributionList?.length || 0) > 0 },
+      { label: 'ì ì¸ ì¬í­ ì²ë¦¬',         done: !m.hasExclusions || (m.exclusions?.length || 0) > 0 },
     ]
     return checks
   }, [manual])
 
-  const doneCount = completeness.filter(c => c.done).length
+  const doneCount = (Array.isArray(completeness)?completeness:[]).filter(c => c.done).length
 
   return (
-    <AppLayout user={user} title="품질 매뉴얼" subtitle="ISO 13485 §4.2.1 — QMS 범위·제외사항·프로세스 상호작용·절차 참조">
+    <AppLayout user={user} title="íì§ ë§¤ë´ì¼" subtitle="ISO 13485 Â§4.2.1 â QMS ë²ìÂ·ì ì¸ì¬í­Â·íë¡ì¸ì¤ ìí¸ìì©Â·ì ì°¨ ì°¸ì¡°">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* 헤더 카드 */}
+        {/* í¤ë ì¹´ë */}
         <div className="mb-5 p-5 rounded-2xl flex items-start justify-between gap-4"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <BookOpen size={18} style={{ color: 'var(--moss)' }} />
               <span className="text-[18px] font-bold" style={{ color: 'var(--ink)' }}>
-                {manual.title || '품질 매뉴얼'} {manual.manualNo && `(${manual.manualNo})`}
+                {manual.title || 'íì§ ë§¤ë´ì¼'} {manual.manualNo && `(${manual.manualNo})`}
               </span>
               <span className="text-[12px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
                 {manual.revision || 'Rev.0'}
               </span>
             </div>
             <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
-              {manual.companyName || '(회사명 미등록)'} · 유효일: {manual.effectiveDate || '-'}
+              {manual.companyName || '(íì¬ëª ë¯¸ë±ë¡)'} Â· ì í¨ì¼: {manual.effectiveDate || '-'}
             </div>
             {manual.approvedBy && (
               <div className="text-[12px] mt-1" style={{ color: 'var(--ink-faint)' }}>
-                작성: {manual.preparedBy || '-'} · 검토: {manual.reviewedBy || '-'} · 승인: {manual.approvedBy}
+                ìì±: {manual.preparedBy || '-'} Â· ê²í : {manual.reviewedBy || '-'} Â· ì¹ì¸: {manual.approvedBy}
               </div>
             )}
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            {/* 완성도 */}
+            {/* ìì±ë */}
             <div className="text-center">
               <div className="text-[22px] font-bold" style={{ color: doneCount >= 6 ? '#059669' : '#D97706' }}>
                 {doneCount}/{completeness.length}
               </div>
-              <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>완성도</div>
+              <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>ìì±ë</div>
             </div>
             {canEdit && !editing && (
               <button onClick={startEdit}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                 style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                <Edit2 size={13} /> 편집
+                <Edit2 size={13} /> í¸ì§
               </button>
             )}
             {editing && (
@@ -252,22 +252,22 @@ export default function QualityManualHub() {
                 <button onClick={saveEdit}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Save size={13} /> 저장
+                  <Save size={13} /> ì ì¥
                 </button>
                 <button onClick={cancelEdit} className="px-3 py-2 rounded-xl text-[13px]"
                   style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                  취소
+                  ì·¨ì
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* 완성도 체크리스트 */}
+        {/* ìì±ë ì²´í¬ë¦¬ì¤í¸ */}
         <div className="mb-5 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-          <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>§4.2.1 필수 항목 체크</div>
+          <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>Â§4.2.1 íì í­ëª© ì²´í¬</div>
           <div className="flex flex-wrap gap-2">
-            {completeness.map(c => (
+            {(Array.isArray(completeness)?completeness:[]).map(c => (
               <span key={c.label} className="flex items-center gap-1 text-[11.5px] px-2.5 py-1 rounded-full font-semibold"
                 style={{ background: c.done ? '#D1FAE5' : '#FEE2E2', color: c.done ? '#059669' : '#DC2626' }}>
                 {c.done ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />} {c.label}
@@ -276,15 +276,15 @@ export default function QualityManualHub() {
           </div>
         </div>
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex flex-wrap gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'overview',     label: '기본 정보' },
-            { key: 'scope',        label: '적용 범위·제외' },
-            { key: 'procedures',   label: `절차 참조 (${manual.procedureRefs?.length || 0})` },
-            { key: 'process',      label: '프로세스 맵' },
-            { key: 'distribution', label: `배포 목록 (${manual.distributionList?.length || 0})` },
-            { key: 'history',      label: `개정 이력 (${manual.revisionHistory?.length || 0})` },
+            { key: 'overview',     label: 'ê¸°ë³¸ ì ë³´' },
+            { key: 'scope',        label: 'ì ì© ë²ìÂ·ì ì¸' },
+            { key: 'procedures',   label: `ì ì°¨ ì°¸ì¡° (${manual.procedureRefs?.length || 0})` },
+            { key: 'process',      label: 'íë¡ì¸ì¤ ë§µ' },
+            { key: 'distribution', label: `ë°°í¬ ëª©ë¡ (${manual.distributionList?.length || 0})` },
+            { key: 'history',      label: `ê°ì  ì´ë ¥ (${manual.revisionHistory?.length || 0})` },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition"
@@ -299,43 +299,43 @@ export default function QualityManualHub() {
           ))}
         </div>
 
-        {/* ── 기본 정보 탭 ── */}
+        {/* ââ ê¸°ë³¸ ì ë³´ í­ ââ */}
         {tab === 'overview' && (
           <div className="space-y-4">
             {editing ? (
               <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                  <Field label="회사명" value={D.companyName} onChange={v => F('companyName', v)} />
-                  <Field label="매뉴얼 번호" value={D.manualNo} onChange={v => F('manualNo', v)} />
-                  <Field label="제목" value={D.title} onChange={v => F('title', v)} />
-                  <Field label="개정 번호" value={D.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
-                  <Field label="발행일" type="date" value={D.issueDate} onChange={v => F('issueDate', v)} />
-                  <Field label="유효일" type="date" value={D.effectiveDate} onChange={v => F('effectiveDate', v)} />
-                  <Field label="작성자" value={D.preparedBy} onChange={v => F('preparedBy', v)} />
-                  <Field label="검토자" value={D.reviewedBy} onChange={v => F('reviewedBy', v)} />
-                  <Field label="승인자 *" value={D.approvedBy} onChange={v => F('approvedBy', v)} />
+                  <Field label="íì¬ëª" value={D.companyName} onChange={v => F('companyName', v)} />
+                  <Field label="ë§¤ë´ì¼ ë²í¸" value={D.manualNo} onChange={v => F('manualNo', v)} />
+                  <Field label="ì ëª©" value={D.title} onChange={v => F('title', v)} />
+                  <Field label="ê°ì  ë²í¸" value={D.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
+                  <Field label="ë°íì¼" type="date" value={D.issueDate} onChange={v => F('issueDate', v)} />
+                  <Field label="ì í¨ì¼" type="date" value={D.effectiveDate} onChange={v => F('effectiveDate', v)} />
+                  <Field label="ìì±ì" value={D.preparedBy} onChange={v => F('preparedBy', v)} />
+                  <Field label="ê²í ì" value={D.reviewedBy} onChange={v => F('reviewedBy', v)} />
+                  <Field label="ì¹ì¸ì *" value={D.approvedBy} onChange={v => F('approvedBy', v)} />
                 </div>
-                <FieldArea label="품질 방침 (§5.3)" value={D.qualityPolicy} onChange={v => F('qualityPolicy', v)} rows={4}
-                  placeholder="당사는 ISO 13485 요구사항을 충족하는 의료기기를 지속적으로 제공하기 위해..." />
+                <FieldArea label="íì§ ë°©ì¹¨ (Â§5.3)" value={D.qualityPolicy} onChange={v => F('qualityPolicy', v)} rows={4}
+                  placeholder="ë¹ì¬ë ISO 13485 ìêµ¬ì¬í­ì ì¶©ì¡±íë ìë£ê¸°ê¸°ë¥¼ ì§ìì ì¼ë¡ ì ê³µíê¸° ìí´..." />
               </div>
             ) : (
               <div className="space-y-4">
-                <InfoSection title="기본 정보">
+                <InfoSection title="ê¸°ë³¸ ì ë³´">
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {[
-                      ['회사명', manual.companyName],
-                      ['매뉴얼 번호', manual.manualNo],
-                      ['개정 번호', manual.revision],
-                      ['발행일', manual.issueDate],
-                      ['유효일', manual.effectiveDate],
-                      ['작성자', manual.preparedBy],
-                      ['검토자', manual.reviewedBy],
-                      ['승인자', manual.approvedBy],
+                      ['íì¬ëª', manual.companyName],
+                      ['ë§¤ë´ì¼ ë²í¸', manual.manualNo],
+                      ['ê°ì  ë²í¸', manual.revision],
+                      ['ë°íì¼', manual.issueDate],
+                      ['ì í¨ì¼', manual.effectiveDate],
+                      ['ìì±ì', manual.preparedBy],
+                      ['ê²í ì', manual.reviewedBy],
+                      ['ì¹ì¸ì', manual.approvedBy],
                     ].map(([l, v]) => <InfoItem key={l} label={l} value={v} />)}
                   </div>
                 </InfoSection>
                 {manual.qualityPolicy && (
-                  <InfoSection title="품질 방침 (§5.3)">
+                  <InfoSection title="íì§ ë°©ì¹¨ (Â§5.3)">
                     <p className="text-[13px] whitespace-pre-line leading-relaxed" style={{ color: 'var(--ink)' }}>{manual.qualityPolicy}</p>
                   </InfoSection>
                 )}
@@ -344,22 +344,22 @@ export default function QualityManualHub() {
           </div>
         )}
 
-        {/* ── 적용 범위·제외 탭 ── */}
+        {/* ââ ì ì© ë²ìÂ·ì ì¸ í­ ââ */}
         {tab === 'scope' && (
           <div className="space-y-4">
             {editing ? (
               <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                 <div className="mb-4 p-3 rounded-xl text-[12px]" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1E40AF' }}>
-                  §4.2.1(a) QMS 적용 범위는 제품 유형, 활동, 적용 위치를 명확히 기술해야 합니다.
+                  Â§4.2.1(a) QMS ì ì© ë²ìë ì í ì í, íë, ì ì© ìì¹ë¥¼ ëªíí ê¸°ì í´ì¼ í©ëë¤.
                 </div>
-                <FieldArea label="QMS 적용 범위 *" value={D.scope} onChange={v => F('scope', v)} rows={4}
-                  placeholder="당사 품질경영시스템의 적용 범위는 [제품 유형]의 설계·개발·제조·판매·서비스에 적용됩니다." />
+                <FieldArea label="QMS ì ì© ë²ì *" value={D.scope} onChange={v => F('scope', v)} rows={4}
+                  placeholder="ë¹ì¬ íì§ê²½ììì¤íì ì ì© ë²ìë [ì í ì í]ì ì¤ê³Â·ê°ë°Â·ì ì¡°Â·íë§¤Â·ìë¹ì¤ì ì ì©ë©ëë¤." />
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Field label="적용 의료기기 종류" value={D.deviceTypes} onChange={v => F('deviceTypes', v)} placeholder="혈압계, 체온계, 주사기..." />
-                  <Field label="주요 활동" value={D.activities} onChange={v => F('activities', v)} placeholder="설계·개발·제조·판매·A/S" />
+                  <Field label="ì ì© ìë£ê¸°ê¸° ì¢ë¥" value={D.deviceTypes} onChange={v => F('deviceTypes', v)} placeholder="íìê³, ì²´ì¨ê³, ì£¼ì¬ê¸°..." />
+                  <Field label="ì£¼ì íë" value={D.activities} onChange={v => F('activities', v)} placeholder="ì¤ê³Â·ê°ë°Â·ì ì¡°Â·íë§¤Â·A/S" />
                 </div>
                 <div className="mt-3">
-                  <div className="text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>적용 기기 등급</div>
+                  <div className="text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì ì© ê¸°ê¸° ë±ê¸</div>
                   <div className="flex flex-wrap gap-2">
                     {DEVICE_CLASSES.map(cls => (
                       <label key={cls} className="flex items-center gap-1.5 text-[12.5px] cursor-pointer">
@@ -375,21 +375,21 @@ export default function QualityManualHub() {
                   </div>
                 </div>
 
-                {/* 제외 사항 */}
+                {/* ì ì¸ ì¬í­ */}
                 <div className="mt-5 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
                   <label className="flex items-center gap-2 text-[13px] font-semibold cursor-pointer mb-3" style={{ color: 'var(--ink)' }}>
                     <input type="checkbox" checked={!!D.hasExclusions} onChange={e => F('hasExclusions', e.target.checked)} className="accent-green-500 w-4 h-4" />
-                    §4.2.1(b) 제외 사항 있음 (일부 요구사항 적용 제외)
+                    Â§4.2.1(b) ì ì¸ ì¬í­ ìì (ì¼ë¶ ìêµ¬ì¬í­ ì ì© ì ì¸)
                   </label>
                   {D.hasExclusions && (
                     <div className="space-y-2">
                       {(D.exclusions || []).map(excl => (
                         <div key={excl.id} className="flex gap-2 items-start">
                           <input value={excl.clause} onChange={e => updateExclusion(excl.id, 'clause', e.target.value)}
-                            placeholder="제외 조항 (예: 7.3)" className="w-28 px-2 py-1.5 rounded-xl text-[12.5px]"
+                            placeholder="ì ì¸ ì¡°í­ (ì: 7.3)" className="w-28 px-2 py-1.5 rounded-xl text-[12.5px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                           <input value={excl.reason} onChange={e => updateExclusion(excl.id, 'reason', e.target.value)}
-                            placeholder="제외 사유 (예: 설계·개발 활동 없음)" className="flex-1 px-2 py-1.5 rounded-xl text-[12.5px]"
+                            placeholder="ì ì¸ ì¬ì  (ì: ì¤ê³Â·ê°ë° íë ìì)" className="flex-1 px-2 py-1.5 rounded-xl text-[12.5px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                           <button onClick={() => removeExclusion(excl.id)} className="p-1.5 rounded-lg mt-0.5"
                             style={{ background: '#FEE2E2', border: 'none', cursor: 'pointer' }}>
@@ -399,7 +399,7 @@ export default function QualityManualHub() {
                       ))}
                       <button onClick={addExclusion} className="flex items-center gap-1 text-[12px] px-3 py-1.5 rounded-xl"
                         style={{ background: 'var(--bg-soft)', border: '1px dashed var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-                        <Plus size={12} /> 제외 사항 추가
+                        <Plus size={12} /> ì ì¸ ì¬í­ ì¶ê°
                       </button>
                     </div>
                   )}
@@ -407,16 +407,16 @@ export default function QualityManualHub() {
               </div>
             ) : (
               <div className="space-y-4">
-                <InfoSection title="§4.2.1(a) QMS 적용 범위">
+                <InfoSection title="Â§4.2.1(a) QMS ì ì© ë²ì">
                   <p className="text-[13px] whitespace-pre-line leading-relaxed mb-3" style={{ color: 'var(--ink)' }}>
-                    {manual.scope || <span style={{ color: 'var(--ink-faint)' }}>(미등록)</span>}
+                    {manual.scope || <span style={{ color: 'var(--ink-faint)' }}>(ë¯¸ë±ë¡)</span>}
                   </p>
                   <div className="flex flex-wrap gap-3 text-[12.5px]">
-                    {manual.deviceTypes && <span style={{ color: 'var(--ink-soft)' }}>기기: {manual.deviceTypes}</span>}
-                    {manual.activities && <span style={{ color: 'var(--ink-soft)' }}>활동: {manual.activities}</span>}
+                    {manual.deviceTypes && <span style={{ color: 'var(--ink-soft)' }}>ê¸°ê¸°: {manual.deviceTypes}</span>}
+                    {manual.activities && <span style={{ color: 'var(--ink-soft)' }}>íë: {manual.activities}</span>}
                     {(manual.deviceClasses || []).length > 0 && (
                       <div className="flex gap-1 flex-wrap">
-                        {manual.deviceClasses.map(c => (
+                        {(Array.isArray(manual.deviceClasses)?manual.deviceClasses:[]).map(c => (
                           <span key={c} className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>{c}</span>
                         ))}
                       </div>
@@ -424,21 +424,21 @@ export default function QualityManualHub() {
                   </div>
                 </InfoSection>
 
-                <InfoSection title="§4.2.1(b) 제외 사항">
+                <InfoSection title="Â§4.2.1(b) ì ì¸ ì¬í­">
                   {!manual.hasExclusions ? (
-                    <p className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>제외 사항 없음 — 모든 ISO 13485 요구사항 적용</p>
+                    <p className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>ì ì¸ ì¬í­ ìì â ëª¨ë  ISO 13485 ìêµ¬ì¬í­ ì ì©</p>
                   ) : (manual.exclusions || []).length === 0 ? (
-                    <p className="text-[13px]" style={{ color: '#DC2626' }}>제외 사항 있음으로 설정됐으나 항목이 등록되지 않았습니다.</p>
+                    <p className="text-[13px]" style={{ color: '#DC2626' }}>ì ì¸ ì¬í­ ììì¼ë¡ ì¤ì ëì¼ë í­ëª©ì´ ë±ë¡ëì§ ìììµëë¤.</p>
                   ) : (
                     <table className="w-full text-[12.5px]">
                       <thead><tr style={{ background: 'var(--bg-soft)' }}>
-                        <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>제외 조항</th>
-                        <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>제외 사유</th>
+                        <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>ì ì¸ ì¡°í­</th>
+                        <th className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>ì ì¸ ì¬ì </th>
                       </tr></thead>
                       <tbody>
-                        {manual.exclusions.map((e, i) => (
+                        {(Array.isArray(manual.exclusions)?manual.exclusions:[]).map((e, i) => (
                           <tr key={e.id} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
-                            <td className="px-3 py-2 font-mono font-bold" style={{ color: '#D97706' }}>§{e.clause}</td>
+                            <td className="px-3 py-2 font-mono font-bold" style={{ color: '#D97706' }}>Â§{e.clause}</td>
                             <td className="px-3 py-2" style={{ color: 'var(--ink)' }}>{e.reason}</td>
                           </tr>
                         ))}
@@ -451,29 +451,29 @@ export default function QualityManualHub() {
           </div>
         )}
 
-        {/* ── 절차 참조 탭 ── */}
+        {/* ââ ì ì°¨ ì°¸ì¡° í­ ââ */}
         {tab === 'procedures' && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>§4.2.1(c) 문서화된 절차의 참조 — 해당 SOP/문서를 ISO 조항과 연결하여 등록하세요.</div>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>Â§4.2.1(c) ë¬¸ìíë ì ì°¨ì ì°¸ì¡° â í´ë¹ SOP/ë¬¸ìë¥¼ ISO ì¡°í­ê³¼ ì°ê²°íì¬ ë±ë¡íì¸ì.</div>
               {editing && (
                 <button onClick={addProcRef} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-semibold"
                   style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-                  <Plus size={12} /> 절차 추가
+                  <Plus size={12} /> ì ì°¨ ì¶ê°
                 </button>
               )}
             </div>
 
-            {/* ISO 조항 커버리지 미니 뷰 */}
+            {/* ISO ì¡°í­ ì»¤ë²ë¦¬ì§ ë¯¸ë ë·° */}
             <div className="mb-4 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-              <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>Qualytree 허브 연결 현황</div>
+              <div className="text-[12px] font-bold mb-2" style={{ color: 'var(--ink-soft)' }}>Qualytree íë¸ ì°ê²° íí©</div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-1.5">
                 {QUALYTREE_HUBS.map(h => (
                   <div key={h.path} className="flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-lg"
                     style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                     <CheckCircle2 size={10} style={{ color: 'var(--moss)', flexShrink: 0 }} />
                     <span style={{ color: 'var(--ink-soft)' }}>{h.label}</span>
-                    <span className="ml-auto font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>§{h.clause}</span>
+                    <span className="ml-auto font-mono text-[10px]" style={{ color: 'var(--ink-faint)' }}>Â§{h.clause}</span>
                   </div>
                 ))}
               </div>
@@ -485,16 +485,16 @@ export default function QualityManualHub() {
                   <div key={p.id} className="flex gap-2 flex-wrap items-center p-2 rounded-xl"
                     style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                     <input value={p.sop} onChange={e => updateProcRef(p.id, 'sop', e.target.value)}
-                      placeholder="SOP/절차서 번호" className="w-32 px-2 py-1.5 rounded-lg text-[12.5px]"
+                      placeholder="SOP/ì ì°¨ì ë²í¸" className="w-32 px-2 py-1.5 rounded-lg text-[12.5px]"
                       style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                     <input value={p.title} onChange={e => updateProcRef(p.id, 'title', e.target.value)}
-                      placeholder="문서 제목" className="flex-1 min-w-[160px] px-2 py-1.5 rounded-lg text-[12.5px]"
+                      placeholder="ë¬¸ì ì ëª©" className="flex-1 min-w-[160px] px-2 py-1.5 rounded-lg text-[12.5px]"
                       style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                     <select value={p.clause} onChange={e => updateProcRef(p.id, 'clause', e.target.value)}
                       className="w-40 px-2 py-1.5 rounded-lg text-[12.5px]"
                       style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                      <option value="">ISO 조항 선택</option>
-                      {ISO_SECTIONS.map(s => <option key={s.clause} value={s.clause}>§{s.clause} {s.title}</option>)}
+                      <option value="">ISO ì¡°í­ ì í</option>
+                      {ISO_SECTIONS.map(s => <option key={s.clause} value={s.clause}>Â§{s.clause} {s.title}</option>)}
                     </select>
                     <button onClick={() => removeProcRef(p.id)} className="p-1.5 rounded-lg"
                       style={{ background: '#FEE2E2', border: 'none', cursor: 'pointer' }}>
@@ -504,7 +504,7 @@ export default function QualityManualHub() {
                 ))}
                 {(D.procedureRefs || []).length === 0 && (
                   <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-                    "절차 추가" 버튼으로 SOP를 등록하세요.
+                    "ì ì°¨ ì¶ê°" ë²í¼ì¼ë¡ SOPë¥¼ ë±ë¡íì¸ì.
                   </div>
                 )}
               </div>
@@ -512,19 +512,19 @@ export default function QualityManualHub() {
               <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
                 <table className="w-full text-[12.5px]">
                   <thead><tr style={{ background: 'var(--bg-soft)' }}>
-                    {['SOP 번호', '문서 제목', 'ISO 조항'].map(h => (
+                    {['SOP ë²í¸', 'ë¬¸ì ì ëª©', 'ISO ì¡°í­'].map(h => (
                       <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
                     {(manual.procedureRefs || []).length === 0 ? (
-                      <tr><td colSpan={3} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>등록된 절차 참조가 없습니다. 편집 버튼을 클릭하세요.</td></tr>
+                      <tr><td colSpan={3} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ì ì°¨ ì°¸ì¡°ê° ììµëë¤. í¸ì§ ë²í¼ì í´ë¦­íì¸ì.</td></tr>
                     ) : (manual.procedureRefs || []).map((p, i) => (
                       <tr key={p.id} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
                         <td className="px-3 py-2 font-mono text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>{p.sop || '-'}</td>
                         <td className="px-3 py-2 font-semibold" style={{ color: 'var(--ink)' }}>{p.title}</td>
                         <td className="px-3 py-2">
-                          {p.clause && <span className="font-mono text-[11.5px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>§{p.clause}</span>}
+                          {p.clause && <span className="font-mono text-[11.5px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>Â§{p.clause}</span>}
                         </td>
                       </tr>
                     ))}
@@ -535,15 +535,15 @@ export default function QualityManualHub() {
           </div>
         )}
 
-        {/* ── 프로세스 맵 탭 ── */}
+        {/* ââ íë¡ì¸ì¤ ë§µ í­ ââ */}
         {tab === 'process' && (
           <div>
             <div className="text-[12.5px] mb-4" style={{ color: 'var(--ink-soft)' }}>
-              §4.2.1(d) 프로세스 상호작용 — 핵심 QMS 프로세스의 순서 및 상호작용을 시각화합니다.
+              Â§4.2.1(d) íë¡ì¸ì¤ ìí¸ìì© â íµì¬ QMS íë¡ì¸ì¤ì ìì ë° ìí¸ìì©ì ìê°íí©ëë¤.
             </div>
-            {/* 프로세스 플로우 */}
+            {/* íë¡ì¸ì¤ íë¡ì° */}
             <div className="p-5 rounded-2xl mb-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>핵심 프로세스 흐름도</div>
+              <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>íµì¬ íë¡ì¸ì¤ íë¦ë</div>
               <div className="flex flex-wrap gap-2 items-center">
                 {PROCESS_INTERACTIONS.map((pi, idx) => (
                   <React.Fragment key={idx}>
@@ -561,15 +561,15 @@ export default function QualityManualHub() {
               </div>
             </div>
 
-            {/* Qualytree 허브 - ISO 매핑 */}
+            {/* Qualytree íë¸ - ISO ë§¤í */}
             <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Qualytree 허브 ↔ ISO 13485 조항 매핑</div>
+              <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Qualytree íë¸ â ISO 13485 ì¡°í­ ë§¤í</div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {QUALYTREE_HUBS.map(h => (
                   <div key={h.path} className="flex items-center gap-2 p-2.5 rounded-xl"
                     style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
                     <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded shrink-0"
-                      style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>§{h.clause}</span>
+                      style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>Â§{h.clause}</span>
                     <span className="text-[12px]" style={{ color: 'var(--ink)' }}>{h.label}</span>
                   </div>
                 ))}
@@ -578,28 +578,28 @@ export default function QualityManualHub() {
 
             {editing && (
               <div className="mt-4">
-                <FieldArea label="프로세스 상호작용 추가 설명 (선택)" value={D.processNotes} onChange={v => F('processNotes', v)} rows={3}
-                  placeholder="지원 프로세스: 인적 자원, 인프라, 작업환경 관리가 제품 실현 프로세스를 지원합니다..." />
+                <FieldArea label="íë¡ì¸ì¤ ìí¸ìì© ì¶ê° ì¤ëª (ì í)" value={D.processNotes} onChange={v => F('processNotes', v)} rows={3}
+                  placeholder="ì§ì íë¡ì¸ì¤: ì¸ì  ìì, ì¸íë¼, ììíê²½ ê´ë¦¬ê° ì í ì¤í íë¡ì¸ì¤ë¥¼ ì§ìí©ëë¤..." />
               </div>
             )}
             {!editing && manual.processNotes && (
               <div className="mt-4 p-4 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-                <div className="text-[12.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>추가 설명</div>
+                <div className="text-[12.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì¶ê° ì¤ëª</div>
                 <p className="text-[13px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{manual.processNotes}</p>
               </div>
             )}
           </div>
         )}
 
-        {/* ── 배포 목록 탭 ── */}
+        {/* ââ ë°°í¬ ëª©ë¡ í­ ââ */}
         {tab === 'distribution' && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>품질 매뉴얼 배포 사본 관리</div>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>íì§ ë§¤ë´ì¼ ë°°í¬ ì¬ë³¸ ê´ë¦¬</div>
               {editing && (
                 <button onClick={addDist} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-semibold"
                   style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-                  <Plus size={12} /> 배포처 추가
+                  <Plus size={12} /> ë°°í¬ì² ì¶ê°
                 </button>
               )}
             </div>
@@ -607,13 +607,13 @@ export default function QualityManualHub() {
               <table className="w-full text-[12.5px]">
                 <thead><tr style={{ background: 'var(--bg-soft)' }}>
                   {editing
-                    ? ['부서', '배포 대상자', '사본 번호', ''].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>)
-                    : ['부서', '배포 대상자', '사본 번호'].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>)
+                    ? ['ë¶ì', 'ë°°í¬ ëìì', 'ì¬ë³¸ ë²í¸', ''].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>)
+                    : ['ë¶ì', 'ë°°í¬ ëìì', 'ì¬ë³¸ ë²í¸'].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>)
                   }
                 </tr></thead>
                 <tbody>
                   {(editing ? D.distributionList : manual.distributionList || []).length === 0 ? (
-                    <tr><td colSpan={4} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>배포 목록이 없습니다.</td></tr>
+                    <tr><td colSpan={4} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>ë°°í¬ ëª©ë¡ì´ ììµëë¤.</td></tr>
                   ) : (editing ? D.distributionList : manual.distributionList || []).map((dist, i) => (
                     <tr key={dist.id} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
                       {editing ? (
@@ -646,28 +646,28 @@ export default function QualityManualHub() {
           </div>
         )}
 
-        {/* ── 개정 이력 탭 ── */}
+        {/* ââ ê°ì  ì´ë ¥ í­ ââ */}
         {tab === 'history' && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>품질 매뉴얼 개정 이력</div>
+              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>íì§ ë§¤ë´ì¼ ê°ì  ì´ë ¥</div>
               {editing && (
                 <button onClick={addRevision} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-semibold"
                   style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-                  <Plus size={12} /> 개정 추가
+                  <Plus size={12} /> ê°ì  ì¶ê°
                 </button>
               )}
             </div>
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
               <table className="w-full text-[12.5px]">
                 <thead><tr style={{ background: 'var(--bg-soft)' }}>
-                  {['개정 번호', '개정일', '개정 내용', '작성자', editing ? '' : null].filter(Boolean).map(h => (
+                  {['ê°ì  ë²í¸', 'ê°ì ì¼', 'ê°ì  ë´ì©', 'ìì±ì', editing ? '' : null].filter(Boolean).map(h => (
                     <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                   ))}
                 </tr></thead>
                 <tbody>
                   {(editing ? D.revisionHistory : manual.revisionHistory || []).length === 0 ? (
-                    <tr><td colSpan={5} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>개정 이력이 없습니다.</td></tr>
+                    <tr><td colSpan={5} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>ê°ì  ì´ë ¥ì´ ììµëë¤.</td></tr>
                   ) : (editing ? D.revisionHistory : manual.revisionHistory || []).map((r, i) => (
                     <tr key={r.id} style={{ background: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
                       {editing ? (
@@ -679,10 +679,10 @@ export default function QualityManualHub() {
                             className="w-full px-2 py-1 rounded-lg text-[12.5px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} /></td>
                           <td className="px-3 py-2"><input value={r.description} onChange={e => updateRev(r.id, 'description', e.target.value)}
-                            placeholder="개정 사유 및 내용" className="w-full px-2 py-1 rounded-lg text-[12.5px]"
+                            placeholder="ê°ì  ì¬ì  ë° ë´ì©" className="w-full px-2 py-1 rounded-lg text-[12.5px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} /></td>
                           <td className="px-3 py-2 w-24"><input value={r.by} onChange={e => updateRev(r.id, 'by', e.target.value)}
-                            placeholder="작성자" className="w-full px-2 py-1 rounded-lg text-[12.5px]"
+                            placeholder="ìì±ì" className="w-full px-2 py-1 rounded-lg text-[12.5px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} /></td>
                           <td className="px-3 py-2"><button onClick={() => removeRev(r.id)} className="p-1.5 rounded-lg"
                             style={{ background: '#FEE2E2', border: 'none', cursor: 'pointer' }}>
@@ -708,7 +708,7 @@ export default function QualityManualHub() {
   )
 }
 
-// ── 공통 ─────────────────────────────────────────────────────
+// ââ ê³µíµ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function InfoSection({ title, children }) {
   return (
     <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -721,7 +721,7 @@ function InfoItem({ label, value }) {
   return (
     <div className="p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
       <div className="text-[11px] font-bold mb-0.5" style={{ color: 'var(--ink-faint)' }}>{label}</div>
-      <div className="text-[13px] font-semibold" style={{ color: value ? 'var(--ink)' : 'var(--ink-faint)' }}>{value || '미등록'}</div>
+      <div className="text-[13px] font-semibold" style={{ color: value ? 'var(--ink)' : 'var(--ink-faint)' }}>{value || 'ë¯¸ë±ë¡'}</div>
     </div>
   )
 }
