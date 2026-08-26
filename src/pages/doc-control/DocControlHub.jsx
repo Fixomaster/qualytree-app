@@ -1,5 +1,5 @@
 // src/pages/doc-control/DocControlHub.jsx
-// ISO 13485 Â§4.2.3 ë¬¸ì ê´ë¦¬ + Â§4.2.4 ê¸°ë¡ ê´ë¦¬
+// ISO 13485 §4.2.3 문서 관리 + §4.2.4 기록 관리
 import React, { useState, useMemo } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
@@ -18,33 +18,33 @@ import { commitChange, CHANGE_ACTIONS } from '../../lib/changeControl'
 import { eid, ENTITY_TYPES } from '../../lib/entityRegistry'
 import { Paperclip, X, Building2 } from 'lucide-react'
 
-// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY_DOCS = 'qualytree.doc_register'
 
 const DOC_TYPES = {
-  QM:   { label: 'íì§ ë§¤ë´ì¼',   badge: 'QM',  color: '#7C3AED', bg: '#EDE9FE' },
-  SOP:  { label: 'íì¤ììì ì°¨ì', badge: 'SOP', color: '#2563EB', bg: '#DBEAFE' },
-  WI:   { label: 'ììì§ìì',    badge: 'WI',  color: '#0891B2', bg: '#CFFAFE' },
-  FORM: { label: 'ìì',          badge: 'FM',  color: '#059669', bg: '#D1FAE5' },
-  SPEC: { label: 'ì¬ìì',        badge: 'SP',  color: '#D97706', bg: '#FEF3C7' },
-  PLAN: { label: 'ê³íì',        badge: 'PL',  color: '#DC2626', bg: '#FEE2E2' },
-  REPT: { label: 'ë³´ê³ ì',        badge: 'RP',  color: '#9CA3AF', bg: '#F3F4F6' },
-  OTHER:{ label: 'ê¸°í',          badge: 'OT',  color: '#6B7280', bg: '#F9FAFB' },
+  QM:   { label: '품질 매뉴얼',   badge: 'QM',  color: '#7C3AED', bg: '#EDE9FE' },
+  SOP:  { label: '표준작업절차서', badge: 'SOP', color: '#2563EB', bg: '#DBEAFE' },
+  WI:   { label: '작업지시서',    badge: 'WI',  color: '#0891B2', bg: '#CFFAFE' },
+  FORM: { label: '서식',          badge: 'FM',  color: '#059669', bg: '#D1FAE5' },
+  SPEC: { label: '사양서',        badge: 'SP',  color: '#D97706', bg: '#FEF3C7' },
+  PLAN: { label: '계획서',        badge: 'PL',  color: '#DC2626', bg: '#FEE2E2' },
+  REPT: { label: '보고서',        badge: 'RP',  color: '#9CA3AF', bg: '#F3F4F6' },
+  OTHER:{ label: '기타',          badge: 'OT',  color: '#6B7280', bg: '#F9FAFB' },
 }
 
 const DOC_STATUSES = {
-  draft:       { label: 'ì´ì',    color: '#6366F1', bg: '#EEF2FF' },
-  review:      { label: 'ê²í  ì¤', color: '#D97706', bg: '#FEF3C7' },
-  approved:    { label: 'ì¹ì¸',    color: '#059669', bg: '#D1FAE5' },
-  distributed: { label: 'ë°°í¬',    color: '#2563EB', bg: '#DBEAFE' },
-  obsolete:    { label: 'íê¸°',    color: '#9CA3AF', bg: '#F3F4F6' },
+  draft:       { label: '초안',    color: '#6366F1', bg: '#EEF2FF' },
+  review:      { label: '검토 중', color: '#D97706', bg: '#FEF3C7' },
+  approved:    { label: '승인',    color: '#059669', bg: '#D1FAE5' },
+  distributed: { label: '배포',    color: '#2563EB', bg: '#DBEAFE' },
+  obsolete:    { label: '폐기',    color: '#9CA3AF', bg: '#F3F4F6' },
 }
 
 const DEPT_CODES = ['SAL','MFG','PUR','QUA','EQP','DEV','DOC','MR','TRN','RA','AUD','IMP','ALL']
 
-const RETENTION_PERIODS = ['1ë', '2ë', '3ë', '5ë', '7ë', '10ë', 'ìêµ¬ ë³´ì¡´']
+const RETENTION_PERIODS = ['1년', '2년', '3년', '5년', '7년', '10년', '영구 보존']
 
-const DOC_DEPTS = ['íì§ë¶(QUA)', 'ìì°ë¶(MFG)', 'ê°ë°ë¶(DEV)', 'ììë¶(SAL)', 'êµ¬ë§¤ë¶(PUR)', 'ì¤ë¹ë¶(EQP)', 'ë¬¸ìê´ë¦¬(DOC)', 'ê²½ìê²í (MR)', 'ì¸íê°(RA)', 'ì  ë¶ì']
+const DOC_DEPTS = ['품질부(QUA)', '생산부(MFG)', '개발부(DEV)', '영업부(SAL)', '구매부(PUR)', '설비부(EQP)', '문서관리(DOC)', '경영검토(MR)', '인허가(RA)', '전 부서']
 
 function genDocId() { return `DOC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
@@ -53,10 +53,10 @@ const EMPTY_DOC = {
   docNo: '', title: '', type: 'SOP', status: 'draft',
   revision: 'Rev.0', issueDate: '', approvedDate: '', reviewDate: '',
   author: '', reviewer: '', approver: '',
-  ownerDept: 'íì§ë¶(QUA)',
+  ownerDept: '품질부(QUA)',
   distributionList: [],
-  retentionPeriod: '3ë',
-  relatedStandard: '',   // e.g. ISO 13485 Â§7.5.3
+  retentionPeriod: '3년',
+  relatedStandard: '',   // e.g. ISO 13485 §7.5.3
   linkedHubId: '',
   supersededBy: '', supersedes: '',
   scope: '', purpose: '',
@@ -64,15 +64,15 @@ const EMPTY_DOC = {
   notes: '',
 }
 
-// ââ íì¬Â·ì¸ì¦ìë¥ í¨ë (KGMP Â§6 â íì¬ ê¸°ë³¸ì ë³´ + ì¸íê° ì ì¶ì© íì¬ ìë¥) ââââââ
-// ì¤ì  ìë ¥Â·ìì ì ì¬ì´ëë©ë´ "ê¸°ë³¸ì ë³´"(/company) í ê³³ììë§ ì´ë¤ì§ëë¡ íê³ ,
-// ì¬ê¸°ìë ê°ì ë°ì´í°(onboarding.company / companyDocs)ë¥¼ ì½ê¸° ì ì©ì¼ë¡ ë³´ì¬ì£¼ê¸°ë§ íë¤.
-// (ì¤ë³µ ìë ¥ íë©´ì ìì  ë°ì´í° ë¶ì¼ì¹ë¥¼ ìì²ì ì¼ë¡ ë°©ì§)
+// ── 회사·인증서류 패널 (KGMP §6 — 회사 기본정보 + 인허가 제출용 회사 서류) ──────
+// 실제 입력·수정은 사이드메뉴 "기본정보"(/company) 한 곳에서만 이뤄지도록 하고,
+// 여기서는 같은 데이터(onboarding.company / companyDocs)를 읽기 전용으로 보여주기만 한다.
+// (중복 입력 화면을 없애 데이터 불일치를 원천적으로 방지)
 function InfoField({ label, value }) {
   return (
     <div>
       <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
-      <div className="text-[13px] mt-0.5" style={{ color: value ? 'var(--ink)' : 'var(--ink-faint)' }}>{value || 'ë¯¸ìë ¥'}</div>
+      <div className="text-[13px] mt-0.5" style={{ color: value ? 'var(--ink)' : 'var(--ink-faint)' }}>{value || '미입력'}</div>
     </div>
   )
 }
@@ -91,31 +91,31 @@ function CompanyDocsPanel() {
         <div className="flex items-center justify-between gap-2 mb-1">
           <div className="flex items-center gap-2">
             <Building2 size={16} style={{ color: 'var(--moss)' }} />
-            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>íì¬ ê¸°ë³¸ ì ë³´</div>
+            <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>회사 기본 정보</div>
           </div>
           <button type="button" onClick={() => navigate('/company')} className="text-[11.5px] font-medium shrink-0" style={{ color: 'var(--moss)' }}>
-            ê¸°ë³¸ì ë³´ìì ìì  â
+            기본정보에서 수정 →
           </button>
         </div>
         <div className="text-[11px] mb-3" style={{ color: 'var(--ink-faint)' }}>
-          íì¬ ê¸°ë³¸ì ë³´ì ì¸ì¦Â·íê° ìë¥ë ì¬ì´ëë©ë´ "ê¸°ë³¸ì ë³´"ìì í ê³³ì ìë ¥Â·ê´ë¦¬í©ëë¤. ì¬ê¸°ìë ìµì  ë±ë¡ íí©ë§ íì¸í©ëë¤.
+          회사 기본정보와 인증·허가 서류는 사이드메뉴 "기본정보"에서 한 곳에 입력·관리합니다. 여기서는 최신 등록 현황만 확인합니다.
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <InfoField label="íì¬ëª" value={company.name} />
-          <InfoField label="ì¬ììë±ë¡ë²í¸" value={company.bizNumber} />
-          <InfoField label="ëíì" value={company.ceo} />
-          <InfoField label="íì§ì±ìì" value={company.qmRep} />
+          <InfoField label="회사명" value={company.name} />
+          <InfoField label="사업자등록번호" value={company.bizNumber} />
+          <InfoField label="대표자" value={company.ceo} />
+          <InfoField label="품질책임자" value={company.qmRep} />
         </div>
         {!profileDone && (
           <div className="mt-3 text-[11.5px] px-2.5 py-1.5 rounded-lg" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-            íì¬ ê¸°ë³¸ì ë³´ê° ìì§ ìë ¥ëì§ ìììµëë¤. "ê¸°ë³¸ì ë³´"ìì ìë ¥í´ ì£¼ì¸ì.
+            회사 기본정보가 아직 입력되지 않았습니다. "기본정보"에서 입력해 주세요.
           </div>
         )}
       </div>
 
       <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
-          <span className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>ì¸ì¦Â·íê° ìë¥ ë±ë¡ íí©</span>
+          <span className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>인증·허가 서류 등록 현황</span>
           <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{registeredCount} / {allCategories.length}</span>
         </div>
         {allCategories.map((category, i) => {
@@ -128,24 +128,24 @@ function CompanyDocsPanel() {
             >
               <span className="text-[12.5px] font-medium flex-1 min-w-0" style={{ color: 'var(--ink)' }}>{category}</span>
               {doc?.fileId ? (
-                <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || 'ì²¨ë¶ë¨'}</span>
+                <span className="text-[11.5px] truncate max-w-[220px]" style={{ color: 'var(--moss)' }}>{doc.fileName || '첨부됨'}</span>
               ) : doc ? (
-                <span className="text-[11.5px]" style={{ color: 'var(--amber)' }}>ë±ë¡ë¨ Â· ì²¨ë¶ ìì</span>
+                <span className="text-[11.5px]" style={{ color: 'var(--amber)' }}>등록됨 · 첨부 없음</span>
               ) : (
-                <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>ë¯¸ë±ë¡</span>
+                <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>미등록</span>
               )}
             </div>
           )
         })}
       </div>
       <button type="button" onClick={() => navigate('/company?tab=docs')} className="mt-3 text-[12px] font-medium" style={{ color: 'var(--moss)' }}>
-        ê¸°ë³¸ì ë³´ íì¬ë¬¸ìí¨ìì ë±ë¡Â·ìì íê¸° â
+        기본정보 회사문서함에서 등록·수정하기 →
       </button>
     </div>
   )
 }
 
-// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 메인 ─────────────────────────────────────────────────────
 export default function DocControlHub() {
   const user = auth.current()
   const canEdit = user?.level >= 2
@@ -168,8 +168,8 @@ export default function DocControlHub() {
   function saveDocs(list) { setDocs(list); localStorage.setItem(LS_KEY_DOCS, JSON.stringify(list)) }
 
   function submitDoc() {
-    if (!form.title.trim()) return alert('ë¬¸ì ì ëª©ì ìë ¥íì¸ì.')
-    if (!form.docNo.trim()) return alert('ë¬¸ì ë²í¸ë¥¼ ìë ¥íì¸ì.')
+    if (!form.title.trim()) return alert('문서 제목을 입력하세요.')
+    if (!form.docNo.trim()) return alert('문서 번호를 입력하세요.')
     const isEdit = !!editId
     if (isEdit) {
       const before = docs.find(d => d.id === editId) || null
@@ -179,7 +179,7 @@ export default function DocControlHub() {
         targetEid: eid(ENTITY_TYPES.DOCUMENT, editId),
         action: CHANGE_ACTIONS.UPDATE,
         before, after,
-        reason: 'ë¬¸ì ì ë³´ ìì ',
+        reason: '문서 정보 수정',
       })
     } else {
       const rec = { id: genDocId(), createdAt: today(), revisionHistory: [], ...form }
@@ -188,14 +188,14 @@ export default function DocControlHub() {
         targetEid: eid(ENTITY_TYPES.DOCUMENT, rec.id),
         action: CHANGE_ACTIONS.CREATE,
         before: null, after: rec,
-        reason: 'ì ê· ë¬¸ì ë±ë¡',
+        reason: '신규 문서 등록',
       })
     }
     setShowForm(false); setForm(EMPTY_DOC); setEditId(null)
   }
 
   function deleteDoc(id) {
-    if (!confirm('ë¬¸ìë¥¼ ì­ì íìê² ìµëê¹?')) return
+    if (!confirm('문서를 삭제하시겠습니까?')) return
     saveDocs(docs.filter(d => d.id !== id))
     if (showDetail === id) setShowDetail(null)
   }
@@ -212,7 +212,7 @@ export default function DocControlHub() {
         targetEid: eid(ENTITY_TYPES.DOCUMENT, id),
         action: CHANGE_ACTIONS.UPDATE,
         before, after,
-        reason: `ë¬¸ì ìí ë³ê²½ (${DOC_STATUSES[status]?.label || status})`,
+        reason: `문서 상태 변경 (${DOC_STATUSES[status]?.label || status})`,
       })
     }
   }
@@ -226,7 +226,7 @@ export default function DocControlHub() {
     }))
   }
 
-  // íí°ë§
+  // 필터링
   const filteredDocs = useMemo(() => docs.filter(d => {
     if (filterType !== 'all' && d.type !== filterType) return false
     if (filterStatus !== 'all' && d.status !== filterStatus) return false
@@ -235,7 +235,7 @@ export default function DocControlHub() {
     return true
   }), [docs, filterType, filterStatus, filterDept, searchQ])
 
-  // ë¬¸ì ì í ì°ì ìì: ë§¤ë´ì¼ â ì ì°¨ì â ììì§ìì â ìì ìì¼ë¡ íì (ISO 13485 Â§4.2.3 ë¬¸ì ì²´ê³)
+  // 문서 유형 우선순위: 매뉴얼 → 절차서 → 작업지시서 → 양식 순으로 표시 (ISO 13485 §4.2.3 문서 체계)
   const TYPE_ORDER = Object.keys(DOC_TYPES)
   const sortedDocs = useMemo(() => {
     return [...filteredDocs].sort((a, b) => {
@@ -245,7 +245,7 @@ export default function DocControlHub() {
     })
   }, [filteredDocs])
 
-  // ë¶ì ë°ì´í°
+  // 분석 데이터
   const analysis = useMemo(() => {
     const byType = {}
     Object.keys(DOC_TYPES).forEach(k => { byType[k] = docs.filter(d => d.type === k).length })
@@ -262,17 +262,17 @@ export default function DocControlHub() {
   const detailDoc = docs.find(d => d.id === showDetail)
 
   return (
-    <AppLayout user={user} title="ë¬¸ì ê´ë¦¬" subtitle="ISO 13485 Â§4.2.3 ë¬¸ì ê´ë¦¬ / Â§4.2.4 ê¸°ë¡ ê´ë¦¬">
+    <AppLayout user={user} title="문서 관리" subtitle="ISO 13485 §4.2.3 문서 관리 / §4.2.4 기록 관리">
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* í­ */}
+        {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'company',  label: 'íì¬Â·ì¸ì¦ìë¥' },
-            { key: 'docs',     label: `ë¬¸ì ëì¥ (${docs.length})` },
-            { key: 'analysis', label: 'íí© ë¶ì' },
-{ key: 'quality-manual', label: 'íì§ë§¤ë´ì¼' },
-{ key: 'medical-device-file', label: 'ìë£ê¸°ê¸°íì¼' },
+            { key: 'company',  label: '회사·인증서류' },
+            { key: 'docs',     label: `문서 대장 (${docs.length})` },
+            { key: 'analysis', label: '현황 분석' },
+{ key: 'quality-manual', label: '품질매뉴얼' },
+{ key: 'medical-device-file', label: '의료기기파일' },
           ].map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setShowDetail(null) }}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -287,49 +287,49 @@ export default function DocControlHub() {
           ))}
         </div>
 
-        {/* ââ íì¬Â·ì¸ì¦ìë¥ ââ */}
+        {/* ── 회사·인증서류 ── */}
         {tab === 'company' && <CompanyDocsPanel />}
 
-        {/* ââ ë¬¸ì ëì¥ ââ */}
+        {/* ── 문서 대장 ── */}
         {tab === 'docs' && !detailDoc && (
           <div>
-            {/* #309: ì ì°¨ìÂ·ë§¤ë´ì¼ ë± ì ì QMS ë¬¸ìë AI ìëìì± ë°©ìì íì§ë¬¸ì(Documents.jsx)ìì
-                ìì±Â·ìì í©ëë¤. ì´ ë¬¸ìëì¥ì ê·¸ ì¸ ì¸ì¦ìÂ·ì¸ë¶ë¬¸ì ë±ì ë±ë¡Â·ì´ë ¥ ê´ë¦¬ì©ìëë¤. */}
+            {/* #309: 절차서·매뉴얼 등 정식 QMS 문서는 AI 자동생성 방식의 품질문서(Documents.jsx)에서
+                작성·수정합니다. 이 문서대장은 그 외 인증서·외부문서 등의 등록·이력 관리용입니다. */}
             <div className="mb-4 p-3.5 rounded-xl flex items-center justify-between gap-3 flex-wrap"
               style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
               <div className="text-[12.5px]" style={{ color: '#1E40AF' }}>
-                <strong>ì ì°¨ìÂ·ë§¤ë´ì¼ ë± ì ì QMS ë¬¸ì</strong>ë AIê° ìëì¼ë¡ ìì±Â·ìì íë <strong>íì§ë¬¸ì</strong>ìì ê´ë¦¬ë©ëë¤.
-                ì´ ë¬¸ìëì¥ì ì¸ì¦ìÂ·ì¸ë¶ë¬¸ì ë± ê·¸ ì¸ ë¬¸ìì ë±ë¡Â·ì´ë ¥ ê´ë¦¬ì©ìëë¤.
+                <strong>절차서·매뉴얼 등 정식 QMS 문서</strong>는 AI가 자동으로 작성·수정하는 <strong>품질문서</strong>에서 관리됩니다.
+                이 문서대장은 인증서·외부문서 등 그 외 문서의 등록·이력 관리용입니다.
               </div>
               <button onClick={() => navigate('/documents')}
                 className="shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-bold"
                 style={{ background: '#2563EB', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                íì§ë¬¸ì(AI ìëìì±)ë¡ ì´ë â
+                품질문서(AI 자동생성)로 이동 →
               </button>
             </div>
-            {/* ê²ìÂ·íí° */}
+            {/* 검색·필터 */}
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                placeholder="ë¬¸ìë²í¸Â·ì ëª© ê²ì..."
+                placeholder="문서번호·제목 검색..."
                 className="px-3 py-1.5 rounded-xl text-[13px] flex-1 min-w-[160px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
               <select value={filterType} onChange={e => setFilterType(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ì í</option>
+                <option value="all">전체 유형</option>
                 {Object.entries(DOC_TYPES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ìí</option>
+                <option value="all">전체 상태</option>
                 {Object.entries(DOC_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm(EMPTY_DOC); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> ë¬¸ì ë±ë¡
+                  <Plus size={14} /> 문서 등록
                 </button>
               )}
             </div>
@@ -340,30 +340,30 @@ export default function DocControlHub() {
                 isEdit={!!editId} />
             )}
 
-            {/* ê²í  ê¸°í ê²½ë³´ */}
+            {/* 검토 기한 경보 */}
             {analysis.pendingReview.length > 0 && (
               <div className="mb-4 p-3 rounded-xl flex items-center gap-2 text-[12.5px] flex-wrap"
                 style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
                 <AlertTriangle size={14} />
-                ì ê¸° ê²í  ê¸°í ëë: {analysis.pendingReview.map(d => (
+                정기 검토 기한 도래: {analysis.pendingReview.map(d => (
                   <span key={d.id} className="font-bold cursor-pointer underline mx-1" onClick={() => setShowDetail(d.id)}>{d.docNo}</span>
                 ))}
               </div>
             )}
 
-            {/* ë¬¸ì ëª©ë¡ íì´ë¸ */}
+            {/* 문서 목록 테이블 */}
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
               <table className="w-full text-[12.5px]">
                 <thead>
                   <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['ë¬¸ìë²í¸', 'ì í', 'ì ëª©', 'ê°ì ', 'ìí', 'ìì± ë¶ì', 'ì¹ì¸ì¼', 'ê²í  ìì ì¼', ''].map(h => (
+                    {['문서번호', '유형', '제목', '개정', '상태', '작성 부서', '승인일', '검토 예정일', ''].map(h => (
                       <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {sortedDocs.length === 0 ? (
-                    <tr><td colSpan={9} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ë¬¸ìê° ììµëë¤.</td></tr>
+                    <tr><td colSpan={9} className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>등록된 문서가 없습니다.</td></tr>
                   ) : sortedDocs.map((doc, i) => {
                     const tp = DOC_TYPES[doc.type] || DOC_TYPES.OTHER
                     const st = DOC_STATUSES[doc.status] || DOC_STATUSES.draft
@@ -384,15 +384,15 @@ export default function DocControlHub() {
                         <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{doc.ownerDept}</td>
                         <td className="px-3 py-2" style={{ color: 'var(--ink-soft)' }}>{doc.approvedDate || '-'}</td>
                         <td className="px-3 py-2" style={{ color: reviewOverdue ? '#DC2626' : 'var(--ink-soft)', fontWeight: reviewOverdue ? 700 : 400 }}>
-                          {doc.reviewDate || '-'}{reviewOverdue && ' â '}
+                          {doc.reviewDate || '-'}{reviewOverdue && ' ⚠'}
                         </td>
                         <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
                           {canEdit && (
                             <div className="flex gap-1">
-                              {doc.status === 'draft' && <QuickBtn label="ê²í " color="#D97706" onClick={() => quickDocStatus(doc.id, 'review')} />}
-                              {doc.status === 'review' && <QuickBtn label="ì¹ì¸" color="#059669" onClick={() => quickDocStatus(doc.id, 'approved')} />}
-                              {doc.status === 'approved' && <QuickBtn label="ë°°í¬" color="#2563EB" onClick={() => quickDocStatus(doc.id, 'distributed')} />}
-                              {doc.status !== 'obsolete' && <QuickBtn label="íê¸°" color="#9CA3AF" onClick={() => quickDocStatus(doc.id, 'obsolete')} />}
+                              {doc.status === 'draft' && <QuickBtn label="검토" color="#D97706" onClick={() => quickDocStatus(doc.id, 'review')} />}
+                              {doc.status === 'review' && <QuickBtn label="승인" color="#059669" onClick={() => quickDocStatus(doc.id, 'approved')} />}
+                              {doc.status === 'approved' && <QuickBtn label="배포" color="#2563EB" onClick={() => quickDocStatus(doc.id, 'distributed')} />}
+                              {doc.status !== 'obsolete' && <QuickBtn label="폐기" color="#9CA3AF" onClick={() => quickDocStatus(doc.id, 'obsolete')} />}
                               <button onClick={() => { setForm({ ...EMPTY_DOC, ...doc }); setEditId(doc.id); setShowForm(true) }}
                                 className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                                 <Edit2 size={11} style={{ color: 'var(--ink-soft)' }} />
@@ -413,14 +413,14 @@ export default function DocControlHub() {
           </div>
         )}
 
-        {/* ââ ë¬¸ì ìì¸ ââ */}
+        {/* ── 문서 상세 ── */}
         {tab === 'docs' && detailDoc && (
           <DocDetail doc={detailDoc} canEdit={canEdit}
             onBack={() => setShowDetail(null)} onEdit={() => { setForm({ ...EMPTY_DOC, ...detailDoc }); setEditId(detailDoc.id); setShowForm(true); setShowDetail(null) }}
             onDelete={() => deleteDoc(detailDoc.id)} />
         )}
 
-        {/* ââ ë¶ì í­ ââ */}
+        {/* ── 분석 탭 ── */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} docs={docs} setShowDetail={setShowDetail} setTab={setTab} />
         )}
@@ -432,7 +432,7 @@ export default function DocControlHub() {
   )
 }
 
-// ââ ë¬¸ì ìì¸ ë·° âââââââââââââââââââââââââââââââââââââââââââââ
+// ── 문서 상세 뷰 ─────────────────────────────────────────────
 function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
   const tp = DOC_TYPES[doc.type] || DOC_TYPES.OTHER
   const st = DOC_STATUSES[doc.status] || DOC_STATUSES.draft
@@ -441,7 +441,7 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
     <div>
       <button onClick={onBack} className="flex items-center gap-1 mb-4 text-[13px]"
         style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
-        â ëª©ë¡ì¼ë¡
+        ← 목록으로
       </button>
 
       <div className="p-5 rounded-2xl mb-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -459,7 +459,7 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
             <div className="flex gap-2">
               <button onClick={onEdit} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px]"
                 style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                <Edit2 size={12} /> ìì 
+                <Edit2 size={12} /> 수정
               </button>
             </div>
           )}
@@ -467,14 +467,14 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           {[
-            { label: 'ìì±ì', value: doc.author || '-' },
-            { label: 'ê²í ì', value: doc.reviewer || '-' },
-            { label: 'ì¹ì¸ì', value: doc.approver || '-' },
-            { label: 'ê´ë¦¬ ë¶ì', value: doc.ownerDept },
-            { label: 'ë°íì¼', value: doc.issueDate || '-' },
-            { label: 'ì¹ì¸ì¼', value: doc.approvedDate || '-' },
-            { label: 'ì ê¸°ê²í ì¼', value: doc.reviewDate || '-' },
-            { label: 'ë³´ì¡´ ê¸°ê°', value: doc.retentionPeriod },
+            { label: '작성자', value: doc.author || '-' },
+            { label: '검토자', value: doc.reviewer || '-' },
+            { label: '승인자', value: doc.approver || '-' },
+            { label: '관리 부서', value: doc.ownerDept },
+            { label: '발행일', value: doc.issueDate || '-' },
+            { label: '승인일', value: doc.approvedDate || '-' },
+            { label: '정기검토일', value: doc.reviewDate || '-' },
+            { label: '보존 기간', value: doc.retentionPeriod },
           ].map(({ label, value }) => (
             <div key={label} className="p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
               <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
@@ -485,26 +485,26 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
 
         {doc.relatedStandard && (
           <div className="mb-3 p-2.5 rounded-xl text-[12px]" style={{ background: '#EFF6FF', color: '#1E40AF' }}>
-            <span className="font-bold">ê´ë ¨ ê·ê²©: </span>{doc.relatedStandard}
+            <span className="font-bold">관련 규격: </span>{doc.relatedStandard}
           </div>
         )}
         {doc.scope && (
           <div className="mb-2 p-2.5 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ì ì© ë²ì: </span>
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>적용 범위: </span>
             <span style={{ color: 'var(--ink-soft)' }}>{doc.scope}</span>
           </div>
         )}
         {doc.purpose && (
           <div className="mb-2 p-2.5 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ëª©ì : </span>
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>목적: </span>
             <span style={{ color: 'var(--ink-soft)' }}>{doc.purpose}</span>
           </div>
         )}
 
-        {/* ë°°í¬ ëª©ë¡ */}
+        {/* 배포 목록 */}
         {doc.distributionList && doc.distributionList.length > 0 && (
           <div className="mb-2">
-            <div className="text-[12px] font-bold mb-1.5" style={{ color: 'var(--ink)' }}>ë°°í¬ ëª©ë¡</div>
+            <div className="text-[12px] font-bold mb-1.5" style={{ color: 'var(--ink)' }}>배포 목록</div>
             <div className="flex flex-wrap gap-1.5">
               {doc.distributionList.map(d => (
                 <span key={d} className="text-[11px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#DBEAFE', color: '#1E40AF' }}>{d}</span>
@@ -515,24 +515,24 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
 
         {(doc.supersedes || doc.supersededBy) && (
           <div className="flex gap-4 mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-            {doc.supersedes && <span>ëì²´ ë¬¸ì: <strong style={{ color: 'var(--ink)' }}>{doc.supersedes}</strong></span>}
-            {doc.supersededBy && <span>ëì²´ë¨: <strong style={{ color: '#DC2626' }}>{doc.supersededBy}</strong></span>}
+            {doc.supersedes && <span>대체 문서: <strong style={{ color: 'var(--ink)' }}>{doc.supersedes}</strong></span>}
+            {doc.supersededBy && <span>대체됨: <strong style={{ color: '#DC2626' }}>{doc.supersededBy}</strong></span>}
           </div>
         )}
       </div>
 
-      {/* ê°ì  ì´ë ¥ */}
+      {/* 개정 이력 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--ink)' }}>
-          <History size={14} /> ê°ì  ì´ë ¥ ({(doc.revisionHistory || []).length}ê±´)
+          <History size={14} /> 개정 이력 ({(doc.revisionHistory || []).length}건)
         </div>
         {(doc.revisionHistory || []).length === 0 ? (
-          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ê°ì  ì´ë ¥ ìì</div>
+          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>개정 이력 없음</div>
         ) : (
           <table className="w-full text-[12px]">
             <thead>
               <tr style={{ background: 'var(--bg-soft)' }}>
-                {['ê°ì  ë²í¸', 'ì¼ì', 'ë´ë¹ì', 'ê°ì  ë´ì©'].map(h => (
+                {['개정 번호', '일자', '담당자', '개정 내용'].map(h => (
                   <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
@@ -554,7 +554,7 @@ function DocDetail({ doc, canEdit, onBack, onEdit, onDelete }) {
   )
 }
 
-// ââ ë¶ì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 분석 ─────────────────────────────────────────────────────
 function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
   return (
     <div className="space-y-5">
@@ -578,7 +578,7 @@ function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
 
       {analysis.pendingReview.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>â° ì ê¸° ê²í  ê¸°í ëë ({analysis.pendingReview.length}ê±´)</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>⏰ 정기 검토 기한 도래 ({analysis.pendingReview.length}건)</div>
           <div className="space-y-1.5">
             {analysis.pendingReview.map(doc => (
               <div key={doc.id} className="flex items-center justify-between p-2.5 rounded-xl cursor-pointer"
@@ -588,7 +588,7 @@ function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
                   <span className="font-mono font-bold text-[11.5px]" style={{ color: '#78350F' }}>{doc.docNo}</span>
                   <span className="ml-2 text-[12px]" style={{ color: '#92400E' }}>{doc.title}</span>
                 </div>
-                <span className="text-[11px]" style={{ color: '#D97706' }}>ê²í ì¼: {doc.reviewDate}</span>
+                <span className="text-[11px]" style={{ color: '#D97706' }}>검토일: {doc.reviewDate}</span>
               </div>
             ))}
           </div>
@@ -597,7 +597,7 @@ function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
 
       <div className="grid grid-cols-1 gap-4">
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ë¬¸ì ì íë³ íí©</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>문서 유형별 현황</div>
           {Object.entries(DOC_TYPES).map(([k, v]) => (
             <div key={k} className="flex items-center gap-3 mb-1.5">
               <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full w-10 text-center" style={{ background: v.bg, color: v.color }}>{v.badge}</span>
@@ -615,7 +615,7 @@ function AnalysisView({ analysis, docs, setShowDetail, setTab }) {
   )
 }
 
-// ââ í¼ âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 폼 ───────────────────────────────────────────────────────
 function DocForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const toggleDist = (dept) => {
@@ -624,36 +624,36 @@ function DocForm({ form, setForm, onSave, onCancel, isEdit }) {
   }
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'ë¬¸ì ìì ' : 'ë¬¸ì ë±ë¡'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '문서 수정' : '문서 등록'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="ë¬¸ì ë²í¸ *" value={form.docNo} onChange={v => F('docNo', v)} placeholder="QUA-SOP-001" />
-        <Field label="ì ëª© *" value={form.title} onChange={v => F('title', v)} />
-        <FieldSelect label="ì í" value={form.type} onChange={v => F('type', v)}
+        <Field label="문서 번호 *" value={form.docNo} onChange={v => F('docNo', v)} placeholder="QUA-SOP-001" />
+        <Field label="제목 *" value={form.title} onChange={v => F('title', v)} />
+        <FieldSelect label="유형" value={form.type} onChange={v => F('type', v)}
           options={Object.entries(DOC_TYPES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <FieldSelect label="ìí" value={form.status} onChange={v => F('status', v)}
+        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={Object.entries(DOC_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <Field label="ê°ì  ë²í¸" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
-        <FieldSelect label="ê´ë¦¬ ë¶ì" value={form.ownerDept} onChange={v => F('ownerDept', v)}
+        <Field label="개정 번호" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
+        <FieldSelect label="관리 부서" value={form.ownerDept} onChange={v => F('ownerDept', v)}
           options={DOC_DEPTS.map(d => ({ value: d, label: d }))} />
-        <Field label="ìì±ì" value={form.author} onChange={v => F('author', v)} />
-        <Field label="ê²í ì" value={form.reviewer} onChange={v => F('reviewer', v)} />
-        <Field label="ì¹ì¸ì" value={form.approver} onChange={v => F('approver', v)} />
-        <Field label="ë°íì¼" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
-        <Field label="ì¹ì¸ì¼" type="date" value={form.approvedDate} onChange={v => F('approvedDate', v)} />
-        <Field label="ì ê¸° ê²í  ìì ì¼" type="date" value={form.reviewDate} onChange={v => F('reviewDate', v)} />
-        <FieldSelect label="ë³´ì¡´ ê¸°ê°" value={form.retentionPeriod} onChange={v => F('retentionPeriod', v)}
+        <Field label="작성자" value={form.author} onChange={v => F('author', v)} />
+        <Field label="검토자" value={form.reviewer} onChange={v => F('reviewer', v)} />
+        <Field label="승인자" value={form.approver} onChange={v => F('approver', v)} />
+        <Field label="발행일" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
+        <Field label="승인일" type="date" value={form.approvedDate} onChange={v => F('approvedDate', v)} />
+        <Field label="정기 검토 예정일" type="date" value={form.reviewDate} onChange={v => F('reviewDate', v)} />
+        <FieldSelect label="보존 기간" value={form.retentionPeriod} onChange={v => F('retentionPeriod', v)}
           options={RETENTION_PERIODS.map(r => ({ value: r, label: r }))} />
-        <Field label="ê´ë ¨ ê·ê²© (e.g. ISO 13485 Â§7.5)" value={form.relatedStandard} onChange={v => F('relatedStandard', v)} />
-        <Field label="ëì²´ ë¬¸ì ë²í¸" value={form.supersedes} onChange={v => F('supersedes', v)} placeholder="ì´ì  ë¬¸ì ë²í¸" />
+        <Field label="관련 규격 (e.g. ISO 13485 §7.5)" value={form.relatedStandard} onChange={v => F('relatedStandard', v)} />
+        <Field label="대체 문서 번호" value={form.supersedes} onChange={v => F('supersedes', v)} placeholder="이전 문서 번호" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <FieldArea label="ëª©ì " value={form.purpose} onChange={v => F('purpose', v)} rows={2} />
-        <FieldArea label="ì ì© ë²ì" value={form.scope} onChange={v => F('scope', v)} rows={2} />
-        <FieldArea label="ë¹ê³ " value={form.notes} onChange={v => F('notes', v)} rows={2} />
+        <FieldArea label="목적" value={form.purpose} onChange={v => F('purpose', v)} rows={2} />
+        <FieldArea label="적용 범위" value={form.scope} onChange={v => F('scope', v)} rows={2} />
+        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
       </div>
-      {/* ë°°í¬ ëª©ë¡ */}
+      {/* 배포 목록 */}
       <div className="mb-4">
-        <div className="text-[11.5px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>ë°°í¬ ëª©ë¡ (ë¤ì¤ ì í)</div>
+        <div className="text-[11.5px] font-semibold mb-2" style={{ color: 'var(--ink-soft)' }}>배포 목록 (다중 선택)</div>
         <div className="flex flex-wrap gap-1.5">
           {DOC_DEPTS.map(dept => {
             const sel = (form.distributionList || []).includes(dept)
@@ -670,16 +670,16 @@ function DocForm({ form, setForm, onSave, onCancel, isEdit }) {
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> ì ì¥
+          <Save size={13} /> 저장
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
       </div>
     </div>
   )
 }
 
-// ââ ê³µíµ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 공통 ─────────────────────────────────────────────────────
 function QuickBtn({ label, color, onClick }) {
   return (
     <button onClick={onClick} className="px-2 py-0.5 rounded text-[10.5px] font-bold"
@@ -721,7 +721,7 @@ function FieldArea({ label, value, onChange, rows = 3 }) {
   )
 }
 
-// ââ íì§ë§¤ë´ì¼ í­ (ISO 13485 Â§4.2.1) ââââââââââââââââââââââââ
+// ── 품질매뉴얼 탭 (ISO 13485 §4.2.1) ────────────────────────
 function QualityManualTab() {
   const navigate = useNavigate()
   const LS_KEY = 'qualytree.quality_manual'
@@ -732,24 +732,24 @@ function QualityManualTab() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>íì§ ë§¤ë´ì¼</div>
-          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 Â§4.2.1 â íì§ê²½ììì¤í ë¬¸ìí</div>
+          <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>품질 매뉴얼</div>
+          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.1 — 품질경영시스템 문서화</div>
         </div>
         <button onClick={() => navigate('/quality-manual')}
           className="px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          ì ì²´ ê´ë¦¬ â
+          전체 관리 →
         </button>
       </div>
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         {sections.length === 0 ? (
           <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
             <BookOpen size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
-            <div>ë±ë¡ë íì§ ë§¤ë´ì¼ ì¹ìì´ ììµëë¤.</div>
+            <div>등록된 품질 매뉴얼 섹션이 없습니다.</div>
             <button onClick={() => navigate('/quality-manual')}
               className="mt-3 text-[12px] font-medium"
               style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
-              íì§ë§¤ë´ì¼ ê´ë¦¬ìì ë±ë¡íê¸° â
+              품질매뉴얼 관리에서 등록하기 →
             </button>
           </div>
         ) : (
@@ -769,7 +769,7 @@ function QualityManualTab() {
   )
 }
 
-// ââ ìë£ê¸°ê¸°íì¼ í­ (ISO 13485 Â§4.2.3) â ì´ë ì ì© ââââââââââ
+// ── 의료기기파일 탭 (ISO 13485 §4.2.3) — 열람 전용 ──────────
 function MedicalDeviceFileTab() {
   const navigate = useNavigate()
   const LS_KEY = 'qualytree.medical_device_file'
@@ -781,26 +781,26 @@ function MedicalDeviceFileTab() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>ìë£ê¸°ê¸° íì¼</span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DBEAFE', color: '#1E40AF' }}>ì´ë ì ì©</span>
+            <span className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>의료기기 파일</span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: '#DBEAFE', color: '#1E40AF' }}>열람 전용</span>
           </div>
-          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 Â§4.2.3 â ìë£ê¸°ê¸°ë³ ê·ì  ë¬¸ì</div>
+          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.3 — 의료기기별 규제 문서</div>
         </div>
         <button onClick={() => navigate('/medical-device-file')}
           className="px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-          ìì¸ ê´ë¦¬ â
+          상세 관리 →
         </button>
       </div>
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         {files.length === 0 ? (
           <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
             <Archive size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
-            <div>ë±ë¡ë ìë£ê¸°ê¸° íì¼ì´ ììµëë¤.</div>
+            <div>등록된 의료기기 파일이 없습니다.</div>
             <button onClick={() => navigate('/medical-device-file')}
               className="mt-3 text-[12px] font-medium"
               style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
-              ìë£ê¸°ê¸°íì¼ ê´ë¦¬ìì ë±ë¡íê¸° â
+              의료기기파일 관리에서 등록하기 →
             </button>
           </div>
         ) : (
