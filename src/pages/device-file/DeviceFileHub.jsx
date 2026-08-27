@@ -715,6 +715,7 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
+      <HubBanner title="의료기기 파일 관리" subtitle="ISO 13485 §4.2.3 — 의료기기별 설계·제조·품질 통합 파일" icon={FolderOpen} color="#4F46E5" workflow={['파일 생성', '정보 등록', '검토·승인', '제조 연동', '유지관리']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
