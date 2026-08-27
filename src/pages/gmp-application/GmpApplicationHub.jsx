@@ -97,7 +97,7 @@ export default function GmpApplicationHub() {
 
   return (
     <AppLayout user={user} title="GMP 신청" subtitle="GMP 적합인정 심사 신청서·기술문서등심사의뢰서 작성 준비 자료를 한 화면에서 관리합니다.">
-      <HubBanner icon={ClipboardList} title="GMP 적용 범위" subtitle="GMP 심사 적용 설정" color="orange" />
+      <HubBanner icon={ClipboardList} title="GMP 적용 범위" subtitle="GMP 심사 적용 설정" color="#EA580C" />
       {/* #6/#7 — 제조GMP(kgmp) 또는 수입GMP(kgmp_importer) 인증을 하나라도 선택했으면 접근 가능 */}
       <CertGate certId={['kgmp', 'kgmp_importer']} label="KGMP·수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
