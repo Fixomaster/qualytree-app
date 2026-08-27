@@ -938,7 +938,7 @@ export default function SterileControlHub() {
 
   return (
     <AppLayout user={user} title="멸균 의료기기 관리" subtitle="ISO 13485 §7.5.7 — 멸균 방법 · 배치 기록 · 재처리 정책">
-      <HubBanner title="멸균 의료기기 관리" subtitle="ISO 13485 §7.5.7 — 멸균 방법·배치 기록·재처리 정책" icon={ShieldCheck} color="#7C3AED" workflow={['멸균 사양 수립', '배치 기록', '방법 검증', '출하 판정', '유효기간 관리']} />
+      <HubBanner title="멸균 의료기기 관리" subtitle="ISO 13485 §7.5.5 — 멸균 공정 유효성 확인 및 유지" icon={Shield} color="#7C3AED" />
       {/* §7.5.7 정보 배너 */}
       <div style={{
         background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
