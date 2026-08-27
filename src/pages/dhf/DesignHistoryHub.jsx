@@ -6,8 +6,7 @@ import {
   FileText, CheckCircle2, Clock, AlertTriangle, XCircle,
   Link2, FlaskConical, GitBranch, Package, Layers,
   ClipboardList, Users, Star, ArrowRight, BarChart2,
-  Sparkles, Loader2,
-} from 'lucide-react'
+  Sparkles, Loader2,, FolderOpen } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
@@ -510,6 +509,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
 
   return (
     <AppLayout user={user} title="설계 이력 파일 (DHF)" subtitle="ISO 13485 §7.3 설계 및 개발">
+      <HubBanner icon={FolderOpen} title="설계이력파일" subtitle="ISO 13485 §7.3 설계이력파일(DHF)" color="indigo" />
       {body}
     </AppLayout>
   )
