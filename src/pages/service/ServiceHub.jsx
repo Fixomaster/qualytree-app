@@ -304,6 +304,7 @@ export default function ServiceHub() {
 
   return (
     <AppLayout user={user} title="설치·서비스 관리" subtitle="ISO 13485 §7.5.3 설치 활동 · §7.5.4 서비스 활동">
+      <HubBanner title="설치·서비스 관리" subtitle="ISO 13485 §7.5.3 설치 활동 · §7.5.4 서비스 활동" icon={Wrench} color="#0891B2" workflow={['설치 의뢰 접수', '현장 출동', '설치 완료', '서비스 기록', '고객 확인']} />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* KPI 요약 */}
@@ -877,7 +878,6 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
-      <HubBanner title="설치·서비스 관리" subtitle="ISO 13485 §7.5.3 설치 활동 · §7.5.4 서비스 활동" icon={Wrench} color="#0891B2" workflow={['설치 의뢰 접수', '현장 출동', '설치 완료', '서비스 기록', '고객 확인']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
