@@ -35,7 +35,7 @@ function getMyTasks(dept) {
 
   // QUA/MFG/ALL: NCR 오픈 건
   const ncrs = lsRead('qualytree.ncrs')
-  ncrs.filter(n => ['open', 'under_review', 'correcting'].includes(n.status)).forEach(n => {
+  ncrs.filter(n => ['open', 'investigating', 'under_review', 'correcting'].includes(n.status)).forEach(n => {
     const urgent = n.severity === 'critical' || n.severity === 'major'
     if (['QUA', 'MFG', 'ALL'].includes(dept) || (dept === 'SAL' && n.source === 'complaint')) {
       tasks.push({
@@ -439,6 +439,51 @@ const QUICK_ACTIONS = {
     { label: '개선 등록', link: '/improvement', color: '#10B981', icon: TrendingUp },
     { label: '내부감사', link: '/audit', color: '#8B5CF6', icon: Search },
   ],
+  ceo: [
+    { label: '경영검토', link: '/management-review', color: '#3B82F6', icon: BarChart2 },
+    { label: 'KPI 현황', link: '/quality-dashboard', color: '#10B981', icon: TrendingUp },
+    { label: '전사 NCR', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+  ],
+  purch: [
+    { label: '발주 등록', link: '/purchase', color: '#8B5CF6', icon: Plus },
+    { label: '수입검사', link: '/purchase', color: '#F59E0B', icon: ShieldCheck },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+  ],
+  qa: [
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+    { label: '내부감사', link: '/audit', color: '#8B5CF6', icon: Search },
+    { label: '개선 등록', link: '/improvement', color: '#10B981', icon: TrendingUp },
+  ],
+  ra: [
+    { label: '인허가 관리', link: '/regulatory', color: '#3B82F6', icon: FileText },
+    { label: '설계이력파일', link: '/dhf', color: '#8B5CF6', icon: FileText },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+  ],
+  acc: [
+    { label: '문서 관리', link: '/documents', color: '#6B7280', icon: FileText },
+    { label: '경영검토', link: '/management-review', color: '#3B82F6', icon: BarChart2 },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+  ],
+  sdom: [
+    { label: '수주 등록', link: '/sales', color: '#3B82F6', icon: Plus },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+    { label: '문서 관리', link: '/documents', color: '#6B7280', icon: FileText },
+  ],
+  sovs: [
+    { label: '수주 등록', link: '/sales', color: '#3B82F6', icon: Plus },
+    { label: '수입 GMP', link: '/import-gmp', color: '#F59E0B', icon: FileText },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+  ],
+  mct: [
+    { label: '작업지시 등록', link: '/manufacturing?tab=wo', color: '#3B82F6', icon: Workflow },
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+    { label: '공정 관리', link: '/manufacturing?tab=proc', color: '#8B5CF6', icon: FileText },
+  ],
+  qc: [
+    { label: 'NCR 등록', link: '/quality', color: '#EF4444', icon: AlertTriangle },
+    { label: '검사 결과', link: '/inspection', color: '#10B981', icon: ShieldCheck },
+    { label: '개선 등록', link: '/improvement', color: '#F59E0B', icon: TrendingUp },
+  ],
 }
 
 // ── 부서별 업무 흐름 가이드 ───────────────────────────────
@@ -456,6 +501,15 @@ const WORKFLOW_GUIDES = {
   AUD: ['감사 계획', '예비 검토', '감사 실시', 'CAR 발행', '시정조치 추적'],
   IMP: ['개선 발굴', '아이디어 등록', '승인·착수', '실행·검증', '효과 보고'],
   ALL: ['수주', '생산', '검사', 'NCR/CAPA', '경영검토'],
+  ceo: ['전사 현황 점검', '경영검토 실시', 'KPI 분석', '부서별 보고', '전략 수립'],
+  purch: ['발주 요청 접수', '공급업체 선정', '발주 등록', '수입검사 의뢰', '납품 확인'],
+  qa: ['부적합 접수(NCR)', '원인 분석', 'CAPA 수립', '개선 실행', '내부감사 수행'],
+  ra: ['인허가 검토', '기술문서 준비', '심사 신청', '결과 등록', '유지관리'],
+  acc: ['예산 확인', '지출 검토', '문서 관리', '경영 보고', '정기 결산'],
+  sdom: ['수주 등록', '고객 요구 검토', '납기 확인', '납품 처리', '클레임 대응'],
+  sovs: ['해외 수주 등록', '수출 서류 준비', '수입GMP 확인', '통관 처리', '고객 대응'],
+  mct: ['작업지시 등록', '생산 실행', '공정 검사', '제품 보존', '생산 완료 처리'],
+  qc: ['수령 검사', 'NCR 등록', '불량 분석', '개선 등록', '검사 기록 보관'],
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────
@@ -479,7 +533,13 @@ export default function DeptHome() {
     return () => clearInterval(t)
   }, [])
 
-  const deptInfo = DEPT_LIST.find(d => d.code === dept)
+  const deptInfo = DEPT_LIST.find(d => d.code === dept) || (() => {
+  try {
+    const ob = JSON.parse(localStorage.getItem('qualytree.onboarding') || '{}')
+    const found = (ob.departments || []).find(d => d.id === dept)
+    return found ? { label: found.name, icon: '🏢', color: '#6B7280' } : null
+  } catch { return null }
+})()
   const allTasks = useMemo(() => getMyTasks(dept), [dept])
   const [showAllTasks, setShowAllTasks] = useState(false)
   const tasks = showAllTasks ? allTasks : allTasks.slice(0, 8)
