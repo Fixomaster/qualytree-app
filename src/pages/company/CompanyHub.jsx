@@ -16,6 +16,7 @@ import {
   Printer,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { companyDocs, DOC_CATEGORY, QM_STATUS, QM_REQUIREMENTS } from '../../lib/companyState'
@@ -43,6 +44,7 @@ export default function CompanyHub() {
 
   return (
     <AppLayout user={user} title="기본정보" subtitle="기업정보 / 회사문서함 / 조직도(직무기술서·권한책임서) / 품질책임자 지정">
+      <HubBanner icon={Building2} title="회사 정보" subtitle="기본정보 설정" color="slate" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
