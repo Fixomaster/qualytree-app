@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Users, Cpu, Wallet, Globe, Plus, Edit2, Trash2, X,
   AlertTriangle, CheckCircle2, Clock, ChevronRight,
-  TrendingUp, BarChart3, Target, ExternalLink,, Layers } from 'lucide-react'
+  TrendingUp, BarChart3, Target, ExternalLink, Layers } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
