@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { deptAuth, DEPT_LIST } from '../../lib/deptAuth'
+import { menuPermissions } from '../../lib/menuPermissions'
 import { loadContext, computeAllCards, computeOverallScore } from '../../lib/gmpProgress'
 
 // ── localStorage 읽기 헬퍼 ──────────────────────────────────
@@ -518,6 +519,7 @@ export default function DeptHome() {
   const nav = useNavigate()
   const user = auth.current()
   const [dept, setDept] = useState(() => deptAuth.getDepartment() || 'ALL')
+  const allowedMenus = menuPermissions.getDeptAllowedMenus(dept)
   const [, forceRefresh] = useState(0)
   const [now, setNow] = useState(new Date())
 
