@@ -734,6 +734,7 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
+      <HubBanner title="인프라 관리" subtitle="ISO 13485 §6.3 — 건물·시설·IT·유틸리티·지원서비스" icon={Building2} color="#6B7280" workflow={['인프라 등록', '유지보수 계획', '점검 실시', '이상 조치', '성능 평가']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
