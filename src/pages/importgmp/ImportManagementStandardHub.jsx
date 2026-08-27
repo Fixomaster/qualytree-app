@@ -10,7 +10,7 @@
 // #30 재설계 — "승인자" 단일 입력 필드를 삭제하고, 로그인한 사용자가 작성→검토→승인 순서로
 //   직접 처리하는 워크플로우로 전환한다. 검토·승인 대기 중에는 "내 할 일"(DeptHome)에 노출된다.
 import React, { useState } from 'react'
-import { FileText, Edit2, Save, Trash2, XCircle, ClipboardList, Sparkles, Loader2, History, CheckCircle2, Clock, PenLine } from 'lucide-react'
+import { FileText, Edit2, Save, Trash2, XCircle, ClipboardList, Sparkles, Loader2, History, CheckCircle2, Clock, PenLine, Scroll } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import CertGate from '../../components/CertGate'
@@ -160,6 +160,7 @@ export default function ImportManagementStandardHub() {
 
   return (
     <AppLayout user={user} title="수입관리기준서" subtitle="수입 의료기기 수입관리 절차 기준 문서">
+      <HubBanner icon={Scroll} title="수입관리기준서" subtitle="수입GMP 수입관리기준서 관리" color="teal" />
       <CertGate certId="kgmp_importer" label="수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1100px] mx-auto fade-in">
           <HubBanner
