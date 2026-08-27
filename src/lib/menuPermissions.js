@@ -61,7 +61,11 @@ function saveDeptPerms(data) {
 export function loadOnboardingDepts() {
   try {
     const ob = JSON.parse(localStorage.getItem(ONBOARDING_KEY) || '{}')
-    return (ob.departments || []).map(d => d.name).filter(Boolean)
+    const depts = ob.departments || []
+    if (!depts.length) return []
+    const childIds = new Set(depts.map(d => d.parentId).filter(Boolean))
+    const leafDepts = depts.filter(d => !childIds.has(d.id) || !d.parentId)
+    return leafDepts.map(d => ({ id: d.id, name: d.name })).filter(d => d.id && d.name)
   } catch { return [] }
 }
 
