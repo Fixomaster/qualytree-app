@@ -6,9 +6,9 @@ import { useNavigate } from 'react-router-dom'
 import {
   Users, Cpu, Wallet, Globe, Plus, Edit2, Trash2, X,
   AlertTriangle, CheckCircle2, Clock, ChevronRight,
-  TrendingUp, BarChart3, Target, ExternalLink,
-} from 'lucide-react'
+  TrendingUp, BarChart3, Target, ExternalLink,, Layers } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { DEPT_LIST } from '../../lib/deptAuth'
 
@@ -730,6 +730,7 @@ export default function ResourcePlanHub() {
 
   return (
     <AppLayout user={user} title="자원 계획" subtitle="ISO 13485 §6.1 자원 제공 (Provision of Resources)">
+      <HubBanner icon={Layers} title="자원 계획" subtitle="ISO 13485 §6.1 자원 제공" color="teal" />
       <div className="px-6 lg:px-8 py-6 max-w-[1060px] mx-auto space-y-5">
 
         {/* 헤더 배너 */}
