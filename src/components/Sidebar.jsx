@@ -21,6 +21,7 @@ FileCheck2,
 Globe,
 Building2,
   Share2,
+  Users,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -275,6 +276,19 @@ fontWeight: isActive ? 600 : 400,
 </NavLink>
 
 {isAdmin && (
+<>
+<NavLink
+to="/manager/members"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink-soft)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 400,
+})}
+>
+<Users size={17} strokeWidth={1.7} />
+<span>계정 관리</span>
+</NavLink>
 <NavLink
 to="/admin/permissions"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
@@ -285,8 +299,9 @@ fontWeight: isActive ? 600 : 400,
 })}
 >
 <ShieldCheck size={17} strokeWidth={1.7} />
-<span>권한 관리</span>
+<span>메뉴 권한</span>
 </NavLink>
+</>
 )}
 
 <div
