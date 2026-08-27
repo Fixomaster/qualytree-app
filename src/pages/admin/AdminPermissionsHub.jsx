@@ -27,7 +27,7 @@ export default function AdminPermissionsHub() {
   const [tab, setTab] = useState('menus')
 
   // ─── 탭1: 부서별 메뉴 권한 ───────────────────────────────
-  const [selDept, setSelDept] = useState(() => depts[0] || '')
+  const [selDept, setSelDept] = useState(() => depts[0]?.id || '')
   const [routeMap, setRouteMap] = useState({})
   const [openDomains, setOpenDomains] = useState({})
   const [saved, setSaved] = useState(false)
@@ -150,9 +150,9 @@ export default function AdminPermissionsHub() {
                   <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">부서</p>
                   <div className="space-y-0.5">
                     {depts.map(dept => (
-                      <button key={dept} onClick={() => setSelDept(dept)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-colors ${selDept===dept ? 'bg-blue-600 text-white font-medium' : 'text-slate-700 hover:bg-slate-100'}`}>
-                        {dept}
+                      <button key={dept.id} onClick={() => setSelDept(dept.id)}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-[13px] transition-colors ${selDept===dept.id ? 'bg-blue-600 text-white font-medium' : 'text-slate-700 hover:bg-slate-100'}`}>
+                        {dept.name}
                       </button>
                     ))}
                   </div>
@@ -162,7 +162,7 @@ export default function AdminPermissionsHub() {
                 {selDept && (
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-sm font-semibold text-slate-800">{selDept} — 메뉴 권한</h2>
+                      <h2 className="text-sm font-semibold text-slate-800">{depts.find(d=>d.id===selDept)?.name||selDept} — 메뉴 권한</h2>
                       <div className="flex gap-2">
                         <button onClick={handleReset}
                           className="flex items-center gap-1 px-2.5 py-1.5 text-[12px] text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">
@@ -262,7 +262,7 @@ return (
                             onChange={e => handleDeptChange(m.email, e.target.value)}
                             className="border border-slate-200 rounded-lg px-2 py-1 text-[12px] text-slate-700 focus:outline-none focus:border-blue-500 bg-white">
                             <option value="">부서 없음 (전체 접근)</option>
-                            {depts.map(d => <option key={d} value={d}>{d}</option>)}
+                            {depts.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                           </select>
                         </td>
                       </tr>
