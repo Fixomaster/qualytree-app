@@ -6,7 +6,7 @@ import {
   FileText, CheckCircle2, Clock, AlertTriangle, XCircle,
   Link2, FlaskConical, GitBranch, Package, Layers,
   ClipboardList, Users, Star, ArrowRight, BarChart2,
-  Sparkles, Loader2,, FolderOpen } from 'lucide-react'
+  Sparkles, Loader2, FolderOpen } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
