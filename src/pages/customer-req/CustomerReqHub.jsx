@@ -331,6 +331,7 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
                     <div key={rec.id} className="p-4 rounded-2xl cursor-pointer transition"
                       style={{ background: 'var(--bg-card)', border: '1.5px solid var(--line)' }}
                       onClick={() => { setSelectedId(rec.id); setTab('detail') }}>
+                      <HubBanner title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 고객 요구사항 파악·계약 검토·소통" icon={Users} color="#2563EB" />
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -864,7 +865,6 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
-      <HubBanner title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 요구사항 결정·검토·커뮤니케이션" icon={ClipboardList} color="#2563EB" workflow={['요구사항 접수', '내부 검토', '수락/반려', '계약 체결', '변경 관리']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
