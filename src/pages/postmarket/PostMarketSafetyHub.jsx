@@ -434,13 +434,8 @@ export default function PostMarketSafetyHub() {
 
   return (
     <AppLayout>
+      <HubBanner title="시판 후 안전관리" subtitle="ISO 13485 §8.2 — 시판 후 의료기기 이상사례·FSCA·리콜 관리" icon={ShieldAlert} color="#DC2626" />
       <div className="max-w-4xl mx-auto px-4 pb-10">
-        <HubBanner
-          icon={AlertTriangle}
-          title="시판후안전관리"
-          subtitle="이상사례 보고 · 리콜/회수 · 안전성 조치 통합 관리"
-          color="#dc2626"
-        />
 
         {/* Tab navigation */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6">
