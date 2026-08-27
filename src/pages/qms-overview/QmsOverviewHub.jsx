@@ -104,7 +104,7 @@ export default function QmsOverviewHub() {
 
   return (
     <AppLayout user={user} title="QMS 개요" subtitle="ISO 13485 §4.1 · §4.2.1 — 품질경영시스템 현황">
-      <HubBanner icon={LayoutDashboard} title="QMS 개요" subtitle="ISO 13485 §4.1" color="slate" />
+      <HubBanner icon={LayoutDashboard} title="QMS 개요" subtitle="ISO 13485 §4.1" color="#475569" />
       <div className="px-6 lg:px-8 py-6 max-w-[960px] mx-auto space-y-5">
 
         <div className="rounded-2xl p-5 flex items-center justify-between gap-4"
