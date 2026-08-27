@@ -94,7 +94,7 @@ export default function MeasurementPlanHub() {
 
   return (
     <AppLayout user={user} title="측정·분석·개선 계획" subtitle="ISO 13485 §8.1 — 측정·모니터링·분석·개선 활동의 계획">
-      <HubBanner icon={BarChart2} title="측정·분석 계획" subtitle="ISO 13485 §8.1 측정·분석·개선" color="blue" />
+      <HubBanner icon={BarChart2} title="측정·분석 계획" subtitle="ISO 13485 §8.1 측정·분석·개선" color="#2563EB" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
         {/* 완성도 배지 */}
