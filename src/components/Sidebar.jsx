@@ -38,8 +38,18 @@ function loadOnboardingDeptNames() {
     return (ob.departments || []).map((d) => d.name).filter(Boolean)
   } catch { return [] }
 }
+function loadLeafDeptNames() {
+  try {
+    const raw = localStorage.getItem('qualytree.onboarding')
+    if (!raw) return []
+    const ob = JSON.parse(raw)
+    const depts = ob.departments || []
+    const childIds = new Set(depts.map(d => d.parentId).filter(Boolean))
+    return depts.filter(d => !childIds.has(d.id) || !d.parentId).map(d => d.name).filter(Boolean)
+  } catch { return [] }
+}
 function relevantDeptOptions() {
-  const names = loadOnboardingDeptNames()
+  const names = loadLeafDeptNames()
   if (!names.length) return DEPT_LIST
   const norm = (s) => (s || '').replace(/[·\s]/g, '')
   const hit = (label) => names.some((n) => {
