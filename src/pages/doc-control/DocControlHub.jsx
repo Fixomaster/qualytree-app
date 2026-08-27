@@ -778,6 +778,7 @@ function MedicalDeviceFileTab() {
   })
   return (
     <div className="max-w-3xl">
+      <HubBanner title="문서 관리" subtitle="ISO 13485 §4.2.3 문서 관리 / §4.2.4 기록 관리" icon={FileText} color="#4F46E5" workflow={['문서 기안', '검토', '승인', '배포', '개정·폐기']} />
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="flex items-center gap-2">
