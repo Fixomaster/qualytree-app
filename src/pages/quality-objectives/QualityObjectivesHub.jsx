@@ -718,6 +718,7 @@ function FieldSelect({ label, value, onChange, options, disabled = false }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
+      <HubBanner title="품질 목표 관리" subtitle="ISO 13485 §5.4 — 품질 목표 설정·모니터링·달성 평가" icon={Target} color="#059669" workflow={['목표 설정', 'KPI 배분', '실적 모니터링', '달성도 평가', '차기 목표 수립']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
