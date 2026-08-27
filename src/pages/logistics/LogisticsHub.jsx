@@ -39,7 +39,7 @@ export default function LogisticsHub() {
 
   return (
     <AppLayout user={user} title="입출고·유통관리" subtitle="수입검사 / 입고 / 출고 / 유통기록 · 이상사례 보고">
-      <HubBanner icon={Truck} title="물류 관리" subtitle="물류·재고 관리" color="orange" />
+      <HubBanner icon={Truck} title="물류 관리" subtitle="물류·재고 관리" color="#EA580C" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div
