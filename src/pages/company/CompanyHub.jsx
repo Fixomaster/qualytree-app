@@ -42,36 +42,36 @@ export default function CompanyHub() {
   const profileDone = !!(company.name && company.bizNumber && company.ceo)
 
   return (
-    <AppLayout user={user} title="기본정보" subtitle="기업정보 / 회사문서함 / 조직도(직무기술서·권한책임서) / 품질책임자 지정">
+    <AppLayout user={user} title="ê¸°ë³¸ì ë³´" subtitle="ê¸°ìì ë³´ / íì¬ë¬¸ìí¨ / ì¡°ì§ë(ì§ë¬´ê¸°ì ìÂ·ê¶íì±ìì) / íì§ì±ìì ì§ì ">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
             style={{ background: 'var(--moss)', color: 'var(--bg)', boxShadow: '0 6px 20px rgba(15,26,20,0.18)', fontWeight: 500 }}>
-            ✓ {toast}
+            â {toast}
           </div>
         )}
 
         <div className="mb-5">
-          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>ORG · BASIC INFO</span>
-          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>기본정보</div>
+          <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>ORG Â· BASIC INFO</span>
+          <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>ê¸°ë³¸ì ë³´</div>
           <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            의료기기 제조업체 정보, 사업자등록증·대리인계약서·제조소등록자료·수입업허가증·제조소GMP인증서·ISO 13485 인증서, 조직도, 품질책임자 지정을 한 곳에서 관리합니다.
-            여기 입력한 정보는 품질문서·인허가 대시보드 등 관련 화면에 자동으로 반영됩니다.
+            ìë£ê¸°ê¸° ì ì¡°ìì²´ ì ë³´, ì¬ììë±ë¡ì¦Â·ëë¦¬ì¸ê³ì½ìÂ·ì ì¡°ìë±ë¡ìë£Â·ìììíê°ì¦Â·ì ì¡°ìGMPì¸ì¦ìÂ·ISO 13485 ì¸ì¦ì, ì¡°ì§ë, íì§ì±ìì ì§ì ì í ê³³ìì ê´ë¦¬í©ëë¤.
+            ì¬ê¸° ìë ¥í ì ë³´ë íì§ë¬¸ìÂ·ì¸íê° ëìë³´ë ë± ê´ë ¨ íë©´ì ìëì¼ë¡ ë°ìë©ëë¤.
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-          <StatCard label="기업정보" value={profileDone ? '입력완료' : '미입력'} hint="회사명·사업자번호·대표자" icon={IdCard} tone={profileDone ? undefined : 'amber'} />
-          <StatCard label="회사 문서" value={`${Object.values(DOC_CATEGORY).filter((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)).length} / ${Object.values(DOC_CATEGORY).length}`} hint="필수 항목 등록 현황 (해당없음 포함)" icon={Building2} tone={Object.values(DOC_CATEGORY).every((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)) ? undefined : 'amber'} />
-          <StatCard label="부서" value={departments.length} hint="직무기술서 대상" icon={Users} />
-          <StatCard label="품질책임자" value={qm?.status === QM_STATUS.APPROVED ? '승인완료' : qm ? '지정대기' : '미지정'} hint="제조관리자 지정 상태" icon={BadgeCheck} tone={qm?.status === QM_STATUS.APPROVED ? undefined : 'amber'} />
+          <StatCard label="ê¸°ìì ë³´" value={profileDone ? 'ìë ¥ìë£' : 'ë¯¸ìë ¥'} hint="íì¬ëªÂ·ì¬ììë²í¸Â·ëíì" icon={IdCard} tone={profileDone ? undefined : 'amber'} />
+          <StatCard label="íì¬ ë¬¸ì" value={`${Object.values(DOC_CATEGORY).filter((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)).length} / ${Object.values(DOC_CATEGORY).length}`} hint="íì í­ëª© ë±ë¡ íí© (í´ë¹ìì í¬í¨)" icon={Building2} tone={Object.values(DOC_CATEGORY).every((cat) => s.documents.some((d) => d.category === cat) || (s.naCategories || []).includes(cat)) ? undefined : 'amber'} />
+          <StatCard label="ë¶ì" value={departments.length} hint="ì§ë¬´ê¸°ì ì ëì" icon={Users} />
+          <StatCard label="íì§ì±ìì" value={qm?.status === QM_STATUS.APPROVED ? 'ì¹ì¸ìë£' : qm ? 'ì§ì ëê¸°' : 'ë¯¸ì§ì '} hint="ì ì¡°ê´ë¦¬ì ì§ì  ìí" icon={BadgeCheck} tone={qm?.status === QM_STATUS.APPROVED ? undefined : 'amber'} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
-          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon={IdCard} label="기업정보" en="COMPANY PROFILE" count={null} />
-          <TabButton active={tab === 'docs'} onClick={() => setTab('docs')} icon={Building2} label="회사문서함" en="COMPANY DOCS" count={s.documents.length} />
-          <TabButton active={tab === 'org'} onClick={() => setTab('org')} icon={Users} label="조직도 · 직무기술서" en="ORG & JOB DESC" count={departments.length} />
-          <TabButton active={tab === 'qm'} onClick={() => setTab('qm')} icon={BadgeCheck} label="품질책임자 지정" en="QM APPOINTMENT" count={null} />
+          <TabButton active={tab === 'profile'} onClick={() => setTab('profile')} icon={IdCard} label="ê¸°ìì ë³´" en="COMPANY PROFILE" count={null} />
+          <TabButton active={tab === 'docs'} onClick={() => setTab('docs')} icon={Building2} label="íì¬ë¬¸ìí¨" en="COMPANY DOCS" count={s.documents.length} />
+          <TabButton active={tab === 'org'} onClick={() => setTab('org')} icon={Users} label="ì¡°ì§ë Â· ì§ë¬´ê¸°ì ì" en="ORG & JOB DESC" count={departments.length} />
+          <TabButton active={tab === 'qm'} onClick={() => setTab('qm')} icon={BadgeCheck} label="íì§ì±ìì ì§ì " en="QM APPOINTMENT" count={null} />
         </div>
 
         {tab === 'profile' && <ProfileTab key={'profile' + tick} company={company} members={ob?.members || []} onAction={showToast} refresh={refresh} />}
@@ -84,7 +84,7 @@ export default function CompanyHub() {
 }
 
 /* ================================================================
-   공통 UI
+   ê³µíµ UI
    ================================================================ */
 function StatCard({ label, value, hint, icon: Icon, tone }) {
   return (
@@ -181,7 +181,7 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
   const [busy, setBusy] = useState(false)
   const openFile = async () => {
     const url = await fileStore.getObjectURL(fileId)
-    if (!url) { window.alert('파일을 찾을 수 없습니다.'); return }
+    if (!url) { window.alert('íì¼ì ì°¾ì ì ììµëë¤.'); return }
     window.open(url, '_blank')
     setTimeout(() => URL.revokeObjectURL(url), 30000)
   }
@@ -203,30 +203,30 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
       <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
       {fileId ? (
         <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-          <button type="button" onClick={openFile} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {fileName || '첨부파일'}</button>
+          <button type="button" onClick={openFile} className="inline-flex items-center gap-1 hover:underline"><Download size={11} /> {fileName || 'ì²¨ë¶íì¼'}</button>
           {canEdit && <button type="button" onClick={onRemove} className="opacity-50 hover:opacity-100"><X size={11} /></button>}
         </span>
       ) : canEdit ? (
         <>
           <input ref={ref} type="file" className="hidden" onChange={pick} />
           <button type="button" onClick={() => ref.current && ref.current.click()} disabled={busy} className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: 'var(--moss)' }}>
-            <Paperclip size={12} /> {busy ? '업로드 중…' : '파일 첨부 (5MB 이하)'}
+            <Paperclip size={12} /> {busy ? 'ìë¡ë ì¤â¦' : 'íì¼ ì²¨ë¶ (5MB ì´í)'}
           </button>
         </>
       ) : (
-        <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>첨부 파일 없음</span>
+        <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>ì²¨ë¶ íì¼ ìì</span>
       )}
     </div>
   )
 }
 
 /* ================================================================
-   기업정보 — 의료기기 제조업체 기본정보 (onboarding.company 와 연동)
+   ê¸°ìì ë³´ â ìë£ê¸°ê¸° ì ì¡°ìì²´ ê¸°ë³¸ì ë³´ (onboarding.company ì ì°ë)
    ================================================================ */
 function ProfileTab({ company, members, onAction, refresh }) {
   const canEdit = permissions.can('onb.company.edit')
-  // #10 직원 수 기본값 — 온보딩(계정 발급 단계)에서 등록한 구성원 수를 기본값으로 채워주되,
-  // 회사가 직접 입력/수정한 값이 있으면 그 값을 그대로 존중한다(자동 채움은 최초 1회뿐).
+  // #10 ì§ì ì ê¸°ë³¸ê° â ì¨ë³´ë©(ê³ì  ë°ê¸ ë¨ê³)ìì ë±ë¡í êµ¬ì±ì ìë¥¼ ê¸°ë³¸ê°ì¼ë¡ ì±ìì£¼ë,
+  // íì¬ê° ì§ì  ìë ¥/ìì í ê°ì´ ìì¼ë©´ ê·¸ ê°ì ê·¸ëë¡ ì¡´ì¤íë¤(ìë ì±ìì ìµì´ 1íë¿).
   const memberCount = (members || []).length
   const [form, setForm] = useState({
     name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '',
@@ -244,68 +244,68 @@ function ProfileTab({ company, members, onAction, refresh }) {
 
   const save = () => {
     if (!requirePermission('onb.company.edit')) return
-    if (!form.name.trim()) { window.alert('회사명을 입력하세요.'); return }
+    if (!form.name.trim()) { window.alert('íì¬ëªì ìë ¥íì¸ì.'); return }
     onboarding.updateCompany(form)
-    onAction('기업정보가 저장되었습니다. 관련 품질문서·인허가 화면에 자동으로 반영됩니다.')
+    onAction('ê¸°ìì ë³´ê° ì ì¥ëììµëë¤. ê´ë ¨ íì§ë¬¸ìÂ·ì¸íê° íë©´ì ìëì¼ë¡ ë°ìë©ëë¤.')
     refresh()
   }
 
   return (
     <div className="card-base p-4 space-y-4">
       <div>
-        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>의료기기 제조업체 정보</div>
+        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>ìë£ê¸°ê¸° ì ì¡°ìì²´ ì ë³´</div>
         <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-          여기 입력한 회사명·사업자등록번호·대표자·주소는 품질매뉴얼·통합 문서·KGMP 대시보드 등에서 그대로 사용됩니다.
+          ì¬ê¸° ìë ¥í íì¬ëªÂ·ì¬ììë±ë¡ë²í¸Â·ëíìÂ·ì£¼ìë íì§ë§¤ë´ì¼Â·íµí© ë¬¸ìÂ·KGMP ëìë³´ë ë±ìì ê·¸ëë¡ ì¬ì©ë©ëë¤.
         </div>
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="회사명 (상호) *" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 큐엘트리 주식회사" />
-        <Field label="사업자등록번호" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
-        <Field label="제조업 허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="제0000호" />
-        <Field label="대표자 (대표이사)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
+        <Field label="íì¬ëª (ìí¸) *" value={form.name} onChange={(v) => setF('name', v)} placeholder="ì: íìí¸ë¦¬ ì£¼ìíì¬" />
+        <Field label="ì¬ììë±ë¡ë²í¸" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
+        <Field label="ì ì¡°ì íê°ë²í¸" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="ì 0000í¸" />
+        <Field label="ëíì (ëíì´ì¬)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
         <div>
-          <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
-          {memberCount > 0 && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>온보딩에 등록된 구성원 {memberCount}명 기준 기본값 — 직접 수정할 수 있습니다.</div>}
+          <Field label="ì§ì ì" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
+          {memberCount > 0 && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>ì¨ë³´ë©ì ë±ë¡ë êµ¬ì±ì {memberCount}ëª ê¸°ì¤ ê¸°ë³¸ê° â ì§ì  ìì í  ì ììµëë¤.</div>}
         </div>
-        <Field label="본사 주소" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />
-        <Field label="제조소 주소 (본사와 다른 경우)" value={form.site} onChange={(v) => setF('site', v)} className="sm:col-span-2" />
-        <Field label="전화번호" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
-        <Field label="대표 이메일" type="email" value={form.email} onChange={(v) => setF('email', v)} />
+        <Field label="ë³¸ì¬ ì£¼ì" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />
+        <Field label="ì ì¡°ì ì£¼ì (ë³¸ì¬ì ë¤ë¥¸ ê²½ì°)" value={form.site} onChange={(v) => setF('site', v)} className="sm:col-span-2" />
+        <Field label="ì íë²í¸" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
+        <Field label="ëí ì´ë©ì¼" type="email" value={form.email} onChange={(v) => setF('email', v)} />
       </div>
 
       <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
         <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-          GMP 적합성인정 심사 신청서(심사구분·현장조사 희망일 등 신청정보)와 제품별 기술문서는{' '}
-          <a href="/gmp-application" className="underline" style={{ color: 'var(--moss)' }}>GMP 신청</a> 화면에서 작성·관리합니다.
+          GMP ì í©ì±ì¸ì  ì¬ì¬ ì ì²­ì(ì¬ì¬êµ¬ë¶Â·íì¥ì¡°ì¬ í¬ë§ì¼ ë± ì ì²­ì ë³´)ì ì íë³ ê¸°ì ë¬¸ìë{' '}
+          <a href="/gmp-application" className="underline" style={{ color: 'var(--moss)' }}>GMP ì ì²­</a> íë©´ìì ìì±Â·ê´ë¦¬í©ëë¤.
         </div>
       </div>
 
       {canEdit && (
         <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-          <button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px] disabled:opacity-50">기업정보 저장</button>
+          <button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px] disabled:opacity-50">ê¸°ìì ë³´ ì ì¥</button>
         </div>
       )}
       {!canEdit && (
-        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>기업정보 변경은 매니저·RA 권한이 필요합니다.</div>
+        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>ê¸°ìì ë³´ ë³ê²½ì ë§¤ëì Â·RA ê¶íì´ íìí©ëë¤.</div>
       )}
     </div>
   )
 }
 
 /* ================================================================
-   회사문서함 — 필수 문서 항목을 고정 목록으로 표시하고 등록 여부를 확인
+   íì¬ë¬¸ìí¨ â íì ë¬¸ì í­ëª©ì ê³ ì  ëª©ë¡ì¼ë¡ íìíê³  ë±ë¡ ì¬ë¶ë¥¼ íì¸
    ================================================================ */
 const CATEGORY_ORDER = Object.values(DOC_CATEGORY)
 const CATEGORY_HINT = {
-  [DOC_CATEGORY.BIZ_REG]: '관할 세무서 발급 사업자등록증 사본',
-  [DOC_CATEGORY.MFG_LICENSE]: '제조업허가증 (해당 시)',
-  [DOC_CATEGORY.FACILITY_PLAN]: '제조소 평면도 (작업구역·보관구역 표시)',
-  [DOC_CATEGORY.FACILITY_PHOTO]: '제조소 외관·내부 사진',
-  [DOC_CATEGORY.FACILITY_REG]: '제조소 등록 확인 자료',
-  [DOC_CATEGORY.IMPORT_LICENSE]: '수입업 허가증 (수입업자인 경우)',
-  [DOC_CATEGORY.AGENT_CONTRACT]: '해외 제조사 대리인 지정 계약서 (Authorization Letter)',
-  [DOC_CATEGORY.GMP_CERT]: '제조소 GMP 적합인정서/인증서',
-  [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 인증서',
+  [DOC_CATEGORY.BIZ_REG]: 'ê´í  ì¸ë¬´ì ë°ê¸ ì¬ììë±ë¡ì¦ ì¬ë³¸',
+  [DOC_CATEGORY.MFG_LICENSE]: 'ì ì¡°ìíê°ì¦ (í´ë¹ ì)',
+  [DOC_CATEGORY.FACILITY_PLAN]: 'ì ì¡°ì íë©´ë (ììêµ¬ì­Â·ë³´ê´êµ¬ì­ íì)',
+  [DOC_CATEGORY.FACILITY_PHOTO]: 'ì ì¡°ì ì¸ê´Â·ë´ë¶ ì¬ì§',
+  [DOC_CATEGORY.FACILITY_REG]: 'ì ì¡°ì ë±ë¡ íì¸ ìë£',
+  [DOC_CATEGORY.IMPORT_LICENSE]: 'ììì íê°ì¦ (ììììì¸ ê²½ì°)',
+  [DOC_CATEGORY.AGENT_CONTRACT]: 'í´ì¸ ì ì¡°ì¬ ëë¦¬ì¸ ì§ì  ê³ì½ì (Authorization Letter)',
+  [DOC_CATEGORY.GMP_CERT]: 'ì ì¡°ì GMP ì í©ì¸ì ì/ì¸ì¦ì',
+  [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 ì¸ì¦ì',
 }
 const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
 
@@ -323,19 +323,19 @@ function CompanyDocsTab({ onAction, refresh }) {
 
   const save = (form) => {
     if (!requirePermission('company.docs.edit')) return false
-    if (!form.title.trim()) { window.alert('문서명을 입력하세요.'); return false }
+    if (!form.title.trim()) { window.alert('ë¬¸ìëªì ìë ¥íì¸ì.'); return false }
     companyDocs.addDocument(form)
     setList(companyDocs.getDocuments())
-    onAction('문서가 등록되었습니다.')
+    onAction('ë¬¸ìê° ë±ë¡ëììµëë¤.')
     refresh()
     return true
   }
   const del = (id) => {
     if (!requirePermission('company.docs.edit')) return
-    if (!window.confirm('이 문서를 삭제할까요?')) return
+    if (!window.confirm('ì´ ë¬¸ìë¥¼ ì­ì í ê¹ì?')) return
     companyDocs.deleteDocument(id)
     setList(companyDocs.getDocuments())
-    onAction('문서가 삭제되었습니다.')
+    onAction('ë¬¸ìê° ì­ì ëììµëë¤.')
     refresh()
   }
   const attach = async (id, file) => {
@@ -359,9 +359,9 @@ function CompanyDocsTab({ onAction, refresh }) {
     <div className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="text-[12px]" style={{ color: 'var(--ink-mute)' }}>
-          아래 항목별로 문서를 등록·보관합니다. (ISO 13485 §4.1, §6.3)
+          ìë í­ëª©ë³ë¡ ë¬¸ìë¥¼ ë±ë¡Â·ë³´ê´í©ëë¤. (ISO 13485 Â§4.1, Â§6.3)
         </div>
-        <Badge text={`${registeredCount} / ${CATEGORY_ORDER.length} 항목 등록됨`} tone={registeredCount === CATEGORY_ORDER.length ? 'emerald' : 'amber'} />
+        <Badge text={`${registeredCount} / ${CATEGORY_ORDER.length} í­ëª© ë±ë¡ë¨`} tone={registeredCount === CATEGORY_ORDER.length ? 'emerald' : 'amber'} />
       </div>
       {CATEGORY_ORDER.map((cat) => (
         <DocCategoryCard
@@ -390,7 +390,7 @@ function CompanyDocsTab({ onAction, refresh }) {
   )
 }
 
-/* ── 추가 문서 — 고정 9개 항목 외 회사가 필요에 따라 자유롭게 등록하는 문서 ── */
+/* ââ ì¶ê° ë¬¸ì â ê³ ì  9ê° í­ëª© ì¸ íì¬ê° íìì ë°ë¼ ìì ë¡­ê² ë±ë¡íë ë¬¸ì ââ */
 const EMPTY_CUSTOM_DOC = { category: '', title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' }
 
 function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
@@ -399,7 +399,7 @@ function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemove
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   const submit = () => {
-    if (!form.category.trim()) { window.alert('문서 구분을 입력하세요.'); return }
+    if (!form.category.trim()) { window.alert('ë¬¸ì êµ¬ë¶ì ìë ¥íì¸ì.'); return }
     const ok = onSave(form)
     if (ok) { setForm(EMPTY_CUSTOM_DOC); setAdding(false) }
   }
@@ -408,10 +408,10 @@ function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemove
     <div className="card-base p-4">
       <div className="flex items-start justify-between gap-3 flex-wrap mb-1">
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>추가 문서</div>
-          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>위 9개 항목 외에 회사에 필요한 문서를 자유롭게 등록합니다. (예: 품질경영시스템 인증서, 환경인증서, 특허증 등)</div>
+          <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>ì¶ê° ë¬¸ì</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ì 9ê° í­ëª© ì¸ì íì¬ì íìí ë¬¸ìë¥¼ ìì ë¡­ê² ë±ë¡í©ëë¤. (ì: íì§ê²½ììì¤í ì¸ì¦ì, íê²½ì¸ì¦ì, í¹íì¦ ë±)</div>
         </div>
-        {docs.length > 0 && <Badge text={`${docs.length}건`} tone="emerald" />}
+        {docs.length > 0 && <Badge text={`${docs.length}ê±´`} tone="emerald" />}
       </div>
 
       {docs.length > 0 && (
@@ -423,7 +423,7 @@ function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemove
                   <Badge text={d.category} tone="slate" />
                   <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title}</span>
                 </div>
-                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || '발급기관 미입력'} · 발급 {d.issueDate || '—'}{d.expiryDate ? ` · 만료 ${d.expiryDate}` : ''}</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || 'ë°ê¸ê¸°ê´ ë¯¸ìë ¥'} Â· ë°ê¸ {d.issueDate || 'â'}{d.expiryDate ? ` Â· ë§ë£ ${d.expiryDate}` : ''}</div>
                 <div className="mt-1.5"><SingleFileAttach fileId={d.fileId} fileName={d.fileName} onAttach={(f) => onAttach(d.id, f)} onRemove={() => onRemoveFile(d.id)} canEdit={canEdit} label="" /></div>
               </div>
               {canEdit && <button onClick={() => onDelete(d.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
@@ -433,21 +433,21 @@ function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemove
       )}
 
       {canEdit && !adding && (
-        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> 문서 추가</button>
+        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> ë¬¸ì ì¶ê°</button>
       )}
       {adding && (
         <div className="rounded-lg p-3 mt-2 space-y-3" style={{ background: 'var(--bg-soft)' }}>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="문서 구분 *" value={form.category} onChange={(v) => setF('category', v)} placeholder="예: 품질경영시스템 인증서" />
-            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: QMS 인증서 (2026)" />
-            <Field label="발급기관" value={form.issuer} onChange={(v) => setF('issuer', v)} />
-            <Field label="발급일" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
-            <Field label="유효기한" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="해당 시" />
+            <Field label="ë¬¸ì êµ¬ë¶ *" value={form.category} onChange={(v) => setF('category', v)} placeholder="ì: íì§ê²½ììì¤í ì¸ì¦ì" />
+            <Field label="ë¬¸ìëª" value={form.title} onChange={(v) => setF('title', v)} placeholder="ì: QMS ì¸ì¦ì (2026)" />
+            <Field label="ë°ê¸ê¸°ê´" value={form.issuer} onChange={(v) => setF('issuer', v)} />
+            <Field label="ë°ê¸ì¼" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
+            <Field label="ì í¨ê¸°í" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="í´ë¹ ì" />
           </div>
-          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} />
+          <TextAreaField label="ë¹ê³ " value={form.notes} onChange={(v) => setF('notes', v)} />
           <div className="flex gap-2">
-            <button onClick={submit} className="btn-primary text-[12.5px]">저장</button>
-            <button onClick={() => { setAdding(false); setForm(EMPTY_CUSTOM_DOC) }} className="btn-ghost text-[12.5px]">취소</button>
+            <button onClick={submit} className="btn-primary text-[12.5px]">ì ì¥</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_CUSTOM_DOC) }} className="btn-ghost text-[12.5px]">ì·¨ì</button>
           </div>
         </div>
       )}
@@ -476,15 +476,15 @@ function DocCategoryCard({ category, hint, docs, na, onToggleNA, canEdit, onSave
         <div className="flex items-center gap-2 flex-shrink-0">
           <label className="flex items-center gap-1 text-[10.5px] cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>
             <input type="checkbox" checked={!!na} onChange={onToggleNA} disabled={!canEdit} style={{ accentColor: 'var(--ink-mute)' }} />
-            해당 없음
+            í´ë¹ ìì
           </label>
-          <Badge text={na ? '해당없음' : registered ? `등록됨 · ${docs.length}건` : '미등록'} tone={na ? 'slate' : registered ? 'emerald' : 'amber'} />
+          <Badge text={na ? 'í´ë¹ìì' : registered ? `ë±ë¡ë¨ Â· ${docs.length}ê±´` : 'ë¯¸ë±ë¡'} tone={na ? 'slate' : registered ? 'emerald' : 'amber'} />
         </div>
       </div>
 
       {na && (
         <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-faint)' }}>
-          우리 회사 업태(제조업/수입업 등)에 해당하지 않는 문서로 표시했습니다. 체크를 해제하면 다시 등록할 수 있습니다.
+          ì°ë¦¬ íì¬ ìí(ì ì¡°ì/ììì ë±)ì í´ë¹íì§ ìë ë¬¸ìë¡ íìíìµëë¤. ì²´í¬ë¥¼ í´ì íë©´ ë¤ì ë±ë¡í  ì ììµëë¤.
         </div>
       )}
 
@@ -494,7 +494,7 @@ function DocCategoryCard({ category, hint, docs, na, onToggleNA, canEdit, onSave
             <div key={d.id} className="p-3 rounded-lg border flex items-start justify-between gap-3 flex-wrap" style={{ borderColor: 'var(--line)' }}>
               <div className="min-w-0">
                 <div className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>{d.title}</div>
-                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || '발급기관 미입력'} · 발급 {d.issueDate || '—'}{d.expiryDate ? ` · 만료 ${d.expiryDate}` : ''}</div>
+                <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{d.issuer || 'ë°ê¸ê¸°ê´ ë¯¸ìë ¥'} Â· ë°ê¸ {d.issueDate || 'â'}{d.expiryDate ? ` Â· ë§ë£ ${d.expiryDate}` : ''}</div>
                 <div className="mt-1.5"><SingleFileAttach fileId={d.fileId} fileName={d.fileName} onAttach={(f) => onAttach(d.id, f)} onRemove={() => onRemoveFile(d.id)} canEdit={canEdit} label="" /></div>
               </div>
               {canEdit && <button onClick={() => onDelete(d.id)} className="text-slate-300 hover:text-rose-600 shrink-0"><Trash2 size={14} /></button>}
@@ -504,20 +504,20 @@ function DocCategoryCard({ category, hint, docs, na, onToggleNA, canEdit, onSave
       )}
 
       {canEdit && !adding && !na && (
-        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> {registered ? '문서 추가' : '문서 등록'}</button>
+        <button onClick={() => setAdding(true)} className="btn-ghost text-[12px] mt-2"><Plus size={12} /> {registered ? 'ë¬¸ì ì¶ê°' : 'ë¬¸ì ë±ë¡'}</button>
       )}
       {adding && !na && (
         <div className="rounded-lg p-3 mt-2 space-y-3" style={{ background: 'var(--bg-soft)' }}>
           <div className="grid sm:grid-cols-2 gap-3">
-            <Field label="문서명" value={form.title} onChange={(v) => setF('title', v)} placeholder={`예: ${category}`} />
-            <Field label="발급기관" value={form.issuer} onChange={(v) => setF('issuer', v)} />
-            <Field label="발급일" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
-            <Field label="유효기한" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="해당 시" />
+            <Field label="ë¬¸ìëª" value={form.title} onChange={(v) => setF('title', v)} placeholder={`ì: ${category}`} />
+            <Field label="ë°ê¸ê¸°ê´" value={form.issuer} onChange={(v) => setF('issuer', v)} />
+            <Field label="ë°ê¸ì¼" type="date" value={form.issueDate} onChange={(v) => setF('issueDate', v)} />
+            <Field label="ì í¨ê¸°í" type="date" value={form.expiryDate} onChange={(v) => setF('expiryDate', v)} placeholder="í´ë¹ ì" />
           </div>
-          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} />
+          <TextAreaField label="ë¹ê³ " value={form.notes} onChange={(v) => setF('notes', v)} />
           <div className="flex gap-2">
-            <button onClick={submit} className="btn-primary text-[12.5px]">저장</button>
-            <button onClick={() => { setAdding(false); setForm(EMPTY_DOC_FOR(category)) }} className="btn-ghost text-[12.5px]">취소</button>
+            <button onClick={submit} className="btn-primary text-[12.5px]">ì ì¥</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_DOC_FOR(category)) }} className="btn-ghost text-[12.5px]">ì·¨ì</button>
           </div>
         </div>
       )}
@@ -526,42 +526,46 @@ function DocCategoryCard({ category, hint, docs, na, onToggleNA, canEdit, onSave
 }
 
 /* ================================================================
-   조직도 · 직무기술서 · 권한책임서 — 부서별
+   ì¡°ì§ë Â· ì§ë¬´ê¸°ì ì Â· ê¶íì±ìì â ë¶ìë³
    ================================================================ */
 function OrgTab({ departments, onAction, refresh }) {
   const canEdit = permissions.can('company.roledoc.edit')
   const [selId, setSelId] = useState(departments[0]?.id || null)
   const sel = departments.find((d) => d.id === selId) || null
   const chartRef = useRef(null)
+  const visibleDepts = React.useMemo(() => {
+    const childIds = new Set(departments.map(x => x.parentId).filter(Boolean))
+    return departments.filter(d => !childIds.has(d.id) || !d.parentId)
+  }, [departments])
   const [capturing, setCapturing] = useState(false)
   const savedImg = loadOrgChartImage()
   const captureChart = async () => {
     setCapturing(true)
     try {
       const dataUrl = chartRef.current && (await chartRef.current.captureDataUrl())
-      if (!dataUrl) throw new Error('캡처할 조직도가 없습니다.')
+      if (!dataUrl) throw new Error('ìº¡ì²í  ì¡°ì§ëê° ììµëë¤.')
       saveOrgChartImage(dataUrl)
-      onAction('조직도 이미지가 저장되었습니다. 품질문서의 "조직도" 챕터에 그대로 반영됩니다.')
+      onAction('ì¡°ì§ë ì´ë¯¸ì§ê° ì ì¥ëììµëë¤. íì§ë¬¸ìì "ì¡°ì§ë" ì±í°ì ê·¸ëë¡ ë°ìë©ëë¤.')
       refresh()
     } catch (e) {
-      window.alert('캡처 실패: ' + ((e && e.message) || e))
+      window.alert('ìº¡ì² ì¤í¨: ' + ((e && e.message) || e))
     }
     setCapturing(false)
   }
 
   if (departments.length === 0) {
-    return <EmptyState icon={Users} text="등록된 부서가 없습니다. 온보딩의 조직도 단계에서 부서를 먼저 등록하세요." />
+    return <EmptyState icon={Users} text="ë±ë¡ë ë¶ìê° ììµëë¤. ì¨ë³´ë©ì ì¡°ì§ë ë¨ê³ìì ë¶ìë¥¼ ë¨¼ì  ë±ë¡íì¸ì." />
   }
 
   return (
     <div className="space-y-5">
       <div className="card-base p-3">
         <div className="flex items-center justify-between gap-2 mb-1">
-          <div className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>조직도</div>
+          <div className="text-[12px] font-medium" style={{ color: 'var(--ink-mute)' }}>ì¡°ì§ë</div>
           <div className="flex items-center gap-2">
-            {savedImg && <span className="text-[10.5px]" style={{ color: 'var(--ink-mute)' }}>최근 저장 {new Date(savedImg.capturedAt).toLocaleString('ko-KR')}</span>}
+            {savedImg && <span className="text-[10.5px]" style={{ color: 'var(--ink-mute)' }}>ìµê·¼ ì ì¥ {new Date(savedImg.capturedAt).toLocaleString('ko-KR')}</span>}
             <button onClick={captureChart} disabled={capturing} className="btn-primary text-[12px] px-3 py-1.5 disabled:opacity-50">
-              {capturing ? '캡처 중…' : '조직도 이미지로 저장 → 품질문서 반영'}
+              {capturing ? 'ìº¡ì² ì¤â¦' : 'ì¡°ì§ë ì´ë¯¸ì§ë¡ ì ì¥ â íì§ë¬¸ì ë°ì'}
             </button>
           </div>
         </div>
@@ -569,20 +573,20 @@ function OrgTab({ departments, onAction, refresh }) {
       </div>
       <div className="grid lg:grid-cols-[280px_1fr] gap-5">
       <div className="space-y-1.5">
-        {departments.map((d) => {
+        {visibleDepts.map((d) => {
           const rd = companyDocs.getRoleDoc(d.id)
           const filled = rd && (rd.jobDescription || rd.authorityResponsibility)
           return (
             <button key={d.id} onClick={() => setSelId(d.id)} className="w-full text-left px-3 py-2.5 rounded-lg border flex items-center justify-between gap-2 transition"
               style={{ borderColor: d.id === selId ? 'var(--moss)' : 'var(--line)', background: d.id === selId ? 'var(--leaf-soft)' : 'var(--bg-card)' }}>
               <span className="text-[13px]" style={{ color: 'var(--ink)' }}>{d.name}</span>
-              {filled ? <Badge text="작성됨" tone="emerald" /> : <Badge text="미작성" tone="slate" />}
+              {filled ? <Badge text="ìì±ë¨" tone="emerald" /> : <Badge text="ë¯¸ìì±" tone="slate" />}
             </button>
           )
         })}
       </div>
       <div>
-        {sel ? <RoleDocForm key={sel.id} dept={sel} canEdit={canEdit} onAction={onAction} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 부서를 선택하세요." />}
+        {sel ? <RoleDocForm key={sel.id} dept={sel} canEdit={canEdit} onAction={onAction} refresh={refresh} /> : <EmptyState icon={Users} text="ì¼ìª½ìì ë¶ìë¥¼ ì ííì¸ì." />}
       </div>
       </div>
     </div>
@@ -598,33 +602,33 @@ function RoleDocForm({ dept, canEdit, onAction, refresh }) {
   const save = () => {
     if (!requirePermission('company.roledoc.edit')) return
     companyDocs.upsertRoleDoc(dept.id, dept.name, { jobDescription, authorityResponsibility })
-    onAction('직무기술서·권한책임서가 저장되었습니다.')
+    onAction('ì§ë¬´ê¸°ì ìÂ·ê¶íì±ììê° ì ì¥ëììµëë¤.')
     refresh()
   }
 
   return (
     <div className="card-base p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{dept.name} — 직무기술서 · 권한책임서</div>
-        {/* #16 AI 초안 작성 — 추후 적용 예정. 조직도·제품·인증 정보를 바탕으로 초안을 자동 생성하는 기능은
-            다른 화면(품질매뉴얼 STEP4)에 이미 적용된 패턴을 이 화면에도 확장할 예정이며, 우선 진입점만 마련해둔다. */}
-        <button type="button" disabled title="조직도·부서 정보를 바탕으로 초안을 자동 생성하는 기능을 준비 중입니다."
+        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{dept.name} â ì§ë¬´ê¸°ì ì Â· ê¶íì±ìì</div>
+        {/* #16 AI ì´ì ìì± â ì¶í ì ì© ìì . ì¡°ì§ëÂ·ì íÂ·ì¸ì¦ ì ë³´ë¥¼ ë°íì¼ë¡ ì´ìì ìë ìì±íë ê¸°ë¥ì
+            ë¤ë¥¸ íë©´(íì§ë§¤ë´ì¼ STEP4)ì ì´ë¯¸ ì ì©ë í¨í´ì ì´ íë©´ìë íì¥í  ìì ì´ë©°, ì°ì  ì§ìì ë§ ë§ë ¨í´ëë¤. */}
+        <button type="button" disabled title="ì¡°ì§ëÂ·ë¶ì ì ë³´ë¥¼ ë°íì¼ë¡ ì´ìì ìë ìì±íë ê¸°ë¥ì ì¤ë¹ ì¤ìëë¤."
           className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1.5 rounded-lg opacity-50 cursor-not-allowed"
           style={{ border: '1px solid var(--line)', color: 'var(--ink-faint)' }}>
-          <Sparkles size={12} /> AI 초안 작성 (준비 중)
+          <Sparkles size={12} /> AI ì´ì ìì± (ì¤ë¹ ì¤)
         </button>
       </div>
-      <TextAreaField label="직무기술서" value={jobDescription} onChange={setJobDescription} minHeight={120} placeholder="담당 업무·필요 자격·보고체계 등을 기술하세요." />
-      <TextAreaField label="권한 및 책임서" value={authorityResponsibility} onChange={setAuthorityResponsibility} minHeight={120} placeholder="의사결정 권한 범위·품질 관련 책임 사항을 기술하세요. (ISO 13485 §5.5.1)" />
+      <TextAreaField label="ì§ë¬´ê¸°ì ì" value={jobDescription} onChange={setJobDescription} minHeight={120} placeholder="ë´ë¹ ìë¬´Â·íì ìê²©Â·ë³´ê³ ì²´ê³ ë±ì ê¸°ì íì¸ì." />
+      <TextAreaField label="ê¶í ë° ì±ìì" value={authorityResponsibility} onChange={setAuthorityResponsibility} minHeight={120} placeholder="ìì¬ê²°ì  ê¶í ë²ìÂ·íì§ ê´ë ¨ ì±ì ì¬í­ì ê¸°ì íì¸ì. (ISO 13485 Â§5.5.1)" />
       {canEdit && (
-        <div className="flex justify-end"><button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px]">저장</button></div>
+        <div className="flex justify-end"><button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px]">ì ì¥</button></div>
       )}
     </div>
   )
 }
 
 /* ================================================================
-   품질책임자 지정 — 제조관리자 자격증 + 임명장, 승인 절차
+   íì§ì±ìì ì§ì  â ì ì¡°ê´ë¦¬ì ìê²©ì¦ + ìëªì¥, ì¹ì¸ ì ì°¨
    ================================================================ */
 function QmTab({ qm, onAction, refresh }) {
   const canEdit = permissions.can('company.qm.edit')
@@ -643,22 +647,22 @@ function QmTab({ qm, onAction, refresh }) {
   const save = () => {
     if (!requirePermission('company.qm.edit')) return
     companyDocs.setQualityManager(form)
-    if (form.name) onboarding.updateCompany({ qmRep: form.name }) // 문서 생성 시 참조하는 품질책임자명과 동기화
-    onAction('품질책임자 지정 정보가 저장되었습니다.')
+    if (form.name) onboarding.updateCompany({ qmRep: form.name }) // ë¬¸ì ìì± ì ì°¸ì¡°íë íì§ì±ììëªê³¼ ëê¸°í
+    onAction('íì§ì±ìì ì§ì  ì ë³´ê° ì ì¥ëììµëë¤.')
     refresh()
   }
 
   const approve = () => {
     if (!requirePermission('company.qm.approve')) return
-    // 승인 전에 화면에 입력된 최신 값(성명·요건 체크)을 먼저 저장해 승인 로직이 참조하도록 한다.
+    // ì¹ì¸ ì ì íë©´ì ìë ¥ë ìµì  ê°(ì±ëªÂ·ìê±´ ì²´í¬)ì ë¨¼ì  ì ì¥í´ ì¹ì¸ ë¡ì§ì´ ì°¸ì¡°íëë¡ íë¤.
     companyDocs.setQualityManager(form)
     const approver = auth.current()
     try {
-      const saved = companyDocs.approveQualityManager(approver?.name || '승인자')
+      const saved = companyDocs.approveQualityManager(approver?.name || 'ì¹ì¸ì')
       if (form.name) onboarding.updateCompany({ qmRep: form.name })
-      onAction('품질책임자 지정이 승인되었습니다. 임명장을 자동 생성합니다.')
+      onAction('íì§ì±ìì ì§ì ì´ ì¹ì¸ëììµëë¤. ìëªì¥ì ìë ìì±í©ëë¤.')
       refresh()
-      // #19 승인 후 임명장 자동 발급 — 별도 파일 첨부 없이 지정·승인 정보로 즉시 인쇄용 임명장을 생성한다.
+      // #19 ì¹ì¸ í ìëªì¥ ìë ë°ê¸ â ë³ë íì¼ ì²¨ë¶ ìì´ ì§ì Â·ì¹ì¸ ì ë³´ë¡ ì¦ì ì¸ìì© ìëªì¥ì ìì±íë¤.
       if (saved?.qualityManager) printQmAppointmentLetter(saved.qualityManager)
     } catch (e) {
       window.alert((e && e.message) || String(e))
@@ -671,31 +675,31 @@ function QmTab({ qm, onAction, refresh }) {
 
   return (
     <div className="card-base p-4 space-y-3">
-      <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>품질책임자(제조관리자) 지정</div>
-      <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>KGMP 제6조 / ISO 13485 §5.5.2 — 자격 요건 4개 항목을 모두 확인·체크해야 승인할 수 있습니다.</div>
+      <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>íì§ì±ìì(ì ì¡°ê´ë¦¬ì) ì§ì </div>
+      <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>KGMP ì 6ì¡° / ISO 13485 Â§5.5.2 â ìê²© ìê±´ 4ê° í­ëª©ì ëª¨ë íì¸Â·ì²´í¬í´ì¼ ì¹ì¸í  ì ììµëë¤.</div>
 
       {qm?.status === QM_STATUS.APPROVED && (
         <div className="text-[12px] p-2.5 rounded-lg flex items-center justify-between gap-2 flex-wrap" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
-          <span><CheckCircle2 size={13} className="inline mr-1" /> {qm.approvedBy} 승인 · {qm.approvedAt ? new Date(qm.approvedAt).toLocaleString('ko-KR') : ''}</span>
+          <span><CheckCircle2 size={13} className="inline mr-1" /> {qm.approvedBy} ì¹ì¸ Â· {qm.approvedAt ? new Date(qm.approvedAt).toLocaleString('ko-KR') : ''}</span>
           <button onClick={reissueLetter} className="inline-flex items-center gap-1 text-[11.5px] font-medium px-2 py-1 rounded-md" style={{ background: '#fff', border: '1px solid var(--moss)', color: 'var(--moss)' }}>
-            <Printer size={12} /> 임명장 다시 보기
+            <Printer size={12} /> ìëªì¥ ë¤ì ë³´ê¸°
           </button>
         </div>
       )}
       {qm && qm.status !== QM_STATUS.APPROVED && (
         <div className="text-[12px] p-2.5 rounded-lg flex items-center gap-1.5" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-          <AlertCircle size={13} /> 승인 대기 중입니다.
+          <AlertCircle size={13} /> ì¹ì¸ ëê¸° ì¤ìëë¤.
         </div>
       )}
 
       <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="성명" value={form.name} onChange={(v) => setF('name', v)} />
-        <Field label="직위" value={form.title} onChange={(v) => setF('title', v)} placeholder="예: 품질경영팀장" />
-        <Field label="지정일" type="date" value={form.appointedDate} onChange={(v) => setF('appointedDate', v)} />
+        <Field label="ì±ëª" value={form.name} onChange={(v) => setF('name', v)} />
+        <Field label="ì§ì" value={form.title} onChange={(v) => setF('title', v)} placeholder="ì: íì§ê²½ìíì¥" />
+        <Field label="ì§ì ì¼" type="date" value={form.appointedDate} onChange={(v) => setF('appointedDate', v)} />
       </div>
 
       <div className="rounded-lg p-3" style={{ background: 'var(--bg-soft)' }}>
-        <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>품질책임자 자격 요건 확인 (의료기기법 시행규칙 [별표9])</div>
+        <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>íì§ì±ìì ìê²© ìê±´ íì¸ (ìë£ê¸°ê¸°ë² ìíê·ì¹ [ë³í9])</div>
         <div className="space-y-2">
           {QM_REQUIREMENTS.map((r) => (
             <label key={r.id} className="flex items-start gap-2 cursor-pointer select-none">
@@ -705,13 +709,13 @@ function QmTab({ qm, onAction, refresh }) {
           ))}
         </div>
         {!allReqChecked && (
-          <div className="text-[11px] mt-2" style={{ color: 'var(--ink-faint)' }}>4개 항목을 모두 체크해야 지정 승인이 가능합니다.</div>
+          <div className="text-[11px] mt-2" style={{ color: 'var(--ink-faint)' }}>4ê° í­ëª©ì ëª¨ë ì²´í¬í´ì¼ ì§ì  ì¹ì¸ì´ ê°ë¥í©ëë¤.</div>
         )}
       </div>
 
       <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-        {canEdit && <button onClick={save} className="btn-ghost text-[12.5px]">정보 저장</button>}
-        {canApprove && <button onClick={approve} disabled={!form.name?.trim() || !allReqChecked} className="btn-primary text-[12.5px] disabled:opacity-40"><CheckCircle2 size={14} /> 지정 승인 · 임명장 발급</button>}
+        {canEdit && <button onClick={save} className="btn-ghost text-[12.5px]">ì ë³´ ì ì¥</button>}
+        {canApprove && <button onClick={approve} disabled={!form.name?.trim() || !allReqChecked} className="btn-primary text-[12.5px] disabled:opacity-40"><CheckCircle2 size={14} /> ì§ì  ì¹ì¸ Â· ìëªì¥ ë°ê¸</button>}
       </div>
     </div>
   )
