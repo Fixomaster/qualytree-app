@@ -318,6 +318,7 @@ export default function PurchaseVerificationHub() {
 
   return (
     <AppLayout user={user} title="구매 정보 및 수입검사" subtitle="ISO 13485 §7.4.2 구매 정보 / §7.4.3 구매 제품 검증">
+      <HubBanner title="구매 정보 및 수입검사" subtitle="ISO 13485 §7.4.2/§7.4.3 — 구매 정보 명세·수입검사 계획 및 결과" icon={PackageCheck} color="#7C3AED" />
       <div className="px-6 lg:px-8 py-6 max-w-[1600px] mx-auto">
 
         {/* 입고 후 IQC 대기 경보 */}
@@ -858,7 +859,6 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
-      <HubBanner title="구매 정보 및 수입검사" subtitle="ISO 13485 §7.4.2 구매 정보 / §7.4.3 구매 제품 검증" icon={ShoppingCart} color="#F59E0B" workflow={['발주 생성', '공급자 확인', '입고 검사', 'IQC 판정', '입고 승인']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
