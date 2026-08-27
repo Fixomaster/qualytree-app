@@ -8,6 +8,7 @@ import {
   Workflow, TrendingUp,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import {
   printNCR, printCAPA, printAudit, printCAR,
@@ -137,6 +138,7 @@ export default function ExportHub() {
 
   return (
     <AppLayout user={user} title="기록 내보내기" subtitle="QMS 기록 PDF 출력 · ISO 13485 문서 출력">
+      <HubBanner icon={Download} title="데이터 내보내기" subtitle="기록 내보내기" color="gray" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
         {/* 상단 통계 카드 */}
