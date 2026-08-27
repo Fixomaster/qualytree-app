@@ -23,6 +23,7 @@ import {
   Upload,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission, LEVEL_LABEL } from '../../lib/permissions'
 import { onboarding, getProductProcesses, setProductProcesses, productKeyOf, getAllUsedBlockIds } from '../../lib/onboardingState'
@@ -144,6 +145,7 @@ export default function ProductsHub() {
       title="제품 · 공정"
       subtitle="허가증 단위 통합 관리 · 설계개발 전주기"
     >
+      <HubBanner icon={Package} title="제품 관리" subtitle="제품 등록 및 관리" color="slate" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {/* Toast */}
         {toast && (
