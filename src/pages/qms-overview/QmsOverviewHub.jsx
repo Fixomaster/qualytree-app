@@ -7,7 +7,7 @@ import {
   BookOpen, Edit2, Building2, Target, ShieldCheck,
   ArrowRight, FileText, Users, GitBranch, AlertTriangle,
   CheckCircle2, Clock, ChevronRight, Layers, Star,
-  ExternalLink,, LayoutDashboard } from 'lucide-react'
+  ExternalLink, LayoutDashboard } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
