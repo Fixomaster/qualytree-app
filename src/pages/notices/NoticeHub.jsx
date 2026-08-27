@@ -244,7 +244,7 @@ export default function NoticeHub() {
 
   return (
     <AppLayout user={user} title="공지사항" subtitle="ISO 13485 §5.5.3 내부 커뮤니케이션">
-      <HubBanner icon={Bell} title="공지사항" subtitle="ISO 13485 §5.5.3 내부 커뮤니케이션" color="indigo" />
+      <HubBanner icon={Bell} title="공지사항" subtitle="ISO 13485 §5.5.3 내부 커뮤니케이션" color="#4F46E5" />
       <div className="px-6 lg:px-8 py-6 max-w-[960px] mx-auto space-y-5">
         <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, #3B82F608, #10B98108)', border: '1px solid var(--line)' }}>
           <div className="flex items-center justify-between flex-wrap gap-3">
