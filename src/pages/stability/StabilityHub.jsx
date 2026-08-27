@@ -192,7 +192,7 @@ export default function StabilityHub() {
         icon={Thermometer}
         title="안정성 시험 관리"
         subtitle="유효기간 설정을 위한 안정성 시험 계획·실시·기록 관리 (제조GMP 제8장 §QA-3)"
-        color="teal"
+        color="#0D9488"
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
