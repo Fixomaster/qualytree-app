@@ -304,7 +304,7 @@ export default function ServiceHub() {
 
   return (
     <AppLayout user={user} title="설치·서비스 관리" subtitle="ISO 13485 §7.5.3 설치 활동 · §7.5.4 서비스 활동">
-      <HubBanner title="설치·서비스 관리" subtitle="ISO 13485 §7.5.3 설치 활동 · §7.5.4 서비스 활동" icon={Wrench} color="#0891B2" workflow={['설치 의뢰 접수', '현장 출동', '설치 완료', '서비스 기록', '고객 확인']} />
+      <HubBanner title="설치·서비스 활동" subtitle="ISO 13485 §7.5.3/§7.5.4 — 설치·서비스 계획·실행·기록" icon={Wrench} color="#0D9488" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* KPI 요약 */}
