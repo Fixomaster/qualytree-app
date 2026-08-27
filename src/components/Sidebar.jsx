@@ -49,15 +49,17 @@ function loadLeafDeptNames() {
   } catch { return [] }
 }
 function relevantDeptOptions() {
-  const names = loadLeafDeptNames()
-  if (!names.length) return DEPT_LIST
-  const norm = (s) => (s || '').replace(/[·\s]/g, '')
-  const hit = (label) => names.some((n) => {
-    const a = norm(n); const b = norm(label)
-    return a.includes(b) || b.includes(a) || a.includes(b.slice(0, 2))
-  })
-  const filtered = DEPT_LIST.filter((d) => d.code === 'ALL' || hit(d.label))
-  return filtered.length > 1 ? filtered : DEPT_LIST
+  try {
+    const raw = localStorage.getItem('qualytree.onboarding')
+    if (!raw) return DEPT_LIST
+    const ob = JSON.parse(raw)
+    const depts = ob.departments || []
+    if (!depts.length) return DEPT_LIST
+    const childIds = new Set(depts.map(d => d.parentId).filter(Boolean))
+    const leafDepts = depts.filter(d => !childIds.has(d.id) || !d.parentId)
+    if (!leafDepts.length) return DEPT_LIST
+    return leafDepts.map(d => ({ code: d.id, icon: '🏢', label: d.name }))
+  } catch { return DEPT_LIST }
 }
 
 const DOMAINS = [
