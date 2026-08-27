@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
-import { FileDown } from 'lucide-react'
+import { FileDown, FileCheck } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import CertGate from '../../components/CertGate'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
@@ -19,6 +20,7 @@ export default function Iso13485Hub() {
 
   return (
     <AppLayout user={user} title="ISO 13485" subtitle="국제 품질경영시스템(QMS) 인증 신청 및 유지관리 통합 현황">
+      <HubBanner icon={FileCheck} title="ISO 13485" subtitle="ISO 13485 요건 현황" color="green" />
       <CertGate certId="iso13485" label="ISO 13485">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         <div className="mb-5">
