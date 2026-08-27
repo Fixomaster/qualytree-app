@@ -208,6 +208,7 @@ export default function QualityManualHub() {
 
   return (
     <AppLayout user={user} title="íì§ ë§¤ë´ì¼" subtitle="ISO 13485 Â§4.2.1 â QMS ë²ìÂ·ì ì¸ì¬í­Â·íë¡ì¸ì¤ ìí¸ìì©Â·ì ì°¨ ì°¸ì¡°">
+      <HubBanner title="품질 매뉴얼 관리" subtitle="ISO 13485 §4.2.1 — 품질 매뉴얼 작성·유지·배포" icon={BookOpen} color="#4F46E5" workflow={['초안 작성', '내부 검토', '경영진 승인', '배포', '정기 개정']} />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* í¤ë ì¹´ë */}
@@ -738,7 +739,6 @@ function Field({ label, value, onChange, type = 'text', placeholder }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
-      <HubBanner title="품질 매뉴얼 관리" subtitle="ISO 13485 §4.2.1 — 품질 매뉴얼 작성·유지·배포" icon={BookOpen} color="#4F46E5" workflow={['초안 작성', '내부 검토', '경영진 승인', '배포', '정기 개정']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
