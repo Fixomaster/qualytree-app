@@ -182,7 +182,7 @@ export default function CSVHub() {
         icon={Monitor}
         title="컴퓨터화 시스템 유효성확인 (CSV)"
         subtitle="Computer System Validation: IQ/OQ/PQ 단계별 유효성확인 계획·실행·기록 관리 (제조GMP 제4장)"
-        color="violet"
+        color="#7C3AED"
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
