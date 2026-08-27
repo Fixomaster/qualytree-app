@@ -5,7 +5,7 @@ import {
   Plus, Save, Edit2, Trash2, Layers, CheckCircle2,
   AlertTriangle, ClipboardList, ChevronUp, ChevronDown,
   Package, BarChart2, Cpu, ArrowRight, GripVertical,
-  Factory,, Settings
+  Factory, Settings
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
