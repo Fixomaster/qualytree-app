@@ -730,7 +730,7 @@ export default function ResourcePlanHub() {
 
   return (
     <AppLayout user={user} title="자원 계획" subtitle="ISO 13485 §6.1 자원 제공 (Provision of Resources)">
-      <HubBanner icon={Layers} title="자원 계획" subtitle="ISO 13485 §6.1 자원 제공" color="teal" />
+      <HubBanner icon={Layers} title="자원 계획" subtitle="ISO 13485 §6.1 자원 제공" color="#0D9488" />
       <div className="px-6 lg:px-8 py-6 max-w-[1060px] mx-auto space-y-5">
 
         {/* 헤더 배너 */}
