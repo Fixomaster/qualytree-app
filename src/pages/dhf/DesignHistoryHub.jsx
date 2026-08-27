@@ -509,7 +509,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
 
   return (
     <AppLayout user={user} title="설계 이력 파일 (DHF)" subtitle="ISO 13485 §7.3 설계 및 개발">
-      <HubBanner icon={FolderOpen} title="설계이력파일" subtitle="ISO 13485 §7.3 설계이력파일(DHF)" color="indigo" />
+      <HubBanner icon={FolderOpen} title="설계이력파일" subtitle="ISO 13485 §7.3 설계이력파일(DHF)" color="#4F46E5" />
       {body}
     </AppLayout>
   )
