@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { Plus, Trash2, BadgeCheck, Factory, Edit2, ClipboardPaste, X, Link2, ExternalLink } from 'lucide-react'
+import { Plus, Trash2, BadgeCheck, Factory, Edit2, ClipboardPaste, X, Link2, ExternalLink, Package } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import CertGate from '../../components/CertGate'
 import { foreignSites } from '../../lib/foreignManufacturerState'
@@ -139,6 +140,7 @@ export default function ImportProductsHub() {
 
   return (
     <AppLayout user={user} title="품목 허가 현황" subtitle="수입 품목별 허가·신고·인증 현황 관리">
+      <HubBanner icon={Package} title="수입제품 관리" subtitle="수입GMP 제품 등록 관리" color="blue" />
       <CertGate certId="kgmp_importer" label="수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1100px] mx-auto fade-in">
 
