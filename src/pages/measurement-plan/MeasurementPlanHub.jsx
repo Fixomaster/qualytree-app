@@ -13,7 +13,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Edit2, Save, X, Trash2, CheckCircle2, AlertTriangle,
-  Target, TrendingUp, ClipboardList, ExternalLink, Eye,, BarChart2 } from 'lucide-react'
+  Target, TrendingUp, ClipboardList, ExternalLink, Eye, BarChart2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
