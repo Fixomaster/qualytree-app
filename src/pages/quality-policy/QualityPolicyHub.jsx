@@ -2,8 +2,9 @@
 // ISO 13485 §5.3 품질 방침 / §5.4.1 품질 목표 (통합 — #360)
 import React, { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Edit2, Save, X, Award, Target } from 'lucide-react'
+import { Edit2, Save, X, Award, Target, ShieldCheck } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { QualityObjectivesPanel } from '../quality-objectives/QualityObjectivesHub'
 
@@ -47,6 +48,7 @@ export default function QualityPolicyHub() {
 
   return (
     <AppLayout user={user} title="경영 의지·품질 방침" subtitle="ISO 13485 §5.3 품질 방침 / §5.4.1 품질 목표">
+      <HubBanner icon={ShieldCheck} title="경영 의지·품질 방침" subtitle="ISO 13485 §5.1" color="green" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 탭 — #360: 품질목표를 품질방침 메뉴로 통합 */}
