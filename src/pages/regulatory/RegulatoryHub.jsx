@@ -6,6 +6,7 @@ import {
   ChevronRight, X, Info, Save, Tag, Sparkles, Loader2, Paperclip, RotateCcw,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { fileStore } from '../../lib/fileStore'
 import { onboarding } from '../../lib/onboardingState'
@@ -207,6 +208,7 @@ export default function RegulatoryHub() {
   return (
     <AppLayout user={user} title="인허가 허브"
       subtitle="MFDS 고시 제2026-6호 별표7 — 품목별 기술문서 제출 범위 자동 매핑">
+      <HubBanner icon={FileText} title="인허가 관리" subtitle="품목 인허가 및 인증 관리" color="blue" />
       <div className="fade-in" style={{ maxWidth: 920, margin: '0 auto' }}>
 
         {/* Tab bar */}
