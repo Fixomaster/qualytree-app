@@ -160,7 +160,7 @@ export default function ImportManagementStandardHub() {
 
   return (
     <AppLayout user={user} title="수입관리기준서" subtitle="수입 의료기기 수입관리 절차 기준 문서">
-      <HubBanner icon={Scroll} title="수입관리기준서" subtitle="수입GMP 수입관리기준서 관리" color="teal" />
+      <HubBanner icon={Scroll} title="수입관리기준서" subtitle="수입GMP 수입관리기준서 관리" color="#0D9488" />
       <CertGate certId="kgmp_importer" label="수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1100px] mx-auto fade-in">
           <HubBanner
