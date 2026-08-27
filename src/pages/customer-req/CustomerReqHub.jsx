@@ -864,6 +864,7 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
+      <HubBanner title="고객 요구사항 검토" subtitle="ISO 13485 §7.2 — 요구사항 결정·검토·커뮤니케이션" icon={ClipboardList} color="#2563EB" workflow={['요구사항 접수', '내부 검토', '수락/반려', '계약 체결', '변경 관리']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
