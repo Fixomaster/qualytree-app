@@ -1,7 +1,8 @@
 // src/pages/quality_dashboard/QualityDashboard.jsx
 // ISO 13485 §8.4 데이터 분석 — 전 허브 통합 품질 KPI 대시보드
 import React, { useState, useMemo } from 'react'
-import {
+import HubBanner from '../../components/HubBanner';
+import {BarChart3, 
   TrendingUp, TrendingDown, AlertTriangle, CheckCircle2,
   XCircle, Clock, BarChart2, FileText, RefreshCw,
   Shield, Thermometer, Package, Microscope, FlaskConical,
@@ -210,6 +211,7 @@ export default function QualityDashboard() {
 
   return (
     <AppLayout user={user} title="품질 KPI 대시보드" subtitle="ISO 13485 §8.4 데이터 분석 · 전 허브 통합 현황">
+      <HubBanner title="품질 KPI 대시보드" subtitle="ISO 13485 §8.4 — 측정·분석·개선 성과 지표 통합 모니터링" icon={BarChart3} color="#16A34A" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 헤더 액션 */}
