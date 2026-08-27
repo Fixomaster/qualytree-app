@@ -2,7 +2,7 @@
 // ISO 13485 §6.3 — 인프라 관리 허브
 // 건물·시설 / IT·소프트웨어 / 유틸리티 / 지원서비스
 import React, { useState, useMemo } from 'react'
-import {
+import {Building, 
   Plus, Save, Edit2, Trash2, CheckCircle2, Clock,
   AlertTriangle, FileText, Wrench, Building2,
   Monitor, Zap, Truck, BarChart2, Link2, X,
@@ -161,6 +161,7 @@ export default function InfrastructureHub() {
 
   return (
     <AppLayout user={user} title="인프라 관리" subtitle="ISO 13485 §6.3 — 건물·시설·IT·유틸리티·지원서비스">
+      <HubBanner title="인프라 관리" subtitle="ISO 13485 §6.3 — 건물·장비·소프트웨어·유틸리티 관리" icon={Building} color="#475569" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 탭 */}
@@ -734,7 +735,6 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3 }) {
   return (
     <div>
-      <HubBanner title="인프라 관리" subtitle="ISO 13485 §6.3 — 건물·시설·IT·유틸리티·지원서비스" icon={Building2} color="#6B7280" workflow={['인프라 등록', '유지보수 계획', '점검 실시', '이상 조치', '성능 평가']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
