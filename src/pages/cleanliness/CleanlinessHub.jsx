@@ -213,6 +213,7 @@ export default function CleanlinessHub() {
 
   return (
     <AppLayout user={user} title="제품 청결·오염 관리" subtitle="ISO 13485 §7.5.2 — 청결 요구사항 및 오염 관리">
+      <HubBanner title="제품 청결·오염 관리" subtitle="ISO 13485 §7.5.2 — 청결 요건·오염 관리·환경 모니터링" icon={Wind} color="#0891B2" />
       <div className="px-6 lg:px-8 py-6 max-w-[1600px] mx-auto">
 
         {/* §7.5.2 안내 배너 */}
@@ -886,7 +887,6 @@ function ValidationDetail({ spec, onClose }) {
   }
   return (
     <div className="space-y-1">
-      <HubBanner title="청결·오염 관리" subtitle="ISO 13485 §7.5.2 — 청결 요구사항 및 오염 관리" icon={Droplets} color="#6366F1" workflow={['오염원 식별', '청결 사양 수립', '모니터링 실시', '이탈 조치', '기록 관리']} />
       <div className="text-center mb-3">
         <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>{spec.productName}</div>
         <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>제품별 밸리데이션 조건 · ISO 13485 §7.5.2</div>
