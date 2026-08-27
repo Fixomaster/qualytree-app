@@ -5,9 +5,9 @@ import { useNavigate } from 'react-router-dom'
 import {
   Package, ShoppingCart, Wrench, FlaskConical, Truck,
   CheckCircle2, XCircle, AlertTriangle, Clock, ShieldCheck, RefreshCw,
-  ChevronDown, ChevronUp, ArrowRight, Search,
-} from 'lucide-react'
+  ChevronDown, ChevronUp, ArrowRight, Search,, Tag } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 
 const PID_KEY  = 'qualytree.product_id'
 const NCR_KEY  = 'qualytree.ncrs'
@@ -141,6 +141,7 @@ export default function ProductIdHub() {
 
   return (
     <AppLayout>
+      <HubBanner icon={Tag} title="제품 식별·상태" subtitle="ISO 13485 §7.5.8 제품 식별 및 상태" color="purple" />
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
 
         {/* 헤더 */}
