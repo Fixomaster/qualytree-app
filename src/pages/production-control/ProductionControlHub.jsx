@@ -5,7 +5,7 @@ import {
   Plus, Save, Edit2, Trash2, Layers, CheckCircle2,
   AlertTriangle, ClipboardList, ChevronUp, ChevronDown,
   Package, BarChart2, Cpu, ArrowRight, GripVertical,
-  Factory,
+  Factory,, Settings
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -661,6 +661,7 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
+      <HubBanner title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 생산 및 서비스 제공 관리" icon={Settings} color="#EA580C" workflow={['계획 수립', '공정 승인', '생산 실행', '검사', '출하 승인']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
