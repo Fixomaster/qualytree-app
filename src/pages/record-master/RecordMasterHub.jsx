@@ -220,7 +220,7 @@ export default function RecordMasterHub() {
 
   return (
     <AppLayout user={user} title="중앙 기록 대장" subtitle="ISO 13485 §4.2.4 · 품질기록 통합 현황">
-      <HubBanner icon={BookOpen} title="중앙 기록 대장" subtitle="ISO 13485 §4.2.4" color="gray" />
+      <HubBanner icon={BookOpen} title="중앙 기록 대장" subtitle="ISO 13485 §4.2.4" color="#6B7280" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto space-y-5">
 
         {/* 헤더 배너 */}
