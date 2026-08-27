@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Factory, ArrowRight, FileDown, FileCheck2 } from 'lucide-react'
+import { Factory, ArrowRight, FileDown, FileCheck2, CheckSquare } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { buildKgmpSections, summarizeKgmpSections } from '../../lib/kgmpProgress'
 import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kgmpDocumentBundle'
@@ -81,6 +82,7 @@ export default function KgmpHub() {
 
   return (
     <AppLayout user={user} title="KGMP" subtitle="국내 제조업체 GMP 인증(인허가) 신청 및 유지관리 통합 현황">
+      <HubBanner icon={CheckSquare} title="KGMP" subtitle="국내 GMP 관리" color="emerald" />
       <CertGate certId="kgmp" label="KGMP">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         <div className="mb-5">
