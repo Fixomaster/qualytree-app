@@ -13,9 +13,9 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Edit2, Save, X, Trash2, CheckCircle2, AlertTriangle,
-  Target, TrendingUp, ClipboardList, ExternalLink, Eye,
-} from 'lucide-react'
+  Target, TrendingUp, ClipboardList, ExternalLink, Eye,, BarChart2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ export default function MeasurementPlanHub() {
 
   return (
     <AppLayout user={user} title="측정·분석·개선 계획" subtitle="ISO 13485 §8.1 — 측정·모니터링·분석·개선 활동의 계획">
+      <HubBanner icon={BarChart2} title="측정·분석 계획" subtitle="ISO 13485 §8.1 측정·분석·개선" color="blue" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
         {/* 완성도 배지 */}
