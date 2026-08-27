@@ -8,7 +8,7 @@ import {
   AlertTriangle, CheckCircle2, Archive, BarChart2,
   ChevronRight, Calendar, Package, ShieldAlert,
   Wrench, TrendingUp, Users, GitBranch, RefreshCw,
-  Layers, Activity,, BookOpen } from 'lucide-react'
+  Layers, Activity, BookOpen } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
