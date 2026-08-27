@@ -20,7 +20,7 @@ export default function Iso13485Hub() {
 
   return (
     <AppLayout user={user} title="ISO 13485" subtitle="국제 품질경영시스템(QMS) 인증 신청 및 유지관리 통합 현황">
-      <HubBanner icon={FileCheck} title="ISO 13485" subtitle="ISO 13485 요건 현황" color="green" />
+      <HubBanner icon={FileCheck} title="ISO 13485" subtitle="ISO 13485 요건 현황" color="#16A34A" />
       <CertGate certId="iso13485" label="ISO 13485">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         <div className="mb-5">
