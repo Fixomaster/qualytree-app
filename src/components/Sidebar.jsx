@@ -24,7 +24,7 @@ Building2,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
-import { menuPermissions, getUserDept } from '../lib/menuPermissions'
+import { menuPermissions } from '../lib/menuPermissions'
 import { deptAuth, DEPT_LIST } from '../lib/deptAuth'
 import GlobalSearch from './GlobalSearch'
 
@@ -180,7 +180,7 @@ return () => window.removeEventListener('qt-dept-changed', handler)
 const deptOptions = useMemo(() => relevantDeptOptions(), [])
 
 const isAdmin = cur?.isCompanyAdmin || (cur?.level ?? 0) >= 3
-  const userDept = getUserDept(cur?.email)
+  const userDept = dept
   const ob = useMemo(() => { try { return JSON.parse(localStorage.getItem('qualytree.onboarding') || '{}') } catch { return {} } }, [])
   const hasKGMP = ob.certs?.kgmp === true
   const hasImport = ob.certs?.kgmp_importer === true
