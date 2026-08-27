@@ -33,7 +33,7 @@ export default function TrainingHub() {
 
   return (
     <AppLayout user={user} title="교육훈련" subtitle="연간교육계획 / 교육자료 / 교육 실시·평가·참석기록">
-      <HubBanner icon={GraduationCap} title="교육훈련" subtitle="ISO 13485 §6.2 인적자원" color="blue" />
+      <HubBanner icon={GraduationCap} title="교육훈련" subtitle="ISO 13485 §6.2 인적자원" color="#2563EB" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
