@@ -16,6 +16,7 @@ const STORE_KEY = 'qualytree.onboarding'
 // ───────── 시드 데이터 (KGMP 기준 · 품질관리 항목 정리.xlsx 기반) ─────────
 const DEFAULT_ORG = [
   { id: 'ceo', name: '대표이사', parentId: null },
+  { id: 'qmr', name: '품질책임자', parentId: 'ceo' },
   { id: 'rnd', name: '연구개발', parentId: 'ceo' },
   { id: 'ra', name: 'RA', parentId: 'rnd' },
   { id: 'qa', name: 'QA', parentId: 'rnd' },
