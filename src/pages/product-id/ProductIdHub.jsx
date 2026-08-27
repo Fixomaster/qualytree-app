@@ -141,7 +141,7 @@ export default function ProductIdHub() {
 
   return (
     <AppLayout>
-      <HubBanner icon={Tag} title="제품 식별·상태" subtitle="ISO 13485 §7.5.8 제품 식별 및 상태" color="purple" />
+      <HubBanner icon={Tag} title="제품 식별·상태" subtitle="ISO 13485 §7.5.8 제품 식별 및 상태" color="#7C3AED" />
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
 
         {/* 헤더 */}
