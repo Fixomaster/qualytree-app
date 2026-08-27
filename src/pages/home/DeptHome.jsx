@@ -29,9 +29,8 @@ function lsRead(key, fallback = []) {
 
 
 // ── 부서별 할 일 집계 ──────────────────────────────────────
-function getMyTasks(dept) {
-  const _OLD = new Set(['SAL','MFG','PUR','QUA','EQP','DEV','DOC','MR','TRN','RA','AUD','IMP','ALL'])
-  dept = _OLD.has(dept) ? dept : 'ALL'
+function getMyTasks(dept, allowedMenus) {
+  const can = (path) => !allowedMenus || allowedMenus.includes(path)
   const tasks = []
   const now = new Date()
 
@@ -39,7 +38,7 @@ function getMyTasks(dept) {
   const ncrs = lsRead('qualytree.ncrs')
   ncrs.filter(n => ['open', 'investigating', 'under_review', 'correcting'].includes(n.status)).forEach(n => {
     const urgent = n.severity === 'critical' || n.severity === 'major'
-    if (['QUA', 'MFG', 'ALL'].includes(dept) || (dept === 'SAL' && n.source === 'complaint')) {
+    if (can('/quality') || (dept === 'SAL' && n.source === 'complaint')) {
       tasks.push({
         id: n.id, type: 'ncr', urgent,
         label: `NCR · ${n.title || n.id}`,
@@ -56,7 +55,7 @@ function getMyTasks(dept) {
     const due = c.targetDate ? new Date(c.targetDate) : null
     const overdue = due && due < now
     const soon = due && !overdue && (due - now) < 7 * 86400000
-    if (['QUA', 'ALL'].includes(dept) && (overdue || soon)) {
+    if (can('/quality') && (overdue || soon)) {
       tasks.push({
         id: c.id, type: 'capa', urgent: overdue,
         label: `CAPA · ${c.title || c.id}`,
@@ -71,7 +70,7 @@ function getMyTasks(dept) {
   const wos = lsRead('qms_mfg_wo')
   const ACTIVE_WO_STATUS = ['대기', '진행중', '검사중']
   wos.filter(w => ACTIVE_WO_STATUS.includes(w.status)).forEach(w => {
-    if (['MFG', 'ALL'].includes(dept)) {
+    if (can('/manufacturing')) {
       const overdue = w.dueDate && new Date(w.dueDate) < now
       tasks.push({
         id: w.id, type: 'wo',
@@ -87,7 +86,7 @@ function getMyTasks(dept) {
   // AUD: 미결 CAR
   const cars = lsRead('qualytree.audit_cars')
   cars.filter(c => c.status === 'open').forEach(c => {
-    if (['QUA', 'AUD', 'ALL'].includes(dept)) {
+    if (can('/audit')) {
       tasks.push({
         id: c.id, type: 'car', urgent: c.severity === 'major',
         label: `CAR · ${c.finding?.slice(0, 40) || c.id}...`,
@@ -101,7 +100,7 @@ function getMyTasks(dept) {
   // IMP: 승인 대기 개선 과제
   const imps = lsRead('qualytree.improvements')
   imps.filter(i => i.status === 'idea').forEach(i => {
-    if (['IMP', 'QUA', 'MR', 'ALL'].includes(dept)) {
+    if (can('/purchase')) {
       tasks.push({
         id: i.id, type: 'imp', urgent: i.priority === 'high',
         label: `개선 · ${i.title || i.id}`,
@@ -115,7 +114,7 @@ function getMyTasks(dept) {
   // MR: 감사 완료 후 종결 대기
   const audits = lsRead('qualytree.audits')
   audits.filter(a => a.status === 'completed').forEach(a => {
-    if (['MR', 'QUA', 'AUD', 'ALL'].includes(dept)) {
+    if (can('/management-review')) {
       tasks.push({
         id: a.id, type: 'audit', urgent: false,
         label: `감사 종결 대기 · ${a.title || a.id}`,
@@ -131,7 +130,7 @@ function getMyTasks(dept) {
   salOrdersT.filter(o => !['납품완료', '취소'].includes(o.status)).forEach(o => {
     const due = o.dueDate ? new Date(o.dueDate) : null
     const days = due && !isNaN(due.getTime()) ? Math.ceil((due - now) / 86400000) : null
-    if (days !== null && days <= 7 && ['SAL', 'ALL'].includes(dept)) {
+    if (days !== null && days <= 7 && can('/sales')) {
       tasks.push({
         id: o.id, type: 'order', urgent: days < 0,
         label: `수주 · ${o.id} ${o.customer || ''}`,
@@ -147,7 +146,7 @@ function getMyTasks(dept) {
   purInvT.forEach(i => {
     const s = parseFloat(i.stock ?? i.qty ?? 0)
     const m = parseFloat(i.min ?? i.safetyQty ?? 0)
-    if (m > 0 && s < m && ['PUR', 'ALL'].includes(dept)) {
+    if (m > 0 && s < m && can('/purchase')) {
       tasks.push({
         id: i.id, type: 'stock', urgent: s <= 0,
         label: `재고부족 · ${i.name || i.id}`,
@@ -159,7 +158,7 @@ function getMyTasks(dept) {
   })
 
   // RA/QUA: 수입관리기준서 검토·승인 대기 (#30 — 작성/검토/승인 워크플로우)
-  if (['RA', 'QUA', 'ALL'].includes(dept)) {
+  if (can('/regulatory')) {
     try {
       const ims = JSON.parse(localStorage.getItem('qualytree.import_management_standard') || 'null')
       if (ims && ['review', 'approval'].includes(ims.docStatus)) {
@@ -180,7 +179,7 @@ function getMyTasks(dept) {
   eqpInstrT.forEach(e => {
     const d = e.nextCalib ? new Date(e.nextCalib) : null
     const days = d && !isNaN(d.getTime()) ? Math.ceil((d - now) / 86400000) : null
-    if (days !== null && days < 0 && ['EQP', 'ALL'].includes(dept)) {
+    if (days !== null && days < 0 && can('/equipment')) {
       tasks.push({
         id: e.id, type: 'cal', urgent: true,
         label: `교정초과 · ${e.name || e.id}`,
@@ -193,7 +192,7 @@ function getMyTasks(dept) {
 
   // #8: 온보딩 완료 후 설정 순서 안내 — 품질매뉴얼 → 절차서 순으로 작성을 유도한다.
   // 회사 전체에 관련된 항목이라 ALL/MR/DOC 뷰에서만 노출(다른 부서 화면에서는 노이즈가 되지 않도록).
-  if (['ALL', 'MR', 'DOC'].includes(dept)) {
+  if (can('/documents')) {
     try {
       const ob = JSON.parse(localStorage.getItem('qualytree.onboarding') || 'null')
       const onboardingDone = ob && ob.done && Object.values(ob.done).every(Boolean)
@@ -542,7 +541,7 @@ export default function DeptHome() {
     return found ? { label: found.name, icon: '🏢', color: '#6B7280' } : null
   } catch { return null }
 })()
-  const allTasks = useMemo(() => getMyTasks(dept), [dept])
+  const allTasks = useMemo(() => getMyTasks(dept, allowedMenus), [dept, allowedMenus])
   const [showAllTasks, setShowAllTasks] = useState(false)
   const tasks = showAllTasks ? allTasks : allTasks.slice(0, 8)
   const kpis = useMemo(() => getDeptKPIs(dept), [dept])
