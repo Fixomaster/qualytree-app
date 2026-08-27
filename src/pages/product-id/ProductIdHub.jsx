@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Package, ShoppingCart, Wrench, FlaskConical, Truck,
   CheckCircle2, XCircle, AlertTriangle, Clock, ShieldCheck, RefreshCw,
-  ChevronDown, ChevronUp, ArrowRight, Search,, Tag } from 'lucide-react'
+  ChevronDown, ChevronUp, ArrowRight, Search, Tag } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 
