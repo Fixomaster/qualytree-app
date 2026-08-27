@@ -1,7 +1,7 @@
 // src/pages/org-responsibility/OrgResponsibilityHub.jsx
 // ISO 13485 §5.5 — 책임·권한 및 의사소통
 import React, { useState, useMemo, useEffect } from 'react'
-import {
+import {Users2, 
   Plus, Save, Edit2, Trash2, User, Users,
   Building2, MessageSquare, ShieldCheck, Star,
   ChevronDown, ChevronRight, Link2, BarChart2,
@@ -195,6 +195,7 @@ export default function OrgResponsibilityHub() {
 
   return (
     <AppLayout user={user} title="조직 및 책임 관리" subtitle="ISO 13485 §5.5 — 책임·권한·경영대리인·내부 커뮤니케이션">
+      <HubBanner title="조직 및 책임" subtitle="ISO 13485 §5.5 — 조직 구조·직책·권한·책임 정의" icon={Users2} color="#4F46E5" />
       <div className="px-6 lg:px-8 py-6 max-w-[1800px] mx-auto">
 
         {/* 경영대리인 배너 (§5.5.2) */}
@@ -724,7 +725,6 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
-      <HubBanner title="조직 및 책임 관리" subtitle="ISO 13485 §5.5 — 책임·권한·경영대리인·내부 커뮤니케이션" icon={Users} color="#2563EB" workflow={['조직도 수립', '역할 정의', 'RACI 매핑', '권한 부여', '커뮤니케이션']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
