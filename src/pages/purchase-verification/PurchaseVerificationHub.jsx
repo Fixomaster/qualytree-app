@@ -6,7 +6,7 @@ import {
   Plus, Save, Edit2, Trash2, FileText, CheckCircle2,
   XCircle, Clock, AlertTriangle, ShieldCheck, Package,
   BarChart2, Link2, ArrowRight, Truck,
-  PackageCheck,, ShoppingCart
+  PackageCheck, ShoppingCart
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
