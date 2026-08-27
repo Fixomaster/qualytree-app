@@ -30,6 +30,8 @@ function lsRead(key, fallback = []) {
 
 // ── 부서별 할 일 집계 ──────────────────────────────────────
 function getMyTasks(dept) {
+  const _OLD = new Set(['SAL','MFG','PUR','QUA','EQP','DEV','DOC','MR','TRN','RA','AUD','IMP','ALL'])
+  dept = _OLD.has(dept) ? dept : 'ALL'
   const tasks = []
   const now = new Date()
 
