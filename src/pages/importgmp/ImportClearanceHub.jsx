@@ -6,6 +6,7 @@
 import React, { useMemo, useState } from 'react'
 import { Plus, Trash2, Ship, AlertTriangle, ChevronDown, ChevronRight, Download, X, Paperclip, Boxes } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import CertGate from '../../components/CertGate'
 import { fileStore } from '../../lib/fileStore'
@@ -113,6 +114,7 @@ export default function ImportClearanceHub() {
 
   return (
     <AppLayout user={user} title="수입 통관 기록" subtitle="발주서·견적서·수입통관·수입검사·입고·출고 전체 흐름과 재고현황 관리">
+      <HubBanner icon={Ship} title="수입통관" subtitle="수입GMP 통관 관리" color="cyan" />
       <CertGate certId="kgmp_importer" label="수입 GMP">
         <div className="px-6 lg:px-8 py-6 max-w-[1100px] mx-auto fade-in">
 
