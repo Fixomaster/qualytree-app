@@ -223,7 +223,7 @@ export default function QualityPlanHub() {
 
   return (
     <AppLayout user={user} title="품질 계획 (QP)" subtitle="ISO 13485 §7.1 제품 실현의 계획 — 제품별 품질 계획서">
-      <HubBanner title="품질 계획" subtitle="ISO 13485 §7.1 — 품질 목표 달성을 위한 계획 수립 및 관리" icon={ClipboardList} color="#2563EB" />
+      <HubBanner title="품질 계획 (QP)" subtitle="ISO 13485 §7.1 제품 실현의 계획 — 제품별 품질 계획서" icon={ClipboardList} color="#059669" workflow={['제품 선정', '계획 작성', '검토·승인', '실행', '성과 평가']} />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         {/* 탭 */}
