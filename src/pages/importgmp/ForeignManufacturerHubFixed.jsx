@@ -13,7 +13,7 @@ import {
   Save,
   ChevronUp,
   ChevronDown,
-, Building2 } from 'lucide-react'
+Building2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
