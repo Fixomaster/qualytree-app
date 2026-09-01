@@ -1,5 +1,5 @@
 // src/pages/sterile-control/SterileControlHub.jsx
-// ISO 13485 §7.5.7 — 멸균 의료기기 특별 요구사항
+// ISO 13485 Â§7.5.7 â ë©¸ê·  ìë£ê¸°ê¸° í¹ë³ ìêµ¬ì¬í­
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../../lib/auth'
@@ -11,23 +11,25 @@ import {
   ChevronDown, ChevronUp, Trash2, Save, XCircle,
   BarChart2, FileText, ClipboardList, ShieldCheck, ExternalLink,
   Edit2, Printer,
+,
+  Shield,
 } from 'lucide-react'
 import {
   STERILE_METHODS, SAL_LEVELS, BIOBURDEN_METHODS, SPEC_STATUSES, deriveSterileSpecs,
 } from '../../lib/sterileSpecConstants'
 import { printSterileBatchCert, printSterilizationProcedure } from '../../lib/pdfPrint'
 
-// ─── 상수 ──────────────────────────────────────────────
-// 멸균 방법 사양(STERILE_METHODS 등)은 제품·공정 화면에서 입력되어
-// 제품 레코드 자체가 SSoT가 되므로, 여기서는 별도 저장소 없이
-// sterileSpecConstants.js를 통해 파생(derive)한다.
+// âââ ìì ââââââââââââââââââââââââââââââââââââââââââââââ
+// ë©¸ê·  ë°©ë² ì¬ì(STERILE_METHODS ë±)ì ì íÂ·ê³µì  íë©´ìì ìë ¥ëì´
+// ì í ë ì½ë ìì²´ê° SSoTê° ëë¯ë¡, ì¬ê¸°ìë ë³ë ì ì¥ì ìì´
+// sterileSpecConstants.jsë¥¼ íµí´ íì(derive)íë¤.
 const BATCHES_KEY = 'qualytree.sterile_batches'
 const POLICY_KEY  = 'qualytree.sterile_policy'
 
 const BATCH_RESULTS = [
-  { value: 'pass',        label: '합격',       color: '#10B981' },
-  { value: 'fail',        label: '불합격',     color: '#EF4444' },
-  { value: 'conditional', label: '조건부 합격', color: '#F59E0B' },
+  { value: 'pass',        label: 'í©ê²©',       color: '#10B981' },
+  { value: 'fail',        label: 'ë¶í©ê²©',     color: '#EF4444' },
+  { value: 'conditional', label: 'ì¡°ê±´ë¶ í©ê²©', color: '#F59E0B' },
 ]
 
 const EMPTY_BATCH = {
@@ -38,19 +40,19 @@ const EMPTY_BATCH = {
   result: 'pass', notes: '',
 }
 
-// 멸균 방법에 따라 실측 사이클 파라미터 중 실제로 의미 있는 항목만 입력받는다. (#190)
+// ë©¸ê·  ë°©ë²ì ë°ë¼ ì¤ì¸¡ ì¬ì´í´ íë¼ë¯¸í° ì¤ ì¤ì ë¡ ìë¯¸ ìë í­ëª©ë§ ìë ¥ë°ëë¤. (#190)
 const CYCLE_PARAMS_BY_METHOD = {
-  'EO (에틸렌옥사이드)':            ['temp', 'time', 'pressure'],
-  '감마선 (Gamma Radiation)':      ['dose'],
-  'E-beam (전자빔)':                ['dose'],
-  '고압증기멸균 (Autoclave)':       ['temp', 'time', 'pressure'],
-  '건열 멸균 (Dry Heat)':           ['temp', 'time'],
-  '과산화수소 플라즈마 (H₂O₂ Plasma)': ['temp', 'time'],
-  'X선 방사선':                     ['dose'],
+  'EO (ìí¸ë ì¥ì¬ì´ë)':            ['temp', 'time', 'pressure'],
+  'ê°ë§ì  (Gamma Radiation)':      ['dose'],
+  'E-beam (ì ìë¹)':                ['dose'],
+  'ê³ ìì¦ê¸°ë©¸ê·  (Autoclave)':       ['temp', 'time', 'pressure'],
+  'ê±´ì´ ë©¸ê·  (Dry Heat)':           ['temp', 'time'],
+  'ê³¼ì°íìì íë¼ì¦ë§ (HâOâ Plasma)': ['temp', 'time'],
+  'Xì  ë°©ì¬ì ':                     ['dose'],
 }
 function cycleParamsFor(method) { return CYCLE_PARAMS_BY_METHOD[method] || ['temp', 'time', 'pressure', 'dose'] }
 
-// 배치/로트 번호로 생산중인 WO를 조회해 어떤 제품인지 자동 연결한다. (#188)
+// ë°°ì¹/ë¡í¸ ë²í¸ë¡ ìì°ì¤ì¸ WOë¥¼ ì¡°íí´ ì´ë¤ ì íì¸ì§ ìë ì°ê²°íë¤. (#188)
 function findWoByLot(lot) {
   if (!lot || !lot.trim()) return null
   try {
@@ -70,7 +72,7 @@ const DEFAULT_POLICY = {
   revisionHistory: [],
 }
 
-// ─── 헬퍼 ──────────────────────────────────────────────
+// âââ í¬í¼ ââââââââââââââââââââââââââââââââââââââââââââââ
 function genBatchId() { return `SB-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 function lsGet(key, def) {
@@ -108,17 +110,17 @@ const inp = {
 const textarea = { ...inp, resize: 'vertical', minHeight: 72, fontFamily: 'inherit' }
 const sel      = { ...inp, cursor: 'pointer' }
 
-// ─── 완전성 체커 ─────────────────────────────────────
+// âââ ìì ì± ì²´ì»¤ âââââââââââââââââââââââââââââââââââââ
 function useCompleteness(specs, batches, policy) {
   const checks = [
-    { label: '멸균 방법 사양 최소 1건', done: specs.length > 0 },
-    { label: '모든 사양에 SAL 목표 설정', done: specs.length > 0 && specs.every(s => s.salTarget) },
-    { label: '모든 사양에 밸리데이션 참조 입력', done: specs.length > 0 && specs.every(s => s.validationRef) },
-    { label: '모든 사양에 포장 참조 입력', done: specs.length > 0 && specs.every(s => s.packagingRef) },
-    { label: '멸균 배치 기록 최소 1건', done: batches.length > 0 },
-    { label: '재처리 정책 문서 작성', done: !!(policy.reprocessingPolicy && policy.singleUseStatement) },
-    { label: '라벨링 요구사항 문서화', done: !!policy.labelingReqs },
-    { label: '유효기간 추적 방법 정의', done: !!policy.expiryTrackingMethod },
+    { label: 'ë©¸ê·  ë°©ë² ì¬ì ìµì 1ê±´', done: specs.length > 0 },
+    { label: 'ëª¨ë  ì¬ìì SAL ëª©í ì¤ì ', done: specs.length > 0 && specs.every(s => s.salTarget) },
+    { label: 'ëª¨ë  ì¬ìì ë°¸ë¦¬ë°ì´ì ì°¸ì¡° ìë ¥', done: specs.length > 0 && specs.every(s => s.validationRef) },
+    { label: 'ëª¨ë  ì¬ìì í¬ì¥ ì°¸ì¡° ìë ¥', done: specs.length > 0 && specs.every(s => s.packagingRef) },
+    { label: 'ë©¸ê·  ë°°ì¹ ê¸°ë¡ ìµì 1ê±´', done: batches.length > 0 },
+    { label: 'ì¬ì²ë¦¬ ì ì± ë¬¸ì ìì±', done: !!(policy.reprocessingPolicy && policy.singleUseStatement) },
+    { label: 'ë¼ë²¨ë§ ìêµ¬ì¬í­ ë¬¸ìí', done: !!policy.labelingReqs },
+    { label: 'ì í¨ê¸°ê° ì¶ì  ë°©ë² ì ì', done: !!policy.expiryTrackingMethod },
   ]
   const done  = checks.filter(c => c.done).length
   const total = checks.length
@@ -126,7 +128,7 @@ function useCompleteness(specs, batches, policy) {
   return { checks, done, total, pct }
 }
 
-// ─── 탭 버튼 ─────────────────────────────────────────
+// âââ í­ ë²í¼ âââââââââââââââââââââââââââââââââââââââââ
 function TabBar({ tabs, active, onSelect }) {
   return (
     <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--line)', marginBottom: 20 }}>
@@ -145,21 +147,21 @@ function TabBar({ tabs, active, onSelect }) {
   )
 }
 
-// ══════════════════════════════════════════════════════
-//  TAB 1 — 멸균 방법 사양 (읽기 전용 · 제품·공정 화면에서 입력)
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  TAB 1 â ë©¸ê·  ë°©ë² ì¬ì (ì½ê¸° ì ì© Â· ì íÂ·ê³µì  íë©´ìì ìë ¥)
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function SpecTab({ specs, canEdit, onNavigateToProduct, onNavigateToProducts }) {
   const [selected, setSelected] = useState(null)
 
   return (
     <div>
-      {/* 상단 안내 */}
+      {/* ìë¨ ìë´ */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         marginBottom: 14, gap: 12, flexWrap: 'wrap',
       }}>
         <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>
-          총 {specs.length}건의 제품 멸균 사양 · 제품·공정 &gt; 제품 개발 화면에서 입력한 내용이 여기 자동 반영됩니다
+          ì´ {specs.length}ê±´ì ì í ë©¸ê·  ì¬ì Â· ì íÂ·ê³µì  &gt; ì í ê°ë° íë©´ìì ìë ¥í ë´ì©ì´ ì¬ê¸° ìë ë°ìë©ëë¤
         </span>
         {canEdit && (
           <button onClick={onNavigateToProducts} style={{
@@ -167,17 +169,17 @@ function SpecTab({ specs, canEdit, onNavigateToProduct, onNavigateToProducts }) 
             background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
             padding: '7px 14px', cursor: 'pointer',
           }}>
-            <ExternalLink size={14} /> 제품 개발에서 사양 입력
+            <ExternalLink size={14} /> ì í ê°ë°ìì ì¬ì ìë ¥
           </button>
         )}
       </div>
 
-      {/* 목록 테이블 */}
+      {/* ëª©ë¡ íì´ë¸ */}
       {specs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-faint)', fontSize: 14 }}>
-          등록된 멸균 방법 사양이 없습니다.
+          ë±ë¡ë ë©¸ê·  ë°©ë² ì¬ìì´ ììµëë¤.
           <div style={{ fontSize: 12.5, marginTop: 6 }}>
-            제품·공정 &gt; 제품 개발 화면에서 제품을 "멸균 의료기기"로 설정하고 사양을 입력하세요.
+            ì íÂ·ê³µì  &gt; ì í ê°ë° íë©´ìì ì íì "ë©¸ê·  ìë£ê¸°ê¸°"ë¡ ì¤ì íê³  ì¬ìì ìë ¥íì¸ì.
           </div>
         </div>
       ) : (
@@ -195,8 +197,8 @@ function SpecTab({ specs, canEdit, onNavigateToProduct, onNavigateToProducts }) 
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{s.productName}</div>
                   <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>
-                    {s.productCode && <span style={{ marginRight: 10 }}>코드: {s.productCode}</span>}
-                    <span style={{ marginRight: 10 }}>방법: {s.sterileMethod}</span>
+                    {s.productCode && <span style={{ marginRight: 10 }}>ì½ë: {s.productCode}</span>}
+                    <span style={{ marginRight: 10 }}>ë°©ë²: {s.sterileMethod}</span>
                     <span>SAL: {s.salTarget}</span>
                   </div>
                 </div>
@@ -208,29 +210,29 @@ function SpecTab({ specs, canEdit, onNavigateToProduct, onNavigateToProducts }) 
                       fontSize: 12, padding: '4px 10px', borderRadius: 5,
                       border: '1px solid var(--line)', background: 'none', cursor: 'pointer', color: 'var(--ink-soft)',
                     }}>
-                      <ExternalLink size={12} /> 제품 개발에서 관리
+                      <ExternalLink size={12} /> ì í ê°ë°ìì ê´ë¦¬
                     </button>
                   </div>
                 )}
                 {selected === s.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </div>
 
-              {/* 상세 펼치기 */}
+              {/* ìì¸ í¼ì¹ê¸° */}
               {selected === s.id && (
                 <div style={{ borderTop: '1px solid var(--line)', padding: '14px 16px', background: 'var(--bg-soft)' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, fontSize: 13 }}>
-                    <InfoRow label="바이오버든 한도"     value={s.bioburdenLimit || '\u2014'} />
-                    <InfoRow label="바이오버든 시험법"   value={s.bioburdenMethod} />
-                    <InfoRow label="멸균 유효기간"       value={s.expiryMonths ? `${s.expiryMonths}개월` : '\u2014'} />
-                    <InfoRow label="사이클 온도"         value={s.cycleTemp ? `${s.cycleTemp}℃` : '\u2014'} />
-                    <InfoRow label="사이클 시간"         value={s.cycleTime ? `${s.cycleTime}분` : '\u2014'} />
-                    <InfoRow label="사이클 압력"         value={s.cyclePressure ? `${s.cyclePressure} bar` : '\u2014'} />
-                    <InfoRow label="선량"                value={s.cycleDose || '\u2014'} />
-                    <InfoRow label="밸리데이션 참조"     value={s.validationRef || '\u2014'} />
-                    <InfoRow label="포장 밸리데이션"     value={s.packagingRef || '\u2014'} />
-                    <InfoRow label="멸균성 시험 필요"    value={s.sterilityTestRequired ? '예' : '아니오'} />
-                    <InfoRow label="재처리 허용"         value={s.reprocessingAllowed ? '예 (주의)' : '단회용 (재처리 금지)'} />
-                    {s.notes && <div style={{ gridColumn: '1/-1' }}><InfoRow label="비고" value={s.notes} /></div>}
+                    <InfoRow label="ë°ì´ì¤ë²ë  íë"     value={s.bioburdenLimit || '\u2014'} />
+                    <InfoRow label="ë°ì´ì¤ë²ë  ìíë²"   value={s.bioburdenMethod} />
+                    <InfoRow label="ë©¸ê·  ì í¨ê¸°ê°"       value={s.expiryMonths ? `${s.expiryMonths}ê°ì` : '\u2014'} />
+                    <InfoRow label="ì¬ì´í´ ì¨ë"         value={s.cycleTemp ? `${s.cycleTemp}â` : '\u2014'} />
+                    <InfoRow label="ì¬ì´í´ ìê°"         value={s.cycleTime ? `${s.cycleTime}ë¶` : '\u2014'} />
+                    <InfoRow label="ì¬ì´í´ ìë ¥"         value={s.cyclePressure ? `${s.cyclePressure} bar` : '\u2014'} />
+                    <InfoRow label="ì ë"                value={s.cycleDose || '\u2014'} />
+                    <InfoRow label="ë°¸ë¦¬ë°ì´ì ì°¸ì¡°"     value={s.validationRef || '\u2014'} />
+                    <InfoRow label="í¬ì¥ ë°¸ë¦¬ë°ì´ì"     value={s.packagingRef || '\u2014'} />
+                    <InfoRow label="ë©¸ê· ì± ìí íì"    value={s.sterilityTestRequired ? 'ì' : 'ìëì¤'} />
+                    <InfoRow label="ì¬ì²ë¦¬ íì©"         value={s.reprocessingAllowed ? 'ì (ì£¼ì)' : 'ë¨íì© (ì¬ì²ë¦¬ ê¸ì§)'} />
+                    {s.notes && <div style={{ gridColumn: '1/-1' }}><InfoRow label="ë¹ê³ " value={s.notes} /></div>}
                   </div>
                 </div>
               )}
@@ -251,9 +253,9 @@ function InfoRow({ label, value }) {
   )
 }
 
-// ══════════════════════════════════════════════════════
-//  TAB 2 — 멸균 배치 기록
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  TAB 2 â ë©¸ê·  ë°°ì¹ ê¸°ë¡
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function BatchTab({ batches, setBatches, specs, canEdit }) {
   const [showForm, setShowForm] = useState(false)
   const [editing,  setEditing]  = useState(null)
@@ -279,7 +281,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
     setShowForm(false)
   }
   const del = id => {
-    if (!window.confirm('삭제하시겠습니까?')) return
+    if (!window.confirm('ì­ì íìê² ìµëê¹?')) return
     setBatches(batches.filter(b => b.id !== id))
   }
   const upd = k => e => setDraft(d => ({ ...d, [k]: e.target.value }))
@@ -288,7 +290,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
     if (s) setDraft(d => ({ ...d, specId: s.id, productName: s.productName, sterileMethod: s.sterileMethod }))
     else setDraft(d => ({ ...d, specId: '', productName: '' }))
   }
-  // 배치/로트 번호 입력 시 생산중인 WO를 조회해 제품을 자동 특정한다. (#188)
+  // ë°°ì¹/ë¡í¸ ë²í¸ ìë ¥ ì ìì°ì¤ì¸ WOë¥¼ ì¡°íí´ ì íì ìë í¹ì íë¤. (#188)
   const onBatchNoBlur = () => {
     const wo = findWoByLot(draft.batchNo)
     if (!wo) return
@@ -310,14 +312,14 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>총 {batches.length}건의 멸균 배치 기록 · 행 클릭 시 성적서 확인</span>
+        <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>ì´ {batches.length}ê±´ì ë©¸ê·  ë°°ì¹ ê¸°ë¡ Â· í í´ë¦­ ì ì±ì ì íì¸</span>
         {canEdit && (
           <button onClick={openNew} style={{
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
             background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
             padding: '7px 14px', cursor: 'pointer',
           }}>
-            <PlusCircle size={15} /> 배치 기록 추가
+            <PlusCircle size={15} /> ë°°ì¹ ê¸°ë¡ ì¶ê°
           </button>
         )}
       </div>
@@ -327,29 +329,29 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
           background: 'var(--bg-soft)', border: '1px solid var(--line)', borderRadius: 10, padding: 20, marginBottom: 20,
         }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 16 }}>
-            {editing ? '배치 기록 수정' : '새 멸균 배치 기록'}
+            {editing ? 'ë°°ì¹ ê¸°ë¡ ìì ' : 'ì ë©¸ê·  ë°°ì¹ ê¸°ë¡'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="배치/로트 번호" required>
-              <input style={inp} value={draft.batchNo} onChange={upd('batchNo')} onBlur={onBatchNoBlur} placeholder="예: LOT-2024-001 (입력 시 생산중 WO에서 제품 자동조회)" />
+            <Field label="ë°°ì¹/ë¡í¸ ë²í¸" required>
+              <input style={inp} value={draft.batchNo} onChange={upd('batchNo')} onBlur={onBatchNoBlur} placeholder="ì: LOT-2024-001 (ìë ¥ ì ìì°ì¤ WOìì ì í ìëì¡°í)" />
             </Field>
-            <Field label="멸균 일자">
+            <Field label="ë©¸ê·  ì¼ì">
               <input type="date" style={inp} value={draft.date} onChange={upd('date')} />
             </Field>
-            <Field label="멸균 사양 연결 (제품 특정)">
+            <Field label="ë©¸ê·  ì¬ì ì°ê²° (ì í í¹ì )">
               <select style={sel} value={draft.specId} onChange={onSpecChange}>
-                <option value="">— 선택 —</option>
+                <option value="">â ì í â</option>
                 {specs.map(s => <option key={s.id} value={s.id}>{s.productName}</option>)}
               </select>
             </Field>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="제품 (자동 특정됨)">
+            <Field label="ì í (ìë í¹ì ë¨)">
               <div style={{ ...inp, display: 'flex', alignItems: 'center', background: 'var(--bg-soft)', color: draft.productName ? 'var(--ink)' : 'var(--ink-faint)' }}>
-                {draft.productName || '배치번호 입력 또는 멸균 사양 선택 시 자동 표시'}
+                {draft.productName || 'ë°°ì¹ë²í¸ ìë ¥ ëë ë©¸ê·  ì¬ì ì í ì ìë íì'}
               </div>
             </Field>
-            <Field label="멸균 방법 (사양 연결 기준)">
+            <Field label="ë©¸ê·  ë°©ë² (ì¬ì ì°ê²° ê¸°ì¤)">
               <div style={{ ...inp, display: 'flex', alignItems: 'center', background: 'var(--bg-soft)', color: 'var(--ink)' }}>
                 {draft.sterileMethod}
               </div>
@@ -357,25 +359,25 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
           </div>
 
           <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: 14, marginBottom: 14 }}>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--ink-soft)' }}>실측 사이클 파라미터 (멸균 방법에 따라 입력 항목이 달라집니다)</div>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: 'var(--ink-soft)' }}>ì¤ì¸¡ ì¬ì´í´ íë¼ë¯¸í° (ë©¸ê·  ë°©ë²ì ë°ë¼ ìë ¥ í­ëª©ì´ ë¬ë¼ì§ëë¤)</div>
             <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cycleParams.length}, 1fr)`, gap: 10 }}>
               {cycleParams.includes('temp') && (
-                <Field label="온도 (℃)">
+                <Field label="ì¨ë (â)">
                   <input style={inp} value={draft.actualTemp} onChange={upd('actualTemp')} />
                 </Field>
               )}
               {cycleParams.includes('time') && (
-                <Field label="시간 (분)">
+                <Field label="ìê° (ë¶)">
                   <input style={inp} value={draft.actualTime} onChange={upd('actualTime')} />
                 </Field>
               )}
               {cycleParams.includes('pressure') && (
-                <Field label="압력 (bar)">
+                <Field label="ìë ¥ (bar)">
                   <input style={inp} value={draft.actualPressure} onChange={upd('actualPressure')} />
                 </Field>
               )}
               {cycleParams.includes('dose') && (
-                <Field label="선량 (kGy)">
+                <Field label="ì ë (kGy)">
                   <input style={inp} value={draft.actualDose} onChange={upd('actualDose')} />
                 </Field>
               )}
@@ -384,28 +386,28 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
 
           {!validationSubstituted && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-              <Field label="바이오버든 결과 (CFU/개)">
-                <input style={inp} value={draft.bioburdenResult} onChange={upd('bioburdenResult')} placeholder="예: 12" />
+              <Field label="ë°ì´ì¤ë²ë  ê²°ê³¼ (CFU/ê°)">
+                <input style={inp} value={draft.bioburdenResult} onChange={upd('bioburdenResult')} placeholder="ì: 12" />
               </Field>
-              <Field label="달성 SAL">
-                <input style={inp} value={draft.salAchieved} onChange={upd('salAchieved')} placeholder="예: 10⁻⁶" />
+              <Field label="ë¬ì± SAL">
+                <input style={inp} value={draft.salAchieved} onChange={upd('salAchieved')} placeholder="ì: 10â»â¶" />
               </Field>
             </div>
           )}
           {validationSubstituted && (
             <div style={{ fontSize: 11.5, padding: '8px 12px', borderRadius: 8, background: 'var(--bg-soft)', color: 'var(--ink-faint)', marginBottom: 14 }}>
-              ℹ 이 제품은 밸리데이션 참조({selectedSpec.validationRef})가 등록되어 있어 바이오버든·SAL 결과는 밸리데이션 결과로 대체됩니다.
+              â¹ ì´ ì íì ë°¸ë¦¬ë°ì´ì ì°¸ì¡°({selectedSpec.validationRef})ê° ë±ë¡ëì´ ìì´ ë°ì´ì¤ë²ë Â·SAL ê²°ê³¼ë ë°¸ë¦¬ë°ì´ì ê²°ê³¼ë¡ ëì²´ë©ëë¤.
             </div>
           )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="합/불 판정" required>
+            <Field label="í©/ë¶ íì " required>
               <select style={sel} value={draft.result} onChange={upd('result')}>
                 {BATCH_RESULTS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
               </select>
             </Field>
           </div>
 
-          <Field label="비고">
+          <Field label="ë¹ê³ ">
             <textarea style={textarea} value={draft.notes} onChange={upd('notes')} />
           </Field>
 
@@ -415,26 +417,26 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
               background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
               padding: '7px 16px', cursor: 'pointer',
             }}>
-              <Save size={14} /> 저장
+              <Save size={14} /> ì ì¥
             </button>
             <button onClick={() => setShowForm(false)} style={{
               fontSize: 13, background: 'none', border: '1px solid var(--line)',
               borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
-            }}>취소</button>
+            }}>ì·¨ì</button>
           </div>
         </div>
       )}
 
       {batches.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-faint)', fontSize: 14 }}>
-          등록된 멸균 배치 기록이 없습니다.
+          ë±ë¡ë ë©¸ê·  ë°°ì¹ ê¸°ë¡ì´ ììµëë¤.
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--line)', background: 'var(--bg-soft)' }}>
-                {['배치번호', '일자', '제품명', '멸균방법', '바이오버든', 'SAL', '판정', ''].map(h => (
+                {['ë°°ì¹ë²í¸', 'ì¼ì', 'ì íëª', 'ë©¸ê· ë°©ë²', 'ë°ì´ì¤ë²ë ', 'SAL', 'íì ', ''].map(h => (
                   <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, fontSize: 12, color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
@@ -444,10 +446,10 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
                 <tr key={b.id} onClick={() => setCertRow(b)} style={{ borderBottom: '1px solid var(--line)', background: i % 2 ? 'var(--bg-soft)' : 'var(--bg-card)', cursor: 'pointer' }}>
                   <td style={{ padding: '8px 12px', fontWeight: 600, color: 'var(--ink)' }}>{b.batchNo}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.date}</td>
-                  <td style={{ padding: '8px 12px', color: 'var(--ink)' }}>{b.productName || '—'}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--ink)' }}>{b.productName || 'â'}</td>
                   <td style={{ padding: '8px 12px', color: 'var(--ink-soft)', fontSize: 12 }}>{b.sterileMethod}</td>
-                  <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.bioburdenResult || '—'}</td>
-                  <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.salAchieved || '—'}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.bioburdenResult || 'â'}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--ink-soft)' }}>{b.salAchieved || 'â'}</td>
                   <td style={{ padding: '8px 12px' }}>
                     <span style={{
                       fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 7px',
@@ -462,7 +464,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
                         <button onClick={() => openEdit(b)} style={{
                           fontSize: 11, padding: '3px 8px', borderRadius: 4,
                           border: '1px solid var(--line)', background: 'none', cursor: 'pointer', color: 'var(--ink-soft)',
-                        }}>수정</button>
+                        }}>ìì </button>
                         <button onClick={() => del(b.id)} style={{
                           fontSize: 11, padding: '3px 6px', borderRadius: 4,
                           border: '1px solid #FCA5A5', background: 'none', cursor: 'pointer', color: '#EF4444',
@@ -478,7 +480,7 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
       )}
 
       {certRow && (
-        <SterileModal title="멸균 배치 성적서" onClose={() => setCertRow(null)}>
+        <SterileModal title="ë©¸ê·  ë°°ì¹ ì±ì ì" onClose={() => setCertRow(null)}>
           <BatchCertificate batch={certRow} specs={specs} onClose={() => setCertRow(null)} />
         </SterileModal>
       )}
@@ -516,49 +518,49 @@ function BatchCertificate({ batch, specs, onClose }) {
   const Row = ({ label, value }) => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--line)' }}>
       <span style={{ fontSize: 11.5, color: 'var(--ink-faint)' }}>{label}</span>
-      <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>{value || '—'}</span>
+      <span style={{ fontSize: 12.5, color: 'var(--ink)' }}>{value || 'â'}</span>
     </div>
   )
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>멸균 배치 성적서</div>
-        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Sterilization Batch Certificate · ISO 13485 §7.5.7</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>ë©¸ê·  ë°°ì¹ ì±ì ì</div>
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Sterilization Batch Certificate Â· ISO 13485 Â§7.5.7</div>
       </div>
-      <Row label="배치/로트 번호" value={batch.batchNo} />
-      <Row label="멸균 일자" value={batch.date} />
-      <Row label="제품명" value={batch.productName} />
-      <Row label="생산 로트" value={batch.lotNo} />
-      <Row label="멸균 방법" value={batch.sterileMethod} />
-      <Row label="연결된 사양" value={spec ? `${spec.productName} (SAL ${spec.salTarget})` : '— (직접 입력)'} />
-      <Row label="실측 온도" value={batch.actualTemp ? `${batch.actualTemp}℃` : ''} />
-      <Row label="실측 시간" value={batch.actualTime ? `${batch.actualTime}분` : ''} />
-      <Row label="실측 압력" value={batch.actualPressure ? `${batch.actualPressure} bar` : ''} />
-      <Row label="실측 선량" value={batch.actualDose} />
-      <Row label="바이오버든 결과" value={batch.bioburdenResult ? `${batch.bioburdenResult} CFU/개` : ''} />
-      <Row label="달성 SAL" value={batch.salAchieved} />
-      <Row label="합/불 판정" value={BATCH_RESULTS.find(r => r.value === batch.result)?.label || batch.result} />
-      <Row label="비고" value={batch.notes} />
+      <Row label="ë°°ì¹/ë¡í¸ ë²í¸" value={batch.batchNo} />
+      <Row label="ë©¸ê·  ì¼ì" value={batch.date} />
+      <Row label="ì íëª" value={batch.productName} />
+      <Row label="ìì° ë¡í¸" value={batch.lotNo} />
+      <Row label="ë©¸ê·  ë°©ë²" value={batch.sterileMethod} />
+      <Row label="ì°ê²°ë ì¬ì" value={spec ? `${spec.productName} (SAL ${spec.salTarget})` : 'â (ì§ì  ìë ¥)'} />
+      <Row label="ì¤ì¸¡ ì¨ë" value={batch.actualTemp ? `${batch.actualTemp}â` : ''} />
+      <Row label="ì¤ì¸¡ ìê°" value={batch.actualTime ? `${batch.actualTime}ë¶` : ''} />
+      <Row label="ì¤ì¸¡ ìë ¥" value={batch.actualPressure ? `${batch.actualPressure} bar` : ''} />
+      <Row label="ì¤ì¸¡ ì ë" value={batch.actualDose} />
+      <Row label="ë°ì´ì¤ë²ë  ê²°ê³¼" value={batch.bioburdenResult ? `${batch.bioburdenResult} CFU/ê°` : ''} />
+      <Row label="ë¬ì± SAL" value={batch.salAchieved} />
+      <Row label="í©/ë¶ íì " value={BATCH_RESULTS.find(r => r.value === batch.result)?.label || batch.result} />
+      <Row label="ë¹ê³ " value={batch.notes} />
       <div style={{ display: 'flex', gap: 10, paddingTop: 16 }}>
         <button onClick={() => printSterileBatchCert(batch, spec)} style={{
           display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
           background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
           padding: '7px 16px', cursor: 'pointer',
         }}>
-          <FileText size={14} /> 인쇄
+          <FileText size={14} /> ì¸ì
         </button>
         <button onClick={onClose} style={{
           fontSize: 13, background: 'none', border: '1px solid var(--line)',
           borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
-        }}>닫기</button>
+        }}>ë«ê¸°</button>
       </div>
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════
-//  TAB 3 — 재처리·라벨링 정책 문서
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  TAB 3 â ì¬ì²ë¦¬Â·ë¼ë²¨ë§ ì ì± ë¬¸ì
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function PolicyTab({ policy, setPolicy, canEdit }) {
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(policy)
@@ -566,7 +568,7 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
   const save = () => { setPolicy(draft); setEditing(false) }
   const openEdit = () => { setDraft({ ...policy }); setEditing(true) }
 
-  // 개정 이력 추가
+  // ê°ì  ì´ë ¥ ì¶ê°
   const addRev = () => {
     const row = { date: new Date().toISOString().slice(0, 10), revision: '', by: '', summary: '' }
     setDraft(d => ({ ...d, revisionHistory: [...(d.revisionHistory || []), row] }))
@@ -579,22 +581,22 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
   const delRev = i => setDraft(d => ({ ...d, revisionHistory: d.revisionHistory.filter((_, j) => j !== i) }))
 
   const SECTIONS = [
-    { key: 'scope',               label: '1. 적용 범위' },
-    { key: 'singleUseStatement',  label: '2. 단회 사용 명시 (§7.5.7 필수)' },
-    { key: 'reprocessingPolicy',  label: '3. 재처리 정책 (재처리 허용 제품의 경우)' },
-    { key: 'labelingReqs',        label: '4. 라벨링 요구사항' },
-    { key: 'expiryTrackingMethod',label: '5. 유효기간 추적 방법' },
-    { key: 'postMarketMonitoring',label: '6. 시판 후 멸균 모니터링' },
+    { key: 'scope',               label: '1. ì ì© ë²ì' },
+    { key: 'singleUseStatement',  label: '2. ë¨í ì¬ì© ëªì (Â§7.5.7 íì)' },
+    { key: 'reprocessingPolicy',  label: '3. ì¬ì²ë¦¬ ì ì± (ì¬ì²ë¦¬ íì© ì íì ê²½ì°)' },
+    { key: 'labelingReqs',        label: '4. ë¼ë²¨ë§ ìêµ¬ì¬í­' },
+    { key: 'expiryTrackingMethod',label: '5. ì í¨ê¸°ê° ì¶ì  ë°©ë²' },
+    { key: 'postMarketMonitoring',label: '6. ìí í ë©¸ê·  ëª¨ëí°ë§' },
   ]
 
   return (
     <div>
-      {/* 문서 헤더 — 읽기 전용 뷰 */}
+      {/* ë¬¸ì í¤ë â ì½ê¸° ì ì© ë·° */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>멸균관리 절차서</div>
+          <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--ink)' }}>ë©¸ê· ê´ë¦¬ ì ì°¨ì</div>
           <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>
-            Sterilization Management Procedure · ISO 13485 §7.5.7 — 재처리 제한 · 라벨링 · 유효기간 추적
+            Sterilization Management Procedure Â· ISO 13485 Â§7.5.7 â ì¬ì²ë¦¬ ì í Â· ë¼ë²¨ë§ Â· ì í¨ê¸°ê° ì¶ì 
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -602,38 +604,38 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
             display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
             background: 'none', border: '1px solid var(--line)',
             borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
-          }}><FileText size={14} /> 인쇄</button>
+          }}><FileText size={14} /> ì¸ì</button>
           {canEdit && (
             <button onClick={openEdit} style={{
               display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600,
               background: 'var(--moss)', color: '#fff', border: 'none',
               borderRadius: 6, padding: '7px 14px', cursor: 'pointer',
-            }}><Edit2 size={13} /> 절차서 편집</button>
+            }}><Edit2 size={13} /> ì ì°¨ì í¸ì§</button>
           )}
         </div>
       </div>
 
       <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 16, padding: '8px 12px', background: 'var(--bg-soft)', borderRadius: 6 }}>
-        이 화면은 멸균관리 절차서 내용을 조회 전용으로 표시합니다. 절차서가 수정되면 이 화면에도 즉시 동일한 내용이 반영됩니다.
+        ì´ íë©´ì ë©¸ê· ê´ë¦¬ ì ì°¨ì ë´ì©ì ì¡°í ì ì©ì¼ë¡ íìí©ëë¤. ì ì°¨ìê° ìì ëë©´ ì´ íë©´ìë ì¦ì ëì¼í ë´ì©ì´ ë°ìë©ëë¤.
       </div>
 
-      {/* 문서 메타 정보 */}
+      {/* ë¬¸ì ë©í ì ë³´ */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>개정번호</div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.revision || '—'}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>ê°ì ë²í¸</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.revision || 'â'}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>발행일</div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.issueDate || '—'}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>ë°íì¼</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.issueDate || 'â'}</div>
         </div>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>승인자</div>
-          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.approvedBy || '—'}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)' }}>ì¹ì¸ì</div>
+          <div style={{ fontSize: 14, color: 'var(--ink)', marginTop: 3 }}>{policy.approvedBy || 'â'}</div>
         </div>
       </div>
 
-      {/* 문서 본문 — 읽기 전용 */}
+      {/* ë¬¸ì ë³¸ë¬¸ â ì½ê¸° ì ì© */}
       {SECTIONS.map(({ key, label }) => (
         <div key={key} style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 5 }}>{label}</div>
@@ -641,18 +643,18 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
             fontSize: 13, color: policy[key] ? 'var(--ink)' : 'var(--ink-faint)',
             lineHeight: 1.6, background: 'var(--bg-soft)', borderRadius: 6, padding: 10, minHeight: 48, whiteSpace: 'pre-line',
           }}>
-            {policy[key] || <em>미입력</em>}
+            {policy[key] || <em>ë¯¸ìë ¥</em>}
           </div>
         </div>
       ))}
 
-      {/* 개정 이력 — 읽기 전용 */}
+      {/* ê°ì  ì´ë ¥ â ì½ê¸° ì ì© */}
       <div style={{ marginTop: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>개정 이력</div>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>ê°ì  ì´ë ¥</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
-              {['날짜', '개정번호', '작성자', '내용 요약'].map(h => (
+              {['ë ì§', 'ê°ì ë²í¸', 'ìì±ì', 'ë´ì© ìì½'].map(h => (
                 <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: 'var(--ink-soft)' }}>{h}</th>
               ))}
             </tr>
@@ -667,34 +669,34 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
               </tr>
             ))}
             {(policy.revisionHistory || []).length === 0 && (
-              <tr><td colSpan={4} style={{ padding: '12px 10px', color: 'var(--ink-faint)', fontSize: 13 }}>개정 이력 없음</td></tr>
+              <tr><td colSpan={4} style={{ padding: '12px 10px', color: 'var(--ink-faint)', fontSize: 13 }}>ê°ì  ì´ë ¥ ìì</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {/* 편집 모달 — 저장 즉시 위 조회 화면에 반영됨 (동일 데이터 소스) */}
+      {/* í¸ì§ ëª¨ë¬ â ì ì¥ ì¦ì ì ì¡°í íë©´ì ë°ìë¨ (ëì¼ ë°ì´í° ìì¤) */}
       {editing && (
-        <SterileModal title="멸균관리 절차서 편집" onClose={() => setEditing(false)}>
+        <SterileModal title="ë©¸ê· ê´ë¦¬ ì ì°¨ì í¸ì§" onClose={() => setEditing(false)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, marginBottom: 14 }}>
-            <Field label="개정번호">
+            <Field label="ê°ì ë²í¸">
               <input style={inp} value={draft.revision} onChange={upd('revision')} />
             </Field>
-            <Field label="발행일">
+            <Field label="ë°íì¼">
               <input type="date" style={inp} value={draft.issueDate} onChange={upd('issueDate')} />
             </Field>
-            <Field label="승인자">
+            <Field label="ì¹ì¸ì">
               <input style={inp} value={draft.approvedBy} onChange={upd('approvedBy')} />
             </Field>
           </div>
 
           {[
-            { key: 'scope',               label: '적용 범위', ph: '이 정책이 적용되는 멸균 의료기기 제품군 기술' },
-            { key: 'singleUseStatement',  label: '단회 사용 명시 (§7.5.7 필수)', ph: '모든 멸균 의료기기는 단회 사용 제품으로 재처리를 금지한다. 단, ...' },
-            { key: 'reprocessingPolicy',  label: '재처리 정책 (재처리 허용 제품의 경우)', ph: '재처리 허용 제품이 없는 경우 "해당 없음" 기재' },
-            { key: 'labelingReqs',        label: '라벨링 요구사항', ph: '멸균 상태 표시, 유효기간, 로트번호, 단회용 기호(↺ 금지) 등 ISO 15223 기호 사용 내역' },
-            { key: 'expiryTrackingMethod',label: '유효기간 추적 방법', ph: '제품별 멸균 유효기간 설정 근거 및 추적 시스템 기술' },
-            { key: 'postMarketMonitoring',label: '시판 후 멸균 모니터링', ph: '시판 후 멸균 유지 확인, 포장 완전성 모니터링 방법 기술' },
+            { key: 'scope',               label: 'ì ì© ë²ì', ph: 'ì´ ì ì±ì´ ì ì©ëë ë©¸ê·  ìë£ê¸°ê¸° ì íêµ° ê¸°ì ' },
+            { key: 'singleUseStatement',  label: 'ë¨í ì¬ì© ëªì (Â§7.5.7 íì)', ph: 'ëª¨ë  ë©¸ê·  ìë£ê¸°ê¸°ë ë¨í ì¬ì© ì íì¼ë¡ ì¬ì²ë¦¬ë¥¼ ê¸ì§íë¤. ë¨, ...' },
+            { key: 'reprocessingPolicy',  label: 'ì¬ì²ë¦¬ ì ì± (ì¬ì²ë¦¬ íì© ì íì ê²½ì°)', ph: 'ì¬ì²ë¦¬ íì© ì íì´ ìë ê²½ì° "í´ë¹ ìì" ê¸°ì¬' },
+            { key: 'labelingReqs',        label: 'ë¼ë²¨ë§ ìêµ¬ì¬í­', ph: 'ë©¸ê·  ìí íì, ì í¨ê¸°ê°, ë¡í¸ë²í¸, ë¨íì© ê¸°í¸(âº ê¸ì§) ë± ISO 15223 ê¸°í¸ ì¬ì© ë´ì­' },
+            { key: 'expiryTrackingMethod',label: 'ì í¨ê¸°ê° ì¶ì  ë°©ë²', ph: 'ì íë³ ë©¸ê·  ì í¨ê¸°ê° ì¤ì  ê·¼ê±° ë° ì¶ì  ìì¤í ê¸°ì ' },
+            { key: 'postMarketMonitoring',label: 'ìí í ë©¸ê·  ëª¨ëí°ë§', ph: 'ìí í ë©¸ê·  ì ì§ íì¸, í¬ì¥ ìì ì± ëª¨ëí°ë§ ë°©ë² ê¸°ì ' },
           ].map(({ key, label, ph }) => (
             <div key={key} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-soft)', marginBottom: 5 }}>{label}</div>
@@ -702,19 +704,19 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
             </div>
           ))}
 
-          {/* 개정 이력 편집 */}
+          {/* ê°ì  ì´ë ¥ í¸ì§ */}
           <div style={{ marginTop: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 13 }}>개정 이력</div>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>ê°ì  ì´ë ¥</div>
               <button onClick={addRev} style={{
                 fontSize: 12, background: 'none', border: '1px solid var(--line)',
                 borderRadius: 5, padding: '3px 10px', cursor: 'pointer', color: 'var(--ink-soft)',
-              }}>+ 추가</button>
+              }}>+ ì¶ê°</button>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--line)', background: 'var(--bg-soft)' }}>
-                  {['날짜', '개정번호', '작성자', '내용 요약', ''].map(h => (
+                  {['ë ì§', 'ê°ì ë²í¸', 'ìì±ì', 'ë´ì© ìì½', ''].map(h => (
                     <th key={h} style={{ padding: '6px 10px', textAlign: 'left', color: 'var(--ink-soft)' }}>{h}</th>
                   ))}
                 </tr>
@@ -740,7 +742,7 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
                   </tr>
                 ))}
                 {(draft.revisionHistory || []).length === 0 && (
-                  <tr><td colSpan={5} style={{ padding: '12px 10px', color: 'var(--ink-faint)', fontSize: 13 }}>개정 이력 없음</td></tr>
+                  <tr><td colSpan={5} style={{ padding: '12px 10px', color: 'var(--ink-faint)', fontSize: 13 }}>ê°ì  ì´ë ¥ ìì</td></tr>
                 )}
               </tbody>
             </table>
@@ -752,12 +754,12 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
               background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 6,
               padding: '7px 16px', cursor: 'pointer',
             }}>
-              <Save size={14} /> 저장
+              <Save size={14} /> ì ì¥
             </button>
             <button onClick={() => setEditing(false)} style={{
               fontSize: 13, background: 'none', border: '1px solid var(--line)',
               borderRadius: 6, padding: '7px 14px', cursor: 'pointer', color: 'var(--ink-soft)',
-            }}>취소</button>
+            }}>ì·¨ì</button>
           </div>
         </SterileModal>
       )}
@@ -765,26 +767,26 @@ function PolicyTab({ policy, setPolicy, canEdit }) {
   )
 }
 
-// ══════════════════════════════════════════════════════
-//  TAB 4 — 현황 분석
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+//  TAB 4 â íí© ë¶ì
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function AnalysisTab({ specs, batches, compl }) {
-  // 배치 결과 집계 (전체)
+  // ë°°ì¹ ê²°ê³¼ ì§ê³ (ì ì²´)
   const passCount  = batches.filter(b => b.result === 'pass').length
   const failCount  = batches.filter(b => b.result === 'fail').length
   const condCount  = batches.filter(b => b.result === 'conditional').length
 
-  // 밸리데이션 상태 분포
+  // ë°¸ë¦¬ë°ì´ì ìí ë¶í¬
   const statusMap = {}
   SPEC_STATUSES.forEach(s => { statusMap[s.value] = 0 })
   specs.forEach(s => { statusMap[s.status] = (statusMap[s.status] || 0) + 1 })
 
-  // 경고
+  // ê²½ê³ 
   const warnings = []
-  if (specs.some(s => !s.validationRef)) warnings.push('밸리데이션 참조가 없는 사양이 있습니다.')
-  if (specs.some(s => !s.packagingRef))  warnings.push('포장 밸리데이션 참조가 없는 사양이 있습니다.')
-  if (specs.some(s => !s.expiryMonths)) warnings.push('멸균 유효기간이 설정되지 않은 사양이 있습니다.')
-  if (failCount > 0) warnings.push(`불합격 배치 ${failCount}건이 있습니다.`)
+  if (specs.some(s => !s.validationRef)) warnings.push('ë°¸ë¦¬ë°ì´ì ì°¸ì¡°ê° ìë ì¬ìì´ ììµëë¤.')
+  if (specs.some(s => !s.packagingRef))  warnings.push('í¬ì¥ ë°¸ë¦¬ë°ì´ì ì°¸ì¡°ê° ìë ì¬ìì´ ììµëë¤.')
+  if (specs.some(s => !s.expiryMonths)) warnings.push('ë©¸ê·  ì í¨ê¸°ê°ì´ ì¤ì ëì§ ìì ì¬ìì´ ììµëë¤.')
+  if (failCount > 0) warnings.push(`ë¶í©ê²© ë°°ì¹ ${failCount}ê±´ì´ ììµëë¤.`)
 
   const bar = (val, max, color) => (
     <div style={{ height: 12, borderRadius: 6, background: 'var(--line)', overflow: 'hidden' }}>
@@ -792,17 +794,17 @@ function AnalysisTab({ specs, batches, compl }) {
     </div>
   )
 
-  // 월별 멸균 배치 합격률 + 월별 멸균방법별 제품 수 (batches 기준 집계)
+  // ìë³ ë©¸ê·  ë°°ì¹ í©ê²©ë¥  + ìë³ ë©¸ê· ë°©ë²ë³ ì í ì (batches ê¸°ì¤ ì§ê³)
   const monthly = useMemo(() => {
     const map = {}
     batches.forEach(b => {
-      const m = (b.date || '').slice(0, 7) || '미상'
+      const m = (b.date || '').slice(0, 7) || 'ë¯¸ì'
       if (!map[m]) map[m] = { total: 0, pass: 0, fail: 0, cond: 0, methods: {} }
       map[m].total += 1
       if (b.result === 'pass') map[m].pass += 1
       else if (b.result === 'fail') map[m].fail += 1
       else if (b.result === 'conditional') map[m].cond += 1
-      const method = b.sterileMethod || '미지정'
+      const method = b.sterileMethod || 'ë¯¸ì§ì '
       if (!map[m].methods[method]) map[m].methods[method] = new Set()
       if (b.productName) map[m].methods[method].add(b.productName)
     })
@@ -821,12 +823,12 @@ function AnalysisTab({ specs, batches, compl }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* 월별 멸균 배치 합격률 */}
+      {/* ìë³ ë©¸ê·  ë°°ì¹ í©ê²©ë¥  */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>월별 멸균 배치 합격률</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>ìë³ ë©¸ê·  ë°°ì¹ í©ê²©ë¥ </div>
         {monthly.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-faint)', fontSize: 13 }}>
-            멸균 배치 기록을 등록하면 월별 합격률이 표시됩니다.
+            ë©¸ê·  ë°°ì¹ ê¸°ë¡ì ë±ë¡íë©´ ìë³ í©ê²©ë¥ ì´ íìë©ëë¤.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -834,19 +836,19 @@ function AnalysisTab({ specs, batches, compl }) {
               <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--bg-soft)', borderRadius: 8 }}>
                 <span style={{ fontFamily: 'monospace', fontSize: 12.5, fontWeight: 700, color: 'var(--ink)', minWidth: 64 }}>{m.month}</span>
                 <div style={{ flex: 1 }}>{bar(m.pass, m.total, m.passRate >= 95 ? '#10B981' : m.passRate >= 80 ? '#F59E0B' : '#EF4444')}</div>
-                <span style={{ fontSize: 12.5, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{m.total}건 · 합격률 {m.passRate}%</span>
+                <span style={{ fontSize: 12.5, color: 'var(--ink-soft)', whiteSpace: 'nowrap' }}>{m.total}ê±´ Â· í©ê²©ë¥  {m.passRate}%</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* 월별 멸균방법별 제품 수 */}
+      {/* ìë³ ë©¸ê· ë°©ë²ë³ ì í ì */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>월별 멸균방법별 제품 수</div>
+        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>ìë³ ë©¸ê· ë°©ë²ë³ ì í ì</div>
         {monthly.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-faint)', fontSize: 13 }}>
-            멸균 배치 기록을 등록하면 월별 멸균방법별 제품 수가 표시됩니다.
+            ë©¸ê·  ë°°ì¹ ê¸°ë¡ì ë±ë¡íë©´ ìë³ ë©¸ê· ë°©ë²ë³ ì í ìê° íìë©ëë¤.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -858,7 +860,7 @@ function AnalysisTab({ specs, batches, compl }) {
                     <span key={method} style={{
                       fontSize: 12, padding: '4px 10px', borderRadius: 999,
                       background: '#EDE9FE', color: '#7C3AED', fontWeight: 600,
-                    }}>{method} · {count}개</span>
+                    }}>{method} Â· {count}ê°</span>
                   ))}
                 </div>
               </div>
@@ -867,10 +869,10 @@ function AnalysisTab({ specs, batches, compl }) {
         )}
       </div>
 
-      {/* 밸리데이션 상태 */}
+      {/* ë°¸ë¦¬ë°ì´ì ìí */}
       {specs.length > 0 && (
         <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 10, padding: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>밸리데이션 상태 현황</div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>ë°¸ë¦¬ë°ì´ì ìí íí©</div>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             {SPEC_STATUSES.map(s => (
               <div key={s.value} style={{
@@ -884,15 +886,15 @@ function AnalysisTab({ specs, batches, compl }) {
         </div>
       )}
 
-      {/* 경고 */}
+      {/* ê²½ê³  */}
       {warnings.length > 0 && (
         <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 10, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, color: '#92400E', marginBottom: 8 }}>
-            <AlertTriangle size={16} /> 개선 필요 항목
+            <AlertTriangle size={16} /> ê°ì  íì í­ëª©
           </div>
           {warnings.map((w, i) => (
             <div key={i} style={{ fontSize: 13, color: '#78350F', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span>•</span> {w}
+              <span>â¢</span> {w}
             </div>
           ))}
         </div>
@@ -900,22 +902,22 @@ function AnalysisTab({ specs, batches, compl }) {
 
       {specs.length === 0 && batches.length === 0 && (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--ink-faint)', fontSize: 14 }}>
-          사양 및 배치 기록을 등록하면 분석 결과가 표시됩니다.
+          ì¬ì ë° ë°°ì¹ ê¸°ë¡ì ë±ë¡íë©´ ë¶ì ê²°ê³¼ê° íìë©ëë¤.
         </div>
       )}
     </div>
   )
 }
 
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 //  MAIN HUB
-// ══════════════════════════════════════════════════════
+// ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function SterileControlHub() {
   const user    = auth.current()
   const canEdit = (user?.level || 0) >= 2
   const nav = useNavigate()
 
-  // 멸균 방법 사양은 제품·공정 화면(제품 개발)에서 입력된 제품 레코드로부터 파생된다 (SSoT).
+  // ë©¸ê·  ë°©ë² ì¬ìì ì íÂ·ê³µì  íë©´(ì í ê°ë°)ìì ìë ¥ë ì í ë ì½ëë¡ë¶í° íìëë¤ (SSoT).
   const specs = useMemo(() => deriveSterileSpecs(onboarding.load()?.products || []), [])
   const [batches,  setBatchesRaw] = useState(() => lsGet(BATCHES_KEY, []))
   const [policy,   setPolicyRaw]  = useState(() => lsGet(POLICY_KEY,  DEFAULT_POLICY))
@@ -930,16 +932,16 @@ export default function SterileControlHub() {
   const compl = useCompleteness(specs, batches, policy)
 
   const TABS = [
-    { id: 'specs',   label: '멸균 방법 사양',    icon: Beaker },
-    { id: 'batches', label: '멸균 배치 기록',    icon: ClipboardList },
-    { id: 'policy',  label: '재처리·라벨링 정책', icon: FileText },
-    { id: 'analysis',label: '현황 분석',          icon: BarChart2 },
+    { id: 'specs',   label: 'ë©¸ê·  ë°©ë² ì¬ì',    icon: Beaker },
+    { id: 'batches', label: 'ë©¸ê·  ë°°ì¹ ê¸°ë¡',    icon: ClipboardList },
+    { id: 'policy',  label: 'ì¬ì²ë¦¬Â·ë¼ë²¨ë§ ì ì±', icon: FileText },
+    { id: 'analysis',label: 'íí© ë¶ì',          icon: BarChart2 },
   ]
 
   return (
-    <AppLayout user={user} title="멸균 의료기기 관리" subtitle="ISO 13485 §7.5.7 — 멸균 방법 · 배치 기록 · 재처리 정책">
-      <HubBanner title="멸균 의료기기 관리" subtitle="ISO 13485 §7.5.5 — 멸균 공정 유효성 확인 및 유지" icon={Shield} color="#7C3AED" />
-      {/* §7.5.7 정보 배너 */}
+    <AppLayout user={user} title="ë©¸ê·  ìë£ê¸°ê¸° ê´ë¦¬" subtitle="ISO 13485 Â§7.5.7 â ë©¸ê·  ë°©ë² Â· ë°°ì¹ ê¸°ë¡ Â· ì¬ì²ë¦¬ ì ì±">
+      <HubBanner title="ë©¸ê·  ìë£ê¸°ê¸° ê´ë¦¬" subtitle="ISO 13485 Â§7.5.5 â ë©¸ê·  ê³µì  ì í¨ì± íì¸ ë° ì ì§" icon={Shield} color="#7C3AED" />
+      {/* Â§7.5.7 ì ë³´ ë°°ë */}
       <div style={{
         background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
         border: '1px solid #BFDBFE', borderRadius: 10, padding: '12px 16px',
@@ -947,12 +949,12 @@ export default function SterileControlHub() {
       }}>
         <ShieldCheck size={20} style={{ color: '#2563EB', flexShrink: 0, marginTop: 1 }} />
         <div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: '#1E40AF' }}>ISO 13485 §7.5.7 — 멸균 의료기기 특별 요구사항</div>
+          <div style={{ fontWeight: 700, fontSize: 14, color: '#1E40AF' }}>ISO 13485 Â§7.5.7 â ë©¸ê·  ìë£ê¸°ê¸° í¹ë³ ìêµ¬ì¬í­</div>
           <div style={{ fontSize: 12, color: '#3B82F6', marginTop: 2 }}>
-            멸균 의료기기 제조 시 멸균 방법 밸리데이션 기록 유지 · SAL 달성 확인 · 단회 사용 표시 · 멸균 유효기간 라벨 표기 의무
+            ë©¸ê·  ìë£ê¸°ê¸° ì ì¡° ì ë©¸ê·  ë°©ë² ë°¸ë¦¬ë°ì´ì ê¸°ë¡ ì ì§ Â· SAL ë¬ì± íì¸ Â· ë¨í ì¬ì© íì Â· ë©¸ê·  ì í¨ê¸°ê° ë¼ë²¨ íê¸° ìë¬´
           </div>
         </div>
-        {/* 완전성 뱃지 */}
+        {/* ìì ì± ë±ì§ */}
         <div style={{
           marginLeft: 'auto', flexShrink: 0,
           background: compl.pct >= 80 ? '#D1FAE5' : compl.pct >= 50 ? '#FEF3C7' : '#FEE2E2',
