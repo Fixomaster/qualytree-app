@@ -13,7 +13,7 @@ import {
   Save,
   ChevronUp,
   ChevronDown,
-} from 'lucide-react'
+, Building2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
@@ -22,6 +22,7 @@ import { onboarding } from '../../lib/onboardingState'
 import { mfds } from '../../lib/mfds'
 import { resolveCategoryByNo } from '../../lib/mfdsCategory'
 import {
+import HubBanner from '../../components/HubBanner';
   foreignSites,
   gmpCertificates,
   otherAuditReports,
@@ -116,6 +117,7 @@ export default function ForeignManufacturerHub() {
 
   return (
     <AppLayout user={user} title="외국제조소 · 수입 GMP" subtitle="수입업자 GMP 심사 대응 — 외국제조소 등록 / GMP 적합인정서 / 타 인증기관 실사자료">
+      <HubBanner icon={Building2} title="외국제조소 GMP" subtitle="수입GMP 외국제조소 관리" color="#2563EB" />
       <CertGate certId="kgmp_importer" label="외국제조소(수입GMP)">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
