@@ -434,13 +434,8 @@ export default function PostMarketSafetyHub() {
 
   return (
     <AppLayout>
+      <HubBanner icon={AlertTriangle} title="시판후안전관리" subtitle="이상사례 보고 · 리콜/회수 · 안전성 조치 통합 관리" color="#dc2626" />
       <div className="max-w-4xl mx-auto px-4 pb-10">
-        <HubBanner
-          icon={AlertTriangle}
-          title="시판후안전관리"
-          subtitle="이상사례 보고 · 리콜/회수 · 안전성 조치 통합 관리"
-          color="#dc2626"
-        />
 
         {/* Tab navigation */}
         <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6">

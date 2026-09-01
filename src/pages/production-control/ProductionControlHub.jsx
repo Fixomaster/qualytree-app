@@ -219,7 +219,6 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
                   <div key={pcp.id} className="p-4 rounded-2xl cursor-pointer"
                     style={{ background: 'var(--bg-card)', border: `1.5px solid ${selectedId === pcp.id ? 'var(--moss)' : 'var(--line)'}` }}
                     onClick={() => { setSelectedId(pcp.id); setTab('detail') }}>
-                    <HubBanner title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 생산 및 서비스 제공 관리" icon={Settings} color="#EA580C" workflow={['계획 수립','공정 승인','생산 실행','검사','출하 승인']} />
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -285,6 +284,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
 
   return (
     <AppLayout user={user} title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 공정 단계별 관리 항목·합격 기준·출하 기준">
+      <HubBanner title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 생산 및 서비스 제공 관리" icon={Settings} color="#EA580C" workflow={['계획 수립','공정 승인','생산 실행','검사','출하 승인']} />
       {body}
     </AppLayout>
   )
