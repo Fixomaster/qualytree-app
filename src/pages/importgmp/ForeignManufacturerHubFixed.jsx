@@ -22,7 +22,6 @@ import { onboarding } from '../../lib/onboardingState'
 import { mfds } from '../../lib/mfds'
 import { resolveCategoryByNo } from '../../lib/mfdsCategory'
 import {
-import HubBanner from '../../components/HubBanner';
   foreignSites,
   gmpCertificates,
   otherAuditReports,
@@ -31,6 +30,7 @@ import HubBanner from '../../components/HubBanner';
   certStatusOf,
 } from '../../lib/foreignManufacturerState'
 import CertGate from '../../components/CertGate'
+import HubBanner from '../../components/HubBanner';
 
 // #4 — 신청서(의료기기 적합성인정등 심사 신청서, 제7조제1항제2호 구비서류) 양식과 동일하게
 // "기타 서류" 단일 다중첨부 대신 항목별 개별 서류 슬롯으로 구성한다.
