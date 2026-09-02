@@ -22,6 +22,7 @@ Globe,
 Building2,
   Share2,
   Users,
+  Printer,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -157,4 +158,4 @@ items: [
 const IMP_ITEMS = [
 { to: '/foreign-manufacturers', label: 'Ã¬ÂÂ¸ÃªÂµÂ­Ã¬Â ÂÃ¬Â¡Â°Ã¬ÂÂ GMP' },
 { to: '/import-products', label: 'Ã­ÂÂÃ«ÂªÂ© Ã­ÂÂÃªÂ°Â Ã­ÂÂÃ­ÂÂ©' },
-{ to: '/import-clearance', label: 'Ã¬ÂÂÃ¬ÂÂ
+{ to: '/import-clearance', label: 'Ã¬ÂÂ�
