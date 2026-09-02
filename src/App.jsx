@@ -8,6 +8,7 @@ import { initCloudSync } from './lib/cloudSync'
 import { getCompanyMembership } from './lib/supabase'
 import { deptAuth } from './lib/deptAuth'
 import CloudSyncIndicator from './components/CloudSyncIndicator'
+import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
 
 // ── 기존 페이지 (pre-existing) ──────────────────────────────────────
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub
@@ -153,6 +154,7 @@ return (
 
 export default function App() {
 return (
+<CompanyProfileProvider>
 <>
 <ErrorBoundary><CloudSyncIndicator /></ErrorBoundary>
 <Routes>
@@ -246,5 +248,6 @@ return (
 <Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>
 </>
+</CompanyProfileProvider>
 )
 }
