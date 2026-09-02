@@ -338,7 +338,19 @@ fontWeight: isActive ? 600 : 500,
 <span>GMP 신청</span>
 </NavLink>
 
-<div className="mb-0.5">
+
+<NavLink
+to="/gmp-self-inspection"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 500,
+})}
+>
+<ShieldCheck size={16} strokeWidth={1.7} />
+<span>GMP 자가점검</span>
+</NavLink><div className="mb-0.5">
 <button
 onClick={() => setImpOpen(o => !o)}
 className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition"

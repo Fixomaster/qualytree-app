@@ -86,7 +86,7 @@ try { SterileControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/st
 
 // ── CEO 추가 허브 ────────────────────────────────────────────────────
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
-let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub
+let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub, GmpSelfInspectionHub
 let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
 try { SalesHub = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
@@ -96,6 +96,7 @@ try { DevHub = React.lazy(() => import(/* @vite-ignore */ './pages/development/D
 try { ManagementReviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/mreview/ManagementReviewHub')) } catch {}
 try { TrainingHub = React.lazy(() => import(/* @vite-ignore */ './pages/training/TrainingHub')) } catch {}
 try { KgmpHub = React.lazy(() => import(/* @vite-ignore */ './pages/kgmp/KgmpHub')) } catch {}
+try { GmpSelfInspectionHub = React.lazy(() => import(/* @vite-ignore */ './pages/kgmp/GmpSelfInspectionHub')) } catch {}
 try { GmpApplicationHub = React.lazy(() => import(/* @vite-ignore */ './pages/gmp-application/GmpApplicationHub')) } catch {}
 try { ForeignManufacturerHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ForeignManufacturerHubFixed')) } catch {}
 try { Iso13485Hub = React.lazy(() => import(/* @vite-ignore */ './pages/iso13485/Iso13485Hub')) } catch {}
@@ -228,6 +229,7 @@ return (
 <Route path="/management-review/*" element={<ProtectedRoute><LazyRoute Component={ManagementReviewHub} /></ProtectedRoute>} />
 <Route path="/training/*" element={<ProtectedRoute><LazyRoute Component={TrainingHub} /></ProtectedRoute>} />
 <Route path="/kgmp" element={<ProtectedRoute><LazyRoute Component={KgmpHub} /></ProtectedRoute>} />
+<Route path="/gmp-self-inspection" element={<ProtectedRoute><LazyRoute Component={GmpSelfInspectionHub} /></ProtectedRoute>} />
 <Route path="/gmp-application" element={<ProtectedRoute><LazyRoute Component={GmpApplicationHub} /></ProtectedRoute>} />
 <Route path="/foreign-manufacturers" element={<ProtectedRoute><LazyRoute Component={ForeignManufacturerHub} /></ProtectedRoute>} />
 <Route path="/iso13485" element={<ProtectedRoute><LazyRoute Component={Iso13485Hub} /></ProtectedRoute>} />
