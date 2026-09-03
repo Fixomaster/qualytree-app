@@ -225,92 +225,103 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
 /* ================================================================
    기업정보 — 의료기기 제조업체 기본정보 (onboarding.company 와 연동)
    ================================================================ */
-function ProfileTab({ company, members, onAction, refresh }) {
-  const canEdit = permissions.can('onb.company.edit')
-  // #10 직원 수 기본값 — 온보딩(계정 발급 단계)에서 등록한 구성원 수를 기본값으로 채워주되,
-  // 회사가 직접 입력/수정한 값이 있으면 그 값을 그대로 존중한다(자동 채움은 최초 1회뿐).
-  const memberCount = (members || []).length
-  const [form, setForm] = useState({
-    name: '', bizNumber: '', licenseNo: '', ceo: '', address: '', site: '', phone: '', email: '',
-    employeeCount: company.employeeCount || (memberCount > 0 ? String(memberCount) : ''),
-    ...company,
+function ProfileTab({ user, refresh }) {
+  const LS_KEY = 'qualytree.company_master'
+  const [form, setForm] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
   })
-  const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const dirty = Object.keys(form).some((k) => {
-    const a = form[k]
-    const b = company[k]
-    if (Array.isArray(a) || Array.isArray(b)) return JSON.stringify(a || []) !== JSON.stringify(b || [])
-    if (typeof a === 'boolean' || typeof b === 'boolean') return !!a !== !!b
-    return (a || '') !== (b || '')
-  })
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState(null)
+  const canEdit = permissions.canEdit(user)
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const save = () => {
-    if (!requirePermission('onb.company.edit')) return
-    if (!form.name.trim()) { window.alert('회사명을 입력하세요.'); return }
-    onboarding.updateCompany(form)
-    onAction('기업정보가 저장되었습니다. 관련 품질문서·인허가 화면에 자동으로 반영됩니다.')
-    refresh()
+    if (!form.companyName || !form.bizNumber || !form.ceoName) {
+      setError('필수 항목(회사명, 사업자등록번호, 대표이사)을 입력하세요.')
+      return
+    }
+    setError(null)
+    localStorage.setItem(LS_KEY, JSON.stringify(form))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+    if (refresh) refresh()
   }
 
+  const SectionHdr = ({ title, icon: Icon }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid var(--border)' }}>
+      {Icon && <Icon size={16} style={{ color: 'var(--accent)' }} />}
+      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
+    </div>
+  )
+
   return (
-    <div className="card-base p-4 space-y-4">
-      <div>
-        <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>의료기기 제조업체 정보</div>
-        <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-          여기 입력한 회사명·사업자등록번호·대표자·주소는 품질매뉴얼·통합 문서·KGMP 대시보드 등에서 그대로 사용됩니다.
-        </div>
-      </div>
-      <div className="grid sm:grid-cols-2 gap-3">
-        <Field label="회사명 (상호) *" value={form.name} onChange={(v) => setF('name', v)} placeholder="예: 큐엘트리 주식회사" />
-        <Field label="사업자등록번호" value={form.bizNumber} onChange={(v) => setF('bizNumber', v)} placeholder="000-00-00000" />
-        <Field label="제조업 허가번호" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="제0000호" />
-        <Field label="대표자 (대표이사)" value={form.ceo} onChange={(v) => setF('ceo', v)} />
-        <div>
-          <Field label="직원 수" value={form.employeeCount} onChange={(v) => setF('employeeCount', v)} />
-          {memberCount > 0 && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>온보딩에 등록된 구성원 {memberCount}명 기준 기본값 — 직접 수정할 수 있습니다.</div>}
-        </div>
-        <Field label="본사 주소" value={form.address} onChange={(v) => setF('address', v)} className="sm:col-span-2" />
-        <Field label="제조소 주소 (본사와 다른 경우)" value={form.site} onChange={(v) => setF('site', v)} className="sm:col-span-2" />
-        <Field label="전화번호" value={form.phone} onChange={(v) => setF('phone', v)} placeholder="02-0000-0000" />
-        <Field label="대표 이메일" type="email" value={form.email} onChange={(v) => setF('email', v)} />
+    <div style={{ padding: '4px 0 48px' }}>
+      {/* 기본 정보 */}
+      <SectionHdr title="기본 정보" icon={Building2} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field label="회사명 (국문) *" value={form.companyName || ''} onChange={v => set('companyName', v)} placeholder="퀄리트리 (주)" />
+        <Field label="영문 회사명" value={form.companyNameEn || ''} onChange={v => set('companyNameEn', v)} placeholder="Qualytree Co., Ltd." />
+        <Field label="사업자등록번호 *" value={form.bizNumber || ''} onChange={v => set('bizNumber', v)} placeholder="000-00-00000" />
+        <Field label="대표이사 *" value={form.ceoName || ''} onChange={v => set('ceoName', v)} placeholder="홍길동" />
+        <Field label="설립일" type="date" value={form.foundedDate || ''} onChange={v => set('foundedDate', v)} />
+        <SelectField label="회사 유형" value={form.companyType || ''} onChange={v => set('companyType', v)} options={['', '제조업체', '수입업체', '위탁제조업체', '기타']} />
       </div>
 
-      <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
-        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-          GMP 적합성인정 심사 신청서(심사구분·현장조사 희망일 등 신청정보)와 제품별 기술문서는{' '}
-          <a href="/gmp-application" className="underline" style={{ color: 'var(--moss)' }}>GMP 신청</a> 화면에서 작성·관리합니다.
-        </div>
+      {/* 연락 및 소재지 */}
+      <SectionHdr title="연락 및 소재지" icon={Building2} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field label="국내 주소" value={form.address || ''} onChange={v => set('address', v)} placeholder="서울특별시 강남구 ..." />
+        <Field label="영문 주소" value={form.addressEn || ''} onChange={v => set('addressEn', v)} placeholder="Seoul, Korea" />
+        <Field label="대표 전화" value={form.phone || ''} onChange={v => set('phone', v)} placeholder="02-0000-0000" />
+        <Field label="팩스" value={form.fax || ''} onChange={v => set('fax', v)} placeholder="02-0000-0001" />
+        <Field label="이메일 주소" value={form.email || ''} onChange={v => set('email', v)} placeholder="info@company.com" />
+        <Field label="웹사이트" value={form.website || ''} onChange={v => set('website', v)} placeholder="https://www.company.com" />
       </div>
 
-      {canEdit && (
-        <div className="flex justify-end pt-2" style={{ borderTop: '1px solid var(--line)' }}>
-          <button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px] disabled:opacity-50">기업정보 저장</button>
+      {/* 인허가·인증 현황 */}
+      <SectionHdr title="인허가·인증 현황" icon={BadgeCheck} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field label="의료기기 제조업 허가번호" value={form.mdLicenseNumber || ''} onChange={v => set('mdLicenseNumber', v)} placeholder="제X-XXXX호" />
+        <Field label="허가일자" type="date" value={form.mdLicenseDate || ''} onChange={v => set('mdLicenseDate', v)} />
+        <Field label="GMP 적합인정서 번호" value={form.gmpCertNumber || ''} onChange={v => set('gmpCertNumber', v)} placeholder="GMP-XXXX-XXXX" />
+        <Field label="GMP 유효기간" type="date" value={form.gmpExpiry || ''} onChange={v => set('gmpExpiry', v)} />
+        <Field label="ISO 13485 인증번호" value={form.iso13485Number || ''} onChange={v => set('iso13485Number', v)} placeholder="XXXX-XXXX-XXXX" />
+        <Field label="ISO 13485 유효기간" type="date" value={form.iso13485Expiry || ''} onChange={v => set('iso13485Expiry', v)} />
+        <Field label="인증기관" value={form.certBody || ''} onChange={v => set('certBody', v)} placeholder="BSI, DNV 등" className="col-span-2" />
+      </div>
+
+      {/* 품질 담당 */}
+      <SectionHdr title="품질 담당" icon={Users} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        <Field label="품질관리자" value={form.qmgr || ''} onChange={v => set('qmgr', v)} placeholder="홍길동" />
+        <Field label="품질관리자 연락처" value={form.qmgrPhone || ''} onChange={v => set('qmgrPhone', v)} placeholder="010-0000-0000" />
+        <Field label="인허가 담당자" value={form.raManager || ''} onChange={v => set('raManager', v)} placeholder="홍길동" />
+        <Field label="임직원 수" value={form.employeeCount || ''} onChange={v => set('employeeCount', v)} placeholder="50명" />
+        <Field label="제품 범위" value={form.productScope || ''} onChange={v => set('productScope', v)} placeholder="체외진단기기, 개인보호장비 등" className="col-span-2" />
+      </div>
+
+      {/* 저장 */}
+      {error && (
+        <div style={{ marginTop: 16, padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#DC2626', fontSize: 13 }}>
+          {error}
         </div>
       )}
-      {!canEdit && (
-        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>기업정보 변경은 매니저·RA 권한이 필요합니다.</div>
-      )}
+      <div style={{ marginTop: 24, display: 'flex', gap: 10, alignItems: 'center' }}>
+        {canEdit && (
+          <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+            저장
+          </button>
+        )}
+        {saved && (
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#16A34A', fontSize: 13 }}>
+            <CheckCircle2 size={15} /> 저장되었습니다
+          </span>
+        )}
+      </div>
     </div>
   )
 }
-
-/* ================================================================
-   회사문서함 — 필수 문서 항목을 고정 목록으로 표시하고 등록 여부를 확인
-   ================================================================ */
-const CATEGORY_ORDER = Object.values(DOC_CATEGORY)
-const CATEGORY_HINT = {
-  [DOC_CATEGORY.BIZ_REG]: '관할 세무서 발급 사업자등록증 사본',
-  [DOC_CATEGORY.MFG_LICENSE]: '제조업허가증 (해당 시)',
-  [DOC_CATEGORY.FACILITY_PLAN]: '제조소 평면도 (작업구역·보관구역 표시)',
-  [DOC_CATEGORY.FACILITY_PHOTO]: '제조소 외관·내부 사진',
-  [DOC_CATEGORY.FACILITY_REG]: '제조소 등록 확인 자료',
-  [DOC_CATEGORY.IMPORT_LICENSE]: '수입업 허가증 (수입업자인 경우)',
-  [DOC_CATEGORY.AGENT_CONTRACT]: '해외 제조사 대리인 지정 계약서 (Authorization Letter)',
-  [DOC_CATEGORY.GMP_CERT]: '제조소 GMP 적합인정서/인증서',
-  [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 인증서',
-}
-const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
-
 function CompanyDocsTab({ onAction, refresh }) {
   const canEdit = permissions.can('company.docs.edit')
   const [list, setList] = useState(() => companyDocs.getDocuments())

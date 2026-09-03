@@ -388,18 +388,6 @@ fontWeight: isActive ? 600 : 500,
 <Printer size={16} strokeWidth={1.7} />
 <span>문서 출력</span>
 </NavLink>
-<NavLink
-to="/company-master"
-className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
-style={({ isActive }) => ({
-color: isActive ? 'var(--moss)' : 'var(--ink)',
-background: isActive ? 'var(--leaf-soft)' : 'transparent',
-fontWeight: isActive ? 600 : 500,
-})}
->
-<Building2 size={16} strokeWidth={1.7} />
-<span>회사 마스터</span>
-</NavLink>
 <div className="mb-0.5">
 <button
 onClick={() => setImpOpen(o => !o)}
