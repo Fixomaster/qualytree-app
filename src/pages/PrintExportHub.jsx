@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
+import { Printer, FileText, Download, ChevronDown, ChevronUp } from 'lucide-react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { Printer, FileText, Download, ChevronDown, ChevronUp } from 'lucide-react'
 
 const ACCENT = '#0369A1'
 const ACCENT_SOFT = '#F0F9FF'
@@ -101,8 +101,6 @@ function SectionBlock({ sec, idx }) {
       </table>
     </div>}
   </div>
-    </AppLayout>
-  )
 }
 
 export default function PrintExportHub() {
@@ -133,4 +131,6 @@ export default function PrintExportHub() {
     </div>
     {SECTIONS.map((sec, i) => <SectionBlock key={sec.id} sec={sec} idx={i} />)}
   </div>
+    </AppLayout>
+  )
 }

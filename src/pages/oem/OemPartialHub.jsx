@@ -33,11 +33,7 @@ function StatusBadge({ map, val }) {
   return <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, color: m.color, background: m.bg, fontWeight: 600 }}>{m.label}</span>
 }
 function Field({ label, children }) {
-  return (
-    <AppLayout user={user} title="OEM 일부위탁">
-      <div style={{ marginBottom: 14 }}><label style={{ display: 'block', fontSize: 12, color: '#6B7280', marginBottom: 4 }}>{label}</label>{children}</div>
-    </AppLayout>
-  )
+  return <div style={{ marginBottom: 14 }}><label style={{ display: 'block', fontSize: 12, color: '#6B7280', marginBottom: 4 }}>{label}</label>{children}</div>
 }
 function Btn({ onClick, children, variant = 'primary' }) {
   const styles = {
@@ -317,7 +313,9 @@ export default function OemPartialHub() {
   const expiringContracts = contracts.filter(c => c.status === 'expiring' || c.status === 'expired')
   const audits = data.audits || []
 
-  return <div style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
+  return (
+    <AppLayout user={user} title="OEM 일부위탁">
+      <div style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
       <Share2 size={24} color={ACCENT} />
       <div>
@@ -352,4 +350,6 @@ export default function OemPartialHub() {
     {tab === 3 && <QualityAgreementTab data={data} onChange={handleChange} />}
     {tab === 4 && <AuditTab data={data} onChange={handleChange} />}
   </div>
+    </AppLayout>
+  )
 }
