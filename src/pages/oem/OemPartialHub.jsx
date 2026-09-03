@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import AppLayout from '../../components/AppLayout'
+import { auth } from '../../lib/auth'
 import { Share2, Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 
 const ACCENT = '#D97706'
@@ -31,7 +33,11 @@ function StatusBadge({ map, val }) {
   return <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, color: m.color, background: m.bg, fontWeight: 600 }}>{m.label}</span>
 }
 function Field({ label, children }) {
-  return <div style={{ marginBottom: 14 }}><label style={{ display: 'block', fontSize: 12, color: '#6B7280', marginBottom: 4 }}>{label}</label>{children}</div>
+  return (
+    <AppLayout user={user} title="OEM 일부위탁">
+      <div style={{ marginBottom: 14 }}><label style={{ display: 'block', fontSize: 12, color: '#6B7280', marginBottom: 4 }}>{label}</label>{children}</div>
+    </AppLayout>
+  )
 }
 function Btn({ onClick, children, variant = 'primary' }) {
   const styles = {
@@ -300,6 +306,7 @@ function QualityAgreementTab({ data, onChange }) {
 const TABS = ['개요', '공정 위탁현황', '계약서', '품질 협약', '감사 일정']
 
 export default function OemPartialHub() {
+  const user = auth.current()
   const [tab, setTab] = useState(0)
   const [data, setData] = useState(() => load())
 

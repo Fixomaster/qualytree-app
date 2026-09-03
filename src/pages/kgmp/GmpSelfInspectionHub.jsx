@@ -99,7 +99,7 @@ function scoreColor(pct) {
 }
 
 export default function GmpSelfInspectionHub() {
-  const user = auth.getUser()
+  const user = auth.current()
   const [results, setResults] = useState(() => load())
   const [openCats, setOpenCats] = useState(() => Object.fromEntries(CATEGORIES.map(c => [c.id, true])))
   const [note, setNote] = useState('')

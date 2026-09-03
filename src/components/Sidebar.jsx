@@ -362,7 +362,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <Building2 size={16} strokeWidth={1.7} />
-<span>OEM ��</span>
+<span>OEM 전공정위탁</span>
 </NavLink>
 <NavLink
 to="/oem-partial"

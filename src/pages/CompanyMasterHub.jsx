@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import AppLayout from '../components/AppLayout'
+import { auth } from '../lib/auth'
 import { Building2, Save, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react'
 
 const ACCENT = '#0F766E'
@@ -61,6 +63,7 @@ function Input({ field, value, onChange }) {
 }
 
 export default function CompanyMasterHub() {
+  const user = auth.current()
   const [form, setForm] = useState(() => load())
   const [saved, setSaved] = useState(false)
   const [lastSaved, setLastSaved] = useState(null)
@@ -98,7 +101,9 @@ export default function CompanyMasterHub() {
   const filledRequired = requiredFields.filter(f => form[f.key] && form[f.key].trim())
   const completionPct = requiredFields.length ? Math.round(filledRequired.length / requiredFields.length * 100) : 100
 
-  return <div style={{ padding: '28px 32px', fontFamily: 'inherit', maxWidth: 860 }}>
+  return (
+    <AppLayout user={user} title="회사 마스터">
+      <div style={{ padding: '28px 32px', fontFamily: 'inherit', maxWidth: 860 }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Building2 size={24} color={ACCENT} />
@@ -149,4 +154,6 @@ export default function CompanyMasterHub() {
       </span>
     </div>}
   </div>
+    </AppLayout>
+  )
 }
