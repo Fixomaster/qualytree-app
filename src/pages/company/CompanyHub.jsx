@@ -225,14 +225,14 @@ function SingleFileAttach({ fileId, fileName, onAttach, onRemove, canEdit, label
 /* ================================================================
    기업정보 — 의료기기 제조업체 기본정보 (onboarding.company 와 연동)
    ================================================================ */
-function ProfileTab({ user, refresh }) {
+function ProfileTab({ company, members, onAction, refresh }) {
   const LS_KEY = 'qualytree.company_master'
   const [form, setForm] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
   })
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState(null)
-  const canEdit = permissions.canEdit(user)
+  const canEdit = permissions.can('onb.company.edit')
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
