@@ -21,8 +21,8 @@ FileCheck2,
 Globe,
 Building2,
   Share2,
+Printer,
   Users,
-  Printer,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
