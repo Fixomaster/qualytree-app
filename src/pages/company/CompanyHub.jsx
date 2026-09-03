@@ -266,6 +266,7 @@ function ProfileTab({ company, members, onAction, refresh }) {
         <Field label="대표이사 *" value={form.ceoName || ''} onChange={v => set('ceoName', v)} placeholder="홍길동" />
         <Field label="설립일" type="date" value={form.foundedDate || ''} onChange={v => set('foundedDate', v)} />
         <SelectField label="회사 유형" value={form.companyType || ''} onChange={v => set('companyType', v)} options={['', '제조업체', '수입업체', '위탁제조업체', '기타']} />
+               <SelectField label="OEM 위탁 방식" value={form.oemMode || ''} onChange={v => set('oemMode', v)} options={['', '전공정위탁', '일부공정위탁']} className="col-span-2" />
       </div>
 
       {/* 연락 및 소재지 */}

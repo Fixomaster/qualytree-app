@@ -180,6 +180,9 @@ window.addEventListener('qt-dept-changed', handler)
 return () => window.removeEventListener('qt-dept-changed', handler)
 }, [])
 const deptOptions = useMemo(() => relevantDeptOptions(), [])
+const [oemMode] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('qualytree.company_master') || '{}').oemMode || '' } catch { return '' }
+  })
 
 const isAdmin = cur?.isCompanyAdmin || (cur?.level ?? 0) >= 3
   const userDept = dept
@@ -352,6 +355,7 @@ fontWeight: isActive ? 600 : 500,
 <ShieldCheck size={16} strokeWidth={1.7} />
 <span>GMP 자가점검</span>
 </NavLink>
+{(!oemMode || oemMode === '전공정위탁') && 
 <NavLink
 to="/oem-full"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
@@ -364,6 +368,8 @@ fontWeight: isActive ? 600 : 500,
 <Building2 size={16} strokeWidth={1.7} />
 <span>OEM 전공정위탁</span>
 </NavLink>
+}
+{(!oemMode || oemMode === '일부공정위탁') && 
 <NavLink
 to="/oem-partial"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
@@ -376,6 +382,7 @@ fontWeight: isActive ? 600 : 500,
 <Share2 size={16} strokeWidth={1.7} />
 <span>OEM 일부위탁</span>
 </NavLink>
+}
 <NavLink
 to="/print-export"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
