@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import AppLayout from '../components/AppLayout'
+import { auth } from '../lib/auth'
 import { Printer, FileText, Download, ChevronDown, ChevronUp } from 'lucide-react'
 
 const ACCENT = '#0369A1'
@@ -99,10 +101,15 @@ function SectionBlock({ sec, idx }) {
       </table>
     </div>}
   </div>
+    </AppLayout>
+  )
 }
 
 export default function PrintExportHub() {
-  return <div id="print-root" style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
+  const user = auth.current()
+  return (
+    <AppLayout user={user} title="문서 출력">
+      <div id="print-root" style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Printer size={24} color={ACCENT} />
