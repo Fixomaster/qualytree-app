@@ -86,7 +86,7 @@ try { SterileControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/st
 
 // ââ CEO ì¶ê° íë¸ ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 let SalesHub, PurchaseHub, ManufacturingHub, EquipmentHub, DevHub, ManagementReviewHub, TrainingHub
-let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub, GmpSelfInspectionHub, OemFullHub, OemPartialHub, PrintExportHub
+let KgmpHub, ForeignManufacturerHub, Iso13485Hub, GmpApplicationHub, GmpSelfInspectionHub, OemFullHub, OemPartialHub, PrintExportHub, CompanyMasterHub
 let CompanyHub, LogisticsHub, NoticeHub, ResourcePlanHub, QmsOverviewHub, RecordMasterHub
 try { SalesHub = React.lazy(() => import(/* @vite-ignore */ './pages/sales/SalesHub')) } catch {}
 try { PurchaseHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase/PurchaseHub')) } catch {}
@@ -100,6 +100,7 @@ try { GmpSelfInspectionHub = React.lazy(() => import(/* @vite-ignore */ './pages
 try { OemFullHub = React.lazy(() => import(/* @vite-ignore */ './pages/oem/OemFullHub')) } catch {}
     try { OemPartialHub = React.lazy(() => import(/* @vite-ignore */ './pages/oem/OemPartialHub')) } catch {}
     try { PrintExportHub = React.lazy(() => import(/* @vite-ignore */ './pages/PrintExportHub')) } catch {}
+    try { CompanyMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/CompanyMasterHub')) } catch {}
 try { GmpApplicationHub = React.lazy(() => import(/* @vite-ignore */ './pages/gmp-application/GmpApplicationHub')) } catch {}
 try { ForeignManufacturerHub = React.lazy(() => import(/* @vite-ignore */ './pages/importgmp/ForeignManufacturerHubFixed')) } catch {}
 try { Iso13485Hub = React.lazy(() => import(/* @vite-ignore */ './pages/iso13485/Iso13485Hub')) } catch {}
@@ -253,6 +254,7 @@ return (
           <Route path="/oem-full" element={<ProtectedRoute><LazyRoute Component={OemFullHub} /></ProtectedRoute>} />
               <Route path="/oem-partial" element={<ProtectedRoute><LazyRoute Component={OemPartialHub} /></ProtectedRoute>} />
               <Route path="/print-export" element={<ProtectedRoute><LazyRoute Component={PrintExportHub} /></ProtectedRoute>} />
+              <Route path="/company-master" element={<ProtectedRoute><LazyRoute Component={CompanyMasterHub} /></ProtectedRoute>} />
 <Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>
 </>
