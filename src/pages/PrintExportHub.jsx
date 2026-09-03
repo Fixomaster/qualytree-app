@@ -1,173 +1,129 @@
-import React, { useState, useEffect } from 'react'
-import { Printer, FileText, CheckSquare, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react'
+import React, { useState } from 'react'
+import { Printer, FileText, Download, ChevronDown, ChevronUp } from 'lucide-react'
 
 const ACCENT = '#0369A1'
 const ACCENT_SOFT = '#F0F9FF'
 
 const SECTIONS = [
   {
-    id: 'oem', title: 'OEM 위탁관리',
-    docs: [
-      { key: 'qualytree.oem_full', label: 'OEM 전공정위탁', sub: '수탁사·계약·협약·감사', lists: ['contractors','contracts','qualityAgreements','audits'] },
-      { key: 'qualytree.oem_partial', label: 'OEM 일부공정위탁', sub: '공정·계약·협약·감사', lists: ['processes','contracts','qualityAgreements','audits'] },
-    ]
+    id: 'oem',
+    title: 'OEM 위탁관리',
+    desc: 'OEM 전공정·일부공정 위탁 현황',
+    keys: ['qualytree.oem_full', 'qualytree.oem_partial'],
+    labels: ['OEM 전공정위탁', 'OEM 일부공정위탁'],
   },
   {
-    id: 'gmp', title: 'GMP 심사 준비',
-    docs: [
-      { key: 'qualytree.gmp_self_inspection', label: 'GMP 자가점검', sub: '점검항목·결과', lists: ['items'] },
-      { key: 'qualytree.kgmp_hub', label: 'KGMP 허브', sub: '이물·검사·보고', lists: ['items'] },
-    ]
+    id: 'gmp',
+    title: 'GMP 심사 준비',
+    desc: 'GMP 자가점검, KGMP 허브',
+    keys: ['qualytree.gmp_self_inspection', 'qualytree.kgmp_hub'],
+    labels: ['GMP 자가점검', 'KGMP 허브'],
   },
   {
-    id: 'quality', title: '품질시스템 기록',
-    docs: [
-      { key: 'qualytree.risks', label: '위험관리', sub: 'ISO 14971 위험 목록', lists: ['risks'] },
-      { key: 'qualytree.audits', label: '내부심사', sub: '심사 일정·결과', lists: ['audits'] },
-      { key: 'qualytree.calibrations', label: '교정 관리', sub: '장비·교정 이력', lists: ['items'] },
-      { key: 'qualytree.suppliers', label: '공급업체', sub: '공급업체 평가 목록', lists: ['suppliers'] },
-      { key: 'qualytree.complaints', label: '고객불만', sub: '불만·처리 이력', lists: ['complaints'] },
-      { key: 'qualytree.ncrs', label: '부적합(NCR)', sub: '부적합 기록 목록', lists: ['ncrs'] },
-    ]
+    id: 'qms',
+    title: '품질시스템 기록',
+    desc: '위험관리, 감사, 교정, 공급업체, 고객불만, NCR',
+    keys: ['qualytree.risks', 'qualytree.audits', 'qualytree.calibrations', 'qualytree.suppliers', 'qualytree.complaints', 'qualytree.ncrs'],
+    labels: ['위험관리', '감사', '교정', '공급업체', '고객불만', 'NCR'],
   },
   {
-    id: 'regulatory', title: '인허가 관련',
-    docs: [
-      { key: 'qualytree.regulatory_products', label: '인허가 품목', sub: '품목별 인허가 현황', lists: ['products'] },
-      { key: 'qualytree.foreign_manufacturers', label: '외국제조소', sub: '외국 제조소 등록 목록', lists: ['manufacturers'] },
-    ]
+    id: 'reg',
+    title: '인허가 관련',
+    desc: '인허가 제품, 외국제조소',
+    keys: ['qualytree.regulatory_products', 'qualytree.foreign_manufacturers'],
+    labels: ['인허가 제품', '외국제조소'],
   },
 ]
 
-function loadData(key, lists) {
-  try {
-    const s = localStorage.getItem(key)
-    if (!s) return {}
-    const d = JSON.parse(s)
-    const counts = {}
-    lists.forEach(l => { counts[l] = Array.isArray(d[l]) ? d[l].length : Array.isArray(d) ? d.length : 0 })
-    return counts
-  } catch { return {} }
+function getSummary(keys) {
+  let total = 0
+  const detail = []
+  for (const key of keys) {
+    try {
+      const raw = localStorage.getItem(key)
+      if (!raw) { detail.push(0); continue }
+      const parsed = JSON.parse(raw)
+      const arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? Object.values(parsed).flat().filter(Array.isArray).flat() : [])
+      detail.push(arr.length)
+      total += arr.length
+    } catch { detail.push(0) }
+  }
+  return { total, detail }
 }
 
-const PRINT_STYLE = `
-@media print {
-  body * { visibility: hidden; }
-  #print-area, #print-area * { visibility: visible; }
-  #print-area { position: fixed; top: 0; left: 0; width: 100%; background: #fff; padding: 20px; }
-  .no-print { display: none !important; }
-  table { page-break-inside: auto; }
-  tr { page-break-inside: avoid; }
+function printSection(sectionId) {
+  const el = document.getElementById('print-area-' + sectionId)
+  if (!el) return
+  const style = document.createElement('style')
+  style.id = '_print_style_temp'
+  style.textContent = '@media print { body > *:not(#print-root) { display: none !important; } #print-root > *:not(#print-area-' + sectionId + ') { display: none !important; } }'
+  document.head.appendChild(style)
+  setTimeout(() => { window.print(); setTimeout(() => { const s = document.getElementById('_print_style_temp'); if (s) s.remove() }, 500) }, 200)
 }
-`
 
-const Card = ({ title, sub, total, icon: Icon }) => (
-  <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-    <div style={{ width: 40, height: 40, borderRadius: 10, background: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Icon size={18} color={ACCENT} />
-    </div>
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: '#111827' }}>{title}</div>
-      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>{sub}</div>
-    </div>
-    <div style={{ fontSize: 22, fontWeight: 700, color: total > 0 ? ACCENT : '#d1d5db' }}>{total}</div>
-  </div>
-)
+function printAll() {
+  setTimeout(() => window.print(), 200)
+}
 
-const SectionBlock = ({ sec, dataCounts, open, onToggle, onPrint }) => {
-  const total = sec.docs.reduce((s, d) => s + (dataCounts[d.key] || 0), 0)
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, marginBottom: 12, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', cursor: 'pointer', userSelect: 'none' }} onClick={onToggle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{sec.title}</div>
-          <span style={{ background: total > 0 ? '#dbeafe' : '#f3f4f6', color: total > 0 ? '#1d4ed8' : '#9ca3af', fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20 }}>{total}건</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="no-print" onClick={e => { e.stopPropagation(); onPrint(sec) }} style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid '+ACCENT, background: ACCENT_SOFT, color: ACCENT, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Printer size={12} />인쇄
-          </button>
-          {open ? <ChevronUp size={16} color='#9ca3af' /> : <ChevronDown size={16} color='#9ca3af' />}
+function SectionBlock({ sec, idx }) {
+  const [open, setOpen] = useState(false)
+  const { total, detail } = getSummary(sec.keys)
+
+  return <div id={'print-area-' + sec.id} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, marginBottom: 16, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', cursor: 'pointer', background: open ? ACCENT_SOFT : '#fff' }} onClick={() => setOpen(o => !o)}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <FileText size={18} color={ACCENT} />
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{sec.title}</div>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>{sec.desc}</div>
         </div>
       </div>
-      {open && (
-        <div style={{ borderTop: '1px solid #f3f4f6', padding: '0 18px 16px' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 12 }}>
-            <thead><tr style={{ background: '#f9fafb' }}>
-              {['문서명', '설명', '등록 건수'].map(h => (
-                <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
-              {sec.docs.map((doc, i) => {
-                const cnt = dataCounts[doc.key] || 0
-                return (
-                  <tr key={doc.key} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 500 }}>{doc.label}</td>
-                    <td style={{ padding: '10px 12px', color: '#6b7280' }}>{doc.sub}</td>
-                    <td style={{ padding: '10px 12px' }}>
-                      <span style={{ fontWeight: 700, color: cnt > 0 ? ACCENT : '#d1d5db' }}>{cnt}</span>
-                      <span style={{ color: '#9ca3af', fontSize: 11, marginLeft: 4 }}>건</span>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 13, color: '#6B7280' }}>총 {total}건</span>
+        <button onClick={e => { e.stopPropagation(); printSection(sec.id) }} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          <Printer size={13} /> 인쇄
+        </button>
+        {open ? <ChevronUp size={16} color="#6B7280" /> : <ChevronDown size={16} color="#6B7280" />}
+      </div>
     </div>
-  )
+    {open && <div style={{ padding: '16px 20px', borderTop: '1px solid #E5E7EB' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
+          <th style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>구분</th>
+          <th style={{ padding: '8px 6px', textAlign: 'right', color: '#6B7280', fontWeight: 600 }}>건수</th>
+        </tr></thead>
+        <tbody>{sec.labels.map((label, i) => <tr key={label} style={{ borderBottom: '1px solid #F3F4F6' }}>
+          <td style={{ padding: '8px 6px' }}>{label}</td>
+          <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 600, color: ACCENT }}>{detail[i] || 0}건</td>
+        </tr>)}</tbody>
+      </table>
+    </div>}
+  </div>
 }
 
 export default function PrintExportHub() {
-  const [dataCounts, setDataCounts] = useState({})
-  const [openSecs, setOpenSecs] = useState({})
-  const [printTarget, setPrintTarget] = useState(null)
-  const [lastPrinted, setLastPrinted] = useState(null)
-
-  useEffect(() => {
-    const counts = {}
-    SECTIONS.forEach(sec => {
-      sec.docs.forEach(doc => {
-        const c = loadData(doc.key, doc.lists)
-        counts[doc.key] = Object.values(c).reduce((s, v) => s + v, 0)
-      })
-    })
-    setDataCounts(counts)
-  }, [])
-
-  const totalRecords = Object.values(dataCounts).reduce((s, v) => s + v, 0)
-  const totalDocs = SECTIONS.reduce((s, sec) => s + sec.docs.length, 0)
-  const activeDocs = Object.values(dataCounts).filter(v => v > 0).length
-
-  const toggleSec = id => setOpenSecs(o => ({ ...o, [id]: !o[id] }))
-
-  const handlePrint = (sec) => {
-    setPrintTarget(sec)
-    setTimeout(() => {
-      window.print()
-      setLastPrinted(sec.title)
-      setPrintTarget(null)
-    }, 200)
-  }
-
-  const handlePrintAll = () => {
-    setPrintTarget(null)
-    setTimeout(() => {
-      window.print()
-      setLastPrinted('전체')
-    }, 200)
-  }
-
-  return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '24px 28px' }}>
-      <style>{PRINT_STYLE}</style>
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: ACCENT_SOFT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Printer size={22} color={ACCENT} strokeWidth={1.7} />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: '#111827' }}>제출용 문서 출력</h1>
-            <p style={{ margin: 0, fontSize: 13, color: '
+  return <div id="print-root" style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Printer size={24} color={ACCENT} />
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>문서 출력</h1>
+          <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>제출용 문서를 섹션별 또는 전체 인쇄할 수 있습니다</p>
+        </div>
+      </div>
+      <button onClick={printAll} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, cursor: 'pointer', fontWeight: 700 }}>
+        <Printer size={16} /> 전체 인쇄
+      </button>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
+      {SECTIONS.map(s => {
+        const { total } = getSummary(s.keys)
+        return <div key={s.id} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, padding: '16px', textAlign: 'center' }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color: ACCENT }}>{total}</div>
+          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{s.title}</div>
+        </div>
+      })}
+    </div>
+    {SECTIONS.map((sec, i) => <SectionBlock key={sec.id} sec={sec} idx={i} />)}
+  </div>
+}
