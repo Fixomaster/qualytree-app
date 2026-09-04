@@ -9,66 +9,66 @@ import { buildApprovedDocumentBundleHtml, downloadHtmlAsPdf } from '../../lib/kg
 import KgmpSectionList from '../../components/KgmpSectionList'
 import CertGate from '../../components/CertGate'
 
-// ── 알림 수집 ─────────────────────────────────────────────
+// ââ ìë¦¼ ìì§ âââââââââââââââââââââââââââââââââââââââââââââ
 function collectAlerts() {
   const alerts = []
   const today = new Date()
 
-  // 교정 만료 체크
+  // êµì  ë§ë£ ì²´í¬
   try {
     const cals = JSON.parse(localStorage.getItem('qualytree.calibration') || '[]')
     cals.forEach(c => {
       if (!c.nextDate) return
       const diff = Math.ceil((new Date(c.nextDate) - today) / 86400000)
-      const name = c.name || c.instrument || '교정장비'
-      if (diff < 0) alerts.push({ level: 'danger', category: '교정', message: `[${name}] 교정 기한 ${Math.abs(diff)}일 초과`, link: '/calibration' })
-      else if (diff <= 30) alerts.push({ level: 'warning', category: '교정', message: `[${name}] 교정 기한 ${diff}일 남음`, link: '/calibration' })
+      const name = c.name || c.instrument || 'êµì ì¥ë¹'
+      if (diff < 0) alerts.push({ level: 'danger', category: 'êµì ', message: `[${name}] êµì  ê¸°í ${Math.abs(diff)}ì¼ ì´ê³¼`, link: '/calibration' })
+      else if (diff <= 30) alerts.push({ level: 'warning', category: 'êµì ', message: `[${name}] êµì  ê¸°í ${diff}ì¼ ë¨ì`, link: '/calibration' })
     })
   } catch {}
 
-  // CAPA 미결 체크
+  // CAPA ë¯¸ê²° ì²´í¬
   try {
     const capas = JSON.parse(localStorage.getItem('qualytree.capa') || '[]')
     const open = capas.filter(c => c.status !== 'closed' && c.status !== 'completed')
-    if (open.length > 3) alerts.push({ level: 'danger', category: 'CAPA', message: `미결 CAPA ${open.length}건 처리 필요`, link: '/improvement' })
-    else if (open.length > 0) alerts.push({ level: 'warning', category: 'CAPA', message: `미결 CAPA ${open.length}건 진행 중`, link: '/improvement' })
+    if (open.length > 3) alerts.push({ level: 'danger', category: 'CAPA', message: `ë¯¸ê²° CAPA ${open.length}ê±´ ì²ë¦¬ íì`, link: '/improvement' })
+    else if (open.length > 0) alerts.push({ level: 'warning', category: 'CAPA', message: `ë¯¸ê²° CAPA ${open.length}ê±´ ì§í ì¤`, link: '/improvement' })
   } catch {}
 
-  // 역량 교육 만료 체크
+  // ì­ë êµì¡ ë§ë£ ì²´í¬
   try {
     const recs = JSON.parse(localStorage.getItem('qualytree.competency_records') || '[]')
     recs.forEach(r => {
       if (!r.expiryDate) return
       const diff = Math.ceil((new Date(r.expiryDate) - today) / 86400000)
-      const name = r.employeeName || r.name || '직원'
-      if (diff < 0) alerts.push({ level: 'danger', category: '역량', message: `[${name}] 교육 기한 ${Math.abs(diff)}일 초과`, link: '/competency' })
-      else if (diff <= 30) alerts.push({ level: 'warning', category: '역량', message: `[${name}] 교육 만료 ${diff}일 남음`, link: '/competency' })
+      const name = r.employeeName || r.name || 'ì§ì'
+      if (diff < 0) alerts.push({ level: 'danger', category: 'ì­ë', message: `[${name}] êµì¡ ê¸°í ${Math.abs(diff)}ì¼ ì´ê³¼`, link: '/competency' })
+      else if (diff <= 30) alerts.push({ level: 'warning', category: 'ì­ë', message: `[${name}] êµì¡ ë§ë£ ${diff}ì¼ ë¨ì`, link: '/competency' })
     })
   } catch {}
 
-  // 공급업체 평가 체크
+  // ê³µê¸ìì²´ íê° ì²´í¬
   try {
     const sups = JSON.parse(localStorage.getItem('qualytree.suppliers') || '[]')
     const uneval = sups.filter(s => !s.lastEvaluationDate)
-    if (uneval.length > 0) alerts.push({ level: 'warning', category: '공급업체', message: `미평가 공급업체 ${uneval.length}개`, link: '/supplier' })
+    if (uneval.length > 0) alerts.push({ level: 'warning', category: 'ê³µê¸ìì²´', message: `ë¯¸íê° ê³µê¸ìì²´ ${uneval.length}ê°`, link: '/supplier' })
   } catch {}
 
-  // NCR 미결 체크
+  // NCR ë¯¸ê²° ì²´í¬
   try {
     const ncrs = JSON.parse(localStorage.getItem('qualytree.ncr') || '[]')
     const open = ncrs.filter(n => n.status !== 'closed')
-    if (open.length > 0) alerts.push({ level: 'warning', category: 'NCR', message: `미결 부적합 ${open.length}건`, link: '/ncr' })
+    if (open.length > 0) alerts.push({ level: 'warning', category: 'NCR', message: `ë¯¸ê²° ë¶ì í© ${open.length}ê±´`, link: '/ncr' })
   } catch {}
 
-  // 자가점검 결과 연동
+  // ìê°ì ê² ê²°ê³¼ ì°ë
   try {
     const siData = JSON.parse(localStorage.getItem('qualytree.gmp_self_inspection_v2') || '{}')
     const sessions = siData.sessions || []
     const latest = sessions[0]
     if (!latest) {
-      alerts.push({ level: 'warning', category: '자가점검', message: '자가점검 미실시 — 점검 시작 필요', link: '/gmp-self-inspection' })
+      alerts.push({ level: 'warning', category: 'ìê°ì ê²', message: 'ìê°ì ê² ë¯¸ì¤ì â ì ê² ìì íì', link: '/gmp-self-inspection' })
     } else if (latest.status === 'draft') {
-      alerts.push({ level: 'warning', category: '자가점검', message: '자가점검 진행 중 (미완료)', link: '/gmp-self-inspection' })
+      alerts.push({ level: 'warning', category: 'ìê°ì ê²', message: 'ìê°ì ê² ì§í ì¤ (ë¯¸ìë£)', link: '/gmp-self-inspection' })
     }
   } catch {}
 
@@ -116,37 +116,37 @@ export default function KgmpHub() {
   }
 
   const QUICK_LINKS = [
-    { label: 'CAPA 관리', link: '/improvement', icon: CheckSquare },
-    { label: '교정 관리', link: '/calibration', icon: Activity },
-    { label: '역량 관리', link: '/competency', icon: Users },
-    { label: '자가점검', link: '/gmp-self-inspection', icon: ClipboardList },
-    { label: '내부심사', link: '/audit', icon: FileCheck2 },
-    { label: '공급업체', link: '/supplier', icon: Factory },
+    { label: 'CAPA ê´ë¦¬', link: '/improvement', icon: CheckSquare },
+    { label: 'êµì  ê´ë¦¬', link: '/calibration', icon: Activity },
+    { label: 'ì­ë ê´ë¦¬', link: '/competency', icon: Users },
+    { label: 'ìê°ì ê²', link: '/gmp-self-inspection', icon: ClipboardList },
+    { label: 'ë´ë¶ì¬ì¬', link: '/audit', icon: FileCheck2 },
+    { label: 'ê³µê¸ìì²´', link: '/supplier', icon: Factory },
   ]
 
   const LEVEL_STYLE = {
-    danger: { bg: '#FEF2F2', border: '#FECACA', dot: '#DC2626', label: '긴급' },
-    warning: { bg: '#FFFBEB', border: '#FDE68A', dot: '#D97706', label: '주의' },
+    danger: { bg: '#FEF2F2', border: '#FECACA', dot: '#DC2626', label: 'ê¸´ê¸' },
+    warning: { bg: '#FFFBEB', border: '#FDE68A', dot: '#D97706', label: 'ì£¼ì' },
   }
 
   return (
-    <AppLayout user={user} title="GMP 대시보드" subtitle="KGMP 심사 준비도 종합 현황">
-      <CertGate certType="kgmp">
+    <AppLayout user={user} title="GMP ëìë³´ë" subtitle="KGMP ì¬ì¬ ì¤ë¹ë ì¢í© íí©">
+      <CertGate certId="kgmp">
         <div style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
 
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <Factory size={24} color="#D97706" />
             <div>
-              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>KGMP 대시보드</h1>
-              <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>GMP 심사 준비도 및 알림 기반 체크리스트</p>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#111827', margin: 0 }}>KGMP ëìë³´ë</h1>
+              <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>GMP ì¬ì¬ ì¤ë¹ë ë° ìë¦¼ ê¸°ë° ì²´í¬ë¦¬ì¤í¸</p>
             </div>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
               <button onClick={handleDownload} disabled={downloading}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
                   background: downloading ? '#9CA3AF' : '#1D4ED8', color: '#fff',
                   border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: downloading ? 'not-allowed' : 'pointer' }}>
-                <FileDown size={15} /> {downloading ? '생성 중...' : '문서 묶음 출력'}
+                <FileDown size={15} /> {downloading ? 'ìì± ì¤...' : 'ë¬¸ì ë¬¶ì ì¶ë ¥'}
               </button>
             </div>
           </div>
@@ -157,11 +157,11 @@ export default function KgmpHub() {
             <div style={{ flex: '0 0 200px', background: rColors.bg, border: `1px solid ${rColors.bar}40`,
               borderRadius: 14, padding: '20px 24px', textAlign: 'center' }}>
               <div style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>
-                심사 준비도
+                ì¬ì¬ ì¤ë¹ë
               </div>
               <div style={{ fontSize: 58, fontWeight: 900, color: rColors.bar, lineHeight: 1 }}>{readiness}</div>
               <div style={{ fontSize: 12, color: rColors.text, fontWeight: 700, marginTop: 6 }}>
-                {readiness >= 90 ? '심사 준비 완료 ✓' : readiness >= 70 ? '준비 중 — 보완 필요' : '중요 미비사항 있음'}
+                {readiness >= 90 ? 'ì¬ì¬ ì¤ë¹ ìë£ â' : readiness >= 70 ? 'ì¤ë¹ ì¤ â ë³´ì íì' : 'ì¤ì ë¯¸ë¹ì¬í­ ìì'}
               </div>
               <div style={{ marginTop: 12, height: 6, background: '#E5E7EB', borderRadius: 3 }}>
                 <div style={{ height: '100%', borderRadius: 3, background: rColors.bar,
@@ -172,10 +172,10 @@ export default function KgmpHub() {
             {/* Stat cards */}
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 12 }}>
               {[
-                { label: 'GMP 요건 충족', val: doneCount + '/' + totalCount, sub: Math.round(pct) + '% 완료', c: '#1D4ED8' },
-                { label: '긴급 알림', val: danger.length, sub: danger.length === 0 ? '이상 없음' : '즉시 처리 필요', c: danger.length > 0 ? '#DC2626' : '#16A34A' },
-                { label: '주의 알림', val: warning.length, sub: warning.length === 0 ? '이상 없음' : '모니터링 필요', c: warning.length > 0 ? '#D97706' : '#16A34A' },
-                { label: '자가점검', val: (() => { try { const d = JSON.parse(localStorage.getItem('qualytree.gmp_self_inspection_v2')||'{}'); return (d.sessions||[]).length + '회' } catch { return '0회' } })(), sub: '점검 이력', c: '#6B7280' },
+                { label: 'GMP ìê±´ ì¶©ì¡±', val: doneCount + '/' + totalCount, sub: Math.round(pct) + '% ìë£', c: '#1D4ED8' },
+                { label: 'ê¸´ê¸ ìë¦¼', val: danger.length, sub: danger.length === 0 ? 'ì´ì ìì' : 'ì¦ì ì²ë¦¬ íì', c: danger.length > 0 ? '#DC2626' : '#16A34A' },
+                { label: 'ì£¼ì ìë¦¼', val: warning.length, sub: warning.length === 0 ? 'ì´ì ìì' : 'ëª¨ëí°ë§ íì', c: warning.length > 0 ? '#D97706' : '#16A34A' },
+                { label: 'ìê°ì ê²', val: (() => { try { const d = JSON.parse(localStorage.getItem('qualytree.gmp_self_inspection_v2')||'{}'); return (d.sessions||[]).length + 'í' } catch { return '0í' } })(), sub: 'ì ê² ì´ë ¥', c: '#6B7280' },
               ].map(({ label, val, sub, c }) => (
                 <div key={label} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '16px 14px', textAlign: 'center' }}>
                   <div style={{ fontSize: 26, fontWeight: 800, color: c }}>{val}</div>
@@ -192,12 +192,12 @@ export default function KgmpHub() {
               <div onClick={() => setAlertExpanded(e => !e)}
                 style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', background: '#F9FAFB', cursor: 'pointer' }}>
                 <Bell size={16} color="#D97706" style={{ marginRight: 8 }} />
-                <span style={{ fontWeight: 700, fontSize: 14 }}>알림 기반 준비도 체크리스트</span>
-                <span style={{ fontSize: 12, color: '#6B7280', marginLeft: 8 }}>({alerts.length}건)</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>ìë¦¼ ê¸°ë° ì¤ë¹ë ì²´í¬ë¦¬ì¤í¸</span>
+                <span style={{ fontSize: 12, color: '#6B7280', marginLeft: 8 }}>({alerts.length}ê±´)</span>
                 {danger.length > 0 && (
                   <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#DC2626',
                     padding: '2px 8px', background: '#FEE2E2', borderRadius: 10 }}>
-                    긴급 {danger.length}건
+                    ê¸´ê¸ {danger.length}ê±´
                   </span>
                 )}
                 <span style={{ marginLeft: 'auto' }}>{alertExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
@@ -232,13 +232,13 @@ export default function KgmpHub() {
             <div style={{ marginBottom: 24, padding: '14px 20px', background: '#F0FDF4', border: '1px solid #BBF7D0',
               borderRadius: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
               <ShieldCheck size={18} color="#16A34A" />
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D' }}>모든 GMP 요건이 정상 상태입니다.</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#15803D' }}>ëª¨ë  GMP ìê±´ì´ ì ì ìíìëë¤.</span>
             </div>
           )}
 
           {/* Quick Links */}
           <div style={{ marginBottom: 24 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: '#374151' }}>빠른 이동</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: '#374151' }}>ë¹ ë¥¸ ì´ë</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
               {QUICK_LINKS.map(({ label, link, icon: Icon }) => {
                 const alertCount = alerts.filter(a => a.link === link).length
@@ -266,10 +266,10 @@ export default function KgmpHub() {
           {/* GMP Sections */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: 0 }}>GMP 요건 섹션별 현황</h3>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: 0 }}>GMP ìê±´ ì¹ìë³ íí©</h3>
               <button onClick={() => setShowAll(v => !v)}
                 style={{ fontSize: 12, color: '#6B7280', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                {showAll ? '접기' : '전체 보기'}
+                {showAll ? 'ì ê¸°' : 'ì ì²´ ë³´ê¸°'}
               </button>
             </div>
             <KgmpSectionList sections={showAll ? sections : sections.slice(0, 6)} />
@@ -278,7 +278,7 @@ export default function KgmpHub() {
                 style={{ width: '100%', padding: '10px', marginTop: 8, background: '#F9FAFB',
                   border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, color: '#6B7280',
                   cursor: 'pointer', fontFamily: 'inherit' }}>
-                나머지 {sections.length - 6}개 섹션 보기
+                ëë¨¸ì§ {sections.length - 6}ê° ì¹ì ë³´ê¸°
               </button>
             )}
           </div>
