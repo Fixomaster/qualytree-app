@@ -1,8 +1,8 @@
 // src/lib/pdfPrint.js
-// ISO 13485 QMS 문서 출력 유틸리티 — 브라우저 프린트 기반 PDF 생성
+// ISO 13485 QMS ë¬¸ì ì¶ë ¥ ì í¸ë¦¬í° â ë¸ë¼ì°ì  íë¦°í¸ ê¸°ë° PDF ìì±
 import { auth } from './auth'
 
-// ── 공통 스타일 ───────────────────────────────────────────────
+// ââ ê³µíµ ì¤íì¼ âââââââââââââââââââââââââââââââââââââââââââââââ
 const BASE_CSS = `
   @page { size: A4; margin: 18mm 20mm; }
   @media print {
@@ -26,6 +26,7 @@ const BASE_CSS = `
     margin-bottom: 12px;
   }
   .qt-company { font-size: 13pt; font-weight: 800; color: #1a3a2a; }
+  .qt-company-sub { font-size: 9pt; color: #555; margin-top: 2px; }
   .qt-doc-info { text-align: right; font-size: 8.5pt; color: #555; line-height: 1.6; }
   .qt-title {
     font-size: 17pt;
@@ -147,8 +148,21 @@ const BASE_CSS = `
   }
 `
 
+function getCompanyInfo() {
+  const master = (() => { try { return JSON.parse(localStorage.getItem('qualytree.company_master')) || {} } catch { return {} } })()
+  const authCo = (auth.current && auth.current()?.company) || {}
+  return {
+    name: master.companyName || authCo.name || 'Qualytree',
+    ceoName: master.ceoName || '',
+    bizNumber: master.bizNumber || '',
+    address: [master.addressRoad || master.address, master.addressDetail].filter(Boolean).join(' '),
+    phone: master.tel || master.phone || '',
+    licenseNo: master.gmpLicenseNo || master.licenseNo || '',
+    nameEn: master.companyNameEn || '',
+  }
+}
 function getCompanyName() {
-  return auth.current()?.company?.name || 'Qualytree'
+  return getCompanyInfo().name
 }
 
 function nowStr() {
@@ -156,48 +170,50 @@ function nowStr() {
 }
 
 function pageWrapper(docNo, title, isoClause, bodyHtml) {
-  const company = getCompanyName()
+  const co = getCompanyInfo()
+  const company = co.name
+  const coSub = [co.ceoName ? '대표이사: ' + co.ceoName : '', co.bizNumber ? '사업자: ' + co.bizNumber : ''].filter(Boolean).join(' | ')
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>${title} — ${company}</title>
+<title>${title} â ${company}</title>
 <style>${BASE_CSS}</style>
 </head>
 <body>
 <div class="qt-header">
   <div>
-    <div class="qt-company">${company}</div>
-    <div style="font-size:8.5pt;color:#666;margin-top:3px;">ISO 13485:2016 품질경영시스템</div>
+    <div class="qt-company">${company}</div>${coSub ? '<div class="qt-company-sub">' + coSub + '</div>' : ''}
+    <div style="font-size:8.5pt;color:#666;margin-top:3px;">ISO 13485:2016 íì§ê²½ììì¤í</div>
   </div>
   <div class="qt-doc-info">
-    문서번호: ${docNo}<br>
-    출력일시: ${nowStr()}<br>
-    ISO 조항: ${isoClause}<br>
-    출력자: ${auth.current()?.name || '-'}
+    ë¬¸ìë²í¸: ${docNo}<br>
+    ì¶ë ¥ì¼ì: ${nowStr()}<br>
+    ISO ì¡°í­: ${isoClause}<br>
+    ì¶ë ¥ì: ${auth.current()?.name || '-'}
   </div>
 </div>
 <div class="qt-title">${title}</div>
 ${bodyHtml}
 <div class="signature-area">
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">작성자</div></div>
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">검토자</div></div>
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">승인자</div></div>
+  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">ìì±ì</div></div>
+  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">ê²í ì</div></div>
+  <div class="sig-box"><div class="sig-line"></div><div class="sig-label">ì¹ì¸ì</div></div>
 </div>
 <div class="footer">
-  <span>${company} · 품질경영시스템 (QMS)</span>
-  <span>문서번호: ${docNo} · ${nowStr()} 출력</span>
+  <span>${company} Â· íì§ê²½ììì¤í (QMS)</span>
+  <span>ë¬¸ìë²í¸: ${docNo} Â· ${nowStr()} ì¶ë ¥</span>
 </div>
-<div class="watermark-text">이 문서는 Qualytree QMS에서 자동 생성된 기록입니다.</div>
+<div class="watermark-text">ì´ ë¬¸ìë Qualytree QMSìì ìë ìì±ë ê¸°ë¡ìëë¤.</div>
 <script>window.onload=()=>{setTimeout(()=>{window.print()},300)}<\/script>
 </body>
 </html>`
 }
 
-// ── 심각도 배지 ───────────────────────────────────────────────
+// ââ ì¬ê°ë ë°°ì§ âââââââââââââââââââââââââââââââââââââââââââââââ
 function severityBadge(sev) {
   if (!sev) return '<span class="badge badge-gray">-</span>'
-  const map = { critical: ['badge-red', '치명'], major: ['badge-red', '중요'], minor: ['badge-orange', '경미'], low: ['badge-gray', '낮음'] }
+  const map = { critical: ['badge-red', 'ì¹ëª'], major: ['badge-red', 'ì¤ì'], minor: ['badge-orange', 'ê²½ë¯¸'], low: ['badge-gray', 'ë®ì'] }
   const [cls, label] = map[sev] || ['badge-gray', sev]
   return `<span class="badge ${cls}">${label}</span>`
 }
@@ -205,91 +221,91 @@ function severityBadge(sev) {
 function statusBadge(st) {
   if (!st) return '<span class="badge badge-gray">-</span>'
   const map = {
-    open: ['badge-red', '미결'], under_review: ['badge-orange', '검토 중'], correcting: ['badge-orange', '조치 중'],
-    closed: ['badge-green', '종결'], verified: ['badge-green', '검증완료'],
-    pending: ['badge-gray', '대기'], in_progress: ['badge-orange', '진행 중'], done: ['badge-green', '완료'],
-    planned: ['badge-gray', '계획'], completed: ['badge-orange', '완료(CAR대기)'],
+    open: ['badge-red', 'ë¯¸ê²°'], under_review: ['badge-orange', 'ê²í  ì¤'], correcting: ['badge-orange', 'ì¡°ì¹ ì¤'],
+    closed: ['badge-green', 'ì¢ê²°'], verified: ['badge-green', 'ê²ì¦ìë£'],
+    pending: ['badge-gray', 'ëê¸°'], in_progress: ['badge-orange', 'ì§í ì¤'], done: ['badge-green', 'ìë£'],
+    planned: ['badge-gray', 'ê³í'], completed: ['badge-orange', 'ìë£(CARëê¸°)'],
   }
   const [cls, label] = map[st] || ['badge-gray', st]
   return `<span class="badge ${cls}">${label}</span>`
 }
 
-// ── NCR 보고서 ────────────────────────────────────────────────
+// ââ NCR ë³´ê³ ì ââââââââââââââââââââââââââââââââââââââââââââââââ
 export function printNCR(ncr) {
   const body = `
-    <div class="qt-subtitle">부적합 보고서 (Non-Conformance Report)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ë¶ì í© ë³´ê³ ì (Non-Conformance Report)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>NCR 번호</th><td>${ncr.id || '-'}</td><th>발생일</th><td>${ncr.detectedAt?.slice(0,10) || '-'}</td></tr>
-      <tr><th>심각도</th><td>${severityBadge(ncr.severity)}</td><th>상태</th><td>${statusBadge(ncr.status)}</td></tr>
-      <tr><th>발생 부서</th><td>${ncr.department || '-'}</td><th>발생 유형</th><td>${ncr.source || '-'}</td></tr>
-      <tr><th>등록자</th><td colspan="3">${ncr.reportedBy || '-'}</td></tr>
+      <tr><th>NCR ë²í¸</th><td>${ncr.id || '-'}</td><th>ë°ìì¼</th><td>${ncr.detectedAt?.slice(0,10) || '-'}</td></tr>
+      <tr><th>ì¬ê°ë</th><td>${severityBadge(ncr.severity)}</td><th>ìí</th><td>${statusBadge(ncr.status)}</td></tr>
+      <tr><th>ë°ì ë¶ì</th><td>${ncr.department || '-'}</td><th>ë°ì ì í</th><td>${ncr.source || '-'}</td></tr>
+      <tr><th>ë±ë¡ì</th><td colspan="3">${ncr.reportedBy || '-'}</td></tr>
     </table>
 
-    <div class="section-title">2. 부적합 내용</div>
-    <div style="margin-bottom:6px;font-size:9pt;color:#555;">제목</div>
+    <div class="section-title">2. ë¶ì í© ë´ì©</div>
+    <div style="margin-bottom:6px;font-size:9pt;color:#555;">ì ëª©</div>
     <div class="text-area-box" style="margin-bottom:12px;">${ncr.title || '-'}</div>
-    <div style="margin-bottom:6px;font-size:9pt;color:#555;">상세 내용</div>
-    <div class="text-area-box">${ncr.description || ncr.detail || '(내용 없음)'}</div>
+    <div style="margin-bottom:6px;font-size:9pt;color:#555;">ìì¸ ë´ì©</div>
+    <div class="text-area-box">${ncr.description || ncr.detail || '(ë´ì© ìì)'}</div>
 
-    <div class="section-title">3. 원인 분석</div>
-    <div class="text-area-box" style="min-height:80px;">${ncr.rootCause || '(미입력)'}</div>
+    <div class="section-title">3. ìì¸ ë¶ì</div>
+    <div class="text-area-box" style="min-height:80px;">${ncr.rootCause || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">4. 즉각 조치 사항</div>
-    <div class="text-area-box">${ncr.immediateAction || '(미입력)'}</div>
+    <div class="section-title">4. ì¦ê° ì¡°ì¹ ì¬í­</div>
+    <div class="text-area-box">${ncr.immediateAction || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">5. 관련 ISO 조항</div>
+    <div class="section-title">5. ê´ë ¨ ISO ì¡°í­</div>
     <table>
-      <tr><th>ISO 13485 조항</th><td>${ncr.isoClause || '-'}</td></tr>
-      <tr><th>관련 제품/공정</th><td>${ncr.product || ncr.process || '-'}</td></tr>
-      <tr><th>연결된 CAPA</th><td>${ncr.capaId || '(미연결)'}</td></tr>
+      <tr><th>ISO 13485 ì¡°í­</th><td>${ncr.isoClause || '-'}</td></tr>
+      <tr><th>ê´ë ¨ ì í/ê³µì </th><td>${ncr.product || ncr.process || '-'}</td></tr>
+      <tr><th>ì°ê²°ë CAPA</th><td>${ncr.capaId || '(ë¯¸ì°ê²°)'}</td></tr>
     </table>
   `
-  openPrint(pageWrapper(ncr.id || 'NCR-XXXX', '부적합 보고서', 'ISO 13485 §8.3', body))
+  openPrint(pageWrapper(ncr.id || 'NCR-XXXX', 'ë¶ì í© ë³´ê³ ì', 'ISO 13485 Â§8.3', body))
 }
 
-// ── CAPA 기록 ─────────────────────────────────────────────────
+// ââ CAPA ê¸°ë¡ âââââââââââââââââââââââââââââââââââââââââââââââââ
 export function printCAPA(capa) {
   const body = `
-    <div class="qt-subtitle">시정 및 예방조치 기록 (Corrective and Preventive Action)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ìì  ë° ìë°©ì¡°ì¹ ê¸°ë¡ (Corrective and Preventive Action)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>CAPA 번호</th><td>${capa.id || '-'}</td><th>발행일</th><td>${capa.createdAt?.slice(0,10) || '-'}</td></tr>
-      <tr><th>유형</th><td>${capa.type === 'corrective' ? '시정조치 (CA)' : capa.type === 'preventive' ? '예방조치 (PA)' : capa.type || '-'}</td><th>상태</th><td>${statusBadge(capa.status)}</td></tr>
-      <tr><th>담당자</th><td>${capa.assignee || '-'}</td><th>완료 목표일</th><td>${capa.targetDate || '-'}</td></tr>
-      <tr><th>관련 NCR</th><td colspan="3">${capa.ncrId || '(해당없음)'}</td></tr>
+      <tr><th>CAPA ë²í¸</th><td>${capa.id || '-'}</td><th>ë°íì¼</th><td>${capa.createdAt?.slice(0,10) || '-'}</td></tr>
+      <tr><th>ì í</th><td>${capa.type === 'corrective' ? 'ìì ì¡°ì¹ (CA)' : capa.type === 'preventive' ? 'ìë°©ì¡°ì¹ (PA)' : capa.type || '-'}</td><th>ìí</th><td>${statusBadge(capa.status)}</td></tr>
+      <tr><th>ë´ë¹ì</th><td>${capa.assignee || '-'}</td><th>ìë£ ëª©íì¼</th><td>${capa.targetDate || '-'}</td></tr>
+      <tr><th>ê´ë ¨ NCR</th><td colspan="3">${capa.ncrId || '(í´ë¹ìì)'}</td></tr>
     </table>
 
-    <div class="section-title">2. CAPA 제목 및 배경</div>
+    <div class="section-title">2. CAPA ì ëª© ë° ë°°ê²½</div>
     <div class="text-area-box" style="margin-bottom:10px;font-weight:bold;">${capa.title || '-'}</div>
-    <div class="text-area-box">${capa.background || capa.description || '(미입력)'}</div>
+    <div class="text-area-box">${capa.background || capa.description || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">3. 근본 원인 분석</div>
-    <div class="text-area-box" style="min-height:80px;">${capa.rootCause || '(미입력)'}</div>
+    <div class="section-title">3. ê·¼ë³¸ ìì¸ ë¶ì</div>
+    <div class="text-area-box" style="min-height:80px;">${capa.rootCause || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">4. 조치 계획</div>
-    <div class="text-area-box">${capa.actionPlan || '(미입력)'}</div>
+    <div class="section-title">4. ì¡°ì¹ ê³í</div>
+    <div class="text-area-box">${capa.actionPlan || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">5. 조치 결과 및 효과 검증</div>
+    <div class="section-title">5. ì¡°ì¹ ê²°ê³¼ ë° í¨ê³¼ ê²ì¦</div>
     <table>
-      <tr><th>조치 완료일</th><td>${capa.completedAt?.slice(0,10) || '(미완료)'}</td></tr>
-      <tr><th>효과 검증 방법</th><td>${capa.verificationMethod || '(미입력)'}</td></tr>
-      <tr><th>효과 검증 결과</th><td>${capa.verificationResult || '(미입력)'}</td></tr>
+      <tr><th>ì¡°ì¹ ìë£ì¼</th><td>${capa.completedAt?.slice(0,10) || '(ë¯¸ìë£)'}</td></tr>
+      <tr><th>í¨ê³¼ ê²ì¦ ë°©ë²</th><td>${capa.verificationMethod || '(ë¯¸ìë ¥)'}</td></tr>
+      <tr><th>í¨ê³¼ ê²ì¦ ê²°ê³¼</th><td>${capa.verificationResult || '(ë¯¸ìë ¥)'}</td></tr>
     </table>
   `
-  openPrint(pageWrapper(capa.id || 'CAPA-XXXX', '시정 및 예방조치 기록', 'ISO 13485 §8.5.2 / §8.5.3', body))
+  openPrint(pageWrapper(capa.id || 'CAPA-XXXX', 'ìì  ë° ìë°©ì¡°ì¹ ê¸°ë¡', 'ISO 13485 Â§8.5.2 / Â§8.5.3', body))
 }
 
-// ── 내부감사 보고서 ───────────────────────────────────────────
+// ââ ë´ë¶ê°ì¬ ë³´ê³ ì âââââââââââââââââââââââââââââââââââââââââââ
 export function printAudit(audit, cars = []) {
   const relatedCars = cars.filter(c => c.auditId === audit.id)
   const carsHtml = relatedCars.length === 0
-    ? '<div style="color:#999;padding:8px;font-size:9pt;">발행된 CAR 없음</div>'
+    ? '<div style="color:#999;padding:8px;font-size:9pt;">ë°íë CAR ìì</div>'
     : relatedCars.map((car, i) => `
       <tr>
         <td>${i+1}</td>
         <td>${car.id}</td>
-        <td>${car.severity === 'major' ? '중요' : car.severity === 'minor' ? '경미' : '관찰'}</td>
+        <td>${car.severity === 'major' ? 'ì¤ì' : car.severity === 'minor' ? 'ê²½ë¯¸' : 'ê´ì°°'}</td>
         <td style="max-width:200px">${car.finding || '-'}</td>
         <td>${car.assignee || '-'}</td>
         <td>${car.dueDate || '-'}</td>
@@ -297,310 +313,310 @@ export function printAudit(audit, cars = []) {
       </tr>`).join('')
 
   const body = `
-    <div class="qt-subtitle">내부감사 보고서 (Internal Audit Report)</div>
-    <div class="section-title">1. 감사 개요</div>
+    <div class="qt-subtitle">ë´ë¶ê°ì¬ ë³´ê³ ì (Internal Audit Report)</div>
+    <div class="section-title">1. ê°ì¬ ê°ì</div>
     <table>
-      <tr><th>감사 번호</th><td>${audit.id || '-'}</td><th>감사일</th><td>${audit.auditDate || '-'}</td></tr>
-      <tr><th>감사 유형</th><td>${audit.type === 'internal' ? '내부감사' : audit.type === 'supplier' ? '공급업체 감사' : audit.type || '-'}</td><th>상태</th><td>${statusBadge(audit.status)}</td></tr>
-      <tr><th>감사 기준</th><td>${audit.standard || 'ISO 13485:2016'}</td><th>감사원</th><td>${audit.auditor || '-'}</td></tr>
-      <tr><th>피감사 부서</th><td>${audit.auditee || '-'}</td><th>감사 범위</th><td>${audit.scope || '-'}</td></tr>
+      <tr><th>ê°ì¬ ë²í¸</th><td>${audit.id || '-'}</td><th>ê°ì¬ì¼</th><td>${audit.auditDate || '-'}</td></tr>
+      <tr><th>ê°ì¬ ì í</th><td>${audit.type === 'internal' ? 'ë´ë¶ê°ì¬' : audit.type === 'supplier' ? 'ê³µê¸ìì²´ ê°ì¬' : audit.type || '-'}</td><th>ìí</th><td>${statusBadge(audit.status)}</td></tr>
+      <tr><th>ê°ì¬ ê¸°ì¤</th><td>${audit.standard || 'ISO 13485:2016'}</td><th>ê°ì¬ì</th><td>${audit.auditor || '-'}</td></tr>
+      <tr><th>í¼ê°ì¬ ë¶ì</th><td>${audit.auditee || '-'}</td><th>ê°ì¬ ë²ì</th><td>${audit.scope || '-'}</td></tr>
     </table>
 
-    <div class="section-title">2. 감사 제목</div>
+    <div class="section-title">2. ê°ì¬ ì ëª©</div>
     <div class="text-area-box" style="font-weight:bold;">${audit.title || '-'}</div>
 
-    <div class="section-title">3. 감사 결과 요약</div>
+    <div class="section-title">3. ê°ì¬ ê²°ê³¼ ìì½</div>
     <table>
       <tr>
         <th style="width:30px">No.</th>
-        <th style="width:90px">구분</th>
-        <th style="width:70px">심각도</th>
-        <th>내용</th>
-        <th style="width:60px">담당자</th>
-        <th style="width:70px">목표일</th>
-        <th style="width:70px">상태</th>
+        <th style="width:90px">êµ¬ë¶</th>
+        <th style="width:70px">ì¬ê°ë</th>
+        <th>ë´ì©</th>
+        <th style="width:60px">ë´ë¹ì</th>
+        <th style="width:70px">ëª©íì¼</th>
+        <th style="width:70px">ìí</th>
       </tr>
       ${carsHtml}
     </table>
 
-    <div class="section-title">4. 종합 의견</div>
-    <div class="text-area-box" style="min-height:80px;">${audit.conclusion || audit.notes || '(미입력)'}</div>
+    <div class="section-title">4. ì¢í© ìê²¬</div>
+    <div class="text-area-box" style="min-height:80px;">${audit.conclusion || audit.notes || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">5. 후속 조치 요약</div>
+    <div class="section-title">5. íì ì¡°ì¹ ìì½</div>
     <table>
-      <tr><th>총 CAR 발행</th><td>${relatedCars.length}건</td><th>미결 CAR</th><td>${relatedCars.filter(c => c.status === 'open').length}건</td></tr>
-      <tr><th>감사 종결 목표일</th><td colspan="3">${audit.closureDate || '(미정)'}</td></tr>
+      <tr><th>ì´ CAR ë°í</th><td>${relatedCars.length}ê±´</td><th>ë¯¸ê²° CAR</th><td>${relatedCars.filter(c => c.status === 'open').length}ê±´</td></tr>
+      <tr><th>ê°ì¬ ì¢ê²° ëª©íì¼</th><td colspan="3">${audit.closureDate || '(ë¯¸ì )'}</td></tr>
     </table>
   `
-  openPrint(pageWrapper(audit.id || 'AUD-XXXX', '내부감사 보고서', 'ISO 13485 §8.2.2', body))
+  openPrint(pageWrapper(audit.id || 'AUD-XXXX', 'ë´ë¶ê°ì¬ ë³´ê³ ì', 'ISO 13485 Â§8.2.2', body))
 }
 
-// ── CAR (시정조치 요청서) ─────────────────────────────────────
+// ââ CAR (ìì ì¡°ì¹ ìì²­ì) âââââââââââââââââââââââââââââââââââââ
 export function printCAR(car) {
   const body = `
-    <div class="qt-subtitle">시정조치 요청서 (Corrective Action Request)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ìì ì¡°ì¹ ìì²­ì (Corrective Action Request)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>CAR 번호</th><td>${car.id || '-'}</td><th>발행일</th><td>${car.createdAt?.slice(0,10) || '-'}</td></tr>
-      <tr><th>관련 감사</th><td>${car.auditId || '-'}</td><th>상태</th><td>${statusBadge(car.status)}</td></tr>
-      <tr><th>심각도</th><td>${severityBadge(car.severity)}</td><th>관련 요건</th><td>${car.requirement || '-'}</td></tr>
-      <tr><th>담당자</th><td>${car.assignee || '-'}</td><th>완료 목표일</th><td>${car.dueDate || '-'}</td></tr>
+      <tr><th>CAR ë²í¸</th><td>${car.id || '-'}</td><th>ë°íì¼</th><td>${car.createdAt?.slice(0,10) || '-'}</td></tr>
+      <tr><th>ê´ë ¨ ê°ì¬</th><td>${car.auditId || '-'}</td><th>ìí</th><td>${statusBadge(car.status)}</td></tr>
+      <tr><th>ì¬ê°ë</th><td>${severityBadge(car.severity)}</td><th>ê´ë ¨ ìê±´</th><td>${car.requirement || '-'}</td></tr>
+      <tr><th>ë´ë¹ì</th><td>${car.assignee || '-'}</td><th>ìë£ ëª©íì¼</th><td>${car.dueDate || '-'}</td></tr>
     </table>
 
-    <div class="section-title">2. 부적합 / 관찰 사항</div>
+    <div class="section-title">2. ë¶ì í© / ê´ì°° ì¬í­</div>
     <div class="text-area-box">${car.finding || '-'}</div>
 
-    <div class="section-title">3. 시정조치 계획</div>
-    <div class="text-area-box" style="min-height:80px;">${car.actionPlan || '(미입력)'}</div>
+    <div class="section-title">3. ìì ì¡°ì¹ ê³í</div>
+    <div class="text-area-box" style="min-height:80px;">${car.actionPlan || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">4. 시정조치 결과</div>
+    <div class="section-title">4. ìì ì¡°ì¹ ê²°ê³¼</div>
     <table>
-      <tr><th>조치 완료일</th><td>${car.completedAt?.slice(0,10) || '(미완료)'}</td></tr>
-      <tr><th>조치 내용</th><td>${car.actionTaken || '(미입력)'}</td></tr>
-      <tr><th>검증 결과</th><td>${car.verificationResult || '(미입력)'}</td></tr>
+      <tr><th>ì¡°ì¹ ìë£ì¼</th><td>${car.completedAt?.slice(0,10) || '(ë¯¸ìë£)'}</td></tr>
+      <tr><th>ì¡°ì¹ ë´ì©</th><td>${car.actionTaken || '(ë¯¸ìë ¥)'}</td></tr>
+      <tr><th>ê²ì¦ ê²°ê³¼</th><td>${car.verificationResult || '(ë¯¸ìë ¥)'}</td></tr>
     </table>
   `
-  openPrint(pageWrapper(car.id || 'CAR-XXXX', '시정조치 요청서', 'ISO 13485 §8.2.2 / §8.5.2', body))
+  openPrint(pageWrapper(car.id || 'CAR-XXXX', 'ìì ì¡°ì¹ ìì²­ì', 'ISO 13485 Â§8.2.2 / Â§8.5.2', body))
 }
 
-// ── 개선활동 보고서 ───────────────────────────────────────────
+// ââ ê°ì íë ë³´ê³ ì âââââââââââââââââââââââââââââââââââââââââââ
 export function printImprovement(imp) {
-  const typeMap = { process:'프로세스 개선', quality:'품질 개선', safety:'안전 개선', cost:'비용 절감', delivery:'납기 개선', morale:'업무 환경', preventive:'예방 조치' }
+  const typeMap = { process:'íë¡ì¸ì¤ ê°ì ', quality:'íì§ ê°ì ', safety:'ìì  ê°ì ', cost:'ë¹ì© ì ê°', delivery:'ë©ê¸° ê°ì ', morale:'ìë¬´ íê²½', preventive:'ìë°© ì¡°ì¹' }
   const body = `
-    <div class="qt-subtitle">개선활동 보고서 (Improvement Activity Report)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ê°ì íë ë³´ê³ ì (Improvement Activity Report)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>과제 번호</th><td>${imp.id || '-'}</td><th>등록일</th><td>${imp.createdAt?.slice(0,10) || '-'}</td></tr>
-      <tr><th>개선 유형</th><td>${typeMap[imp.type] || imp.type || '-'}</td><th>상태</th><td>${statusBadge(imp.status)}</td></tr>
-      <tr><th>우선순위</th><td>${imp.priority === 'high' ? '높음' : imp.priority === 'medium' ? '보통' : '낮음'}</td><th>담당자</th><td>${imp.assignee || '-'}</td></tr>
-      <tr><th>관련 부서</th><td>${imp.dept || '-'}</td><th>완료 목표일</th><td>${imp.dueDate || '-'}</td></tr>
+      <tr><th>ê³¼ì  ë²í¸</th><td>${imp.id || '-'}</td><th>ë±ë¡ì¼</th><td>${imp.createdAt?.slice(0,10) || '-'}</td></tr>
+      <tr><th>ê°ì  ì í</th><td>${typeMap[imp.type] || imp.type || '-'}</td><th>ìí</th><td>${statusBadge(imp.status)}</td></tr>
+      <tr><th>ì°ì ìì</th><td>${imp.priority === 'high' ? 'ëì' : imp.priority === 'medium' ? 'ë³´íµ' : 'ë®ì'}</td><th>ë´ë¹ì</th><td>${imp.assignee || '-'}</td></tr>
+      <tr><th>ê´ë ¨ ë¶ì</th><td>${imp.dept || '-'}</td><th>ìë£ ëª©íì¼</th><td>${imp.dueDate || '-'}</td></tr>
     </table>
 
-    <div class="section-title">2. 과제명 및 배경</div>
+    <div class="section-title">2. ê³¼ì ëª ë° ë°°ê²½</div>
     <div class="text-area-box" style="margin-bottom:10px;font-weight:bold;">${imp.title || '-'}</div>
-    <div class="text-area-box">${imp.description || '(미입력)'}</div>
+    <div class="text-area-box">${imp.description || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">3. 기대 효과</div>
-    <div class="text-area-box">${imp.expectedEffect || '(미입력)'}</div>
+    <div class="section-title">3. ê¸°ë í¨ê³¼</div>
+    <div class="text-area-box">${imp.expectedEffect || '(ë¯¸ìë ¥)'}</div>
 
-    <div class="section-title">4. 실행 결과 및 효과 검증</div>
+    <div class="section-title">4. ì¤í ê²°ê³¼ ë° í¨ê³¼ ê²ì¦</div>
     <table>
-      <tr><th>완료일</th><td>${imp.completedAt?.slice(0,10) || '(미완료)'}</td></tr>
-      <tr><th>실제 효과</th><td>${imp.actualEffect || '(미입력)'}</td></tr>
+      <tr><th>ìë£ì¼</th><td>${imp.completedAt?.slice(0,10) || '(ë¯¸ìë£)'}</td></tr>
+      <tr><th>ì¤ì  í¨ê³¼</th><td>${imp.actualEffect || '(ë¯¸ìë ¥)'}</td></tr>
     </table>
   `
-  openPrint(pageWrapper(imp.id || 'IMP-XXXX', '개선활동 보고서', 'ISO 13485 §8.5.1', body))
+  openPrint(pageWrapper(imp.id || 'IMP-XXXX', 'ê°ì íë ë³´ê³ ì', 'ISO 13485 Â§8.5.1', body))
 }
 
-// ── 작업지시 기록 ─────────────────────────────────────────────
+// ââ ììì§ì ê¸°ë¡ âââââââââââââââââââââââââââââââââââââââââââââ
 export function printWorkOrder(wo) {
   const stages = wo.stages || []
   const stagesHtml = stages.length === 0
-    ? '<tr><td colspan="4" style="color:#999;text-align:center;">공정 단계 없음</td></tr>'
+    ? '<tr><td colspan="4" style="color:#999;text-align:center;">ê³µì  ë¨ê³ ìì</td></tr>'
     : stages.map((s, i) => `
       <tr>
         <td style="text-align:center">${i+1}</td>
         <td>${s.name || s.stageId || '-'}</td>
-        <td style="text-align:center">${s.status === 'completed' ? '✓ 완료' : s.status === 'in_progress' ? '▶ 진행' : '○ 대기'}</td>
+        <td style="text-align:center">${s.status === 'completed' ? 'â ìë£' : s.status === 'in_progress' ? 'â¶ ì§í' : 'â ëê¸°'}</td>
         <td>${s.completedAt?.slice(0,10) || '-'}</td>
       </tr>`).join('')
 
   const body = `
-    <div class="qt-subtitle">작업지시서 / 전자배치기록 (Work Order / eBatch Record)</div>
-    <div class="section-title">1. 작업지시 기본 정보</div>
+    <div class="qt-subtitle">ììì§ìì / ì ìë°°ì¹ê¸°ë¡ (Work Order / eBatch Record)</div>
+    <div class="section-title">1. ììì§ì ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>WO 번호</th><td>${wo.woId || wo.id || '-'}</td><th>발행일</th><td>${wo.issuedAt?.slice(0,10) || wo.createdAt?.slice(0,10) || '-'}</td></tr>
-      <tr><th>제품명</th><td>${wo.productName || '-'}</td><th>제품 모델</th><td>${wo.productModel || '-'}</td></tr>
-      <tr><th>로트 번호</th><td>${wo.lotNumber || '-'}</td><th>생산 수량</th><td>${wo.quantity || '-'}</td></tr>
-      <tr><th>우선순위</th><td>${wo.priority === 'urgent' ? '⚡ 긴급' : '일반'}</td><th>상태</th><td>${statusBadge(wo.status)}</td></tr>
-      <tr><th>납기 목표일</th><td colspan="3">${wo.dueDate || '-'}</td></tr>
+      <tr><th>WO ë²í¸</th><td>${wo.woId || wo.id || '-'}</td><th>ë°íì¼</th><td>${wo.issuedAt?.slice(0,10) || wo.createdAt?.slice(0,10) || '-'}</td></tr>
+      <tr><th>ì íëª</th><td>${wo.productName || '-'}</td><th>ì í ëª¨ë¸</th><td>${wo.productModel || '-'}</td></tr>
+      <tr><th>ë¡í¸ ë²í¸</th><td>${wo.lotNumber || '-'}</td><th>ìì° ìë</th><td>${wo.quantity || '-'}</td></tr>
+      <tr><th>ì°ì ìì</th><td>${wo.priority === 'urgent' ? 'â¡ ê¸´ê¸' : 'ì¼ë°'}</td><th>ìí</th><td>${statusBadge(wo.status)}</td></tr>
+      <tr><th>ë©ê¸° ëª©íì¼</th><td colspan="3">${wo.dueDate || '-'}</td></tr>
     </table>
 
-    <div class="section-title">2. 공정 단계 진행 현황</div>
+    <div class="section-title">2. ê³µì  ë¨ê³ ì§í íí©</div>
     <table>
-      <tr><th style="width:40px">순서</th><th>공정명</th><th style="width:80px">상태</th><th style="width:90px">완료일</th></tr>
+      <tr><th style="width:40px">ìì</th><th>ê³µì ëª</th><th style="width:80px">ìí</th><th style="width:90px">ìë£ì¼</th></tr>
       ${stagesHtml}
     </table>
 
-    <div class="section-title">3. 특기 사항</div>
-    <div class="text-area-box" style="min-height:60px;">${wo.notes || wo.remark || '(없음)'}</div>
+    <div class="section-title">3. í¹ê¸° ì¬í­</div>
+    <div class="text-area-box" style="min-height:60px;">${wo.notes || wo.remark || '(ìì)'}</div>
   `
-  openPrint(pageWrapper(wo.woId || 'WO-XXXX', '작업지시서 / 전자배치기록', 'ISO 13485 §7.5', body))
+  openPrint(pageWrapper(wo.woId || 'WO-XXXX', 'ììì§ìì / ì ìë°°ì¹ê¸°ë¡', 'ISO 13485 Â§7.5', body))
 }
 
-// ── 공정검사성적서 (IPC Inspection Certificate) ─────────────────
+// ââ ê³µì ê²ì¬ì±ì ì (IPC Inspection Certificate) âââââââââââââââââ
 export function printInspectionCert(insp, wo) {
   const resultBadge = (r) => {
-    const map = { '합격': ['badge-green', '합격'], '조건부': ['badge-orange', '조건부합격'], '조건부합격': ['badge-orange', '조건부합격'], '불합격': ['badge-red', '불합격'], '검사중': ['badge-gray', '검사중'] }
+    const map = { 'í©ê²©': ['badge-green', 'í©ê²©'], 'ì¡°ê±´ë¶': ['badge-orange', 'ì¡°ê±´ë¶í©ê²©'], 'ì¡°ê±´ë¶í©ê²©': ['badge-orange', 'ì¡°ê±´ë¶í©ê²©'], 'ë¶í©ê²©': ['badge-red', 'ë¶í©ê²©'], 'ê²ì¬ì¤': ['badge-gray', 'ê²ì¬ì¤'] }
     const [cls, label] = map[r] || ['badge-gray', r || '-']
     return `<span class="badge ${cls}">${label}</span>`
   }
   const body = `
-    <div class="qt-subtitle">공정검사성적서 (In-Process Inspection Certificate)</div>
-    <div class="section-title">1. 검사 기본 정보</div>
+    <div class="qt-subtitle">ê³µì ê²ì¬ì±ì ì (In-Process Inspection Certificate)</div>
+    <div class="section-title">1. ê²ì¬ ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>검사 ID</th><td>${insp.id || '-'}</td><th>검사일</th><td>${insp.date?.slice(0,10) || insp.date || '-'}</td></tr>
-      <tr><th>작업지시(WO)</th><td>${insp.wo || '-'}</td><th>제품명</th><td>${wo?.product || '-'}</td></tr>
-      <tr><th>검사 단계</th><td colspan="3">${insp.step || '-'}</td></tr>
-      <tr><th>검사자</th><td>${insp.inspector || '-'}</td><th>결과</th><td>${resultBadge(insp.status || insp.result)}</td></tr>
+      <tr><th>ê²ì¬ ID</th><td>${insp.id || '-'}</td><th>ê²ì¬ì¼</th><td>${insp.date?.slice(0,10) || insp.date || '-'}</td></tr>
+      <tr><th>ììì§ì(WO)</th><td>${insp.wo || '-'}</td><th>ì íëª</th><td>${wo?.product || '-'}</td></tr>
+      <tr><th>ê²ì¬ ë¨ê³</th><td colspan="3">${insp.step || '-'}</td></tr>
+      <tr><th>ê²ì¬ì</th><td>${insp.inspector || '-'}</td><th>ê²°ê³¼</th><td>${resultBadge(insp.status || insp.result)}</td></tr>
     </table>
 
-    <div class="section-title">2. 검사 규격 및 측정 결과</div>
+    <div class="section-title">2. ê²ì¬ ê·ê²© ë° ì¸¡ì  ê²°ê³¼</div>
     <table>
-      <tr><th>검사 규격(기준)</th><td colspan="3">${insp.spec || '(없음)'}</td></tr>
-      <tr><th>실측값</th><td colspan="3">${insp.measured || '(없음)'}</td></tr>
+      <tr><th>ê²ì¬ ê·ê²©(ê¸°ì¤)</th><td colspan="3">${insp.spec || '(ìì)'}</td></tr>
+      <tr><th>ì¤ì¸¡ê°</th><td colspan="3">${insp.measured || '(ìì)'}</td></tr>
     </table>
 
-    <div class="section-title">3. 첨부 자료</div>
-    <div class="text-area-box" style="min-height:40px;">${insp.fileName ? `첨부: ${insp.fileName}` : '(첨부 없음)'}</div>
+    <div class="section-title">3. ì²¨ë¶ ìë£</div>
+    <div class="text-area-box" style="min-height:40px;">${insp.fileName ? `ì²¨ë¶: ${insp.fileName}` : '(ì²¨ë¶ ìì)'}</div>
 
-    <div class="section-title">4. 비고</div>
-    <div class="text-area-box" style="min-height:60px;">${insp.note || '(없음)'}</div>
+    <div class="section-title">4. ë¹ê³ </div>
+    <div class="text-area-box" style="min-height:60px;">${insp.note || '(ìì)'}</div>
   `
-  openPrint(pageWrapper(insp.id || 'IPC-XXXX', '공정검사성적서', 'ISO 13485 §8.2.6', body))
+  openPrint(pageWrapper(insp.id || 'IPC-XXXX', 'ê³µì ê²ì¬ì±ì ì', 'ISO 13485 Â§8.2.6', body))
 }
 
-// ── 수입검사성적서 ───────────────────────────────────────────
+// ââ ììê²ì¬ì±ì ì âââââââââââââââââââââââââââââââââââââââââââ
 export function printIqcCert(rec) {
-  const resultMap = { '합격': ['badge-green', '합격'], '조건부': ['badge-orange', '조건부합격'], '불합격': ['badge-red', '불합격'], '검사대기': ['badge-gray', '검사대기'] }
+  const resultMap = { 'í©ê²©': ['badge-green', 'í©ê²©'], 'ì¡°ê±´ë¶': ['badge-orange', 'ì¡°ê±´ë¶í©ê²©'], 'ë¶í©ê²©': ['badge-red', 'ë¶í©ê²©'], 'ê²ì¬ëê¸°': ['badge-gray', 'ê²ì¬ëê¸°'] }
   const [cls, label] = resultMap[rec.status] || ['badge-gray', rec.status || '-']
   const resultBadge = `<span class="badge ${cls}">${label}</span>`
   const rows = (rec.checkResults || []).map((r) => `
     <tr>
       <td>${r.name || '-'}</td>
-      <td>${r.spec || '(제한 없음)'}</td>
+      <td>${r.spec || '(ì í ìì)'}</td>
       <td>${r.measured || '-'}</td>
-      <td>${r.result === 'pass' ? '<span class="badge badge-green">합격</span>' : '<span class="badge badge-red">불합격</span>'}</td>
+      <td>${r.result === 'pass' ? '<span class="badge badge-green">í©ê²©</span>' : '<span class="badge badge-red">ë¶í©ê²©</span>'}</td>
     </tr>`).join('')
   const decisionBlock = rec.qcDecision ? `
-    <div class="section-title">4. 품질책임자 결정</div>
+    <div class="section-title">4. íì§ì±ìì ê²°ì </div>
     <table>
-      <tr><th>결정</th><td>${rec.qcDecision.decision || '-'}</td><th>결정자</th><td>${rec.qcDecision.decidedBy || '-'}</td></tr>
-      <tr><th>결정일</th><td colspan="3">${(rec.qcDecision.decidedAt || '').slice(0,10) || '-'}</td></tr>
+      <tr><th>ê²°ì </th><td>${rec.qcDecision.decision || '-'}</td><th>ê²°ì ì</th><td>${rec.qcDecision.decidedBy || '-'}</td></tr>
+      <tr><th>ê²°ì ì¼</th><td colspan="3">${(rec.qcDecision.decidedAt || '').slice(0,10) || '-'}</td></tr>
     </table>
-    <div class="text-area-box" style="min-height:40px;">${rec.qcDecision.note || '(비고 없음)'}</div>
+    <div class="text-area-box" style="min-height:40px;">${rec.qcDecision.note || '(ë¹ê³  ìì)'}</div>
   ` : ''
   const body = `
-    <div class="qt-subtitle">수입검사성적서 (Incoming Quality Inspection Certificate)</div>
-    <div class="section-title">1. 검사 기본 정보</div>
+    <div class="qt-subtitle">ììê²ì¬ì±ì ì (Incoming Quality Inspection Certificate)</div>
+    <div class="section-title">1. ê²ì¬ ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>IQC번호</th><td>${rec.id || '-'}</td><th>검사일</th><td>${rec.date || '-'}</td></tr>
-      <tr><th>발주번호(PO)</th><td>${rec.po || '-'}</td><th>협력업체</th><td>${rec.vendor || '-'}</td></tr>
-      <tr><th>품목</th><td>${rec.items || '-'}</td><th>수량</th><td>${rec.qty || '-'}</td></tr>
-      <tr><th>검사자</th><td>${rec.inspector || '-'}</td><th>결과</th><td>${resultBadge}</td></tr>
+      <tr><th>IQCë²í¸</th><td>${rec.id || '-'}</td><th>ê²ì¬ì¼</th><td>${rec.date || '-'}</td></tr>
+      <tr><th>ë°ì£¼ë²í¸(PO)</th><td>${rec.po || '-'}</td><th>íë ¥ìì²´</th><td>${rec.vendor || '-'}</td></tr>
+      <tr><th>íëª©</th><td>${rec.items || '-'}</td><th>ìë</th><td>${rec.qty || '-'}</td></tr>
+      <tr><th>ê²ì¬ì</th><td>${rec.inspector || '-'}</td><th>ê²°ê³¼</th><td>${resultBadge}</td></tr>
     </table>
 
-    <div class="section-title">2. 검사 항목 및 측정 결과</div>
+    <div class="section-title">2. ê²ì¬ í­ëª© ë° ì¸¡ì  ê²°ê³¼</div>
     <table>
-      <tr><th>검사항목</th><th>규격(기준)</th><th>측정값</th><th>판정</th></tr>
-      ${rows || '<tr><td colspan="4">(검사 항목 없음)</td></tr>'}
+      <tr><th>ê²ì¬í­ëª©</th><th>ê·ê²©(ê¸°ì¤)</th><th>ì¸¡ì ê°</th><th>íì </th></tr>
+      ${rows || '<tr><td colspan="4">(ê²ì¬ í­ëª© ìì)</td></tr>'}
     </table>
 
-    <div class="section-title">3. 부적합 사항</div>
-    <div class="text-area-box" style="min-height:40px;">${rec.nc && rec.nc !== '—' ? rec.nc : '(부적합 없음)'}</div>
+    <div class="section-title">3. ë¶ì í© ì¬í­</div>
+    <div class="text-area-box" style="min-height:40px;">${rec.nc && rec.nc !== 'â' ? rec.nc : '(ë¶ì í© ìì)'}</div>
     ${decisionBlock}
   `
-  openPrint(pageWrapper(rec.id || 'IQC-XXXX', '수입검사성적서', 'ISO 13485 §7.4.3', body))
+  openPrint(pageWrapper(rec.id || 'IQC-XXXX', 'ììê²ì¬ì±ì ì', 'ISO 13485 Â§7.4.3', body))
 }
 
-// ── 청결·오염 모니터링 성적서 ───────────────────────────────
+// ââ ì²­ê²°Â·ì¤ì¼ ëª¨ëí°ë§ ì±ì ì âââââââââââââââââââââââââââââââ
 export function printCleanlinessCert(rec, spec) {
-  const resultMap = { pass: ['badge-green', '합격'], fail: ['badge-red', '불합격'], conditional: ['badge-orange', '조건부합격'] }
+  const resultMap = { pass: ['badge-green', 'í©ê²©'], fail: ['badge-red', 'ë¶í©ê²©'], conditional: ['badge-orange', 'ì¡°ê±´ë¶í©ê²©'] }
   const [cls, label] = resultMap[rec.result] || ['badge-gray', rec.result || '-']
   const resultBadge = `<span class="badge ${cls}">${label}</span>`
   const body = `
-    <div class="qt-subtitle">청결·오염 모니터링 성적서 (Cleanliness Monitoring Certificate)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ì²­ê²°Â·ì¤ì¼ ëª¨ëí°ë§ ì±ì ì (Cleanliness Monitoring Certificate)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>기록 ID</th><td>${rec.id || '-'}</td><th>일자</th><td>${rec.date || '-'}</td></tr>
-      <tr><th>제품/사양</th><td>${(spec && spec.productName) || '-'}</td><th>로트 번호</th><td>${rec.lotNo || '-'}</td></tr>
-      <tr><th>결과</th><td colspan="3">${resultBadge}</td></tr>
+      <tr><th>ê¸°ë¡ ID</th><td>${rec.id || '-'}</td><th>ì¼ì</th><td>${rec.date || '-'}</td></tr>
+      <tr><th>ì í/ì¬ì</th><td>${(spec && spec.productName) || '-'}</td><th>ë¡í¸ ë²í¸</th><td>${rec.lotNo || '-'}</td></tr>
+      <tr><th>ê²°ê³¼</th><td colspan="3">${resultBadge}</td></tr>
     </table>
 
-    <div class="section-title">2. 측정 결과</div>
+    <div class="section-title">2. ì¸¡ì  ê²°ê³¼</div>
     <table>
-      <tr><th>미립자 측정값</th><td>${rec.particleResult || '(없음)'}</td><th>미생물 측정값</th><td>${rec.microbialResult || '(없음)'}</td></tr>
-      <tr><th>이물 검사 결과</th><td colspan="3">${rec.foreignMatterResult || '(없음)'}</td></tr>
-      <tr><th>온도</th><td>${rec.temperature ? rec.temperature + ' ℃' : '(없음)'}</td><th>습도</th><td>${rec.humidity ? rec.humidity + ' %RH' : '(없음)'}</td></tr>
-      <tr><th>차압</th><td colspan="3">${rec.pressureDiff ? rec.pressureDiff + ' Pa' : '(없음)'}</td></tr>
+      <tr><th>ë¯¸ë¦½ì ì¸¡ì ê°</th><td>${rec.particleResult || '(ìì)'}</td><th>ë¯¸ìë¬¼ ì¸¡ì ê°</th><td>${rec.microbialResult || '(ìì)'}</td></tr>
+      <tr><th>ì´ë¬¼ ê²ì¬ ê²°ê³¼</th><td colspan="3">${rec.foreignMatterResult || '(ìì)'}</td></tr>
+      <tr><th>ì¨ë</th><td>${rec.temperature ? rec.temperature + ' â' : '(ìì)'}</td><th>ìµë</th><td>${rec.humidity ? rec.humidity + ' %RH' : '(ìì)'}</td></tr>
+      <tr><th>ì°¨ì</th><td colspan="3">${rec.pressureDiff ? rec.pressureDiff + ' Pa' : '(ìì)'}</td></tr>
     </table>
 
-    <div class="section-title">3. 비고</div>
-    <div class="text-area-box" style="min-height:60px;">${rec.notes || '(없음)'}</div>
+    <div class="section-title">3. ë¹ê³ </div>
+    <div class="text-area-box" style="min-height:60px;">${rec.notes || '(ìì)'}</div>
   `
-  openPrint(pageWrapper(rec.id || 'CLN-XXXX', '청결·오염 모니터링 성적서', 'ISO 13485 §7.5.2', body))
+  openPrint(pageWrapper(rec.id || 'CLN-XXXX', 'ì²­ê²°Â·ì¤ì¼ ëª¨ëí°ë§ ì±ì ì', 'ISO 13485 Â§7.5.2', body))
 }
 
-// ── 멸균 배치 성적서 ─────────────────────────────────────────
+// ââ ë©¸ê·  ë°°ì¹ ì±ì ì âââââââââââââââââââââââââââââââââââââââââ
 export function printSterileBatchCert(batch, spec) {
-  const resultMap = { pass: ['badge-green', '합격'], fail: ['badge-red', '불합격'], conditional: ['badge-orange', '조건부합격'] }
+  const resultMap = { pass: ['badge-green', 'í©ê²©'], fail: ['badge-red', 'ë¶í©ê²©'], conditional: ['badge-orange', 'ì¡°ê±´ë¶í©ê²©'] }
   const [cls, label] = resultMap[batch.result] || ['badge-gray', batch.result || '-']
   const resultBadge = `<span class="badge ${cls}">${label}</span>`
   const body = `
-    <div class="qt-subtitle">멸균 배치 성적서 (Sterilization Batch Certificate)</div>
-    <div class="section-title">1. 배치 기본 정보</div>
+    <div class="qt-subtitle">ë©¸ê·  ë°°ì¹ ì±ì ì (Sterilization Batch Certificate)</div>
+    <div class="section-title">1. ë°°ì¹ ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>배치/로트 번호</th><td>${batch.batchNo || '-'}</td><th>멸균 일자</th><td>${batch.date || '-'}</td></tr>
-      <tr><th>제품명</th><td>${batch.productName || '-'}</td><th>생산 로트</th><td>${batch.lotNo || '-'}</td></tr>
-      <tr><th>멸균 방법</th><td>${batch.sterileMethod || '-'}</td><th>연결된 사양</th><td>${spec ? (spec.productName + ' (SAL ' + spec.salTarget + ')') : '(직접 입력)'}</td></tr>
-      <tr><th>합/불 판정</th><td colspan="3">${resultBadge}</td></tr>
+      <tr><th>ë°°ì¹/ë¡í¸ ë²í¸</th><td>${batch.batchNo || '-'}</td><th>ë©¸ê·  ì¼ì</th><td>${batch.date || '-'}</td></tr>
+      <tr><th>ì íëª</th><td>${batch.productName || '-'}</td><th>ìì° ë¡í¸</th><td>${batch.lotNo || '-'}</td></tr>
+      <tr><th>ë©¸ê·  ë°©ë²</th><td>${batch.sterileMethod || '-'}</td><th>ì°ê²°ë ì¬ì</th><td>${spec ? (spec.productName + ' (SAL ' + spec.salTarget + ')') : '(ì§ì  ìë ¥)'}</td></tr>
+      <tr><th>í©/ë¶ íì </th><td colspan="3">${resultBadge}</td></tr>
     </table>
 
-    <div class="section-title">2. 실측 사이클 파라미터</div>
+    <div class="section-title">2. ì¤ì¸¡ ì¬ì´í´ íë¼ë¯¸í°</div>
     <table>
-      <tr><th>온도</th><td>${batch.actualTemp ? batch.actualTemp + ' ℃' : '(없음)'}</td><th>시간</th><td>${batch.actualTime ? batch.actualTime + ' 분' : '(없음)'}</td></tr>
-      <tr><th>압력</th><td>${batch.actualPressure ? batch.actualPressure + ' bar' : '(없음)'}</td><th>선량</th><td>${batch.actualDose || '(없음)'}</td></tr>
+      <tr><th>ì¨ë</th><td>${batch.actualTemp ? batch.actualTemp + ' â' : '(ìì)'}</td><th>ìê°</th><td>${batch.actualTime ? batch.actualTime + ' ë¶' : '(ìì)'}</td></tr>
+      <tr><th>ìë ¥</th><td>${batch.actualPressure ? batch.actualPressure + ' bar' : '(ìì)'}</td><th>ì ë</th><td>${batch.actualDose || '(ìì)'}</td></tr>
     </table>
 
-    <div class="section-title">3. 멸균 검증 결과</div>
+    <div class="section-title">3. ë©¸ê·  ê²ì¦ ê²°ê³¼</div>
     <table>
-      <tr><th>바이오버든 결과</th><td>${batch.bioburdenResult ? batch.bioburdenResult + ' CFU/개' : '(없음)'}</td><th>달성 SAL</th><td>${batch.salAchieved || '(없음)'}</td></tr>
+      <tr><th>ë°ì´ì¤ë²ë  ê²°ê³¼</th><td>${batch.bioburdenResult ? batch.bioburdenResult + ' CFU/ê°' : '(ìì)'}</td><th>ë¬ì± SAL</th><td>${batch.salAchieved || '(ìì)'}</td></tr>
     </table>
 
-    <div class="section-title">4. 비고</div>
-    <div class="text-area-box" style="min-height:60px;">${batch.notes || '(없음)'}</div>
+    <div class="section-title">4. ë¹ê³ </div>
+    <div class="text-area-box" style="min-height:60px;">${batch.notes || '(ìì)'}</div>
   `
-  openPrint(pageWrapper(batch.batchNo || 'SB-XXXX', '멸균 배치 성적서', 'ISO 13485 §7.5.7', body))
+  openPrint(pageWrapper(batch.batchNo || 'SB-XXXX', 'ë©¸ê·  ë°°ì¹ ì±ì ì', 'ISO 13485 Â§7.5.7', body))
 }
 
-// ── 멸균관리 절차서 (재처리·라벨링 정책) ─────────────────────────
+// ââ ë©¸ê· ê´ë¦¬ ì ì°¨ì (ì¬ì²ë¦¬Â·ë¼ë²¨ë§ ì ì±) âââââââââââââââââââââââââ
 export function printSterilizationProcedure(policy) {
   const sec = (label, val) => `
     <div class="section-title">${label}</div>
-    <div class="text-area-box" style="min-height:50px;">${val ? String(val).replace(/\n/g, '<br/>') : '(미입력)'}</div>
+    <div class="text-area-box" style="min-height:50px;">${val ? String(val).replace(/\n/g, '<br/>') : '(ë¯¸ìë ¥)'}</div>
   `
   const revRows = (policy.revisionHistory || []).length === 0
-    ? '<tr><td colspan="4" style="color:#999;text-align:center;">개정 이력 없음</td></tr>'
+    ? '<tr><td colspan="4" style="color:#999;text-align:center;">ê°ì  ì´ë ¥ ìì</td></tr>'
     : policy.revisionHistory.map(r => `
       <tr><td>${r.date || '-'}</td><td>${r.revision || '-'}</td><td>${r.by || '-'}</td><td>${r.summary || '-'}</td></tr>
     `).join('')
   const body = `
-    <div class="qt-subtitle">멸균관리 절차서 (Sterilization Management Procedure)</div>
+    <div class="qt-subtitle">ë©¸ê· ê´ë¦¬ ì ì°¨ì (Sterilization Management Procedure)</div>
     <table>
-      <tr><th>개정번호</th><td>${policy.revision || '-'}</td><th>발행일</th><td>${policy.issueDate || '-'}</td></tr>
-      <tr><th>승인자</th><td colspan="3">${policy.approvedBy || '-'}</td></tr>
+      <tr><th>ê°ì ë²í¸</th><td>${policy.revision || '-'}</td><th>ë°íì¼</th><td>${policy.issueDate || '-'}</td></tr>
+      <tr><th>ì¹ì¸ì</th><td colspan="3">${policy.approvedBy || '-'}</td></tr>
     </table>
-    ${sec('1. 적용 범위', policy.scope)}
-    ${sec('2. 단회 사용 명시 (§7.5.7 필수)', policy.singleUseStatement)}
-    ${sec('3. 재처리 정책', policy.reprocessingPolicy)}
-    ${sec('4. 라벨링 요구사항', policy.labelingReqs)}
-    ${sec('5. 유효기간 추적 방법', policy.expiryTrackingMethod)}
-    ${sec('6. 시판 후 멸균 모니터링', policy.postMarketMonitoring)}
-    <div class="section-title">7. 개정 이력</div>
+    ${sec('1. ì ì© ë²ì', policy.scope)}
+    ${sec('2. ë¨í ì¬ì© ëªì (Â§7.5.7 íì)', policy.singleUseStatement)}
+    ${sec('3. ì¬ì²ë¦¬ ì ì±', policy.reprocessingPolicy)}
+    ${sec('4. ë¼ë²¨ë§ ìêµ¬ì¬í­', policy.labelingReqs)}
+    ${sec('5. ì í¨ê¸°ê° ì¶ì  ë°©ë²', policy.expiryTrackingMethod)}
+    ${sec('6. ìí í ë©¸ê·  ëª¨ëí°ë§', policy.postMarketMonitoring)}
+    <div class="section-title">7. ê°ì  ì´ë ¥</div>
     <table>
-      <tr><th style="width:90px">날짜</th><th style="width:80px">개정번호</th><th style="width:100px">작성자</th><th>내용 요약</th></tr>
+      <tr><th style="width:90px">ë ì§</th><th style="width:80px">ê°ì ë²í¸</th><th style="width:100px">ìì±ì</th><th>ë´ì© ìì½</th></tr>
       ${revRows}
     </table>
   `
-  openPrint(pageWrapper(policy.revision || 'STR-SOP', '멸균관리 절차서', 'ISO 13485 §7.5.7', body))
+  openPrint(pageWrapper(policy.revision || 'STR-SOP', 'ë©¸ê· ê´ë¦¬ ì ì°¨ì', 'ISO 13485 Â§7.5.7', body))
 }
 
-// ── 리콜 통보 대상 고객 목록 (리콜 시뮬레이션) ───────────────────
+// ââ ë¦¬ì½ íµë³´ ëì ê³ ê° ëª©ë¡ (ë¦¬ì½ ìë®¬ë ì´ì) âââââââââââââââââââ
 export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
-  const classMap = { I: 'Class I — 즉시 리콜', II: 'Class II — 신속 리콜', III: 'Class III — 일반 리콜' }
+  const classMap = { I: 'Class I â ì¦ì ë¦¬ì½', II: 'Class II â ì ì ë¦¬ì½', III: 'Class III â ì¼ë° ë¦¬ì½' }
   const totalQty = hits.reduce((s, h) => s + (parseInt(h.qty) || 0), 0)
   const rowsHtml = hits.length === 0
-    ? '<tr><td colspan="5" style="color:#999;text-align:center;">통보 대상 고객 없음</td></tr>'
+    ? '<tr><td colspan="5" style="color:#999;text-align:center;">íµë³´ ëì ê³ ê° ìì</td></tr>'
     : hits.map((h, i) => `
       <tr>
         <td style="text-align:center">${i + 1}</td>
@@ -611,53 +627,53 @@ export function printRecallNotice({ lot, recallClass, reason, hits = [] }) {
       </tr>`).join('')
 
   const body = `
-    <div class="qt-subtitle">리콜 통보 대상 고객 목록 (Recall Notification List)</div>
-    <div class="section-title">1. 리콜 개요</div>
+    <div class="qt-subtitle">ë¦¬ì½ íµë³´ ëì ê³ ê° ëª©ë¡ (Recall Notification List)</div>
+    <div class="section-title">1. ë¦¬ì½ ê°ì</div>
     <table>
-      <tr><th>대상 LOT</th><td>${lot || '-'}</td><th>리콜 등급</th><td>${classMap[recallClass] || recallClass || '-'}</td></tr>
-      <tr><th>통보 대상 고객 수</th><td>${hits.length}건</td><th>총 회수 수량</th><td>${totalQty}</td></tr>
-      <tr><th>리콜 사유</th><td colspan="3">${reason || '(미입력)'}</td></tr>
+      <tr><th>ëì LOT</th><td>${lot || '-'}</td><th>ë¦¬ì½ ë±ê¸</th><td>${classMap[recallClass] || recallClass || '-'}</td></tr>
+      <tr><th>íµë³´ ëì ê³ ê° ì</th><td>${hits.length}ê±´</td><th>ì´ íì ìë</th><td>${totalQty}</td></tr>
+      <tr><th>ë¦¬ì½ ì¬ì </th><td colspan="3">${reason || '(ë¯¸ìë ¥)'}</td></tr>
     </table>
 
-    <div class="section-title">2. 통보 대상 고객 목록</div>
+    <div class="section-title">2. íµë³´ ëì ê³ ê° ëª©ë¡</div>
     <table>
-      <tr><th style="width:40px">번호</th><th>고객명</th><th>연락처</th><th>주소</th><th style="width:80px">수량</th></tr>
+      <tr><th style="width:40px">ë²í¸</th><th>ê³ ê°ëª</th><th>ì°ë½ì²</th><th>ì£¼ì</th><th style="width:80px">ìë</th></tr>
       ${rowsHtml}
     </table>
 
-    <div class="section-title">3. 조치 사항</div>
-    <div class="text-area-box" style="min-height:60px;">상기 고객에게 리콜 통보를 발송하고, 회수 완료 여부를 추적 관리한다. 필요 시 규제당국(식약처 등)에 보고한다.</div>
+    <div class="section-title">3. ì¡°ì¹ ì¬í­</div>
+    <div class="text-area-box" style="min-height:60px;">ìê¸° ê³ ê°ìê² ë¦¬ì½ íµë³´ë¥¼ ë°ì¡íê³ , íì ìë£ ì¬ë¶ë¥¼ ì¶ì  ê´ë¦¬íë¤. íì ì ê·ì ë¹êµ­(ìì½ì² ë±)ì ë³´ê³ íë¤.</div>
   `
-  openPrint(pageWrapper(`RCL-${lot || 'XXXX'}`, '리콜 통보 대상 고객 목록', 'ISO 13485 §8.3 / §7.5.9', body))
+  openPrint(pageWrapper(`RCL-${lot || 'XXXX'}`, 'ë¦¬ì½ íµë³´ ëì ê³ ê° ëª©ë¡', 'ISO 13485 Â§8.3 / Â§7.5.9', body))
 }
 
-// ── 감사 체크리스트 ───────────────────────────────────────────
+// ââ ê°ì¬ ì²´í¬ë¦¬ì¤í¸ âââââââââââââââââââââââââââââââââââââââââââ
 export function printAuditChecklist(checks = {}) {
   const ITEMS = [
-    { iso: '4.1', item: '품질경영시스템 일반 요건' },
-    { iso: '4.2', item: '문서화 요건 (매뉴얼·절차·기록)' },
-    { iso: '5.1', item: '경영진 책임 및 의지' },
-    { iso: '5.4', item: '품질목표 및 계획' },
-    { iso: '6.2', item: '인적 자원 (교육·역량)' },
-    { iso: '6.3', item: '기반구조 (설비·환경)' },
-    { iso: '7.2', item: '고객 관련 프로세스' },
-    { iso: '7.3', item: '설계 및 개발' },
-    { iso: '7.4', item: '구매 (공급업체 관리)' },
-    { iso: '7.5', item: '생산 및 서비스 제공' },
-    { iso: '7.6', item: '모니터링 및 측정장치 관리' },
-    { iso: '8.2.1', item: '고객만족 모니터링' },
-    { iso: '8.2.4', item: '제품 모니터링 및 측정' },
-    { iso: '8.3', item: '부적합 제품 관리' },
-    { iso: '8.4', item: '데이터 분석' },
-    { iso: '8.5', item: '개선 (CAPA)' },
+    { iso: '4.1', item: 'íì§ê²½ììì¤í ì¼ë° ìê±´' },
+    { iso: '4.2', item: 'ë¬¸ìí ìê±´ (ë§¤ë´ì¼Â·ì ì°¨Â·ê¸°ë¡)' },
+    { iso: '5.1', item: 'ê²½ìì§ ì±ì ë° ìì§' },
+    { iso: '5.4', item: 'íì§ëª©í ë° ê³í' },
+    { iso: '6.2', item: 'ì¸ì  ìì (êµì¡Â·ì­ë)' },
+    { iso: '6.3', item: 'ê¸°ë°êµ¬ì¡° (ì¤ë¹Â·íê²½)' },
+    { iso: '7.2', item: 'ê³ ê° ê´ë ¨ íë¡ì¸ì¤' },
+    { iso: '7.3', item: 'ì¤ê³ ë° ê°ë°' },
+    { iso: '7.4', item: 'êµ¬ë§¤ (ê³µê¸ìì²´ ê´ë¦¬)' },
+    { iso: '7.5', item: 'ìì° ë° ìë¹ì¤ ì ê³µ' },
+    { iso: '7.6', item: 'ëª¨ëí°ë§ ë° ì¸¡ì ì¥ì¹ ê´ë¦¬' },
+    { iso: '8.2.1', item: 'ê³ ê°ë§ì¡± ëª¨ëí°ë§' },
+    { iso: '8.2.4', item: 'ì í ëª¨ëí°ë§ ë° ì¸¡ì ' },
+    { iso: '8.3', item: 'ë¶ì í© ì í ê´ë¦¬' },
+    { iso: '8.4', item: 'ë°ì´í° ë¶ì' },
+    { iso: '8.5', item: 'ê°ì  (CAPA)' },
   ]
 
   const rowsHtml = ITEMS.map(it => {
     const val = checks[it.iso] || 'pending'
-    const mark = val === 'ok' ? '✓ 적합' : val === 'nc' ? '✗ 부적합' : val === 'na' ? 'N/A' : '○ 미확인'
+    const mark = val === 'ok' ? 'â ì í©' : val === 'nc' ? 'â ë¶ì í©' : val === 'na' ? 'N/A' : 'â ë¯¸íì¸'
     const color = val === 'ok' ? '#27ae60' : val === 'nc' ? '#c0392b' : '#888'
     return `<tr>
-      <td style="text-align:center;font-family:monospace;font-weight:bold;">§${it.iso}</td>
+      <td style="text-align:center;font-family:monospace;font-weight:bold;">Â§${it.iso}</td>
       <td>${it.item}</td>
       <td style="text-align:center;color:${color};font-weight:bold;">${mark}</td>
       <td style="min-width:160px;color:#999;font-size:8pt;">&nbsp;</td>
@@ -668,45 +684,45 @@ export function printAuditChecklist(checks = {}) {
   const nc = ITEMS.filter(it => checks[it.iso] === 'nc').length
 
   const body = `
-    <div class="qt-subtitle">ISO 13485:2016 내부감사 체크리스트</div>
+    <div class="qt-subtitle">ISO 13485:2016 ë´ë¶ê°ì¬ ì²´í¬ë¦¬ì¤í¸</div>
     <table style="margin-bottom:16px">
-      <tr><th>감사일</th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><th>감사원</th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
-      <tr><th>피감사 부서</th><td>&nbsp;</td><th>감사 번호</th><td>&nbsp;</td></tr>
+      <tr><th>ê°ì¬ì¼</th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td><th>ê°ì¬ì</th><td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td></tr>
+      <tr><th>í¼ê°ì¬ ë¶ì</th><td>&nbsp;</td><th>ê°ì¬ ë²í¸</th><td>&nbsp;</td></tr>
     </table>
     <table>
       <tr>
-        <th style="width:55px">ISO 조항</th>
-        <th>심사 항목</th>
-        <th style="width:80px">결과</th>
-        <th style="width:160px">비고 / 부적합 내용</th>
+        <th style="width:55px">ISO ì¡°í­</th>
+        <th>ì¬ì¬ í­ëª©</th>
+        <th style="width:80px">ê²°ê³¼</th>
+        <th style="width:160px">ë¹ê³  / ë¶ì í© ë´ì©</th>
       </tr>
       ${rowsHtml}
     </table>
-    <div class="section-title">결과 요약</div>
+    <div class="section-title">ê²°ê³¼ ìì½</div>
     <table>
       <tr>
-        <th style="width:25%">총 심사 항목</th><td style="width:25%">${ITEMS.length}항목</td>
-        <th style="width:25%">적합</th><td style="width:25%;color:#27ae60;font-weight:bold">${ok}항목</td>
+        <th style="width:25%">ì´ ì¬ì¬ í­ëª©</th><td style="width:25%">${ITEMS.length}í­ëª©</td>
+        <th style="width:25%">ì í©</th><td style="width:25%;color:#27ae60;font-weight:bold">${ok}í­ëª©</td>
       </tr>
       <tr>
-        <th>부적합</th><td style="color:#c0392b;font-weight:bold">${nc}항목</td>
-        <th>적합률</th><td style="font-weight:bold">${Math.round(ok/ITEMS.length*100)}%</td>
+        <th>ë¶ì í©</th><td style="color:#c0392b;font-weight:bold">${nc}í­ëª©</td>
+        <th>ì í©ë¥ </th><td style="font-weight:bold">${Math.round(ok/ITEMS.length*100)}%</td>
       </tr>
     </table>
   `
-  openPrint(pageWrapper('AUD-CL-001', 'ISO 13485 내부감사 체크리스트', 'ISO 13485 §8.2.2', body))
+  openPrint(pageWrapper('AUD-CL-001', 'ISO 13485 ë´ë¶ê°ì¬ ì²´í¬ë¦¬ì¤í¸', 'ISO 13485 Â§8.2.2', body))
 }
 
-// ── 품질책임자(제조관리자) 임명장 ────────────────────────────
-// #19 — 승인 시 자격증·임명장 파일을 수동 첨부하도록 요구하는 대신,
-// 지정 정보(성명·직위·지정일)와 승인 정보를 바탕으로 임명장을 즉시 자동 생성해 출력한다.
+// ââ íì§ì±ìì(ì ì¡°ê´ë¦¬ì) ìëªì¥ ââââââââââââââââââââââââââââ
+// #19 â ì¹ì¸ ì ìê²©ì¦Â·ìëªì¥ íì¼ì ìë ì²¨ë¶íëë¡ ìêµ¬íë ëì ,
+// ì§ì  ì ë³´(ì±ëªÂ·ì§ìÂ·ì§ì ì¼)ì ì¹ì¸ ì ë³´ë¥¼ ë°íì¼ë¡ ìëªì¥ì ì¦ì ìë ìì±í´ ì¶ë ¥íë¤.
 export function printQmAppointmentLetter(qm) {
   const company = getCompanyName()
   const html = `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>임명장 — ${company}</title>
+<title>ìëªì¥ â ${company}</title>
 <style>
   @page { size: A4; margin: 30mm 26mm; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -728,21 +744,21 @@ export function printQmAppointmentLetter(qm) {
 </head>
 <body>
 <div class="frame">
-  <div class="letter-title">임&nbsp;&nbsp;명&nbsp;&nbsp;장</div>
+  <div class="letter-title">ì&nbsp;&nbsp;ëª&nbsp;&nbsp;ì¥</div>
   <div class="letter-body">
     <div class="letter-name">${qm.name || '-'}</div>
-    <div class="letter-role">${qm.title ? qm.title + ' · ' : ''}품질책임자(제조관리자)</div>
+    <div class="letter-role">${qm.title ? qm.title + ' Â· ' : ''}íì§ì±ìì(ì ì¡°ê´ë¦¬ì)</div>
     <div class="letter-desc">
-      위 사람을 「의료기기법」 및 ISO 13485:2016 §5.5.2에 따라<br>
-      우리 회사의 품질책임자(제조관리자)로 임명합니다.
+      ì ì¬ëì ãìë£ê¸°ê¸°ë²ã ë° ISO 13485:2016 Â§5.5.2ì ë°ë¼<br>
+      ì°ë¦¬ íì¬ì íì§ì±ìì(ì ì¡°ê´ë¦¬ì)ë¡ ìëªí©ëë¤.
     </div>
-    <div class="letter-basis">지정일: ${qm.appointedDate || '-'} · 승인일: ${qm.approvedAt ? new Date(qm.approvedAt).toLocaleDateString('ko-KR') : '-'}</div>
+    <div class="letter-basis">ì§ì ì¼: ${qm.appointedDate || '-'} Â· ì¹ì¸ì¼: ${qm.approvedAt ? new Date(qm.approvedAt).toLocaleDateString('ko-KR') : '-'}</div>
   </div>
   <div class="letter-footer">
     <div class="letter-date">${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
     <div class="letter-company">${company}</div>
-    <div class="letter-ceo">대표이사 ${qm.approvedBy || ''} (인)</div>
-    <div class="stamp-hint">본 임명장은 Qualytree QMS에서 승인 정보에 따라 자동 생성되었습니다.</div>
+    <div class="letter-ceo">ëíì´ì¬ ${qm.approvedBy || ''} (ì¸)</div>
+    <div class="stamp-hint">ë³¸ ìëªì¥ì Qualytree QMSìì ì¹ì¸ ì ë³´ì ë°ë¼ ìë ìì±ëììµëë¤.</div>
   </div>
 </div>
 <script>window.onload=()=>{setTimeout(()=>{window.print()},300)}<\/script>
@@ -751,49 +767,49 @@ export function printQmAppointmentLetter(qm) {
   openPrint(html)
 }
 
-// ── 프린트 창 열기 ────────────────────────────────────────────
+// ââ íë¦°í¸ ì°½ ì´ê¸° ââââââââââââââââââââââââââââââââââââââââââââ
 function openPrint(html) {
   const w = window.open('', '_blank', 'width=860,height=1000,scrollbars=yes')
-  if (!w) { alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return }
+  if (!w) { alert('íìì´ ì°¨ë¨ëììµëë¤. íì íì© í ë¤ì ìëíì¸ì.'); return }
   w.document.write(html)
   w.document.close()
 }
 
-// ── 출하 전 보존상태 점검 성적서 ─────────────────────────────
+// ââ ì¶í ì  ë³´ì¡´ìí ì ê² ì±ì ì âââââââââââââââââââââââââââââ
 export function printPreservationCheckCert(chk) {
-  const vm = { pass: ['badge-green', '적합'], fail: ['badge-red', '부적합'], pending: ['badge-orange', '점검 중'] }
+  const vm = { pass: ['badge-green', 'ì í©'], fail: ['badge-red', 'ë¶ì í©'], pending: ['badge-orange', 'ì ê² ì¤'] }
   const [cls, label] = vm[chk.verdict] || ['badge-gray', chk.verdict || '-']
   const verdictBadge = `<span class="badge ${cls}">${label}</span>`
   const items = (chk.checkItems || []).map(i => {
-    const r = i.result === 'pass' ? '적합' : i.result === 'fail' ? '부적합' : '미판정'
+    const r = i.result === 'pass' ? 'ì í©' : i.result === 'fail' ? 'ë¶ì í©' : 'ë¯¸íì '
     return `<tr><td>${i.name}</td><td>${r}</td></tr>`
   }).join('')
   const body = `
-    <div class="qt-subtitle">출하 전 보존상태 점검 성적서 (Pre-shipment Preservation Check Certificate)</div>
-    <div class="section-title">1. 기본 정보</div>
+    <div class="qt-subtitle">ì¶í ì  ë³´ì¡´ìí ì ê² ì±ì ì (Pre-shipment Preservation Check Certificate)</div>
+    <div class="section-title">1. ê¸°ë³¸ ì ë³´</div>
     <table>
-      <tr><th>기록 ID</th><td>${chk.id || '-'}</td><th>점검일</th><td>${chk.checkedDate || '-'}</td></tr>
-      <tr><th>제품명</th><td>${chk.productName || '-'}</td><th>LOT 번호</th><td>${chk.lotNo || '-'}</td></tr>
-      <tr><th>출하 수량</th><td>${chk.qty || '-'}</td><th>출하처 고객</th><td>${chk.destinationCustomer || '-'}</td></tr>
-      <tr><th>점검자</th><td>${chk.checkedBy || '-'}</td><th>연결 추적성 ID</th><td>${chk.linkedDistId || '(없음)'}</td></tr>
-      <tr><th>종합 판정</th><td colspan="3">${verdictBadge}</td></tr>
+      <tr><th>ê¸°ë¡ ID</th><td>${chk.id || '-'}</td><th>ì ê²ì¼</th><td>${chk.checkedDate || '-'}</td></tr>
+      <tr><th>ì íëª</th><td>${chk.productName || '-'}</td><th>LOT ë²í¸</th><td>${chk.lotNo || '-'}</td></tr>
+      <tr><th>ì¶í ìë</th><td>${chk.qty || '-'}</td><th>ì¶íì² ê³ ê°</th><td>${chk.destinationCustomer || '-'}</td></tr>
+      <tr><th>ì ê²ì</th><td>${chk.checkedBy || '-'}</td><th>ì°ê²° ì¶ì ì± ID</th><td>${chk.linkedDistId || '(ìì)'}</td></tr>
+      <tr><th>ì¢í© íì </th><td colspan="3">${verdictBadge}</td></tr>
     </table>
 
-    <div class="section-title">2. 점검 항목</div>
+    <div class="section-title">2. ì ê² í­ëª©</div>
     <table>
-      <tr><th>항목</th><th>결과</th></tr>
-      ${items || '<tr><td colspan="2">(없음)</td></tr>'}
+      <tr><th>í­ëª©</th><th>ê²°ê³¼</th></tr>
+      ${items || '<tr><td colspan="2">(ìì)</td></tr>'}
     </table>
 
-    <div class="section-title">3. 비고</div>
-    <div class="text-area-box" style="min-height:60px;">${chk.notes || '(없음)'}</div>
+    <div class="section-title">3. ë¹ê³ </div>
+    <div class="text-area-box" style="min-height:60px;">${chk.notes || '(ìì)'}</div>
   `
-  openPrint(pageWrapper(chk.id || 'PCK-XXXX', '출하 전 보존상태 점검 성적서', 'ISO 13485 §7.5.11', body))
+  openPrint(pageWrapper(chk.id || 'PCK-XXXX', 'ì¶í ì  ë³´ì¡´ìí ì ê² ì±ì ì', 'ISO 13485 Â§7.5.11', body))
 }
 
-// ── 일괄 출력 (여러 레코드를 한 PDF에) ───────────────────────
+// ââ ì¼ê´ ì¶ë ¥ (ì¬ë¬ ë ì½ëë¥¼ í PDFì) âââââââââââââââââââââââ
 export function printBatch(records) {
-  // 각 레코드를 구분선으로 이어 붙여 출력
+  // ê° ë ì½ëë¥¼ êµ¬ë¶ì ì¼ë¡ ì´ì´ ë¶ì¬ ì¶ë ¥
   const pages = records.map((r, i) => {
     const div = i < records.length - 1 ? '<div class="page-break"></div>' : ''
     return `<div>${r}</div>${div}`
@@ -803,7 +819,7 @@ export function printBatch(records) {
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>QMS 일괄 출력 — ${company}</title>
+<title>QMS ì¼ê´ ì¶ë ¥ â ${company}</title>
 <style>${BASE_CSS}</style>
 </head>
 <body>${pages}<script>window.onload=()=>{setTimeout(()=>{window.print()},400)}<\/script></body>
