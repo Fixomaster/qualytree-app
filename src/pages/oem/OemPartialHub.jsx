@@ -8,19 +8,19 @@ const ACCENT_SOFT = '#FFFBEB'
 const LS_KEY = 'qualytree.oem_partial'
 
 const PROC_STATUS_MAP = {
-  active: { label: '진행', color: '#2563EB', bg: '#EFF6FF' },
-  suspended: { label: '일시중단', color: '#D97706', bg: '#FFFBEB' },
-  ended: { label: '종료', color: '#6B7280', bg: '#F3F4F6' },
+  active: { label: 'ì§í', color: '#2563EB', bg: '#EFF6FF' },
+  suspended: { label: 'ì¼ìì¤ë¨', color: '#D97706', bg: '#FFFBEB' },
+  ended: { label: 'ì¢ë£', color: '#6B7280', bg: '#F3F4F6' },
 }
 const CONTRACT_STATUS_MAP = {
-  valid: { label: '유효', color: '#16A34A', bg: '#F0FDF4' },
-  expiring: { label: '만료임박', color: '#D97706', bg: '#FFFBEB' },
-  expired: { label: '만료', color: '#DC2626', bg: '#FEF2F2' },
+  valid: { label: 'ì í¨', color: '#16A34A', bg: '#F0FDF4' },
+  expiring: { label: 'ë§ë£ìë°', color: '#D97706', bg: '#FFFBEB' },
+  expired: { label: 'ë§ë£', color: '#DC2626', bg: '#FEF2F2' },
 }
 const AUDIT_MAP = {
-  scheduled: { label: '예정', color: '#2563EB', bg: '#EFF6FF' },
-  done: { label: '완료', color: '#16A34A', bg: '#F0FDF4' },
-  overdue: { label: '지연', color: '#DC2626', bg: '#FEF2F2' },
+  scheduled: { label: 'ìì ', color: '#2563EB', bg: '#EFF6FF' },
+  done: { label: 'ìë£', color: '#16A34A', bg: '#F0FDF4' },
+  overdue: { label: 'ì§ì°', color: '#DC2626', bg: '#FEF2F2' },
 }
 
 function load() {
@@ -67,8 +67,8 @@ function Modal({ title, onClose, onSave, children }) {
       </div>
       {children}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-        <Btn variant="ghost" onClick={onClose}>취소</Btn>
-        <Btn onClick={onSave}>저장</Btn>
+        <Btn variant="ghost" onClick={onClose}>ì·¨ì</Btn>
+        <Btn onClick={onSave}>ì ì¥</Btn>
       </div>
     </div>
   </div>
@@ -90,14 +90,14 @@ function ProcessTab({ data, onChange }) {
     onChange({ ...data, processes: next })
     setModal(null)
   }
-  function del(id) { if (confirm('삭제하시겠습니까?')) onChange({ ...data, processes: procs.filter(p => p.id !== id) }) }
+  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, processes: procs.filter(p => p.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="공정 위탁현황" action={<Btn onClick={openAdd}><Plus size={14} /> 추가</Btn>}>
-    {procs.length === 0 ? <Empty label="등록된 위탁 공정이 없습니다" /> :
+  return <SectionBox title="ê³µì  ìííí©" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
+    {procs.length === 0 ? <Empty label="ë±ë¡ë ìí ê³µì ì´ ììµëë¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['공정명', '위탁업체', '위탁범위', '비율(%)', '유형', '시작일', '상태', ''].map(h =>
+          {['ê³µì ëª', 'ìíìì²´', 'ìíë²ì', 'ë¹ì¨(%)', 'ì í', 'ììì¼', 'ìí', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{procs.map(p => <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -115,17 +115,17 @@ function ProcessTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? '공정 추가' : '공정 수정'} onClose={() => setModal(null)} onSave={save}>
-      <Field label="공정명"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁업체"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁범위"><input value={form.scope} onChange={e => f('scope', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁비율(%)"><input type="number" value={form.ratio} onChange={e => f('ratio', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁유형"><input value={form.type} onChange={e => f('type', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="시작일"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="상태"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="active">진행</option><option value="suspended">일시중단</option><option value="ended">종료</option>
+    {modal && <Modal title={modal === 'add' ? 'ê³µì  ì¶ê°' : 'ê³µì  ìì '} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ê³µì ëª"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíë²ì"><input value={form.scope} onChange={e => f('scope', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíë¹ì¨(%)"><input type="number" value={form.ratio} onChange={e => f('ratio', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíì í"><input value={form.type} onChange={e => f('type', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ììì¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="active">ì§í</option><option value="suspended">ì¼ìì¤ë¨</option><option value="ended">ì¢ë£</option>
       </select></Field>
-      <Field label="비고"><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ë¹ê³ "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -156,14 +156,14 @@ function ContractTab({ data, onChange }) {
     onChange({ ...data, contracts: next })
     setModal(null)
   }
-  function del(id) { if (confirm('삭제하시겠습니까?')) onChange({ ...data, contracts: contracts.filter(c => c.id !== id) }) }
+  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, contracts: contracts.filter(c => c.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="계약서 관리" action={<Btn onClick={openAdd}><Plus size={14} /> 추가</Btn>}>
-    {contracts.length === 0 ? <Empty label="등록된 계약서가 없습니다" /> :
+  return <SectionBox title="ê³ì½ì ê´ë¦¬" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
+    {contracts.length === 0 ? <Empty label="ë±ë¡ë ê³ì½ìê° ììµëë¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['계약명', '위탁업체', '시작일', '종료일', '상태', '비고', ''].map(h =>
+          {['ê³ì½ëª', 'ìíìì²´', 'ììì¼', 'ì¢ë£ì¼', 'ìí', 'ë¹ê³ ', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{contracts.map(c => <tr key={c.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -180,12 +180,12 @@ function ContractTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? '계약 추가' : '계약 수정'} onClose={() => setModal(null)} onSave={save}>
-      <Field label="계약명"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁업체"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="시작일"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="종료일"><input type="date" value={form.endDate} onChange={e => f('endDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="비고"><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+    {modal && <Modal title={modal === 'add' ? 'ê³ì½ ì¶ê°' : 'ê³ì½ ìì '} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ê³ì½ëª"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ììì¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ì¢ë£ì¼"><input type="date" value={form.endDate} onChange={e => f('endDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ë¹ê³ "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -213,14 +213,14 @@ function AuditTab({ data, onChange }) {
     onChange({ ...data, audits: next })
     setModal(null)
   }
-  function del(id) { if (confirm('삭제하시겠습니까?')) onChange({ ...data, audits: audits.filter(a => a.id !== id) }) }
+  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, audits: audits.filter(a => a.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="감사 일정" action={<Btn onClick={openAdd}><Plus size={14} /> 추가</Btn>}>
-    {audits.length === 0 ? <Empty label="등록된 감사 일정이 없습니다" /> :
+  return <SectionBox title="ê°ì¬ ì¼ì " action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
+    {audits.length === 0 ? <Empty label="ë±ë¡ë ê°ì¬ ì¼ì ì´ ììµëë¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['감사명', '위탁업체', '감사일', '상태', '주요발견', ''].map(h =>
+          {['ê°ì¬ëª', 'ìíìì²´', 'ê°ì¬ì¼', 'ìí', 'ì£¼ìë°ê²¬', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{audits.map(a => { const st = getAuditStatus(a); return <tr key={a.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -236,14 +236,14 @@ function AuditTab({ data, onChange }) {
         </tr>})}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? '감사 추가' : '감사 수정'} onClose={() => setModal(null)} onSave={save}>
-      <Field label="감사명"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁업체"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="감사일"><input type="date" value={form.date} onChange={e => f('date', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="상태"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="scheduled">예정</option><option value="done">완료</option>
+    {modal && <Modal title={modal === 'add' ? 'ê°ì¬ ì¶ê°' : 'ê°ì¬ ìì '} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ê°ì¬ëª"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ê°ì¬ì¼"><input type="date" value={form.date} onChange={e => f('date', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="scheduled">ìì </option><option value="done">ìë£</option>
       </select></Field>
-      <Field label="주요발견사항"><textarea value={form.findings} onChange={e => f('findings', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ì£¼ìë°ê²¬ì¬í­"><textarea value={form.findings} onChange={e => f('findings', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -264,14 +264,14 @@ function QualityAgreementTab({ data, onChange }) {
     onChange({ ...data, qualityAgreements: next })
     setModal(null)
   }
-  function del(id) { if (confirm('삭제하시겠습니까?')) onChange({ ...data, qualityAgreements: qas.filter(q => q.id !== id) }) }
+  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, qualityAgreements: qas.filter(q => q.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="품질 협약" action={<Btn onClick={openAdd}><Plus size={14} /> 추가</Btn>}>
-    {qas.length === 0 ? <Empty label="등록된 품질 협약이 없습니다" /> :
+  return <SectionBox title="íì§ íì½" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
+    {qas.length === 0 ? <Empty label="ë±ë¡ë íì§ íì½ì´ ììµëë¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['협약명', '위탁업체', '체결일', '협약범위', '상태', ''].map(h =>
+          {['íì½ëª', 'ìíìì²´', 'ì²´ê²°ì¼', 'íì½ë²ì', 'ìí', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{qas.map(q => <tr key={q.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -287,31 +287,31 @@ function QualityAgreementTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? '협약 추가' : '협약 수정'} onClose={() => setModal(null)} onSave={save}>
-      <Field label="협약명"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="위탁업체"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="체결일"><input type="date" value={form.signDate} onChange={e => f('signDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="협약범위"><textarea value={form.scope} onChange={e => f('scope', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="상태"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="valid">유효</option><option value="expiring">만료임박</option><option value="expired">만료</option>
+    {modal && <Modal title={modal === 'add' ? 'íì½ ì¶ê°' : 'íì½ ìì '} onClose={() => setModal(null)} onSave={save}>
+      <Field label="íì½ëª"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ì²´ê²°ì¼"><input type="date" value={form.signDate} onChange={e => f('signDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="íì½ë²ì"><textarea value={form.scope} onChange={e => f('scope', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="valid">ì í¨</option><option value="expiring">ë§ë£ìë°</option><option value="expired">ë§ë£</option>
       </select></Field>
     </Modal>}
   </SectionBox>
 }
 
-const TABS = ['개요', '공정 위탁현황', '계약서', '품질 협약', '감사 일정', '공정 설정']
+const TABS = ['ê°ì', 'ê³µì  ìííí©', 'ê³ì½ì', 'íì§ íì½', 'ê°ì¬ ì¼ì ', 'ê³µì  ì¤ì ']
 
-export default function SetupTab({ data, onChange }) {
+function SetupTab({ data, onChange }) {
   const LS_KEY_SETUP = 'qualytree.oem_partial_setup'
   const DEFAULT_PROCS = [
-    { id: 1, name: '원자재 입고 검사', type: 'self', contractor: '' },
-    { id: 2, name: '가공·성형', type: 'self', contractor: '' },
-    { id: 3, name: '조립', type: 'self', contractor: '' },
-    { id: 4, name: '세척', type: 'self', contractor: '' },
-    { id: 5, name: '멸균', type: 'self', contractor: '' },
-    { id: 6, name: '공정 검사', type: 'self', contractor: '' },
-    { id: 7, name: '최종 검사', type: 'self', contractor: '' },
-    { id: 8, name: '포장·라벨링', type: 'self', contractor: '' },
+    { id: 1, name: 'ììì¬ ìê³  ê²ì¬', type: 'self', contractor: '' },
+    { id: 2, name: 'ê°ê³µÂ·ì±í', type: 'self', contractor: '' },
+    { id: 3, name: 'ì¡°ë¦½', type: 'self', contractor: '' },
+    { id: 4, name: 'ì¸ì²', type: 'self', contractor: '' },
+    { id: 5, name: 'ë©¸ê· ', type: 'self', contractor: '' },
+    { id: 6, name: 'ê³µì  ê²ì¬', type: 'self', contractor: '' },
+    { id: 7, name: 'ìµì¢ ê²ì¬', type: 'self', contractor: '' },
+    { id: 8, name: 'í¬ì¥Â·ë¼ë²¨ë§', type: 'self', contractor: '' },
   ]
   const [procs, setProcs] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_SETUP) || 'null') || DEFAULT_PROCS } catch { return DEFAULT_PROCS }
@@ -333,7 +333,7 @@ export default function SetupTab({ data, onChange }) {
   return (
     <div style={{ padding: '4px 0 48px' }}>
       <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 20 }}>
-        각 공정별 자체생산 / 위탁 여부를 설정하세요. 위탁 선택 시 수탁업체명을 입력할 수 있습니다.
+        ê° ê³µì ë³ ìì²´ìì° / ìí ì¬ë¶ë¥¼ ì¤ì íì¸ì. ìí ì í ì ìíìì²´ëªì ìë ¥í  ì ììµëë¤.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {procs.map(p => (
@@ -341,25 +341,25 @@ export default function SetupTab({ data, onChange }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: p.type === 'outsource' ? 10 : 0 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{p.name}</span>
               <button onClick={() => toggle(p.id)} style={{ padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
-                {p.type === 'outsource' ? '위탁' : '자체'}
+                {p.type === 'outsource' ? 'ìí' : 'ìì²´'}
               </button>
             </div>
             {p.type === 'outsource' && (
-              <input value={p.contractor} onChange={e => setContractor(p.id, e.target.value)} placeholder="수탁업체명" style={{ width: '100%', border: '1px solid #FECACA', borderRadius: 6, padding: '6px 10px', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+              <input value={p.contractor} onChange={e => setContractor(p.id, e.target.value)} placeholder="ìíìì²´ëª" style={{ width: '100%', border: '1px solid #FECACA', borderRadius: 6, padding: '6px 10px', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
             )}
           </div>
         ))}
       </div>
       <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>저장</button>
-        {saved && <span style={{ color: '#16A34A', fontSize: 13 }}>✓ 저장되었습니다</span>}
+        <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>ì ì¥</button>
+        {saved && <span style={{ color: '#16A34A', fontSize: 13 }}>â ì ì¥ëììµëë¤</span>}
       </div>
       <div style={{ marginTop: 28, borderTop: '1px solid #E5E7EB', paddingTop: 20 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 12 }}>공정 위탁 현황 요약</p>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 12 }}>ê³µì  ìí íí© ìì½</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {procs.map(p => (
             <span key={p.id} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
-              {p.name} · {p.type === 'outsource' ? (p.contractor || '위탁') : '자체'}
+              {p.name} Â· {p.type === 'outsource' ? (p.contractor || 'ìí') : 'ìì²´'}
             </span>
           ))}
         </div>
@@ -368,7 +368,7 @@ export default function SetupTab({ data, onChange }) {
   )
 }
 
-function OemPartialHub() {
+export default function OemPartialHub() {
   const user = auth.current()
   const [tab, setTab] = useState(0)
   const [data, setData] = useState(() => load())
@@ -381,19 +381,19 @@ function OemPartialHub() {
   const audits = data.audits || []
 
   return (
-    <AppLayout user={user} title="OEM 일부위탁">
+    <AppLayout user={user} title="OEM ì¼ë¶ìí">
       <div style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
       <Share2 size={24} color={ACCENT} />
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>OEM 일부공정위탁 관리</h1>
-        <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>일부공정 위탁 계약, 품질협약 및 감사 현황 관리</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>OEM ì¼ë¶ê³µì ìí ê´ë¦¬</h1>
+        <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>ì¼ë¶ê³µì  ìí ê³ì½, íì§íì½ ë° ê°ì¬ íí© ê´ë¦¬</p>
       </div>
     </div>
 
     {expiringContracts.length > 0 && <div style={{ background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
       <AlertTriangle size={16} color="#D97706" />
-      <span style={{ fontSize: 13, color: '#92400E' }}>만료임박·만료 계약 {expiringContracts.length}건 — 계약 갱신을 검토하세요</span>
+      <span style={{ fontSize: 13, color: '#92400E' }}>ë§ë£ìë°Â·ë§ë£ ê³ì½ {expiringContracts.length}ê±´ â ê³ì½ ê°±ì ì ê²í íì¸ì</span>
     </div>}
 
     <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #E5E7EB', marginBottom: 24 }}>
@@ -402,11 +402,11 @@ function OemPartialHub() {
 
     {tab === 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16 }}>
       {[
-        { label: '위탁 공정 수', value: procs.length, color: ACCENT },
-        { label: '활성 공정', value: procs.filter(p => p.status === 'active').length, color: '#16A34A' },
-        { label: '계약서 수', value: contracts.length, color: '#2563EB' },
-        { label: '만료임박 계약', value: expiringContracts.length, color: '#DC2626' },
-        { label: '감사 일정', value: audits.length, color: '#7C3AED' },
+        { label: 'ìí ê³µì  ì', value: procs.length, color: ACCENT },
+        { label: 'íì± ê³µì ', value: procs.filter(p => p.status === 'active').length, color: '#16A34A' },
+        { label: 'ê³ì½ì ì', value: contracts.length, color: '#2563EB' },
+        { label: 'ë§ë£ìë° ê³ì½', value: expiringContracts.length, color: '#DC2626' },
+        { label: 'ê°ì¬ ì¼ì ', value: audits.length, color: '#7C3AED' },
       ].map(s => <div key={s.label} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20, textAlign: 'center' }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
         <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{s.label}</div>
