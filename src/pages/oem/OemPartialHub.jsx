@@ -299,9 +299,76 @@ function QualityAgreementTab({ data, onChange }) {
   </SectionBox>
 }
 
-const TABS = ['개요', '공정 위탁현황', '계약서', '품질 협약', '감사 일정']
+const TABS = ['개요', '공정 위탁현황', '계약서', '품질 협약', '감사 일정', '공정 설정']
 
-export default function OemPartialHub() {
+export default function SetupTab({ data, onChange }) {
+  const LS_KEY_SETUP = 'qualytree.oem_partial_setup'
+  const DEFAULT_PROCS = [
+    { id: 1, name: '원자재 입고 검사', type: 'self', contractor: '' },
+    { id: 2, name: '가공·성형', type: 'self', contractor: '' },
+    { id: 3, name: '조립', type: 'self', contractor: '' },
+    { id: 4, name: '세척', type: 'self', contractor: '' },
+    { id: 5, name: '멸균', type: 'self', contractor: '' },
+    { id: 6, name: '공정 검사', type: 'self', contractor: '' },
+    { id: 7, name: '최종 검사', type: 'self', contractor: '' },
+    { id: 8, name: '포장·라벨링', type: 'self', contractor: '' },
+  ]
+  const [procs, setProcs] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_SETUP) || 'null') || DEFAULT_PROCS } catch { return DEFAULT_PROCS }
+  })
+  const [saved, setSaved] = React.useState(false)
+
+  const toggle = (id) => setProcs(ps => ps.map(p => p.id === id ? { ...p, type: p.type === 'self' ? 'outsource' : 'self', contractor: p.type === 'self' ? p.contractor : '' } : p))
+  const setContractor = (id, v) => setProcs(ps => ps.map(p => p.id === id ? { ...p, contractor: v } : p))
+
+  const save = () => {
+    localStorage.setItem(LS_KEY_SETUP, JSON.stringify(procs))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
+  }
+
+  const selfColor = '#D1FAE5'; const selfText = '#065F46'
+  const outColor = '#FEE2E2'; const outText = '#991B1B'
+
+  return (
+    <div style={{ padding: '4px 0 48px' }}>
+      <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 20 }}>
+        각 공정별 자체생산 / 위탁 여부를 설정하세요. 위탁 선택 시 수탁업체명을 입력할 수 있습니다.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        {procs.map(p => (
+          <div key={p.id} style={{ border: '1px solid', borderColor: p.type === 'outsource' ? '#FECACA' : '#D1FAE5', borderRadius: 10, padding: '14px 16px', background: p.type === 'outsource' ? '#FFF7F7' : '#F0FDF4' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: p.type === 'outsource' ? 10 : 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{p.name}</span>
+              <button onClick={() => toggle(p.id)} style={{ padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
+                {p.type === 'outsource' ? '위탁' : '자체'}
+              </button>
+            </div>
+            {p.type === 'outsource' && (
+              <input value={p.contractor} onChange={e => setContractor(p.id, e.target.value)} placeholder="수탁업체명" style={{ width: '100%', border: '1px solid #FECACA', borderRadius: 6, padding: '6px 10px', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>저장</button>
+        {saved && <span style={{ color: '#16A34A', fontSize: 13 }}>✓ 저장되었습니다</span>}
+      </div>
+      <div style={{ marginTop: 28, borderTop: '1px solid #E5E7EB', paddingTop: 20 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 12 }}>공정 위탁 현황 요약</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {procs.map(p => (
+            <span key={p.id} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
+              {p.name} · {p.type === 'outsource' ? (p.contractor || '위탁') : '자체'}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OemPartialHub() {
   const user = auth.current()
   const [tab, setTab] = useState(0)
   const [data, setData] = useState(() => load())
@@ -349,7 +416,8 @@ export default function OemPartialHub() {
     {tab === 2 && <ContractTab data={data} onChange={handleChange} />}
     {tab === 3 && <QualityAgreementTab data={data} onChange={handleChange} />}
     {tab === 4 && <AuditTab data={data} onChange={handleChange} />}
-  </div>
+  
+          {tab === 5 && <SetupTab data={data} onChange={d => { setData(d); save(d) }} />}</div>
     </AppLayout>
   )
 }
