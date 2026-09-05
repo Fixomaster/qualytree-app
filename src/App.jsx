@@ -25,6 +25,7 @@ try { OperatorConsole= React.lazy(() => import(/* @vite-ignore */ './pages/Opera
 try { PlanAdmin = React.lazy(() => import(/* @vite-ignore */ './pages/operator/PlanAdmin')) } catch {}
 try { MemberAdmin = React.lazy(() => import(/* @vite-ignore */ './pages/manager/MemberAdmin')) } catch {}
 try { AdminPermissionsHub = React.lazy(() => import(/* @vite-ignore */ './pages/admin/AdminPermissionsHub')) } catch {}
+try { SuperAdminHub = React.lazy(() => import(/* @vite-ignore */ './pages/operator/SuperAdminHub')) } catch {}
 try { Dashboard = React.lazy(() => import(/* @vite-ignore */ './pages/Dashboard')) } catch {}
 try { GMPSection = React.lazy(() => import(/* @vite-ignore */ './pages/section/GMPSection')) } catch {}
 try { Onboarding = React.lazy(() => import(/* @vite-ignore */ './pages/onboarding/Onboarding')) } catch {}
@@ -170,8 +171,8 @@ return (
 <Route path="/join" element={<PublicRoute><LazyRoute Component={JoinCompany} /></PublicRoute>} />
 <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
 <Route path="/operator" element={<LazyRoute Component={OperatorConsole} />} />
-<Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />
-      <Route path="/operator/super" element={<LazyRoute Component={SuperAdminHub} />} />} />
+<Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />} />
+      <Route path="/operator/super" element={<LazyRoute Component={SuperAdminHub} />} />
 <Route path="/manager/accounts" element={<LazyRoute Component={MemberAdmin} />} />
               <Route path="/admin/permissions" element={<LazyRoute Component={AdminPermissionsHub} />} />
 <Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
