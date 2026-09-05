@@ -173,6 +173,7 @@ return (
 <Route path="/operator" element={<LazyRoute Component={OperatorConsole} />} />
 <Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />} />
       <Route path="/operator/super" element={<LazyRoute Component={SuperAdminHub} />} />
+      <Route path="/ai-draft" element={<ProtectedRoute><AIDraftHub /></ProtectedRoute>} />
 <Route path="/manager/accounts" element={<LazyRoute Component={MemberAdmin} />} />
               <Route path="/admin/permissions" element={<LazyRoute Component={AdminPermissionsHub} />} />
 <Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
