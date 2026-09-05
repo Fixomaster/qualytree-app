@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabase'
 
 const DOC_TYPES = [
   { value: 'ncr',  label: '부적합보고서 (NCR)',       fields: ['department','product','description','date'] },
