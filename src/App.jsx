@@ -12,7 +12,7 @@ import CloudSyncIndicator from './components/CloudSyncIndicator'
 import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
 
 // ââ ê¸°ì¡´ íì´ì§ (pre-existing) ââââââââââââââââââââââââââââââââââââââ
-let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub
+let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub, SuperAdminHub
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
 let QualityHub, ContainmentHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
@@ -170,7 +170,8 @@ return (
 <Route path="/join" element={<PublicRoute><LazyRoute Component={JoinCompany} /></PublicRoute>} />
 <Route path="/signup/success" element={<PublicRoute><LazyRoute Component={SignupSuccess} /></PublicRoute>} />
 <Route path="/operator" element={<LazyRoute Component={OperatorConsole} />} />
-<Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />} />
+<Route path="/operator/plans" element={<LazyRoute Component={PlanAdmin} />
+      <Route path="/operator/super" element={<LazyRoute Component={SuperAdminHub} />} />} />
 <Route path="/manager/accounts" element={<LazyRoute Component={MemberAdmin} />} />
               <Route path="/admin/permissions" element={<LazyRoute Component={AdminPermissionsHub} />} />
 <Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
