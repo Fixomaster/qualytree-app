@@ -2,7 +2,6 @@
 // Every page is lazy+vite-ignore â Vite builds nothing page-level at compile time.
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import AIDraftHub from './pages/ai/AIDraftHub'
 import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initCloudSync } from './lib/cloudSync'
@@ -12,7 +11,7 @@ import CloudSyncIndicator from './components/CloudSyncIndicator'
 import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
 
 // ââ ê¸°ì¡´ íì´ì§ (pre-existing) ââââââââââââââââââââââââââââââââââââââ
-let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub, SuperAdminHub
+let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub, SuperAdminHub, AIDraftHub
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
 let QualityHub, ContainmentHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
@@ -26,6 +25,7 @@ try { PlanAdmin = React.lazy(() => import(/* @vite-ignore */ './pages/operator/P
 try { MemberAdmin = React.lazy(() => import(/* @vite-ignore */ './pages/manager/MemberAdmin')) } catch {}
 try { AdminPermissionsHub = React.lazy(() => import(/* @vite-ignore */ './pages/admin/AdminPermissionsHub')) } catch {}
 try { SuperAdminHub = React.lazy(() => import(/* @vite-ignore */ './pages/operator/SuperAdminHub')) } catch {}
+try { AIDraftHub = React.lazy(() => import(/* @vite-ignore */ './pages/ai/AIDraftHub')) } catch {}
 try { Dashboard = React.lazy(() => import(/* @vite-ignore */ './pages/Dashboard')) } catch {}
 try { GMPSection = React.lazy(() => import(/* @vite-ignore */ './pages/section/GMPSection')) } catch {}
 try { Onboarding = React.lazy(() => import(/* @vite-ignore */ './pages/onboarding/Onboarding')) } catch {}
