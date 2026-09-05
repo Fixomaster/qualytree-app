@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Shield, Plus, ChevronDown, ChevronRight, CheckCircle, Circle, AlertCircle, Clock, FileText, ExternalLink, Trash2, Edit2, X, BookOpen, Package } from 'lucide-react'
+import { Shield, Plus, ChevronDown, ChevronRight, CheckCircle, Circle, AlertCircle, Clock, FileText, ExternalLink, Trash2, Pencil, X, BookOpen, Package } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { useNavigate } from 'react-router-dom'
@@ -516,7 +516,7 @@ export default function RegulatoryHub() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button onClick={() => startEdit(p)}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 7, border: '1px solid #D1D5DB', background: 'white', cursor: 'pointer', fontSize: 13 }}>
-                <Edit2 size={13} /> 수정
+                <Pencil size={13} /> 수정
               </button>
               <button onClick={() => navigate('/import-clearance')}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', borderRadius: 7, border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#2563EB', cursor: 'pointer', fontSize: 13 }}>
@@ -570,7 +570,7 @@ export default function RegulatoryHub() {
         <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
           {[
             { label: '전체 품목', val: stats.total, color: '#374151' },
-            { label: 'm��가 완료', val: stats.approved, color: '#059669' },
+            { label: 'm��가 완료', val: stats.approved, color: '#059669' },
             { label: '심사/제출', val: stats.review,   color: '#2563EB' },
             { label: '준비중',    val: stats.preparing, color: '#D97706' },
           ].map(s => (
