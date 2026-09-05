@@ -125,13 +125,14 @@ export default function ImprovementHub() {
           subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적 · 트렌드 분석"
           icon={TrendingUp}
           color="#10B981"
-              <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
-                <AIDraftButton docType="ncr" />
           quickActions={[
             { label: '과제 등록', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
           ]}
           workflow={['아이디어 제안', '과제 승인', '실행 계획', '개선 실시', '효과 검증', '완료 공유']}
         />
+        <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'12px' }}>
+          <AIDraftButton docType="ncr" />
+        </div>
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
