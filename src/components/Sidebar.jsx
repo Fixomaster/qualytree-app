@@ -23,6 +23,7 @@ Building2,
   Share2,
 Printer,
   Users,
+  Sparkles,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -326,6 +327,19 @@ fontWeight: isActive ? 600 : 500,
 <BadgeCheck size={16} strokeWidth={1.7} />
 <span>인허가</span>
 </NavLink>
+
+      <NavLink
+        to="/ai-draft"
+        className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+        style={({ isActive }) => ({
+          color: isActive ? 'var(--moss)' : 'var(--ink)',
+          background: isActive ? 'var(--leaf-soft)' : 'transparent',
+          fontWeight: isActive ? 600 : 500,
+        })}
+      >
+        <Sparkles size={16} strokeWidth={1.7} />
+        <span>AI 초안</span>
+      </NavLink>
 
 {hasImport && (
 <>
