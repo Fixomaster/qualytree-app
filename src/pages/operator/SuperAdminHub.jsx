@@ -4,7 +4,7 @@
  * 탭: 회사 목록 | 구독 관리 | 결제 내역 | 플랜 설정
  */
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 
 const PLANS = [
   { key: 'free',       label: '무료',         price: 0,      aiLimit: 10,  color: '#888' },
