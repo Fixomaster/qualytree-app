@@ -45,7 +45,7 @@ export default function AIDraftHub() {
   async function loadUsage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    const companyId = session.user?.user_metadata?.company_id
+    const companyId = session.user?.user_metadata?.company_id || session.user?.id
     if (!companyId) return
     const ym = new Date().toISOString().slice(0, 7)
     const { data } = await supabase
@@ -64,8 +64,7 @@ export default function AIDraftHub() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) throw new Error('로그인이 필요합니다.')
-      const companyId = session.user?.user_metadata?.company_id
-      if (!companyId) throw new Error('회사 정보를 찾을 수 없습니다.')
+      const companyId = session.user?.user_metadata?.company_id || session.user?.id
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-draft`,
