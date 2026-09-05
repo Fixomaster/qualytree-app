@@ -231,5 +231,6 @@ ALTER TABLE ai_usage_log ENABLE ROW LEVEL SECURITY;
 -- supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`}</pre>
       </details>
     </div>
+    </AppLayout>
   )
 }
