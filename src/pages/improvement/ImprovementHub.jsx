@@ -182,7 +182,6 @@ export default function ImprovementHub() {
             >
               <Icon size={14} />{label}
             </button>
-              </div>
           ))}
         </div>
 
