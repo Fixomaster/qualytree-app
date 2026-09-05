@@ -327,6 +327,7 @@ export default function DocControlHub() {
                 <option value="all">전체 상태</option>
                 {Object.entries(DOC_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
+              <AIDraftButton docType="sop" />
               {canEdit && (
                 <button onClick={() => { setForm(EMPTY_DOC); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
