@@ -1,6 +1,7 @@
 // src/pages/doc-control/DocControlHub.jsx
 // ISO 13485 §4.2.3 문서 관리 + §4.2.4 기록 관리
 import React, { useState, useMemo } from 'react'
+import AIDraftButton from '../../components/AIDraftButton'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, FileText, History,
