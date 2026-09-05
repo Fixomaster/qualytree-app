@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
+import AppLayout from '../../components/AppLayout'
 
 const DOC_TYPES = [
   { value: 'ncr',  label: '부적합보고서 (NCR)',       fields: ['department','product','description','date'] },
@@ -103,6 +104,7 @@ export default function AIDraftHub() {
   const usedPct = usage ? Math.min((usage.used / limit) * 100, 100) : 0
 
   return (
+    <AppLayout>
     <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       {/* 헤더 */}
       <div style={{ marginBottom: '24px' }}>
