@@ -343,57 +343,6 @@ export default function RegulatoryHub() {
   }
 
   // ── product card ───────────────────────────────────────────────────────────
-  function ProductCard({ p }) {
-    const cls = CLASS_CFG[p.classNo] || CLASS_CFG['2']
-    const st = STATUS_CFG[p.status] || STATUS_CFG.preparing
-    const docs = DOCS_BY_CLASS[p.classNo] || []
-    const checkedCount = docs.filter(d => p.docs[d.id]).length
-    const docPct = docs.length ? Math.round((checkedCount / docs.length) * 100) : 0
-    const isExpanded = expandedId === p.id
-
-    return (
-      <div style={{ border: '1px solid #E5E7EB', borderRadius: 12, overflow: 'hidden', marginBottom: 12 }}>
-        {/* card header */}
-        <div style={{ padding: '14px 18px', background: 'white', cursor: 'pointer' }}
-          onClick={() => setExpandedId(isExpanded ? null : p.id)}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Package size={18} color={cls.color} style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {p.name || '(제품명 없음)'}
-              </div>
-              <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-                {p.modelNo && <span style={{ marginRight: 10 }}>{p.modelNo}</span>}
-                {p.licenseNo && <span style={{ marginRight: 10 }}>허가번호: {p.licenseNo}</span>}
-                {p.originCountry && <span>원산지: {p.originCountry}</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShr  </div>
-                <div style={{ paddingBottom: i < tl.length - 1 ? 8 : 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{t.step}</div>
-                  <div style={{ fontSize: 11, color: '#6B7280' }}>{t.days >= 30 ? `약 ${Math.round(t.days/30)}개월` : `${t.days}일`} · {t.tip}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        {/* 규제 링크 */}
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid #E5E7EB' }}>
-          <div style={{ fontWeight: 700, fontSize: 12, color: '#9CA3AF', marginBottom: 8 }}>참조 링크</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {REG_LINKS.map((l, i) => (
-              <a key={i} href={l.url} target="_blank" rel="noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#2563EB', textDecoration: 'none',
-                  padding: '4px 10px', border: '1px solid #BFDBFE', borderRadius: 6, background: '#EFF6FF' }}>
-                <ExternalLink size={10} /> {l.label}
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   // ── product card ───────────────────────────────────────────────────────────
   function ProductCard({ p }) {
     const cls = CLASS_CFG[p.classNo] || CLASS_CFG['2']
