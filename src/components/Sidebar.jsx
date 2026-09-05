@@ -592,6 +592,17 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 <Crown size={16} strokeWidth={1.7} />
 <span>플랜·요금 관리</span>
 </NavLink>
+<NavLink
+  to="/operator/super"
+  className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+  style={({ isActive }) => ({
+    color: isActive ? 'var(--moss)' : 'var(--ink-soft)',
+    background: isActive ? 'var(--leaf-soft)' : 'transparent',
+  })}
+>
+  <Crown size={16} strokeWidth={1.7} />
+  <span>Super Admin</span>
+</NavLink>
 </>
 )}
 
