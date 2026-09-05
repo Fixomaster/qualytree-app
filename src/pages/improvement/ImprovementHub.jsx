@@ -1,6 +1,7 @@
 // src/pages/improvement/ImprovementHub.jsx
 // ISO 13485:2016 §8.5 개선활동 허브
 import React, { useState, useMemo } from 'react'
+import AIDraftButton from '../../components/AIDraftButton'
 import { useSearchParams, Link } from 'react-router-dom'
 import {
   TrendingUp, Plus, BarChart2, CheckCircle2,
@@ -124,6 +125,8 @@ export default function ImprovementHub() {
           subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적 · 트렌드 분석"
           icon={TrendingUp}
           color="#10B981"
+              <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
+                <AIDraftButton docType="ncr" />
           quickActions={[
             { label: '과제 등록', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
           ]}
@@ -178,6 +181,7 @@ export default function ImprovementHub() {
             >
               <Icon size={14} />{label}
             </button>
+              </div>
           ))}
         </div>
 
@@ -260,14 +264,17 @@ export default function ImprovementHub() {
           </>
         )}
 
-        {tab === 'capa' && (
+        {tab === 'capa' && (<>
+            <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'12px' }}>
+              <AIDraftButton docType="capa" />
+            </div>
           <CapaList
             capas={allCapas}
             selectedId={selectedCapaId}
             onSelect={setSelectedCapaId}
             onChanged={() => setCapaRefresh((t) => t + 1)}
           />
-        )}
+        </>)}
         {tab === 'trend' && <TrendTab items={items} />}
       </div>
     </AppLayout>
