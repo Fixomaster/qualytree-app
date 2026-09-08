@@ -519,7 +519,7 @@ export default function RegulatoryHub() {
         <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
           {[
             { label: '전체 품목', val: stats.total, color: '#374151' },
-            { label: 'm��가 완료', val: stats.approved, color: '#059669' },
+            { label: '인허가 완료', val: stats.approved, color: '#059669' },
             { label: '심사/제출', val: stats.review,   color: '#2563EB' },
             { label: '준비중',    val: stats.preparing, color: '#D97706' },
           ].map(s => (

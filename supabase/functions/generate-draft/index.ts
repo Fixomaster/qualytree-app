@@ -97,13 +97,15 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id,month' })
 
-    // 7. 감사 로그
-    await supabase.from('audit_log').insert({
-      user_id:    user.id,
-      company_id: companyId,
-      action:     'ai_draft_generated',
-      target:     docType,
-      meta:       { tokens_used: claudeData.usage?.output_tokens ?? 0 },
+    // 7. 감사 로그 (audit_logs — 20260825_audit_trail.sql 스키마와 일치시킴)
+    await supabase.from('audit_logs').insert({
+      user_id:     user.id,
+      user_email:  user.email ?? 'unknown',
+      company_id:  companyId,
+      action:      'ai_draft_generated',
+      entity_type: 'ai_draft',
+      entity_id:   docType,
+      after_data:  { tokens_used: claudeData.usage?.output_tokens ?? 0 },
     })
 
     return new Response(JSON.stringify({

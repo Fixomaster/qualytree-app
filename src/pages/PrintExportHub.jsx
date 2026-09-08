@@ -53,7 +53,7 @@ function genGmpSelfInspection(company) {
   if (!sessions.length) return null
   const s = sessions[0]
 
-  const LABELS = { pass: '적͕�', fail: '부적합', partial: '부분적합', na: '해당없음' }
+  const LABELS = { pass: '적합', fail: '부적합', partial: '부분적합', na: '해당없음' }
   const BADGE  = { pass: 'pass', fail: 'fail', partial: 'partial', na: 'na' }
 
   const rows = Object.entries(s.results || {}).map(([id, r]) => `
