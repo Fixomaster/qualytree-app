@@ -476,10 +476,10 @@ export default function Login() {
           </div>
 
           <ul className="mt-6 space-y-2 text-[12.5px]" style={{ color: 'rgba(248,244,236,0.86)' }}>
-            <Bullet text="RA 비전공자도 화면 안내만 따라가면 인허가 서류 자동 완성" />
-            <Bullet text="담당자가 바뀌어도 5분 안에 인수인계 — 결정 일지 자동 누적" />
-            <Bullet text="ISO 13485 + FDA QMSR + KGMP + EU MDR 동시 매핑" />
-            <Bullet text="21 CFR Part 11 무결성 + GAMP 5 검증 + BYOK 백업" />
+            <Bullet text="인허가(RA)와 품질경영시스템(eQMS)을 하나의 체계로" />
+            <Bullet text="담당자가 누구든, 경력이 얼마든 — 같은 기준, 같은 기록" />
+            <Bullet text="ISO 13485 · KGMP · FDA QMSR · EU MDR · MDSAP 대응" />
+            <Bullet text="전자기록·전자서명, 감사 추적 — 규제급 데이터 무결성" />
           </ul>
         </div>
 
