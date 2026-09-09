@@ -363,7 +363,7 @@ export default function Signup() {
                   type="text"
                   value={companyName}
                   onChange={(e) => { setCompanyName(e.target.value); resetBizVerify() }}
-                  placeholder="사업자등록증 기재 상호 (예: 주식회사 모레컴퍼니)"
+                  placeholder="사업자등록증 기재 상호"
                   style={styles.input}
                   autoFocus
                 />
