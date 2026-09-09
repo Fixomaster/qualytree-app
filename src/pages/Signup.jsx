@@ -76,6 +76,46 @@ export default function Signup() {
   const [industry, setIndustry] = useState('')
   const [employeeCountBand, setEmployeeCountBand] = useState('1-10')
 
+  // Step 1 — 사업자 진위확인 (국세청). 확인 전에는 나머지 회사 정보 입력이 잠긴다.
+  const [startDate, setStartDate] = useState('')          // 개업일자 YYYYMMDD
+  const [bizVerify, setBizVerify] = useState({ state: 'idle', msg: '', status: '' }) // idle|checking|ok|fail|unavailable
+  const bizLocked = !(bizVerify.state === 'ok' || bizVerify.state === 'unavailable')
+  const resetBizVerify = () => { if (bizVerify.state !== 'idle') setBizVerify({ state: 'idle', msg: '', status: '' }) }
+
+  const verifyBusiness = async () => {
+    const b_no = businessNumber.replace(/\D/g, '')
+    const start_dt = startDate.replace(/\D/g, '')
+    if (b_no.length !== 10) { setError('사업자등록번호 10자리를 입력해주세요.'); return }
+    if (!representative.trim()) { setError('대표자명을 입력해주세요.'); return }
+    if (start_dt.length !== 8) { setError('개업일자를 YYYYMMDD 8자리로 입력해주세요. (사업자등록증 기재 기준)'); return }
+    setError('')
+    setBizVerify({ state: 'checking', msg: '국세청에 확인 중…', status: '' })
+    try {
+      const r = await fetch('/api/verify-business', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ b_no, p_nm: representative.trim(), start_dt, b_nm: companyName.trim() }),
+      })
+      const j = await r.json().catch(() => null)
+      if (!j) { setBizVerify({ state: 'fail', msg: '확인 서버 응답이 없습니다. 잠시 후 다시 시도해주세요.', status: '' }); return }
+      if (!j.ok && j.error === 'not_configured') {
+        setBizVerify({ state: 'unavailable', msg: '사업자 확인 서비스가 준비 중입니다. 입력하신 정보는 운영팀이 사업자등록증으로 직접 확인합니다.', status: '' })
+        return
+      }
+      if (!j.ok) { setBizVerify({ state: 'fail', msg: j.message || '확인에 실패했습니다.', status: '' }); return }
+      if (!j.valid) {
+        setBizVerify({ state: 'fail', msg: '국세청 등록 정보와 일치하지 않습니다. 사업자등록번호·대표자명·개업일자를 사업자등록증과 대조해주세요.', status: '' })
+        return
+      }
+      if (j.status && j.status !== '계속사업자') {
+        setBizVerify({ state: 'fail', msg: `국세청 기준 현재 상태가 "${j.status}"입니다. 영업 중인 사업자만 가입할 수 있습니다.`, status: j.status })
+        return
+      }
+      setBizVerify({ state: 'ok', msg: `확인되었습니다 · ${j.status || '계속사업자'}${j.taxType ? ' · ' + j.taxType : ''}`, status: j.status })
+    } catch (e) {
+      setBizVerify({ state: 'fail', msg: '확인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.', status: '' })
+    }
+  }
+
   // Step 2 — 플랜·관리자
   const [desiredPlan, setDesiredPlan] = useState('bundle')
   const [desiredBillingCycle, setDesiredBillingCycle] = useState('monthly')
@@ -94,8 +134,11 @@ export default function Signup() {
   const calcRef = useRef(null)
 
   const validateStep1 = () => {
+    if (!businessNumber.trim()) return '사업자등록번호를 입력해주세요.'
+    if (!representative.trim()) return '대표자명을 입력해주세요.'
+    if (bizLocked) return '먼저 [사업자 확인]을 눌러 국세청 등록 정보와 일치하는지 확인해주세요.'
     if (!companyName.trim()) return '회사명을 입력해주세요.'
-    if (!businessNumber.trim()) return '사업자등록번호를 입력해주세요.'; if (!representative.trim()) return '대표자명을 입력해주세요.'; if (!employeeCountBand) return '직원 수 구간을 선택해주세요.'
+    if (!employeeCountBand) return '직원 수 구간을 선택해주세요.'
     return ''
   }
 
@@ -301,33 +344,69 @@ export default function Signup() {
 
         {step === 1 && (
           <div style={styles.form}>
-            <Field label="회사명 *">
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="예: 모레컴퍼니"
-                style={styles.input}
-                autoFocus
-              />
-            </Field>
-            <Field label="사업자등록번호 *">
-              <input
-                type="text"
-                value={businessNumber}
-                onChange={(e) => setBusinessNumber(e.target.value)}
-                placeholder="000-00-00000"
-                style={styles.input}
-              />
-            </Field>
-            <Field label="대표자명 *">
-              <input
-                type="text"
-                value={representative}
-                onChange={(e) => setRepresentative(e.target.value)}
-                style={styles.input}
-              />
-            </Field>
+            <div style={styles.verifyBox}>
+              <div style={styles.verifyTitle}>1. 사업자 확인 <span style={styles.verifyHint}>국세청 등록 정보와 대조합니다 — 사업자등록증을 준비해주세요</span></div>
+              <Field label="사업자등록번호 *">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={businessNumber}
+                  onChange={(e) => { setBusinessNumber(e.target.value); resetBizVerify() }}
+                  placeholder="000-00-00000"
+                  style={styles.input}
+                  autoFocus
+                />
+              </Field>
+              <div style={styles.row2}>
+                <Field label="대표자명 *">
+                  <input
+                    type="text"
+                    value={representative}
+                    onChange={(e) => { setRepresentative(e.target.value); resetBizVerify() }}
+                    placeholder="사업자등록증 기재 대표자"
+                    style={styles.input}
+                  />
+                </Field>
+                <Field label="개업일자 *">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={startDate}
+                    onChange={(e) => { setStartDate(e.target.value); resetBizVerify() }}
+                    placeholder="YYYYMMDD"
+                    style={styles.input}
+                  />
+                </Field>
+              </div>
+              <div style={styles.verifyRow}>
+                <button
+                  type="button"
+                  onClick={verifyBusiness}
+                  disabled={bizVerify.state === 'checking' || bizVerify.state === 'ok'}
+                  style={{ ...styles.verifyBtn, ...(bizVerify.state === 'ok' ? styles.verifyBtnDone : {}) }}
+                >
+                  {bizVerify.state === 'checking' ? '확인 중…' : bizVerify.state === 'ok' ? '확인 완료 ✓' : '사업자 확인'}
+                </button>
+                {bizVerify.msg && (
+                  <div style={bizVerify.state === 'ok' ? styles.verifyOk : bizVerify.state === 'fail' ? styles.verifyFail : styles.verifyNote}>
+                    {bizVerify.msg}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div style={{ ...styles.lockedWrap, ...(bizLocked ? styles.lockedOn : {}) }}>
+              <div style={styles.verifyTitle}>2. 회사 정보 {bizLocked && <span style={styles.verifyHint}>사업자 확인 후 입력할 수 있습니다</span>}</div>
+              <Field label="회사명 *">
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="사업자등록증 기재 상호 (예: 주식회사 모레컴퍼니)"
+                  style={styles.input}
+                  disabled={bizLocked}
+                />
+              </Field>
             <Field label="업종">
               <input
                 type="text"
@@ -335,6 +414,7 @@ export default function Signup() {
                 onChange={(e) => setIndustry(e.target.value)}
                 placeholder="예: 의료기기 제조"
                 style={styles.input}
+                disabled={bizLocked}
               />
             </Field>
             <Field label="직원 수 구간 *">
@@ -342,12 +422,14 @@ export default function Signup() {
                 value={employeeCountBand}
                 onChange={(e) => setEmployeeCountBand(e.target.value)}
                 style={styles.input}
+                disabled={bizLocked}
               >
                 {EMPLOYEE_BANDS.map((b) => (
                   <option key={b.code} value={b.code}>{b.label}</option>
                 ))}
               </select>
             </Field>
+            </div>
 
             <div style={styles.actions}>
               <Link to="/login" style={styles.linkButton}>로그인으로 돌아가기</Link>
@@ -537,6 +619,18 @@ const styles = {
     fontSize: 14, fontFamily: 'inherit', outline: 'none',
   },
   divider: { height: 1, background: '#e7e5e4', margin: '8px 0' },
+  verifyBox: { border: '1px solid #d6e5dc', background: '#f4faf6', borderRadius: 12, padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 },
+  verifyTitle: { fontSize: 13.5, fontWeight: 600, color: '#1c1917', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 },
+  verifyHint: { fontSize: 12, fontWeight: 400, color: '#78716c' },
+  row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 },
+  verifyRow: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+  verifyBtn: { border: 'none', background: '#16352b', color: '#fff', padding: '10px 16px', borderRadius: 9, fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' },
+  verifyBtnDone: { background: '#0E7A4F', cursor: 'default' },
+  verifyOk: { fontSize: 13, color: '#1c4532', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 9, padding: '8px 12px', flex: 1, minWidth: 200 },
+  verifyFail: { fontSize: 13, color: '#7f1d1d', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 9, padding: '8px 12px', flex: 1, minWidth: 200 },
+  verifyNote: { fontSize: 13, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 9, padding: '8px 12px', flex: 1, minWidth: 200 },
+  lockedWrap: { display: 'flex', flexDirection: 'column', gap: 16, transition: 'opacity .2s' },
+  lockedOn: { opacity: 0.45, pointerEvents: 'none' },
   sumCard: { border: '1px solid #e7e5e4', borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, background: '#fafaf9' },
   sumRow: { display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#44403c' },
   sumTotal: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', borderTop: '1px solid #e7e5e4', paddingTop: 12, marginTop: 2, fontSize: 15, color: '#1c1917', fontWeight: 600 },
