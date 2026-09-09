@@ -16,6 +16,8 @@ import { DEFAULT_PLANS } from '../lib/plans'
 // 플랜은 lib/plans 단일 소스에서 도출 (운영자/온보딩과 동일 모델)
 const PLANS = DEFAULT_PLANS.map((p) => ({ code: p.id, label: p.name, desc: (p.features || []).join(' · ') }))
 
+const BIZ_TYPES = ['제조', '수입', '제조 + 수입', '위탁제조 (OEM/ODM)', '유통·판매', '기타']
+const SECTORS = ['의료기기 (기구·기계)', '의료기기 (의료용품)', '체외진단의료기기', '치과재료', '소프트웨어·디지털 (SaMD)', '재생의료·조직공학', '기타']
 const EMPLOYEE_BANDS = [
   { code: '1-10',  label: '1~10명' },
   { code: '11-30', label: '11~30명' },
@@ -73,7 +75,10 @@ export default function Signup() {
   const [companyName, setCompanyName] = useState('')
   const [businessNumber, setBusinessNumber] = useState('')
   const [representative, setRepresentative] = useState('')
-  const [industry, setIndustry] = useState('')
+  const [industry, setIndustry] = useState('')          // 저장용: 아래 세 항목을 합쳐서 구성
+  const [bizType, setBizType] = useState('')            // 사업 형태: 제조 / 수입 / 제조+수입 / 위탁제조(OEM) / 기타
+  const [sector, setSector] = useState('')              // 업종(대분류)
+  const [productItems, setProductItems] = useState('')  // 구체적 품목
   const [employeeCountBand, setEmployeeCountBand] = useState('1-10')
 
   // Step 1 — 사업자 진위확인 (국세청). 확인 전에는 나머지 회사 정보 입력이 잠긴다.
@@ -88,6 +93,7 @@ export default function Signup() {
   const verifyBusiness = async () => {
     const b_no = businessNumber.replace(/\D/g, '')
     const start_dt = startDate.replace(/\D/g, '')
+    if (!companyName.trim()) { setError('회사명(상호)을 입력해주세요.'); return }
     if (b_no.length !== 10) { setError('사업자등록번호 10자리를 입력해주세요.'); return }
     if (!representative.trim()) { setError('대표자명을 입력해주세요.'); return }
     if (start_dt.length !== 8) { setError('개업연월일을 8자리(YYYY-MM-DD)로 입력해주세요. 사업자등록증의 "개업연월일" 항목 기준입니다.'); return }
@@ -137,10 +143,13 @@ export default function Signup() {
   const calcRef = useRef(null)
 
   const validateStep1 = () => {
+    if (!companyName.trim()) return '회사명을 입력해주세요.'
     if (!businessNumber.trim()) return '사업자등록번호를 입력해주세요.'
     if (!representative.trim()) return '대표자명을 입력해주세요.'
     if (bizLocked) return '먼저 [사업자 확인]을 눌러 국세청 등록 정보와 일치하는지 확인해주세요.'
-    if (!companyName.trim()) return '회사명을 입력해주세요.'
+    if (!bizType) return '사업 형태를 선택해주세요.'
+    if (!sector) return '업종을 선택해주세요.'
+    if (!productItems.trim()) return '구체적 품목을 입력해주세요.'
     if (!employeeCountBand) return '직원 수 구간을 선택해주세요.'
     return ''
   }
@@ -183,7 +192,7 @@ export default function Signup() {
       companyName: companyName.trim(),
       businessNumber: businessNumber.trim(),
       representative: representative.trim(),
-      industry: industry.trim(),
+      industry: [bizType, sector, productItems.trim()].filter(Boolean).join(' | ') || industry.trim(),
       employeeCountBand,
       desiredPlan,
       desiredBillingCycle,
@@ -349,6 +358,16 @@ export default function Signup() {
           <div style={styles.form}>
             <div style={styles.verifyBox}>
               <div style={styles.verifyTitle}>1. 사업자 확인 <span style={styles.verifyHint}>국세청 등록 정보와 대조합니다 — 사업자등록증을 준비해주세요</span></div>
+              <Field label="회사명 (상호) *">
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => { setCompanyName(e.target.value); resetBizVerify() }}
+                  placeholder="사업자등록증 기재 상호 (예: 주식회사 모레컴퍼니)"
+                  style={styles.input}
+                  autoFocus
+                />
+              </Field>
               <Field label="사업자등록번호 *">
                 <input
                   type="text"
@@ -358,7 +377,6 @@ export default function Signup() {
                   placeholder="000-00-00000"
                   maxLength={12}
                   style={styles.input}
-                  autoFocus
                 />
               </Field>
               <div style={styles.row2}>
@@ -402,26 +420,28 @@ export default function Signup() {
 
             <div style={{ ...styles.lockedWrap, ...(bizLocked ? styles.lockedOn : {}) }}>
               <div style={styles.verifyTitle}>2. 회사 정보 {bizLocked && <span style={styles.verifyHint}>사업자 확인 후 입력할 수 있습니다</span>}</div>
-              <Field label="회사명 *">
+              <Field label="사업 형태 *">
+                <select value={bizType} onChange={(e) => setBizType(e.target.value)} style={styles.input} disabled={bizLocked}>
+                  <option value="">선택</option>
+                  {BIZ_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+              <Field label="업종 *">
+                <select value={sector} onChange={(e) => setSector(e.target.value)} style={styles.input} disabled={bizLocked}>
+                  <option value="">선택</option>
+                  {SECTORS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Field>
+              <Field label="구체적 품목 *">
                 <input
                   type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="사업자등록증 기재 상호 (예: 주식회사 모레컴퍼니)"
+                  value={productItems}
+                  onChange={(e) => setProductItems(e.target.value)}
+                  placeholder="예: 척추 고정용 임플란트, 골절 고정용 플레이트·스크류"
                   style={styles.input}
                   disabled={bizLocked}
                 />
               </Field>
-            <Field label="업종">
-              <input
-                type="text"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-                placeholder="예: 의료기기 제조"
-                style={styles.input}
-                disabled={bizLocked}
-              />
-            </Field>
             <Field label="직원 수 구간 *">
               <select
                 value={employeeCountBand}
