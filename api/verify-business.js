@@ -43,7 +43,8 @@ export default async function handler(req, res) {
     const r = await fetch(`${NTS_VALIDATE}?serviceKey=${encodeURIComponent(key)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ businesses: [{ b_no, start_dt, p_nm, ...(b_nm ? { b_nm } : {}) }] }),
+      // 국세청 진위확인은 b_no·start_dt·p_nm 3개로 대조한다. 상호(b_nm)는 표기 차이로 오판 소지가 있어 보내지 않는다.
+      body: JSON.stringify({ businesses: [{ b_no, start_dt, p_nm }] }),
     })
     const j = await r.json().catch(() => null)
     if (!r.ok || !j || !Array.isArray(j.data) || !j.data[0]) {
@@ -51,7 +52,8 @@ export default async function handler(req, res) {
       return
     }
     const d = j.data[0]
-    const valid = d.valid === '01'
+    const valid = String(d.valid) === '01'
+    console.log('nts validate', { b_no: b_no.slice(0,3)+'****', start_dt, p_nm_len: p_nm.length, valid: d.valid, valid_msg: d.valid_msg, b_stt: d.status && d.status.b_stt })
     const st = d.status || {}
     res.status(200).json({
       ok: true,

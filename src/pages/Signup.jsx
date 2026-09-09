@@ -112,7 +112,7 @@ export default function Signup() {
       }
       if (!j.ok) { setBizVerify({ state: 'fail', msg: j.message || '확인에 실패했습니다.', status: '' }); return }
       if (!j.valid) {
-        setBizVerify({ state: 'fail', msg: '국세청 등록 정보와 일치하지 않습니다. 사업자등록번호·대표자명·개업연월일을 사업자등록증과 대조해주세요. (개업연월일은 등록증의 "개업연월일" 항목이며, 발급일·등록일과 다를 수 있습니다)', status: '' })
+        setBizVerify({ state: 'fail', msg: `국세청 등록 정보와 일치하지 않습니다${j.validMsg ? ` (국세청 응답: ${j.validMsg})` : ''}. 보낸 값 — 번호 ${b_no.slice(0,3)}-${b_no.slice(3,5)}-${b_no.slice(5)} / 대표자 "${representative.trim()}" / 개업연월일 ${start_dt.slice(0,4)}-${start_dt.slice(4,6)}-${start_dt.slice(6)}. 사업자등록증의 "개업연월일" 항목(등록일·발급일 아님)과 대표자 성명 표기를 그대로 맞춰 주세요. 공동대표는 그중 1인만 입력합니다.`, status: '' })
         return
       }
       if (j.status && j.status !== '계속사업자') {
