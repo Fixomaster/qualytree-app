@@ -81,13 +81,16 @@ export default function Signup() {
   const [bizVerify, setBizVerify] = useState({ state: 'idle', msg: '', status: '' }) // idle|checking|ok|fail|unavailable
   const bizLocked = !(bizVerify.state === 'ok' || bizVerify.state === 'unavailable')
   const resetBizVerify = () => { if (bizVerify.state !== 'idle') setBizVerify({ state: 'idle', msg: '', status: '' }) }
+  // 입력 자동 서식: 사업자등록번호 000-00-00000, 개업연월일 YYYY-MM-DD (저장·조회 시에는 숫자만 사용)
+  const fmtBizNo = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 10); return d.length > 5 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d.length > 3 ? `${d.slice(0, 3)}-${d.slice(3)}` : d }
+  const fmtDate = (v) => { const d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 6 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` : d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d }
 
   const verifyBusiness = async () => {
     const b_no = businessNumber.replace(/\D/g, '')
     const start_dt = startDate.replace(/\D/g, '')
     if (b_no.length !== 10) { setError('사업자등록번호 10자리를 입력해주세요.'); return }
     if (!representative.trim()) { setError('대표자명을 입력해주세요.'); return }
-    if (start_dt.length !== 8) { setError('개업일자를 YYYYMMDD 8자리로 입력해주세요. (사업자등록증 기재 기준)'); return }
+    if (start_dt.length !== 8) { setError('개업연월일을 8자리(YYYY-MM-DD)로 입력해주세요. 사업자등록증의 "개업연월일" 항목 기준입니다.'); return }
     setError('')
     setBizVerify({ state: 'checking', msg: '국세청에 확인 중…', status: '' })
     try {
@@ -103,7 +106,7 @@ export default function Signup() {
       }
       if (!j.ok) { setBizVerify({ state: 'fail', msg: j.message || '확인에 실패했습니다.', status: '' }); return }
       if (!j.valid) {
-        setBizVerify({ state: 'fail', msg: '국세청 등록 정보와 일치하지 않습니다. 사업자등록번호·대표자명·개업일자를 사업자등록증과 대조해주세요.', status: '' })
+        setBizVerify({ state: 'fail', msg: '국세청 등록 정보와 일치하지 않습니다. 사업자등록번호·대표자명·개업연월일을 사업자등록증과 대조해주세요. (개업연월일은 등록증의 "개업연월일" 항목이며, 발급일·등록일과 다를 수 있습니다)', status: '' })
         return
       }
       if (j.status && j.status !== '계속사업자') {
@@ -351,8 +354,9 @@ export default function Signup() {
                   type="text"
                   inputMode="numeric"
                   value={businessNumber}
-                  onChange={(e) => { setBusinessNumber(e.target.value); resetBizVerify() }}
+                  onChange={(e) => { setBusinessNumber(fmtBizNo(e.target.value)); resetBizVerify() }}
                   placeholder="000-00-00000"
+                  maxLength={12}
                   style={styles.input}
                   autoFocus
                 />
@@ -367,13 +371,14 @@ export default function Signup() {
                     style={styles.input}
                   />
                 </Field>
-                <Field label="개업일자 *">
+                <Field label="개업연월일 * (사업자등록증 '개업연월일' 항목)">
                   <input
                     type="text"
                     inputMode="numeric"
                     value={startDate}
-                    onChange={(e) => { setStartDate(e.target.value); resetBizVerify() }}
-                    placeholder="YYYYMMDD"
+                    onChange={(e) => { setStartDate(fmtDate(e.target.value)); resetBizVerify() }}
+                    placeholder="YYYY-MM-DD"
+                    maxLength={10}
                     style={styles.input}
                   />
                 </Field>
