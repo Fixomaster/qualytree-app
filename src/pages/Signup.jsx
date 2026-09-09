@@ -7,14 +7,10 @@
 //  - 모든 에러는 문자열로만 state에 저장 (React error #31 차단)
 //  - 제출 버튼 외에는 어떤 비동기 호출도 없음
 
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { DEFAULT_PLANS } from '../lib/plans'
-
-// 플랜은 lib/plans 단일 소스에서 도출 (운영자/온보딩과 동일 모델)
-const PLANS = DEFAULT_PLANS.map((p) => ({ code: p.id, label: p.name, desc: (p.features || []).join(' · ') }))
 
 const BIZ_TYPES = ['제조', '수입', '제조 + 수입', '위탁제조 (OEM/ODM)', '유통·판매', '기타']
 const SECTORS = ['의료기기 (기구·기계)', '의료기기 (의료용품)', '체외진단의료기기', '치과재료', '소프트웨어·디지털 (SaMD)', '재생의료·조직공학', '기타']
@@ -25,28 +21,96 @@ const EMPLOYEE_BANDS = [
   { code: '51+',   label: '51명 이상' },
 ]
 
-const CERTS = ['KGMP', 'ISO 13485', 'FDA QMSR', 'EU MDR', 'MDSAP']
+// ---- 요금 모델 (2026-09 확정) -------------------------------------------------
+// 기본 QMS + 인증 1개 = 월 300만원 (VAT 별도). 추가 인증 각 +100만원/월.
+// ISO 13485는 KGMP(제조업체) 계약 시 무료 포함. 수입업체 기본도 월 300만원.
+// 컨설팅(초기 입력·구축 / 제품 성능테스트 / 인증심사 대비)은 제품·기간에 따라 상이 → 담당자 협의.
+const BASE_MONTHLY = 3000000
+const EXTRA_MONTHLY = 1000000
+const BASE_PLANS = [
+  { code: 'kgmp', label: '제조업체 기본', sub: '기본 QMS + KGMP', certs: ['KGMP'],
+    lines: ['ISO 13485 무료 포함 (KGMP 계약업체)', '문서·기록·심사 대응 전 기능', '관리자 + 사용자 계정'] },
+  { code: 'kgmp_importer', label: '수입업체 기본', sub: '기본 QMS + 수입사 GMP', certs: ['수입사 GMP'],
+    lines: ['외국제조소 등록·GMP 적합인정 관리', '수입 인허가 제출 문서 자동화', '관리자 + 사용자 계정'] },
+]
+const EXTRA_CERTS = [
+  { code: 'ISO 13485', note: '제조업체 기본에는 무료 포함' },
+  { code: 'FDA QMSR', note: '미국' },
+  { code: 'EU MDR', note: '유럽 CE' },
+  { code: 'MDSAP', note: '5개국 단일심사' },
+  { code: 'ANVISA', note: '브라질' },
+  { code: 'PMDA', note: '일본' },
+  { code: 'NMPA', note: '중국' },
+  { code: 'TGA', note: '호주' },
+  { code: 'Health Canada', note: '캐나다' },
+  { code: '기타 인증', note: '담당자 협의' },
+]
+const CONSULTING = [
+  { code: 'setup', label: '초기 입력·구축 컨설팅', desc: '초기 기업은 품질체계 설계부터, 기존 기업은 기존 문서·기록 이관과 재구성까지 함께 진행합니다.' },
+  { code: 'perftest', label: '제품 성능테스트 컨설팅', desc: '적용 표준 선정, 시험소 매칭·견적 비교, 시험 계획과 성적서 검토를 지원합니다.' },
+  { code: 'audit', label: '인증심사 대비 컨설팅', desc: 'KGMP·ISO 13485·NB·FDA 심사 전 모의심사와 부적합 예방, 심사 당일 대응을 지원합니다.' },
+]
 
-// 요금제 가격 (계산기 모델 기준)
-const PLAN_PRICE = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.id, p.monthly]))
-const ANNUAL_DISCOUNT = 0.15
+// ---- 약관·동의 (LGL-ONB-001 v0.1 기준, 화면 요약본) --------------------------------
+// 전문 페이지 게시 전까지 요약본을 화면에서 펼쳐 보여주고, 동의 시점·버전을 함께 기록한다.
+const CONSENT_VERSION = '2026.09'
+const CONSENT_ITEMS = [
+  { id: 'A1', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '서비스 이용약관 동의',
+    body: ['Qualytree는 의료기기 품질관리(eQMS)·인허가 문서 작성을 지원하는 클라우드 서비스입니다.',
+      '계정은 회사(법인·개인사업자) 단위로 발급되며, 관리자는 사용자 계정을 발급·회수할 책임을 집니다.',
+      '서비스 이용 중 발생한 계정 정보의 관리 책임은 고객에게 있으며, 계정 공유·양도는 금지됩니다.',
+      '운영팀은 서비스 안정을 위해 사전 공지 후 점검을 실시할 수 있으며, 긴급 보안 조치는 사후 통지합니다.'] },
+  { id: 'A2', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '의료기기 규제 책임 안내 (부속서 R) 동의',
+    body: ['인허가·품질시스템에 대한 법적 책임은 제조업자·수입업자인 고객에게 있으며, Qualytree는 이를 대신하거나 인증 취득을 보장하지 않습니다.',
+      'AI가 자동 생성한 문서·판정은 "초안"입니다. 검토·승인·서명은 고객의 자격 보유자가 수행해야 하며, 승인 전 문서는 규제 제출용으로 사용할 수 없습니다.',
+      '시판후 보고(이상사례·리콜) 등 법정 기한이 있는 의무는 시스템 알림과 무관하게 고객이 기한을 준수해야 합니다.',
+      '규제 개정 정보·자동 매핑은 참고 자료이며, 최종 적용 여부는 고객이 규제 원문으로 확인해야 합니다.',
+      '시스템 도입 후 고객사 QMS에 Qualytree를 등록(공급자 평가·소프트웨어 검증)하는 절차는 고객 책임이며, 운영팀은 검증 패키지를 제공합니다.'] },
+  { id: 'A3', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '요금·결제·환불 정책 동의',
+    body: ['요금은 월 단위로 청구되며 표시 금액은 부가가치세(VAT) 별도입니다. 기본 요금제 월 300만원, 추가 인증 각 월 100만원.',
+      '결제 수단 등록 시 매월 자동 결제되며, 해지 신청은 해지 희망일 이전 청구 주기 내에 해야 합니다. 이미 청구된 월 요금은 일할 환불되지 않습니다.',
+      '미납 시 신규 입력·문서 생성이 제한되지만, 이미 저장된 기록의 열람·반출은 법정 보관 의무를 위해 계속 허용됩니다.',
+      '컨설팅 비용은 제품·기간에 따라 별도 견적으로 확정되며, 본 신청만으로 컨설팅 계약이 성립하지 않습니다.',
+      '요금 변경 시 최소 30일 전 관리자 이메일로 안내합니다.'] },
+  { id: 'A5', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '데이터 관리·보관·폐기 정책 확인',
+    body: ['고객이 입력한 품질 기록·문서의 소유권은 고객에게 있으며, Qualytree는 서비스 제공 목적 범위에서만 처리합니다.',
+      '기록은 ISO 13485 §4.2.5·21 CFR 820.180·MDR Article 10(8) 기준으로 감사 추적과 함께 보관되며, 전자서명·감사 추적은 21 CFR Part 11 수준으로 관리됩니다.',
+      '계약 해지 후 90일 동안 전체 데이터를 표준 형식(PDF·CSV·JSON)으로 반출할 수 있습니다. 반출 기간 종료 후 안전 폐기(NIST SP 800-88)하고 파기 증명서를 발행합니다.',
+      '고객이 법정 보관(최대 15년)을 위해 보관 연장을 요청하면 별도 보관 요금으로 계속 보관합니다.',
+      '데이터는 국내 리전에 암호화(전송·저장)되어 보관되며, 일일 백업과 재해복구 절차가 적용됩니다.'] },
+  { id: 'A4', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '대리권한 확인',
+    body: ['본인은 위 회사를 대표하여 본 서비스 계약을 체결하고 관리자 계정을 개설할 권한이 있음을 확인합니다.',
+      '권한이 없는 상태로 신청한 경우 신청은 무효 처리될 수 있으며, 회사의 확인 요청이 있으면 운영팀이 사업자등록증·위임장 등 증빙을 요청할 수 있습니다.'] },
+  { id: 'B1', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '개인정보 수집·이용 동의',
+    body: ['수집 항목: 관리자 이름·이메일·연락처, 회사명·사업자등록번호·대표자명·개업연월일.',
+      '이용 목적: 가입 심사·사업자 진위확인, 계정 발급, 청구·결제, 서비스 공지 및 장애·보안 안내.',
+      '보유 기간: 회원 탈퇴(계약 종료) 후 관련 법령(전자상거래법 5년, 국세기본법 5년)이 정한 기간까지 보관 후 파기.',
+      '동의를 거부할 수 있으나, 거부 시 서비스 가입이 제한됩니다.'] },
+  { id: 'B4', group: '필수', required: true, version: CONSENT_VERSION,
+    title: '만 14세 이상 확인',
+    body: ['본인은 만 14세 이상이며, 회사 업무 목적으로 본 서비스를 이용합니다.'] },
+  { id: 'C1', group: '선택', required: false, version: CONSENT_VERSION,
+    title: '규제 소식·제품 안내 수신 (이메일)',
+    body: ['규제 개정 요약, 신규 기능, 웨비나·세미나 안내를 관리자 이메일로 받습니다. 언제든 수신 거부할 수 있습니다.'] },
+  { id: 'C2', group: '선택', required: false, version: CONSENT_VERSION,
+    title: '익명화 벤치마크 데이터 활용',
+    body: ['회사·제품·개인을 식별할 수 없도록 처리(k-익명성 5 이상)한 통계만 산업 벤치마크 리포트에 활용합니다. 임상·환자 데이터는 항상 제외되며, 언제든 철회할 수 있습니다.'] },
+  { id: 'C3', group: '선택', required: false, version: CONSENT_VERSION,
+    title: '도입 사례·레퍼런스 활용',
+    body: ['회사명과 로고를 도입 고객 목록에 표기하는 데 동의합니다. 사례 내용 공개는 별도 확인 후에만 진행합니다.'] },
+]
+
 const PORTONE_STORE_ID = import.meta.env.VITE_PORTONE_STORE_ID
 const PORTONE_CHANNEL_KEY = import.meta.env.VITE_PORTONE_CHANNEL_KEY
 const PORTONE_READY = Boolean(PORTONE_STORE_ID && PORTONE_CHANNEL_KEY)
 
 const won = (n) => Number(n).toLocaleString('ko-KR')
-function priceFor(plan, cycle) {
-  const m = PLAN_PRICE[plan] ?? 0
-  if (m === 0) return { amount: 0, unit: '무료', monthlyEq: 0 }
-  if (cycle === 'annual') {
-    const annual = Math.round(m * 12 * (1 - ANNUAL_DISCOUNT))
-    return { amount: annual, unit: '원 / 년', monthlyEq: Math.round(annual / 12) }
-  }
-  return { amount: m, unit: '원 / 월', monthlyEq: m }
-}
-function planLabel(code) {
-  return (PLANS.find((p) => p.code === code) || {}).label || code
-}
 let _portoneLoading = null
 function loadPortOne() {
   if (typeof window !== 'undefined' && window.PortOne) return Promise.resolve(window.PortOne)
@@ -125,22 +189,37 @@ export default function Signup() {
     }
   }
 
-  // Step 2 — 플랜·관리자
-  const [desiredPlan, setDesiredPlan] = useState('bundle')
-  const [desiredBillingCycle, setDesiredBillingCycle] = useState('monthly')
-  const [desiredCertifications, setDesiredCertifications] = useState(['KGMP'])
+  // Step 2 — 요금제·관리자·동의
+  // 요금 모델(2026-09): 기본 QMS + 인증 1개(KGMP 또는 수입사 GMP) = 월 300만원(VAT 별도),
+  // 추가 인증 각 +100만원/월, ISO 13485는 KGMP 계약 시 무료 포함. 컨설팅은 별도 협의.
+  const [desiredPlan, setDesiredPlan] = useState('')            // 'kgmp' (제조) | 'kgmp_importer' (수입)
+  const [desiredBillingCycle] = useState('monthly')             // 월 청구 고정
+  const [extraCerts, setExtraCerts] = useState([])              // 추가 인증 (각 +100만원/월)
+  const [consultInterest, setConsultInterest] = useState([])    // 컨설팅 관심 항목 (담당자 협의)
+  const [consents, setConsents] = useState({})                  // { [id]: true }
+  const [openConsent, setOpenConsent] = useState('')            // 펼쳐진 동의 항목 id
   const [adminEmail, setAdminEmail] = useState('')
   const [adminName, setAdminName] = useState('')
   const [adminPhone, setAdminPhone] = useState('')
+
+  // 사업 형태에 따라 기본 플랜 자동 제안 (수입 → 수입업체 기본, 그 외 → 제조업체 기본)
+  const planForBiz = bizType === '수입' ? 'kgmp_importer' : 'kgmp'
+  const effectivePlan = desiredPlan || planForBiz
+  const base = BASE_PLANS.find((p) => p.code === effectivePlan) || BASE_PLANS[0]
+  // ISO 13485: 제조업체(KGMP) 계약은 무료 포함, 수입업체는 추가 인증으로 취급
+  const isoIncluded = effectivePlan === 'kgmp'
+  const billableExtras = extraCerts.filter((c) => !(c === 'ISO 13485' && isoIncluded))
+  const quoteAmount = BASE_MONTHLY + billableExtras.length * EXTRA_MONTHLY
+  const quoteUnit = '원 / 월 (VAT 별도)'
+  const desiredCertifications = Array.from(new Set([...base.certs, ...(isoIncluded ? ['ISO 13485'] : []), ...extraCerts]))
+  const requiredConsentsOk = CONSENT_ITEMS.filter((c) => c.required).every((c) => consents[c.id])
+  const allConsentsOn = CONSENT_ITEMS.every((c) => consents[c.id])
 
   // Step 3 — 결제
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [paying, setPaying] = useState(false)
   const [payNotice, setPayNotice] = useState('')
   const [vaInfo, setVaInfo] = useState(null)
-  const [quoteAmount, setQuoteAmount] = useState(0)
-  const [quoteUnit, setQuoteUnit] = useState('원 / 월')
-  const calcRef = useRef(null)
 
   const validateStep1 = () => {
     if (!companyName.trim()) return '회사명을 입력해주세요.'
@@ -155,10 +234,12 @@ export default function Signup() {
   }
 
   const validateStep2 = () => {
-    if (!desiredPlan) return '희망 플랜을 선택해주세요.'
+    if (!effectivePlan) return '기본 요금제를 선택해주세요.'
     if (!adminEmail.trim()) return '관리자 이메일을 입력해주세요.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return '이메일 형식이 올바르지 않습니다.'
     if (!adminName.trim()) return '관리자 이름을 입력해주세요.'
+    if (!adminPhone.trim()) return '관리자 연락처를 입력해주세요.'
+    if (!requiredConsentsOk) return '필수 약관·동의 항목에 모두 동의해주세요.'
     return ''
   }
 
@@ -175,11 +256,21 @@ export default function Signup() {
     setStep((prev) => (prev > 1 ? prev - 1 : 1))
   }
 
-  const toggleCert = (cert) => {
-    setDesiredCertifications((prev) =>
-      prev.includes(cert) ? prev.filter((c) => c !== cert) : [...prev, cert]
-    )
-  }
+  const toggleIn = (setter) => (v) => setter((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]))
+  const toggleExtra = toggleIn(setExtraCerts)
+  const toggleConsult = toggleIn(setConsultInterest)
+  const setConsent = (id, on) => setConsents((prev) => ({ ...prev, [id]: on }))
+  const setAllConsents = (on) => setConsents(Object.fromEntries(CONSENT_ITEMS.map((c) => [c.id, on])))
+
+  // 동의 기록 (버전·일시·플랜·컨설팅 관심). 서버 동의 로그 테이블 연결 전까지 브라우저와 성공 화면에 보존.
+  const consentRecord = () => ({
+    at: new Date().toISOString(),
+    items: CONSENT_ITEMS.map((c) => ({ id: c.id, version: c.version, required: c.required, agreed: Boolean(consents[c.id]) })),
+    plan: effectivePlan,
+    extraCerts,
+    consultInterest,
+    quoteMonthly: quoteAmount,
+  })
 
   const submitSignup = async (paymentMeta = {}) => {
     const msg = validateStep2()
@@ -194,7 +285,7 @@ export default function Signup() {
       representative: representative.trim(),
       industry: [bizType, sector, productItems.trim()].filter(Boolean).join(' | ') || industry.trim(),
       employeeCountBand,
-      desiredPlan,
+      desiredPlan: effectivePlan,
       desiredBillingCycle,
       desiredCertifications,
       adminEmail: adminEmail.trim().toLowerCase(),
@@ -210,55 +301,24 @@ export default function Signup() {
       return
     }
 
-    try { localStorage.setItem('qualytree.signup', JSON.stringify({ plan: desiredPlan, cycle: desiredBillingCycle, certs: desiredCertifications })) } catch (e) {}
+    try {
+      localStorage.setItem('qualytree.signup', JSON.stringify({ plan: effectivePlan, cycle: desiredBillingCycle, certs: desiredCertifications }))
+      localStorage.setItem('qualytree.signup.consent', JSON.stringify(consentRecord()))
+    } catch (e) {}
     navigate('/signup/success', {
       state: {
         companyName: companyName.trim(),
         adminEmail: adminEmail.trim().toLowerCase(),
-        plan: desiredPlan,
+        plan: effectivePlan,
         payment: paymentMeta,
+        consent: consentRecord(),
       },
     })
   }
 
-  // 확장 모듈(CE MDR·FDA·MDSAP) 체크박스 → 인증 라벨 매핑. 기본 플랜의 인증에 더해진다.
-  const CALC_MODULE_CERT = { cemdr: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
-
-  const readCalc = () => {
-    try {
-      const doc = calcRef.current && calcRef.current.contentDocument
-      if (!doc) return null
-      const planEl = doc.querySelector('.plan.sel')
-      const cycleBtn = doc.querySelector('#billing button.on')
-      const plan = planEl && planEl.dataset.plan
-      const cycle = (cycleBtn && cycleBtn.dataset.cycle) || 'monthly'
-      const big = (doc.getElementById('totalBig') || {}).textContent || '0'
-      const amount = parseInt(big.replace(/[^0-9]/g, ''), 10) || 0
-      const unit = (((doc.getElementById('totalUnit') || {}).textContent) || '원 / 월').trim()
-      const mods = Array.from(doc.querySelectorAll('.mod[data-mod]'))
-        .filter((el) => CALC_MODULE_CERT[el.dataset.mod] && el.querySelector('input')?.checked)
-        .map((el) => CALC_MODULE_CERT[el.dataset.mod])
-      return { plan, cycle, amount, unit, mods }
-    } catch (e) {
-      return null
-    }
-  }
-
-  const CERT_SHORT = { kgmp: 'KGMP', kgmp_importer: '수입사 GMP', iso13485: 'ISO 13485', ce: 'EU MDR', fda: 'FDA QMSR', mdsap: 'MDSAP' }
-  const CERT_BY_PLAN = Object.fromEntries(DEFAULT_PLANS.map((p) => [p.id, (p.certs || []).map((cid) => CERT_SHORT[cid] || cid)]))
-
   const handleToStep3 = () => {
-    const q = readCalc()
-    if (!q || !q.plan) { setError('위 요금제 계산기에서 플랜을 선택해주세요.'); return }
-    setDesiredPlan(q.plan)
-    setDesiredBillingCycle(q.cycle)
-    setQuoteAmount(q.amount)
-    setQuoteUnit(q.unit)
-    const baseCerts = CERT_BY_PLAN[q.plan] || ['KGMP']
-    setDesiredCertifications(Array.from(new Set([...baseCerts, ...(q.mods || [])])))
-    if (!adminEmail.trim()) { setError('관리자 이메일을 입력해주세요.'); return }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) { setError('이메일 형식이 올바르지 않습니다.'); return }
-    if (!adminName.trim()) { setError('관리자 이름을 입력해주세요.'); return }
+    const msg = validateStep2()
+    if (msg) { setError(msg); return }
     setError('')
     setPayNotice('')
     setStep(3)
@@ -274,7 +334,7 @@ export default function Signup() {
         channelKey: PORTONE_CHANNEL_KEY,
         billingKeyMethod: 'CARD',
         issueId: randomId(),
-        issueName: `Qualytree ${planLabel(desiredPlan)} 정기결제`,
+        issueName: `Qualytree ${base.label} 정기결제`,
         customer: {
           customerId: adminEmail.trim().toLowerCase(),
           fullName: adminName.trim(),
@@ -287,7 +347,7 @@ export default function Signup() {
         await supabase.functions.invoke('billing-register', {
           body: {
             billingKey: res.billingKey,
-            plan: desiredPlan,
+            plan: effectivePlan,
             cycle: desiredBillingCycle,
             amount: quoteAmount,
             company: companyName.trim(),
@@ -303,7 +363,6 @@ export default function Signup() {
 
   const payWithTransfer = async () => {
     if (!PORTONE_READY) { setPayNotice('결제 모듈이 아직 설정되지 않았습니다. 관리자에게 문의하세요.'); return }
-    const p = priceFor(desiredPlan, desiredBillingCycle)
     setPaying(true); setPayNotice(''); setError('')
     try {
       const PortOne = await loadPortOne()
@@ -311,7 +370,7 @@ export default function Signup() {
         storeId: PORTONE_STORE_ID,
         channelKey: PORTONE_CHANNEL_KEY,
         paymentId: randomId(),
-        orderName: `Qualytree ${planLabel(desiredPlan)} (${desiredBillingCycle === 'annual' ? '연납' : '월납'})`,
+        orderName: `Qualytree ${base.label} (${desiredBillingCycle === 'annual' ? '연납' : '월납'})`,
         totalAmount: quoteAmount,
         currency: 'CURRENCY_KRW',
         payMethod: 'VIRTUAL_ACCOUNT',
@@ -465,58 +524,140 @@ export default function Signup() {
 
         {step === 2 && (
           <div style={styles.form}>
-            <div style={styles.calcWrap}>
-              <div style={styles.calcHead}>
-                <span style={styles.calcTitle}>요금제 선택</span>
-                <span style={styles.calcHint}>원하는 구성을 선택하면 비용이 자동 계산됩니다. 아래 담당자 정보를 입력하고 결제로 진행하세요.</span>
-              </div>
-              <iframe
-                ref={calcRef}
-                src="/pricing-calculator.html?v=20260714b"
-                title="Qualytree 요금 계산기"
-                style={styles.calcFrame}
-              />
+            {/* 1. 기본 요금제 */}
+            <div style={styles.secHead}>
+              <div style={styles.secTitle}>1. 기본 요금제 <span style={styles.secHint}>기본 QMS + 인증 1개 · 월 청구 · VAT 별도</span></div>
             </div>
+            <div style={styles.planGrid}>
+              {BASE_PLANS.map((p) => {
+                const on = effectivePlan === p.code
+                return (
+                  <div key={p.code} onClick={() => setDesiredPlan(p.code)} style={{ ...styles.planCard, ...(on ? styles.planCardActive : {}) }}>
+                    <div style={styles.planTop}>
+                      <div>
+                        <div style={styles.planLabel}>{p.label}</div>
+                        <div style={styles.planSub}>{p.sub}</div>
+                      </div>
+                      <div style={styles.planPrice}>월 {won(BASE_MONTHLY)}원<span style={styles.planVat}>VAT 별도</span></div>
+                    </div>
+                    <ul style={styles.planList}>{p.lines.map((l) => <li key={l}>{l}</li>)}</ul>
+                    {on && bizType && (p.code === planForBiz) && <div style={styles.planAuto}>입력하신 사업 형태({bizType})에 맞춰 선택되었습니다</div>}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* 2. 추가 인증 */}
+            <div style={styles.secHead}>
+              <div style={styles.secTitle}>2. 추가 인증 <span style={styles.secHint}>각 +월 {won(EXTRA_MONTHLY)}원 · 필요한 만큼 선택</span></div>
+            </div>
+            <div style={styles.certRow}>
+              {EXTRA_CERTS.map((c) => {
+                const on = extraCerts.includes(c.code)
+                const free = c.code === 'ISO 13485' && isoIncluded
+                return (
+                  <label key={c.code} style={{ ...styles.certChip, ...(on || free ? styles.certChipOn : {}), ...(free ? styles.certChipFree : {}) }}>
+                    <input type="checkbox" checked={on || free} disabled={free} onChange={() => toggleExtra(c.code)} />
+                    <span>
+                      <b>{c.code}</b>
+                      <span style={styles.certNote}>{free ? '기본 포함 · 무료' : c.note}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+
+            <div style={styles.sumCard}>
+              <div style={styles.sumRow}><span>{base.label} ({base.sub}{isoIncluded ? ' + ISO 13485' : ''})</span><b>{won(BASE_MONTHLY)}원</b></div>
+              {billableExtras.map((c) => (
+                <div key={c} style={styles.sumRow}><span>추가 인증 · {c}</span><b>+{won(EXTRA_MONTHLY)}원</b></div>
+              ))}
+              <div style={styles.sumTotal}>
+                <span>월 이용료 <span style={styles.sumVat}>VAT 별도</span></span>
+                <b>{won(quoteAmount)}원 / 월</b>
+              </div>
+            </div>
+
+            {/* 3. 컨설팅 */}
+            <div style={styles.secHead}>
+              <div style={styles.secTitle}>3. 컨설팅 <span style={styles.secHint}>제품·기간에 따라 상이 — 담당자와 협의 후 별도 견적</span></div>
+            </div>
+            <div style={styles.consultGrid}>
+              {CONSULTING.map((c) => {
+                const on = consultInterest.includes(c.code)
+                return (
+                  <label key={c.code} style={{ ...styles.consultCard, ...(on ? styles.consultCardOn : {}) }}>
+                    <div style={styles.consultTop}>
+                      <input type="checkbox" checked={on} onChange={() => toggleConsult(c.code)} />
+                      <span style={styles.consultLabel}>{c.label}</span>
+                      <span style={styles.consultTag}>협의</span>
+                    </div>
+                    <div style={styles.consultDesc}>{c.desc}</div>
+                  </label>
+                )
+              })}
+            </div>
+            <div style={styles.consultNote}>체크한 항목은 신청 접수 후 담당자가 연락드려 범위·기간·비용을 협의합니다. 본 신청만으로 컨설팅 계약이 성립하지는 않습니다.</div>
 
             <div style={styles.divider} />
 
+            {/* 4. 관리자 */}
+            <div style={styles.secHead}>
+              <div style={styles.secTitle}>4. 관리자 정보 <span style={styles.secHint}>승인 안내·청구서·보안 알림을 받는 대표 계정</span></div>
+            </div>
+            <div style={styles.row2}>
+              <Field label="관리자 이름 *">
+                <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} style={styles.input} />
+              </Field>
+              <Field label="관리자 연락처 *">
+                <input type="tel" value={adminPhone} onChange={(e) => setAdminPhone(e.target.value)} placeholder="010-0000-0000" style={styles.input} />
+              </Field>
+            </div>
             <Field label="관리자 이메일 *">
-              <input
-                type="email"
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
-                placeholder="admin@company.com"
-                style={styles.input}
-              />
-            </Field>
-            <Field label="관리자 이름 *">
-              <input
-                type="text"
-                value={adminName}
-                onChange={(e) => setAdminName(e.target.value)}
-                style={styles.input}
-              />
-            </Field>
-            <Field label="관리자 연락처">
-              <input
-                type="tel"
-                value={adminPhone}
-                onChange={(e) => setAdminPhone(e.target.value)}
-                placeholder="010-0000-0000"
-                style={styles.input}
-              />
+              <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@company.com" style={styles.input} />
             </Field>
 
+            <div style={styles.divider} />
+
+            {/* 5. 약관·동의 */}
+            <div style={styles.secHead}>
+              <div style={styles.secTitle}>5. 약관 및 동의 <span style={styles.secHint}>필수 항목에 모두 동의해야 결제로 진행할 수 있습니다</span></div>
+            </div>
+            <label style={styles.consentAll}>
+              <input type="checkbox" checked={allConsentsOn} onChange={(e) => setAllConsents(e.target.checked)} />
+              <span>전체 동의 <span style={styles.consentAllHint}>(선택 항목 포함)</span></span>
+            </label>
+            <div style={styles.consentList}>
+              {['필수', '선택'].map((g) => (
+                <div key={g}>
+                  <div style={styles.consentGroup}>{g === '필수' ? '필수 동의' : '선택 동의'}</div>
+                  {CONSENT_ITEMS.filter((c) => c.group === g).map((c) => {
+                    const open = openConsent === c.id
+                    return (
+                      <div key={c.id} style={styles.consentItem}>
+                        <div style={styles.consentHead}>
+                          <label style={styles.consentLabel}>
+                            <input type="checkbox" checked={Boolean(consents[c.id])} onChange={(e) => setConsent(c.id, e.target.checked)} />
+                            <span><span style={c.required ? styles.reqTag : styles.optTag}>{c.required ? '필수' : '선택'}</span>{c.title}</span>
+                          </label>
+                          <button type="button" onClick={() => setOpenConsent(open ? '' : c.id)} style={styles.consentToggle}>{open ? '접기' : '내용 보기'}</button>
+                        </div>
+                        {open && (
+                          <ul style={styles.consentBody}>{c.body.map((line, i) => <li key={i}>{line}</li>)}</ul>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            <div style={styles.consentFoot}>
+              동의 일시·버전(v{CONSENT_VERSION})은 신청 기록과 함께 보관됩니다. 약관 전문은 승인 안내 메일과 관리자 화면에서 다시 확인할 수 있으며, 개인정보 관련 문의는 contact@qualy-tree.com 으로 연락 주세요.
+            </div>
+
             <div style={styles.actions}>
-              <button onClick={handleBack} style={styles.linkButton} disabled={submitting}>
-                ← 이전
-              </button>
-              <button
-                onClick={handleToStep3}
-                style={styles.primaryButton}
-              >
-                결제로 →
-              </button>
+              <button onClick={handleBack} style={styles.linkButton} disabled={submitting}>← 이전</button>
+              <button onClick={handleToStep3} style={{ ...styles.primaryButton, ...(requiredConsentsOk ? {} : styles.primaryButtonOff) }}>결제로 →</button>
             </div>
           </div>
         )}
@@ -524,17 +665,19 @@ export default function Signup() {
         {step === 3 && (
           <div style={styles.form}>
             <div style={styles.sumCard}>
-              <div style={styles.sumRow}><span>요금제</span><b>{planLabel(desiredPlan)}</b></div>
-              <div style={styles.sumRow}><span>결제 주기</span><b>{desiredBillingCycle === 'annual' ? '연납 (15% 할인)' : '월납'}</b></div>
+              <div style={styles.sumRow}><span>요금제</span><b>{base.label} · {base.sub}{isoIncluded ? ' + ISO 13485' : ''}</b></div>
+              {billableExtras.length > 0 && <div style={styles.sumRow}><span>추가 인증</span><b>{billableExtras.join(', ')}</b></div>}
+              {consultInterest.length > 0 && <div style={styles.sumRow}><span>컨설팅 (협의)</span><b>{consultInterest.map((k) => (CONSULTING.find((c) => c.code === k) || {}).label).join(', ')}</b></div>}
+              <div style={styles.sumRow}><span>결제 주기</span><b>월납</b></div>
               <div style={styles.sumTotal}>
-                <span>결제 금액</span>
-                <b>{quoteAmount === 0 ? '무료' : won(quoteAmount) + ' ' + quoteUnit}</b>
+                <span>월 이용료</span>
+                <b>{won(quoteAmount)} {quoteUnit}</b>
               </div>
             </div>
 
             {payNotice && <div style={styles.error}>{payNotice}</div>}
 
-            {desiredPlan === 'founding' ? (
+            {effectivePlan === 'founding' ? (
               <div style={styles.payInfo}>
                 Founding(베타 무료) 플랜은 결제 없이 바로 시작됩니다. 정식 청구는 법인 설립 후 별도 안내드립니다.
               </div>
@@ -560,7 +703,7 @@ export default function Signup() {
 
             <div style={styles.actions}>
               <button onClick={handleBack} style={styles.linkButton} disabled={paying || submitting}>← 이전</button>
-              {desiredPlan === 'founding' ? (
+              {effectivePlan === 'founding' ? (
                 <button onClick={() => submitSignup({ method: 'free' })} style={styles.primaryButton} disabled={submitting}>{submitting ? '처리 중...' : '무료로 시작'}</button>
               ) : !PORTONE_READY ? (
                 <button onClick={() => submitSignup({ method: 'pending' })} style={styles.primaryButton} disabled={submitting}>{submitting ? '접수 중...' : '신청 접수'}</button>
@@ -665,39 +808,47 @@ const styles = {
   payInfo: { fontSize: 13, color: '#57534e', lineHeight: 1.5, background: '#f6f8f6', border: '1px solid #e7e5e4', borderRadius: 9, padding: '12px 14px' },
   notice: { fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 9, padding: '10px 13px', lineHeight: 1.5 },
   vaBox: { fontSize: 13, color: '#1c4532', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 9, padding: '12px 14px', lineHeight: 1.5 },
-  cardWide: { maxWidth: 960 },
-  calcWrap: {
-    border: '1px solid #e7e5e4', borderRadius: 12, overflow: 'hidden',
-    background: '#f6f8f6', marginBottom: 4,
-  },
-  calcHead: {
-    display: 'flex', flexDirection: 'column', gap: 2,
-    padding: '12px 16px', borderBottom: '1px solid #e7e5e4', background: '#fff',
-  },
-  calcTitle: { fontSize: 14, fontWeight: 600, color: '#16352b' },
-  calcHint: { fontSize: 12, color: '#78716c' },
-  calcFrame: {
-    width: '100%', height: 880, border: 'none', display: 'block', background: '#f6f8f6',
-  },
-  planGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 },
-  planCard: {
-    padding: 12, border: '1px solid #d6d3d1', borderRadius: 8,
-    cursor: 'pointer', transition: 'all 0.15s',
-  },
-  planCardActive: {
-    border: '2px solid #1c1917', background: '#fafaf9',
-    padding: 11,
-  },
-  planLabel: { fontSize: 14, fontWeight: 600, color: '#1c1917' },
-  planDesc: { fontSize: 11, color: '#78716c', marginTop: 4 },
-  radioRow: { display: 'flex', gap: 24 },
-  radioLabel: { fontSize: 14, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' },
-  certRow: { display: 'flex', flexWrap: 'wrap', gap: 12 },
-  certChip: {
-    fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
-    padding: '6px 10px', background: '#f5f5f4', borderRadius: 6,
-    cursor: 'pointer',
-  },
+  cardWide: { maxWidth: 820 },
+  secHead: { marginTop: 4 },
+  secTitle: { fontSize: 14, fontWeight: 600, color: '#1c1917', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 8 },
+  secHint: { fontSize: 12, fontWeight: 400, color: '#78716c' },
+  planGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 },
+  planCard: { padding: 14, border: '1px solid #d6d3d1', borderRadius: 12, cursor: 'pointer', transition: 'all 0.15s', background: '#fff' },
+  planCardActive: { border: '2px solid #0E7A4F', background: '#f4faf6', padding: 13 },
+  planTop: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 },
+  planLabel: { fontSize: 15, fontWeight: 700, color: '#1c1917' },
+  planSub: { fontSize: 12, color: '#57534e', marginTop: 2 },
+  planPrice: { fontSize: 14, fontWeight: 700, color: '#0E7A4F', textAlign: 'right', whiteSpace: 'nowrap', display: 'flex', flexDirection: 'column' },
+  planVat: { fontSize: 10.5, fontWeight: 500, color: '#78716c' },
+  planList: { margin: '10px 0 0', paddingLeft: 18, fontSize: 12.5, color: '#44403c', lineHeight: 1.7 },
+  planAuto: { marginTop: 8, fontSize: 11.5, color: '#0E7A4F' },
+  certRow: { display: 'flex', flexWrap: 'wrap', gap: 8 },
+  certChip: { fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: '#f5f5f4', border: '1px solid #e7e5e4', borderRadius: 8, cursor: 'pointer' },
+  certChipOn: { background: '#f4faf6', border: '1px solid #0E7A4F' },
+  certChipFree: { cursor: 'default', opacity: 0.85 },
+  certNote: { display: 'block', fontSize: 11, color: '#78716c' },
+  sumVat: { fontSize: 11.5, fontWeight: 400, color: '#78716c', marginLeft: 6 },
+  consultGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 },
+  consultCard: { display: 'block', padding: 12, border: '1px solid #e7e5e4', borderRadius: 10, cursor: 'pointer', background: '#fff' },
+  consultCardOn: { border: '1px solid #0E7A4F', background: '#f4faf6' },
+  consultTop: { display: 'flex', alignItems: 'center', gap: 8 },
+  consultLabel: { fontSize: 13.5, fontWeight: 600, color: '#1c1917', flex: 1 },
+  consultTag: { fontSize: 11, color: '#92400e', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 999, padding: '1px 8px' },
+  consultDesc: { fontSize: 12, color: '#57534e', lineHeight: 1.55, marginTop: 6 },
+  consultNote: { fontSize: 12, color: '#78716c', lineHeight: 1.5 },
+  consentAll: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#1c1917', padding: '10px 12px', background: '#f5f5f4', borderRadius: 8, cursor: 'pointer' },
+  consentAllHint: { fontSize: 12, fontWeight: 400, color: '#78716c' },
+  consentList: { display: 'flex', flexDirection: 'column', gap: 10 },
+  consentGroup: { fontSize: 12, fontWeight: 600, color: '#78716c', margin: '4px 0 6px', letterSpacing: '0.02em' },
+  consentItem: { border: '1px solid #e7e5e4', borderRadius: 8, padding: '8px 12px', marginBottom: 6 },
+  consentHead: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  consentLabel: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#1c1917', cursor: 'pointer', flex: 1 },
+  reqTag: { fontSize: 11, color: '#0E7A4F', fontWeight: 700, marginRight: 6 },
+  optTag: { fontSize: 11, color: '#a8a29e', fontWeight: 600, marginRight: 6 },
+  consentToggle: { border: 'none', background: 'none', color: '#78716c', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline', whiteSpace: 'nowrap' },
+  consentBody: { margin: '8px 0 2px', paddingLeft: 18, fontSize: 12.5, color: '#44403c', lineHeight: 1.65 },
+  consentFoot: { fontSize: 11.5, color: '#a8a29e', lineHeight: 1.55 },
+  primaryButtonOff: { opacity: 0.45 },
   actions: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     marginTop: 12,
