@@ -271,8 +271,7 @@ export default function DeviceMasterRecordHub() {
   }), [records])
   return (
     <AppLayout>
-      <HubBanner icon={<FileText size={22}/>} title="의료기기 파일 (DMR)"
-        subtitle="ISO 13485 §4.2.3 · Device Master Record — 제품별 완성 기기 명세 관리" clause="§4.2.3"/>
+      <HubBanner icon={FileText} title="의료기기 파일 (DMR)" subtitle="ISO 13485 §4.2.3 · Device Master Record — 제품별 완성 기기 명세 관리" color="#0284c7" workflow={['DMR 생성', '정보 등록', '검토·승인', '유지관리']}/>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         {[{label:'전체 DMR',value:stats.total,color:'text-blue-600'},
