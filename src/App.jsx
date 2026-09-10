@@ -46,7 +46,7 @@ let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, Custome
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
 let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub, InventoryHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
-let OrgResponsibilityHub, PurchaseVerificationHub, QualityManualHub, DeviceFileHub
+let OrgResponsibilityHub, PurchaseVerificationHub, QualityManualHub, DeviceFileHub, DeviceMasterRecordHub
 let ProductionControlHub, QualityPolicyHub, MeasurementPlanHub, CleanlinessHub, SterileControlHub
 
 try { AuditHub = React.lazy(() => import(/* @vite-ignore */ './pages/audit/AuditHub')) } catch {}
@@ -80,6 +80,7 @@ try { OrgResponsibilityHub = React.lazy(() => import(/* @vite-ignore */ './pages
 try { PurchaseVerificationHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase-verification/PurchaseVerificationHub')) } catch {}
 try { QualityManualHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality-manual/QualityManualHub')) } catch {}
 try { DeviceFileHub = React.lazy(() => import(/* @vite-ignore */ './pages/device-file/DeviceFileHub')) } catch {}
+try { DeviceMasterRecordHub = React.lazy(() => import(/* @vite-ignore */ './pages/device-master-record/DeviceMasterRecordHub')) } catch {}
 try { ProductionControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/production-control/ProductionControlHub')) } catch {}
 try { QualityPolicyHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality-policy/QualityPolicyHub')) } catch {}
 try { MeasurementPlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/measurement-plan/MeasurementPlanHub')) } catch {}
@@ -223,6 +224,7 @@ return (
 <Route path="/purchase-info" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
 <Route path="/quality-manual" element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />
 <Route path="/medical-device-file" element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
+              <Route path="/device-master-record" element={<ProtectedRoute><LazyRoute Component={DeviceMasterRecordHub} /></ProtectedRoute>} />
 <Route path="/production-control" element={<ProtectedRoute><LazyRoute Component={ProductionControlHub} /></ProtectedRoute>} />
 <Route path="/management-commitment" element={<ProtectedRoute><LazyRoute Component={QualityPolicyHub} /></ProtectedRoute>} />
 <Route path="/measurement" element={<ProtectedRoute><LazyRoute Component={MeasurementPlanHub} /></ProtectedRoute>} />
