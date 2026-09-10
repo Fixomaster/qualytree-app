@@ -356,9 +356,6 @@ fontWeight: isActive ? 600 : 500,
 <ShieldCheck size={16} strokeWidth={1.7} />
 <span>GMP 자가점검</span>
 </NavLink>
-{(!oemMode || oemMode === '전공정위탁') && 
-<NavLink
-to="/oem-full"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
 style={({ isActive }) => ({
 color: isActive ? 'var(--moss)' : 'var(--ink)',
@@ -370,9 +367,6 @@ fontWeight: isActive ? 600 : 500,
 <span>OEM 전공정위탁</span>
 </NavLink>
 }
-{(!oemMode || oemMode === '일부공정위탁') && 
-<NavLink
-to="/oem-partial"
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
 style={({ isActive }) => ({
 color: isActive ? 'var(--moss)' : 'var(--ink)',
@@ -523,6 +517,12 @@ fontWeight: isActive ? 600 : 400,
 {item.label}
 </NavLink>
 ))}
+{(!oemMode || oemMode === '전공정위탁') && 
+<NavLink
+to="/oem-full"
+{(!oemMode || oemMode === '일부공정위탁') && 
+<NavLink
+to="/oem-partial"
 </div>
 )}
 </div>
