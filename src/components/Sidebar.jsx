@@ -121,6 +121,7 @@ label: '설계·개발', icon: Code2,
 items: [
 { to: '/products', label: '제품·설계개발' },
 { to: '/design-history', label: '설계이력파일(DHF)' },
+          { to: '/device-master-record', label: '의료기기 파일(DMR)' },
 ],
 },
 {
