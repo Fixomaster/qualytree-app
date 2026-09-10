@@ -10,7 +10,6 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
-import { auth } from '../../lib/auth'
 
 const LS_KEY = 'qualytree.dmr'
 
@@ -109,7 +108,6 @@ function HistoryTable({ entries, onAdd }) {
 }
 
 export default function DeviceMasterRecordHub() {
-  const user = auth.getUser()
   const [records, setRecords] = React.useState([])
   const [selectedId, setSelectedId] = React.useState(null)
   const [activeTab, setActiveTab] = React.useState('info')
