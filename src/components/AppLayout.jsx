@@ -3,6 +3,7 @@ import React, { useEffect } from 'react'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { deptAuth } from '../lib/deptAuth'
+import { auth } from '../lib/auth'
 
 // #301: 부서 선택 정보는 localStorage(브라우저 캐시)에만 저장되어, 캐시를 삭제하면
 // 홈 대시보드 진입 시마다 매번 부서 선택 화면이 강제로 뜨는 문제가 있었다(요청: 삭제).
@@ -12,10 +13,13 @@ import { deptAuth } from '../lib/deptAuth'
 // last_dept 조회(네트워크, 비동기)보다 먼저 끝나버려서 다른 기기로 로그인해도 절대
 // 저장해둔 부서를 이어받지 못하는 경쟁 조건이 있었다. ensureDepartment는 로컬에 값이
 // 없을 때만 원격을 먼저 확인하고, 그래도 없을 때 최종적으로 ALL로 기본 설정한다.)
-export default function AppLayout({ user, title, subtitle, children }) {
+export default function AppLayout({ user: userProp, title, subtitle, children }) {
   useEffect(() => {
     deptAuth.ensureDepartment()
   }, [])
+
+  // user prop 없으면 auth.current() fallback
+  const user = userProp ?? auth.current()
 
   return (
     <div className="flex">
