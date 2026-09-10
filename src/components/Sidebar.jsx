@@ -95,6 +95,8 @@ items: [
 { to: '/cleanliness', label: '청결·오염 관리' },
 { to: '/sterile', label: '멸균 의료기기' },
 { to: '/service', label: '설치·서비스' },
+  { to: '/oem-full', label: 'OEM 전공정위탁' },
+  { to: '/oem-partial', label: 'OEM 일부위탁' },
 ],
 },
 {
@@ -495,30 +497,6 @@ fontWeight: isActive ? 600 : 400,
 {item.label}
 </NavLink>
 ))}
-<NavLink
-to="/oem-full"
-className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
-style={({ isActive }) => ({
-color: isActive ? 'var(--moss)' : 'var(--ink)',
-background: isActive ? 'var(--leaf-soft)' : 'transparent',
-fontWeight: isActive ? 600 : 500,
-})}
->
-<Building2 size={16} strokeWidth={1.7} />
-<span>OEM 전공정위탁</span>
-</NavLink>
-<NavLink
-to="/oem-partial"
-className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
-style={({ isActive }) => ({
-color: isActive ? 'var(--moss)' : 'var(--ink)',
-background: isActive ? 'var(--leaf-soft)' : 'transparent',
-fontWeight: isActive ? 600 : 500,
-})}
->
-<Share2 size={16} strokeWidth={1.7} />
-<span>OEM 일부위탁</span>
-</NavLink>
 </div>
 )}
 </div>
