@@ -42,7 +42,7 @@ try { PreviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/PreviewHu
 
 // ââ ì ê· íë¸ (Tasks #28-#61) ââââââââââââââââââââââââââââââââââââââââ
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
-let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub
+let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub, EnterpriseRiskHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
 let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub, InventoryHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
@@ -55,6 +55,7 @@ try { DeptHome = React.lazy(() => import(/* @vite-ignore */ './pages/home/DeptHo
 try { ProcessFlow = React.lazy(() => import(/* @vite-ignore */ './pages/flow/ProcessFlow')) } catch {}
 try { ExportHub = React.lazy(() => import(/* @vite-ignore */ './pages/export/ExportHub')) } catch {}
 try { RiskHub = React.lazy(() => import(/* @vite-ignore */ './pages/risk/RiskHub')) } catch {}
+try { EnterpriseRiskHub = React.lazy(() => import(/* @vite-ignore */ './pages/enterprise-risk/EnterpriseRiskHub')) } catch {}
 try { CalibrationHub = React.lazy(() => import(/* @vite-ignore */ './pages/calibration/CalibrationHub')) } catch {}
 try { SupplierHub = React.lazy(() => import(/* @vite-ignore */ './pages/supplier/SupplierHub')) } catch {}
 try { ComplaintHub = React.lazy(() => import(/* @vite-ignore */ './pages/complaint/ComplaintHub')) } catch {}
@@ -200,6 +201,7 @@ return (
 <Route path="/improvement" element={<ProtectedRoute><LazyRoute Component={ImprovementHub} /></ProtectedRoute>} />
 <Route path="/export" element={<ProtectedRoute><LazyRoute Component={ExportHub} /></ProtectedRoute>} />
 <Route path="/risk" element={<ProtectedRoute><LazyRoute Component={RiskHub} /></ProtectedRoute>} />
+              <Route path="/enterprise-risk" element={<ProtectedRoute><LazyRoute Component={EnterpriseRiskHub} /></ProtectedRoute>} />
 <Route path="/calibration" element={<ProtectedRoute><LazyRoute Component={CalibrationHub} /></ProtectedRoute>} />
 <Route path="/supplier" element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
 <Route path="/complaints" element={<ProtectedRoute><LazyRoute Component={ComplaintHub} /></ProtectedRoute>} />
