@@ -353,6 +353,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
             { key: 'techdocs', label: '기술문서(인허가)' },
             { key: 'analysis', label: '현황 분석' },
             { key: 'risk', label: '위험관리 (ISO 14971)' },
+            { key: 'minutes', label: '회의록' },
           ].map(t => (
             <button key={t.key}
               onClick={() => !t.disabled && setTab(t.key)}
@@ -501,6 +502,9 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
         {/* 위험관리 (ISO 14971) 연동 뷰 */}
         {tab === 'risk' && (
           <RiskHub embedded={true} productKey={selected?.productKey || null} productLabel={selected?.productName || ''} />
+        )}
+        {tab === 'minutes' && (
+          <DhfMinutesView dhfId={selectedId} />
         )}
     </div>
   )
@@ -1105,6 +1109,168 @@ function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
         style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+    </div>
+  )
+}
+
+
+// ── DHF 회의록 뷰 ────────────────────────────────────────────
+function DhfMinutesView({ dhfId }) {
+  const STORE_KEY = 'qualytree.dhf_minutes'
+  const [minutes, setMinutes] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState({ date: '', title: '', attendees: '', decisions: '', actionItems: '' })
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      setMinutes(all.filter(m => m.dhfId === dhfId))
+    } catch {}
+  }, [dhfId])
+
+  const persistAll = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      const other = all.filter(m => m.dhfId !== dhfId)
+      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setMinutes(list)
+  }
+
+  const openNew = () => {
+    setEditId(null)
+    setForm({ date: new Date().toISOString().slice(0, 10), title: '', attendees: '', decisions: '', actionItems: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (m) => {
+    setEditId(m.id)
+    setForm({ date: m.date, title: m.title, attendees: m.attendees, decisions: m.decisions, actionItems: m.actionItems })
+    setShowForm(true)
+  }
+
+  const handleSave = () => {
+    if (!form.title.trim()) return
+    if (editId) {
+      persistAll(minutes.map(m => m.id === editId ? { ...m, ...form } : m))
+    } else {
+      persistAll([...minutes, { id: Date.now().toString(), dhfId, ...form }])
+    }
+    setShowForm(false)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persistAll(minutes.filter(m => m.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  if (!dhfId) return (
+    <div className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>
+      <p className="text-[14px]">DHF 항목을 먼저 선택하세요</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>회의록</div>
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>설계 회의 결정사항 및 후속조치 관리</div>
+        </div>
+        <button onClick={openNew} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium"
+          style={{ background: 'var(--amber)', color: '#fff' }}>
+          <Plus size={14} /> 회의록 추가
+        </button>
+      </div>
+
+      {minutes.length === 0 ? (
+        <div className="text-center py-10 rounded-xl" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
+          <p className="text-[14px]">등록된 회의록이 없습니다</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {[...minutes].sort((a, b) => b.date.localeCompare(a.date)).map(m => (
+            <div key={m.id} className="rounded-xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--amber)', border: '1px solid var(--amber)' }}>{m.date}</span>
+                  </div>
+                  <div className="text-[14px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>{m.title}</div>
+                  {m.attendees && <div className="text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>참석자: {m.attendees}</div>}
+                  {m.decisions && (
+                    <div className="mt-2">
+                      <div className="text-[11px] font-semibold mb-0.5" style={{ color: 'var(--ink-faint)' }}>결정사항</div>
+                      <div className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}>{m.decisions}</div>
+                    </div>
+                  )}
+                  {m.actionItems && (
+                    <div className="mt-2">
+                      <div className="text-[11px] font-semibold mb-0.5" style={{ color: 'var(--ink-faint)' }}>후속조치</div>
+                      <div className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}>{m.actionItems}</div>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => openEdit(m)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}><Edit2 size={13} /></button>
+                  <button onClick={() => handleDelete(m.id)} className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', color: '#EF4444' }}><Trash2 size={13} /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
+          <div className="w-full max-w-lg rounded-2xl p-5 space-y-4" style={{ background: 'var(--bg-card)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="flex items-center justify-between">
+              <div className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>{editId ? '회의록 수정' : '회의록 추가'}</div>
+              <button onClick={() => setShowForm(false)} style={{ color: 'var(--ink-soft)' }}><X size={18} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>날짜</label>
+                <input type="date" value={form.date} onChange={e => setF('date', e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>회의 제목 *</label>
+                <input type="text" value={form.title} onChange={e => setF('title', e.target.value)}
+                  placeholder="예: 설계 검토 1차 회의" className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>참석자</label>
+                <input type="text" value={form.attendees} onChange={e => setF('attendees', e.target.value)}
+                  placeholder="예: 홍길동, 김철수, 이영희" className="w-full px-3 py-1.5 rounded-xl text-[13px]"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>결정사항</label>
+                <textarea value={form.decisions} onChange={e => setF('decisions', e.target.value)} rows={3}
+                  placeholder="회의에서 결정된 사항을 입력하세요" className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>후속조치</label>
+                <textarea value={form.actionItems} onChange={e => setF('actionItems', e.target.value)} rows={3}
+                  placeholder="담당자·기한 포함 후속조치 사항" className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
+              <button onClick={() => setShowForm(false)} className="px-4 py-2 rounded-xl text-[13px]"
+                style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>취소</button>
+              <button onClick={handleSave} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-medium"
+                style={{ background: 'var(--amber)', color: '#fff' }}><Save size={14} /> 저장</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
