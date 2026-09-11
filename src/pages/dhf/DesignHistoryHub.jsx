@@ -355,6 +355,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
             { key: 'risk', label: '위험관리 (ISO 14971)' },
             { key: 'minutes', label: '회의록' },
                { key: 'transfer', label: '설계 이전 (Design Transfer)' },
+               { key: 'sop', label: '작업표준서 (SOP)' },
           ].map(t => (
             <button key={t.key}
               onClick={() => !t.disabled && setTab(t.key)}
@@ -509,6 +510,9 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
         )}
         {tab === 'transfer' && (
           <DhfTransferView dhfId={selectedId} />
+        )}
+        {tab === 'sop' && (
+          <DhfSopView dhfId={selectedId} />
         )}
     </div>
   )
@@ -1608,6 +1612,155 @@ function DhfRiskView({ dhfId }) {
               <div className="flex items-center gap-1 ml-2">
                 <button onClick={()=>openEdit(r)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
                 <button onClick={()=>handleDelete(r.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── DHF 작업표준서(SOP) 뷰 ──────────────────────────────────────────────
+function DhfSopView({ dhfId }) {
+  const STORE_KEY = 'qualytree.dhf_sop'
+  const [sops, setSops] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const EMPTY = { docNo:'', title:'', version:'1.0', effectiveDate:'', department:'', author:'', approver:'', scope:'', purpose:'', procedure:'', status:'초안' }
+  const [form, setForm] = useState(EMPTY)
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      setSops(all.filter(s => s.dhfId === dhfId))
+    } catch {}
+  }, [dhfId])
+
+  const persistAll = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      const other = all.filter(s => s.dhfId !== dhfId)
+      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setSops(list)
+  }
+
+  const openNew = () => { setEditId(null); setForm({ ...EMPTY, effectiveDate: new Date().toISOString().slice(0,10) }); setShowForm(true) }
+  const openEdit = (s) => { setEditId(s.id); setForm({ docNo:s.docNo, title:s.title, version:s.version, effectiveDate:s.effectiveDate, department:s.department, author:s.author, approver:s.approver, scope:s.scope, purpose:s.purpose, procedure:s.procedure, status:s.status }); setShowForm(true) }
+
+  const handleSave = () => {
+    if (!form.title.trim()) return
+    if (editId) {
+      persistAll(sops.map(s => s.id === editId ? { ...s, ...form } : s))
+    } else {
+      persistAll([...sops, { id: Date.now().toString(), dhfId, ...form }])
+    }
+    setShowForm(false)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persistAll(sops.filter(s => s.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const statusTone = (s) => s==='승인'?'green':s==='검토중'?'blue':s==='폐기'?'red':'gray'
+
+  if (!dhfId) return (
+    <div className="text-center py-12" style={{ color:'var(--ink-faint)' }}>
+      <p className="text-[14px]">DHF 항목을 먼저 선택하세요</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-[13px]" style={{ color:'var(--ink-faint)' }}>총 {sops.length}건</span>
+        <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>
+          <Plus size={14}/> SOP 추가
+        </button>
+      </div>
+
+      {sops.length === 0 && !showForm && (
+        <div className="text-center py-10" style={{ color:'var(--ink-faint)' }}>
+          <p className="text-[14px]">등록된 작업표준서가 없습니다</p>
+          <p className="text-[12px] mt-1">제조공정·검사·포장 등 작업표준서를 등록하세요</p>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">문서번호</span>
+              <input value={form.docNo} onChange={e=>setF('docNo',e.target.value)} placeholder="SOP-001" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">버전</span>
+              <input value={form.version} onChange={e=>setF('version',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">제목</span>
+              <input value={form.title} onChange={e=>setF('title',e.target.value)} placeholder="예: 조립 작업표준서" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">시행일</span>
+              <input type="date" value={form.effectiveDate} onChange={e=>setF('effectiveDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">부서</span>
+              <input value={form.department} onChange={e=>setF('department',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">작성자</span>
+              <input value={form.author} onChange={e=>setF('author',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">승인자</span>
+              <input value={form.approver} onChange={e=>setF('approver',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">적용범위</span>
+              <input value={form.scope} onChange={e=>setF('scope',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">목적</span>
+              <textarea value={form.purpose} onChange={e=>setF('purpose',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">절차 (주요 단계)</span>
+              <textarea value={form.procedure} onChange={e=>setF('procedure',e.target.value)} rows={4} placeholder="1. 준비...\n2. 작업...\n3. 검사..." className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">상태</span>
+              <select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option>초안</option><option>검토중</option><option>승인</option><option>폐기</option>
+              </select>
+            </label>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+            <button onClick={handleSave} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {sops.map(s => (
+          <div key={s.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] font-semibold">{s.title}</p>
+                  <Badge text={s.status} tone={statusTone(s.status)} />
+                </div>
+                <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{s.docNo} v{s.version} · {s.department} · 시행: {s.effectiveDate}</p>
+                {s.scope && <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>범위: {s.scope}</p>}
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={()=>openEdit(s)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                <button onClick={()=>handleDelete(s.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
               </div>
             </div>
           </div>
