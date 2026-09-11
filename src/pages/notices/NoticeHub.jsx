@@ -24,8 +24,13 @@ const NOTICE_TYPES = [
   { value: 'urgent',  label: '긴급 공지', color: '#EF4444', bg: '#FEF2F2', icon: Zap },
 ]
 const typeOf = (v) => NOTICE_TYPES.find(t => t.value === v) || NOTICE_TYPES[0]
+const NOTICE_CATEGORIES = [
+  { value: 'general', label: '일반', color: '#6B7280' },
+  { value: 'quality', label: '품질이슈', color: '#DC2626' },
+]
+const catOf = (v) => NOTICE_CATEGORIES.find(c => c.value === v) || NOTICE_CATEGORIES[0]
 function newId() { return 'NTC-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2,5).toUpperCase() }
-const EMPTY_FORM = { title: '', content: '', type: 'info', isPinned: false, isActive: true, targetDepts: ['ALL'], expiresAt: '' }
+const EMPTY_FORM = { title: '', content: '', type: 'info', category: 'general', isPinned: false, isActive: true, targetDepts: ['ALL'], expiresAt: '' }
 
 function NoticeCard({ notice, onEdit, onDelete, onToggleActive, onTogglePin, canEdit }) {
   const t = typeOf(notice.type)
@@ -104,6 +109,19 @@ function NoticeFormModal({ notice, onClose, onSave }) {
               ))}
             </div>
           </div>
+
+          <div>
+            <label className="block text-[11px] font-mono mb-1.5" style={{ color: 'var(--ink-faint)' }}>카테고리</label>
+            <div className="flex gap-2">
+              {NOTICE_CATEGORIES.map(c => (
+                <button key={c.value} type="button" onClick={() => set('category', c.value)} className="flex-1 py-2 rounded-lg text-[12px] font-medium transition"
+                  style={{ background: form.category === c.value ? c.color + '18' : 'var(--bg-soft)', color: form.category === c.value ? c.color : 'var(--ink-soft)', border: form.category === c.value ? `1.5px solid ${c.color}` : '1.5px solid var(--line)', cursor: 'pointer' }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="block text-[11px] font-mono mb-1.5" style={{ color: 'var(--ink-faint)' }}>제목 *</label>
             <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="공지 제목을 입력하세요" className="w-full px-3 py-2 rounded-lg text-[13.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', outline: 'none' }} />
@@ -221,6 +239,7 @@ export default function NoticeHub() {
   const [editTarget, setEditTarget] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [filterType, setFilterType] = useState('all')
+  const [filterCategory, setFilterCategory] = useState('all')
   const [searchQ, setSearchQ] = useState('')
   const canEdit = isAdmin || authors.includes(userEmail.toLowerCase())
   const persist = (list) => { setNotices(list); saveNotices(list) }
@@ -239,7 +258,8 @@ export default function NoticeHub() {
     if (filterType !== 'all') list = list.filter(n => n.type === filterType)
     if (searchQ.trim()) { const q = searchQ.toLowerCase(); list = list.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)) }
     return list.sort((a, b) => { if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1; return new Date(b.createdAt) - new Date(a.createdAt) })
-  }, [notices, filterType, searchQ])
+    if (filterCategory !== 'all') list = list.filter(n => (n.category || 'general') === filterCategory)
+  }, [notices, filterType, filterCategory, searchQ])
   const activeCount = notices.filter(n => n.isActive && (!n.expiresAt || new Date(n.expiresAt) >= new Date())).length
 
   return (
@@ -273,6 +293,11 @@ export default function NoticeHub() {
           <div className="flex gap-1.5">
             {[['all', '전체'], ...NOTICE_TYPES.map(t => [t.value, t.label])].map(([v, l]) => (
               <button key={v} onClick={() => setFilterType(v)} className="text-[12px] px-3 py-1.5 rounded-lg transition" style={{ background: filterType === v ? 'var(--moss)' : 'var(--bg-soft)', color: filterType === v ? '#fff' : 'var(--ink-soft)', border: filterType === v ? '1.5px solid var(--moss)' : '1.5px solid var(--line)', cursor: 'pointer', fontWeight: filterType === v ? 600 : 400 }}>{l}</button>
+            ))}
+          </div>
+          <div className="flex gap-1.5">
+            {[['all', '전체'], ...NOTICE_CATEGORIES.map(c => [c.value, c.label])].map(([v, l]) => (
+              <button key={v} onClick={() => setFilterCategory(v)} className="text-[12px] px-3 py-1.5 rounded-lg transition" style={{ background: filterCategory === v ? 'var(--amber)' : 'var(--bg-soft)', color: filterCategory === v ? '#fff' : 'var(--ink-soft)', border: filterCategory === v ? '1.5px solid var(--amber)' : '1.5px solid var(--line)', cursor: 'pointer', fontWeight: filterCategory === v ? 600 : 400 }}>{l}</button>
             ))}
           </div>
           <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="제목·내용 검색..." className="px-3 py-1.5 rounded-lg text-[12.5px]" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', outline: 'none', minWidth: 180 }} />
