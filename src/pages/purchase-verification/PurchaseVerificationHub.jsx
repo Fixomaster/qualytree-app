@@ -80,6 +80,10 @@ const EMPTY_IQC = {
   disposalAction: '', // 불합격 시 처리 (반품/격리/특채)
   linkedProductIdId: '',
   notes: '',
+  coaRef: '',
+  coaDate: '',
+  coaFileName: '',
+  judgmentHistory: [],
 }
 
 // §7.4.3 기본 검사 항목 (품목 유형별)
@@ -743,6 +747,40 @@ function IqcForm({ form, setForm, onSave, onCancel, isEdit, pos }) {
           성적서 (CoC/시험성적서) 수령 완료
         </label>
         {form.cocReceived && <Field label="성적서 번호" value={form.cocNo} onChange={v => F('cocNo', v)} />}
+      </div>
+      {/* COA (시험성적서) */}
+      <div className="mb-4 border border-amber-100 rounded-lg p-3 bg-amber-50">
+        <div className="text-xs font-semibold text-amber-700 mb-2">COA (시험성적서) 정보</div>
+        <div className="grid grid-cols-3 gap-2">
+          <div><label className="block text-xs text-gray-500 mb-1">COA 번호</label>
+            {editing?<input className="w-full border rounded px-2 py-1 text-xs" value={iqcForm.coaRef||''} onChange={e=>setIqcForm(f=>({...f,coaRef:e.target.value}))} placeholder="예: COA-2024-001"/>:<span className="text-xs text-gray-800">{iqcForm.coaRef||'—'}</span>}
+          </div>
+          <div><label className="block text-xs text-gray-500 mb-1">발행일</label>
+            {editing?<input type="date" className="w-full border rounded px-2 py-1 text-xs" value={iqcForm.coaDate||''} onChange={e=>setIqcForm(f=>({...f,coaDate:e.target.value}))}/>:<span className="text-xs text-gray-800">{iqcForm.coaDate||'—'}</span>}
+          </div>
+          <div><label className="block text-xs text-gray-500 mb-1">파일명</label>
+            {editing?<input className="w-full border rounded px-2 py-1 text-xs" value={iqcForm.coaFileName||''} onChange={e=>setIqcForm(f=>({...f,coaFileName:e.target.value}))} placeholder="예: COA_ABC_2024.pdf"/>:<span className="text-xs text-gray-800">{iqcForm.coaFileName||'—'}</span>}
+          </div>
+        </div>
+      </div>
+      {/* 합격 판정 이력 */}
+      <div className="mb-4 border border-green-100 rounded-lg p-3 bg-green-50">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-green-700">합격 판정 이력</div>
+          {editing&&<button className="text-xs bg-green-600 text-white px-2 py-0.5 rounded" onClick={()=>setIqcForm(f=>({...f,judgmentHistory:[...(f.judgmentHistory||[]),{id:Date.now(),date:new Date().toISOString().slice(0,10),judge:'',decision:'pass',comment:''}]}))}>+ 추가</button>}
+        </div>
+        {!(iqcForm.judgmentHistory?.length)&&<div className="text-xs text-gray-400 text-center py-2">판정 이력 없음</div>}
+        {(iqcForm.judgmentHistory||[]).map((j,i)=>(
+          <div key={j.id} className="grid grid-cols-4 gap-2 mb-1 text-xs">
+            <input type="date" className="border rounded px-2 py-1" value={j.date} onChange={e=>setIqcForm(f=>({...f,judgmentHistory:f.judgmentHistory.map((x,xi)=>xi===i?{...x,date:e.target.value}:x)}))} disabled={!editing}/>
+            <input className="border rounded px-2 py-1" placeholder="판정자" value={j.judge} onChange={e=>setIqcForm(f=>({...f,judgmentHistory:f.judgmentHistory.map((x,xi)=>xi===i?{...x,judge:e.target.value}:x)}))} disabled={!editing}/>
+            <select className="border rounded px-2 py-1" value={j.decision} onChange={e=>setIqcForm(f=>({...f,judgmentHistory:f.judgmentHistory.map((x,xi)=>xi===i?{...x,decision:e.target.value}:x)}))} disabled={!editing}>
+              <option value="pass">합격</option><option value="conditional">조건부</option><option value="fail">불합격</option>
+            </select>
+            {editing&&<button className="text-red-400" onClick={()=>setIqcForm(f=>({...f,judgmentHistory:f.judgmentHistory.filter((_,xi)=>xi!==i)}))}>✕</button>}
+            {!editing&&<span className="text-gray-600 truncate">{j.comment}</span>}
+          </div>
+        ))}
       </div>
       {/* 검사 항목 */}
       <div className="mb-4">
