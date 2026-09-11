@@ -934,6 +934,7 @@ export default function SterileControlHub() {
     { id: 'batches', label: '멸균 배치 기록',    icon: ClipboardList },
     { id: 'policy',  label: '재처리·라벨링 정책', icon: FileText },
     { id: 'analysis',label: '현황 분석',          icon: BarChart2 },
+    { id: 'revalidation', label: '재유효성확인', icon: ShieldCheck },
   ]
 
   return (
@@ -975,7 +976,161 @@ export default function SterileControlHub() {
         {tab === 'batches'  && <BatchTab    batches={batches} setBatches={setBatches} specs={specs} canEdit={canEdit} />}
         {tab === 'policy'   && <PolicyTab   policy={policy} setPolicy={setPolicy}  canEdit={canEdit} />}
         {tab === 'analysis' && <AnalysisTab specs={specs}   batches={batches}      compl={compl} />}
+        {tab === 'revalidation' && <RevalidationTab batches={batches} specs={specs} />}
       </div>
     </AppLayout>
+  )
+}
+
+
+// ── 재유효성확인 주기 추적 ─────────────────────────────────────────────
+const REVAL_KEY = 'qualytree.sterile_revalidation'
+function RevalidationTab({ batches, specs }) {
+  const EMPTY = { productName:'', sterileMethod:'', lastValidDate:'', cycleDays:365, nextValidDate:'', responsible:'', status:'계획', result:'', notes:'' }
+  const [items, setItems] = useState([])
+  const [form, setForm] = useState(EMPTY)
+  const [editId, setEditId] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+
+  // Auto-judge batches: pass if all critical params within spec
+  const autoBatchResults = (batches || []).map(b => {
+    const critFail = specs && specs.some && specs.some(s =>
+      s.critical && b.measuredValues && b.measuredValues[s.id] !== undefined &&
+      (parseFloat(b.measuredValues[s.id]) < parseFloat(s.min) || parseFloat(b.measuredValues[s.id]) > parseFloat(s.max))
+    )
+    return { ...b, autoResult: critFail ? '불합격' : '합격' }
+  })
+
+  useEffect(() => {
+    try { setItems(JSON.parse(localStorage.getItem(REVAL_KEY) || '[]')) } catch {}
+  }, [])
+
+  const persist = (list) => {
+    try { localStorage.setItem(REVAL_KEY, JSON.stringify(list)) } catch {}
+    setItems(list)
+  }
+
+  const calcNext = (last, days) => {
+    if (!last) return ''
+    const d = new Date(last)
+    d.setDate(d.getDate() + Number(days))
+    return d.toISOString().slice(0, 10)
+  }
+
+  const openNew = () => {
+    setEditId(null)
+    setForm({ ...EMPTY, lastValidDate: new Date().toISOString().slice(0,10), nextValidDate: calcNext(new Date().toISOString().slice(0,10), 365) })
+    setShowForm(true)
+  }
+
+  const openEdit = (it) => {
+    setEditId(it.id)
+    setForm({ productName:it.productName, sterileMethod:it.sterileMethod, lastValidDate:it.lastValidDate, cycleDays:it.cycleDays, nextValidDate:it.nextValidDate, responsible:it.responsible, status:it.status, result:it.result, notes:it.notes })
+    setShowForm(true)
+  }
+
+  const save = () => {
+    if (!form.productName.trim()) return
+    const next = calcNext(form.lastValidDate, form.cycleDays)
+    const item = { ...form, nextValidDate: next }
+    if (editId) { persist(items.map(it => it.id === editId ? { ...it, ...item } : it)) }
+    else { persist([...items, { id: Date.now().toString(), ...item }]) }
+    setShowForm(false)
+  }
+
+  const del = (id) => { if (!window.confirm('삭제하시겠습니까?')) return; persist(items.filter(it => it.id !== id)) }
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const daysUntil = (dateStr) => {
+    if (!dateStr) return null
+    const diff = Math.round((new Date(dateStr) - new Date()) / 86400000)
+    return diff
+  }
+
+  const dueTone = (dateStr) => {
+    const d = daysUntil(dateStr)
+    if (d === null) return 'var(--ink-faint)'
+    if (d < 0) return '#dc2626'
+    if (d <= 30) return '#d97706'
+    return '#16a34a'
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Auto batch judgment */}
+      {(batches || []).length > 0 && (
+        <div className="rounded-xl border p-4" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
+          <h3 className="text-[13px] font-semibold mb-3">배치 합격 자동 판정</h3>
+          <div className="space-y-2">
+            {autoBatchResults.slice(-5).map(b => (
+              <div key={b.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background:'var(--surface)', border:'1px solid var(--border)' }}>
+                <span className="text-[13px]">{b.batchNo || b.id} — {b.productName || ''}</span>
+                <span className="px-2 py-0.5 rounded text-[12px] font-medium" style={{ background: b.autoResult==='합격'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)', color: b.autoResult==='합격'?'#16a34a':'#dc2626' }}>{b.autoResult}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Revalidation schedule */}
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-[13px] font-semibold">유효성 확인 주기 일정</h3>
+          <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}><PlusCircle size={14}/> 항목 추가</button>
+        </div>
+
+        {showForm && (
+          <div className="rounded-xl border p-4 space-y-3 mb-3" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">제품명</span><input value={form.productName} onChange={e=>setF('productName',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">멸균 방법</span><input value={form.sterileMethod} onChange={e=>setF('sterileMethod',e.target.value)} placeholder="에틸렬산, 방사선..." className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">최근 유효성 확인일</span><input type="date" value={form.lastValidDate} onChange={e=>{ setF('lastValidDate',e.target.value); setF('nextValidDate', calcNext(e.target.value, form.cycleDays)) }} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">주기 (일)</span><input type="number" value={form.cycleDays} onChange={e=>{ setF('cycleDays',e.target.value); setF('nextValidDate', calcNext(form.lastValidDate, e.target.value)) }} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">다음 유효성 확인 예정일</span><input type="date" value={form.nextValidDate} onChange={e=>setF('nextValidDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">담당자</span><input value={form.responsible} onChange={e=>setF('responsible',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">상태</span><select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>계획</option><option>진행중</option><option>완료</option></select></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">결과</span><select value={form.result} onChange={e=>setF('result',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option value=""></option><option>합격</option><option>불합격</option></select></label>
+              <label className="flex flex-col gap-1 col-span-2"><span className="text-[12px] font-medium">비고</span><textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+              <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+            </div>
+          </div>
+        )}
+
+        {items.length === 0 && !showForm && (
+          <div className="text-center py-8" style={{ color:'var(--ink-faint)' }}>
+            <p className="text-[14px]">유효성 확인 일정이 없습니다</p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {items.map(it => {
+            const d = daysUntil(it.nextValidDate)
+            const dLabel = d === null ? '' : d < 0 ? `D+${Math.abs(d)} 경과` : d === 0 ? '오늘!' : `D-${d}`
+            return (
+              <div key={it.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[14px] font-semibold">{it.productName}</p>
+                      <span className="text-[12px] font-medium" style={{ color: dueTone(it.nextValidDate) }}>{dLabel}</span>
+                      {it.result && <span className="px-1.5 py-0.5 rounded text-[11px]" style={{ background: it.result==='합격'?'rgba(34,197,94,0.12)':'rgba(239,68,68,0.12)', color: it.result==='합격'?'#16a34a':'#dc2626' }}>{it.result}</span>}
+                    </div>
+                    <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{it.sterileMethod} · 주기 {it.cycleDays}일 · 다음 확인: {it.nextValidDate}</p>
+                    <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>담당: {it.responsible} · {it.status}</p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={()=>openEdit(it)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                    <button onClick={()=>del(it.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
   )
 }
