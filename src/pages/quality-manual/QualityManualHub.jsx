@@ -133,6 +133,7 @@ const DEFAULT_MANUAL = {
   distributionList: [],    // [{dept, name, copyNo}]
 
   // 개정 이력
+  bodyText: '',
   revisionHistory: [],     // [{rev, date, description, by}]
 }
 
@@ -188,6 +189,25 @@ export default function QualityManualHub() {
   }
   function updateRev(id, field, value) { F('revisionHistory', (Array.isArray(D.revisionHistory)?D.revisionHistory:[]).map(r => r.id === id ? { ...r, [field]: value } : r)) }
   function removeRev(id) { F('revisionHistory', D.revisionHistory.filter(r => r.id !== id)) }
+
+  function generateDraft() {
+    const co = D.companyName || '당사';
+    const sc = D.scope || 'QMS 전 범위';
+    const qp = D.qualityPolicy || '[품질 방침을 입력하세요]';
+    const tpl = [
+      '1. 목적\n본 품질 매뉴얼은 ISO 13485:2016 및 관련 법규 요건에 따라 ' + co + '의 품질경영시스템을 기술합니다.',
+      '2. 적용 범위\n' + sc,
+      '3. 품질 방침\n' + qp,
+      '4. QMS 문서 체계\n품질 매뉴얼, 절차서(SOP), 양식 및 기록으로 구성됩니다.',
+      '5. 프로세스 관리\nISO 13485 요건에 따라 설계에서 출하까지 전 프로세스를 관리합니다.',
+      '6. 경영진 책임\n최고경영자는 QMS 수립·실행·개선에 대한 의지와 책임을 집니다.',
+      '7. 자원 관리\n품질 목표 달성에 필요한 인력, 인프라, 작업환경을 제공합니다.',
+      '8. 제품 실현\n고객 요건사항 검토부터 설계, 구매, 생산, 검사, 출하까지 전 주기를 관리합니다.',
+      '9. 측정·분석·개선\n감사, KPI 모니터링, 부적합 관리, CAPA를 통해 QMS를 지속 개선합니다.',
+    ].join('\n\n');
+    F('bodyText', tpl);
+  }
+
 
   // 완성도 체크
   const completeness = useMemo(() => {
@@ -286,6 +306,8 @@ export default function QualityManualHub() {
             { key: 'process',      label: '프로세스 맵' },
             { key: 'distribution', label: `배포 목록 (${manual.distributionList?.length || 0})` },
             { key: 'history',      label: `개정 이력 (${manual.revisionHistory?.length || 0})` },
+                      { key: 'body',         label: '본문 작성' },
+            { key: 'print',        label: '전체보기·출력' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition"
@@ -701,6 +723,73 @@ export default function QualityManualHub() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+        {tab === 'body' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>ISO 13485 §4.2.1 품질 매뉴얼 본문을 작성합니다.</div>
+              {editing && (
+                <button onClick={generateDraft} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold" style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                  <FileText size={12} /> AI 초안 생성
+                </button>
+              )}
+            </div>
+            {editing ? (
+              <textarea value={D.bodyText || ''} onChange={e => F('bodyText', e.target.value)}
+                className="w-full rounded-xl p-4 text-[13px]"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', minHeight: 500, resize: 'vertical', fontFamily: 'inherit' }}
+                placeholder="품질 매뉴얼 본문을 여기에 작성하세요..." />
+            ) : manual.bodyText ? (
+              <div className="rounded-xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+                <pre className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)', fontFamily: 'inherit' }}>{manual.bodyText}</pre>
+              </div>
+            ) : (
+              <div className="rounded-xl p-5 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink-soft)' }}>
+                본문이 작성되지 않았습니다. 편집 모드에서 내용을 입력하세요.
+              </div>
+            )}
+          </div>
+        )}
+        {tab === 'print' && (
+          <div>
+            <div className="flex justify-end mb-4">
+              <button onClick={() => window.print()} className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold" style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+                <Download size={14} /> PDF 출력
+              </button>
+            </div>
+            <div className="rounded-2xl p-8" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-center mb-8">
+                <div className="text-2xl font-bold mb-2" style={{ color: 'var(--ink)' }}>{manual.title || '품질 매뉴얼'}</div>
+                <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>문서번호: {manual.manualNo} · 개정: {manual.revision} · 발행일: {manual.issueDate}</div>
+                <div className="text-[12px] mt-1" style={{ color: 'var(--ink-soft)' }}>작성: {manual.preparedBy} · 검토: {manual.reviewedBy} · 승인: {manual.approvedBy}</div>
+              </div>
+              {manual.scope && <div className="mb-5"><div className="font-bold mb-2" style={{ color: 'var(--moss)' }}>§4.2.1(a) 적용 범위</div><div className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}>{manual.scope}</div></div>}
+              {manual.qualityPolicy && <div className="mb-5"><div className="font-bold mb-2" style={{ color: 'var(--moss)' }}>품질 방침 (§5.3)</div><div className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)' }}>{manual.qualityPolicy}</div></div>}
+              {manual.bodyText && <div className="mb-5"><div className="font-bold mb-2" style={{ color: 'var(--moss)' }}>매뉴얼 본문</div><pre className="text-[13px] whitespace-pre-wrap" style={{ color: 'var(--ink)', fontFamily: 'inherit' }}>{manual.bodyText}</pre></div>}
+              {(manual.revisionHistory?.length > 0) && (
+                <div className="mb-5">
+                  <div className="font-bold mb-3" style={{ color: 'var(--moss)' }}>개정 이력</div>
+                  <table className="w-full text-[12.5px]" style={{ borderCollapse: 'collapse' }}>
+                    <thead><tr style={{ background: 'var(--bg-soft)' }}>
+                      {['개정 번호', '개정일', '개정 내용', '작성자'].map(h => (
+                        <th key={h} className="px-3 py-2 text-left" style={{ border: '1px solid var(--line)' }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {manual.revisionHistory.map((r, i) => (
+                        <tr key={r.id || i} style={{ background: i % 2 === 0 ? 'var(--bg)' : 'var(--bg-soft)' }}>
+                          <td className="px-3 py-2" style={{ border: '1px solid var(--line)' }}>{r.rev}</td>
+                          <td className="px-3 py-2" style={{ border: '1px solid var(--line)' }}>{r.date}</td>
+                          <td className="px-3 py-2" style={{ border: '1px solid var(--line)' }}>{r.description}</td>
+                          <td className="px-3 py-2" style={{ border: '1px solid var(--line)' }}>{r.by}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
