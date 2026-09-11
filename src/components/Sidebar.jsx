@@ -114,6 +114,7 @@ items: [
     { to: '/post-market-safety', label: '시판후안전관리' },
     { to: '/csv', label: 'CSV 유효성확인' },
     { to: '/stability', label: '안정성 시험 관리' },
+    { to: '/enterprise-risk', label: '전사 위험관리' },
 ],
 },
 {
