@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { AlertTriangle, RotateCcw, Shield, Plus, Search, Edit3, Trash2, X } from 'lucide-react'
+import { AlertTriangle, RotateCcw, Shield, Plus, Search, Edit3, Trash2, X, FileText } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 
@@ -8,6 +8,7 @@ const TABS = [
   { key: 'adverse', label: '이상사례 보고', icon: AlertTriangle },
   { key: 'recall',  label: '리콜/회수',   icon: RotateCcw },
   { key: 'safety',  label: '안전성 조치',   icon: Shield },
+  { key: 'mdr',    label: 'MDR 보고서',    icon: FileText },
 ]
 
 // ─── Adverse Events constants ────────────────────────────────────────────────
@@ -462,7 +463,124 @@ export default function PostMarketSafetyHub() {
         {activeTab === 'adverse' && <AdverseTab />}
         {activeTab === 'recall'  && <RecallTab />}
         {activeTab === 'safety'  && <SafetyTab />}
+        {activeTab === 'mdr'     && <MdrTab />}
       </div>
     </AppLayout>
+  )
+}
+
+
+// ── MDR 보고서 탭 ────────────────────────────────────────────
+const MDR_KEY = 'qualytree.mdr_reports'
+function MdrTab() {
+  const [reports, setReports] = React.useState([])
+  const [showForm, setShowForm] = React.useState(false)
+  const [editId, setEditId] = React.useState(null)
+  const EMPTY = { reportNo:'', reportType:'15일보고', productName:'', incidentDate:'', reportDate:'', patientInfo:'', eventDescription:'', deviceProblem:'', patientOutcome:'', cause:'', corrective:'', status:'작성중' }
+  const [form, setForm] = React.useState(EMPTY)
+
+  React.useEffect(() => {
+    try { setReports(JSON.parse(localStorage.getItem(MDR_KEY)||'[]')) } catch {}
+  }, [])
+
+  const persist = (list) => { try { localStorage.setItem(MDR_KEY, JSON.stringify(list)) } catch {}; setReports(list) }
+
+  const generateDraft = () => {
+    const today = new Date().toISOString().slice(0,10)
+    setForm({
+      reportNo: 'MDR-' + Date.now().toString().slice(-6),
+      reportType: '15일보고',
+      productName: '',
+      incidentDate: today,
+      reportDate: today,
+      patientInfo: '환자 식별번호: ___  나이: ___  성별: ___  사용 목적: ___',
+      eventDescription: '[이상사례 발생일]: ___\n[발생 장소]: ___\n[사고 경위]: 환자에게 기기를 사용 중 ___이 발생하였음.\n[기기 상태]: 사고 당시 기기의 상태는 ___ 이었으며, 시리얼번호 ___ 로 확인됨.',
+      deviceProblem: '□ 기기 고장  □ 라벨 오류  □ 사용자 오류  □ 기기 성능 저하  □ 기타: ___',
+      patientOutcome: '□ 사망  □ 중대한 부상  □ 입원  □ 생명 위협  □ 후유증  □ 의료 처치 필요  □ 무해',
+      cause: '[임시 원인 분석]:\n제조 공정: ___\n설계 결함: ___\n사용자 오류: ___\n환경 요인: ___',
+      corrective: '[즉각 조치]:\n1. 해당 로트 격리 조치\n2. 의료기관 통보\n3. 원인 조사 착수\n\n[예방 조치]:\n1. CAPA 등록 예정\n2. 제조 공정 검토 예정',
+      status: '작성중'
+    })
+    setEditId(null)
+    setShowForm(true)
+  }
+
+  const handlePrint = (r) => {
+    const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>')
+    const html = `<!DOCTYPE html><html><head><title>MDR-${r.reportNo}</title><style>body{font-family:serif;margin:30px;font-size:12px}h1{font-size:16px;text-align:center;border-bottom:2px solid #000;padding-bottom:6px}table{width:100%;border-collapse:collapse}td{border:1px solid #000;padding:5px;vertical-align:top}.lb{background:#f0f0f0;width:20%;font-weight:bold}</style></head><body><h1>의료기기 이상사례 보고서 (MDR)</h1><table><tr><td class=lb>보고번호</td><td>${esc(r.reportNo)}</td><td class=lb>보고유형</td><td>${esc(r.reportType)}</td></tr><tr><td class=lb>제품명</td><td>${esc(r.productName)}</td><td class=lb>보고일</td><td>${esc(r.reportDate)}</td></tr><tr><td class=lb>사고발생일</td><td>${esc(r.incidentDate)}</td><td class=lb>상태</td><td>${esc(r.status)}</td></tr><tr><td class=lb>환자정보</td><td colspan=3>${esc(r.patientInfo)}</td></tr><tr><td class=lb>사고개요</td><td colspan=3>${esc(r.eventDescription)}</td></tr><tr><td class=lb>기기결함</td><td colspan=3>${esc(r.deviceProblem)}</td></tr><tr><td class=lb>환자결과</td><td colspan=3>${esc(r.patientOutcome)}</td></tr><tr><td class=lb>원인분석</td><td colspan=3>${esc(r.cause)}</td></tr><tr><td class=lb>시정조치</td><td colspan=3>${esc(r.corrective)}</td></tr></table></body></html>`
+    const w = window.open('','_blank'); w.document.write(html); w.document.close(); w.print()
+  }
+
+  const save = () => {
+    if (!form.reportNo.trim()) return
+    if (editId) { persist(reports.map(r=>r.id===editId?{...r,...form}:r)) }
+    else { persist([...reports, {id:Date.now().toString(),...form}]) }
+    setShowForm(false)
+  }
+  const del = (id) => { if(!window.confirm('삭제하시겠습니까?')) return; persist(reports.filter(r=>r.id!==id)) }
+  const setF = (k,v) => setForm(f=>({...f,[k]:v}))
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 items-center justify-between">
+        <span className="text-[13px]" style={{color:'var(--ink-faint)'}}>MDR 보고서 {reports.length}건</span>
+        <div className="flex gap-2">
+          <button onClick={generateDraft} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'#7c3aed',color:'#fff'}}>AI 초안 생성</button>
+          <button onClick={()=>{setEditId(null);setForm({...EMPTY,reportDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}><Plus size={14}/> 신규</button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="rounded-xl border p-4 space-y-3" style={{borderColor:'var(--border)',background:'var(--surface-2)'}}>
+          <div className="grid grid-cols-2 gap-3">
+            <FInput label="보고번호" value={form.reportNo} onChange={e=>setF('reportNo',e.target.value)} />
+            <FSel label="보고유형" value={form.reportType} onChange={e=>setF('reportType',e.target.value)} options={['15일보고','30일보고','보완보고']} />
+            <FInput label="제품명" value={form.productName} onChange={e=>setF('productName',e.target.value)} />
+            <FSel label="상태" value={form.status} onChange={e=>setF('status',e.target.value)} options={['작성중','검토중','제출완료']} />
+            <FInput label="사고발생일" type="date" value={form.incidentDate} onChange={e=>setF('incidentDate',e.target.value)} />
+            <FInput label="보고일" type="date" value={form.reportDate} onChange={e=>setF('reportDate',e.target.value)} />
+            <div className="col-span-2"><FTA label="환자정보" value={form.patientInfo} onChange={e=>setF('patientInfo',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="사고개요" value={form.eventDescription} onChange={e=>setF('eventDescription',e.target.value)} rows={4} /></div>
+            <div className="col-span-2"><FTA label="기기결함" value={form.deviceProblem} onChange={e=>setF('deviceProblem',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="환자결과" value={form.patientOutcome} onChange={e=>setF('patientOutcome',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="원인분석" value={form.cause} onChange={e=>setF('cause',e.target.value)} rows={3} /></div>
+            <div className="col-span-2"><FTA label="시정조치" value={form.corrective} onChange={e=>setF('corrective',e.target.value)} rows={3} /></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>취소</button>
+            <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}>저장</button>
+          </div>
+        </div>
+      )}
+
+      {reports.length===0&&!showForm&&(
+        <div className="text-center py-8" style={{color:'var(--ink-faint)'}}>
+          <p className="text-[14px]">MDR 보고서가 없습니다</p>
+          <p className="text-[12px] mt-1">AI 초안 생성으로 빠르게 작성하세요</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {reports.map(r=>(
+          <div key={r.id} className="rounded-xl border p-3" style={{borderColor:'var(--border)',background:'var(--surface)'}}>
+            <div className="flex justify-between items-start">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[14px] font-semibold">{r.reportNo}</p>
+                  <Badge label={r.reportType} color={r.reportType==='15일보고'?'red':'orange'} />
+                  <Badge label={r.status} color={r.status==='제출완료'?'green':r.status==='검토중'?'blue':'gray'} />
+                </div>
+                <p className="text-[12px] mt-0.5" style={{color:'var(--ink-faint)'}}>{r.productName} · 사고: {r.incidentDate} · 보고: {r.reportDate}</p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={()=>handlePrint(r)} className="px-2 py-1 rounded text-[12px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>출력</button>
+                <button onClick={()=>{setEditId(r.id);setForm({reportNo:r.reportNo,reportType:r.reportType,productName:r.productName,incidentDate:r.incidentDate,reportDate:r.reportDate,patientInfo:r.patientInfo,eventDescription:r.eventDescription,deviceProblem:r.deviceProblem,patientOutcome:r.patientOutcome,cause:r.cause,corrective:r.corrective,status:r.status});setShowForm(true)}} className="p-1 rounded" style={{color:'var(--ink-faint)'}}><Edit3 size={14}/></button>
+                <button onClick={()=>del(r.id)} className="p-1 rounded" style={{color:'var(--danger)'}}><Trash2 size={14}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
