@@ -83,6 +83,7 @@ const EMPTY_IQC = {
   coaRef: '',
   coaDate: '',
   coaFileName: '',
+  coaFileData: '',
   judgmentHistory: [],
 }
 
@@ -759,7 +760,7 @@ function IqcForm({ form, setForm, onSave, onCancel, isEdit, pos }) {
             <input type="date" className="w-full border rounded px-2 py-1 text-xs" value={form.coaDate||''} onChange={e=>F('coaDate',e.target.value)}/>
           </div>
           <div><label className="block text-xs text-gray-500 mb-1">파일명</label>
-            <input className="w-full border rounded px-2 py-1 text-xs" value={form.coaFileName||''} onChange={e=>F('coaFileName',e.target.value)} placeholder="예: COA_ABC_2024.pdf"/>
+            <input className="w-full border rounded px-2 py-1 text-xs" value={form.coaFileName||''} readOnly placeholder="파일을 선택하세요"/><label className="cursor-pointer ml-1 bg-indigo-50 border border-indigo-200 text-indigo-700 px-2 py-1 rounded text-xs hover:bg-indigo-100">쳊부<input type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden" onChange={e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{F('coaFileName',f.name);F('coaFileData',ev.target.result)};r.readAsDataURL(f)}}/></label>{form.coaFileData&&<a href={form.coaFileData} download={form.coaFileName||'coa'} className="text-xs text-indigo-600 hover:underline ml-1">다운로드</a>}
           </div>
         </div>
       </div>
@@ -767,16 +768,17 @@ function IqcForm({ form, setForm, onSave, onCancel, isEdit, pos }) {
       <div className="mb-4 border border-green-100 rounded-lg p-3 bg-green-50">
         <div className="flex items-center justify-between mb-2">
           <div className="text-xs font-semibold text-green-700">합격 판정 이력</div>
-          <button className="text-xs bg-green-600 text-white px-2 py-0.5 rounded" onClick={()=>F('judgmentHistory',[...(form.judgmentHistory||[]),{id:Date.now(),date:new Date().toISOString().slice(0,10),judge:'',decision:'pass'}])}>+ 추가</button>
+          <button className="text-xs bg-green-600 text-white px-2 py-0.5 rounded" onClick={()=>F('judgmentHistory',[...(form.judgmentHistory||[]),{id:Date.now(),date:new Date().toISOString().slice(0,10),judge:'',decision:'pass',notes:''}])}>+ 추가</button>
         </div>
         {!(form.judgmentHistory?.length)&&<div className="text-xs text-gray-400 text-center py-2">판정 이력 없음</div>}
         {(form.judgmentHistory||[]).map((j,i)=>(
-          <div key={j.id} className="grid grid-cols-4 gap-2 mb-1 text-xs">
+          <div key={j.id} className="grid grid-cols-5 gap-2 mb-1 text-xs">
             <input type="date" className="border rounded px-2 py-1" value={j.date} onChange={e=>F('judgmentHistory',form.judgmentHistory.map((x,xi)=>xi===i?{...x,date:e.target.value}:x))}/>
             <input className="border rounded px-2 py-1" placeholder="판정자" value={j.judge} onChange={e=>F('judgmentHistory',form.judgmentHistory.map((x,xi)=>xi===i?{...x,judge:e.target.value}:x))}/>
             <select className="border rounded px-2 py-1" value={j.decision} onChange={e=>F('judgmentHistory',form.judgmentHistory.map((x,xi)=>xi===i?{...x,decision:e.target.value}:x))}>
               <option value="pass">합격</option><option value="conditional">조건부</option><option value="fail">불합격</option>
             </select>
+            <input className="border rounded px-2 py-1" placeholder="비고" value={j.notes||''} onChange={e=>F('judgmentHistory',form.judgmentHistory.map((x,xi)=>xi===i?{...x,notes:e.target.value}:x))}/>
             <button className="text-red-400" onClick={()=>F('judgmentHistory',form.judgmentHistory.filter((_,xi)=>xi!==i))}>✕</button>
           </div>
         ))}
