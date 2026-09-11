@@ -293,6 +293,7 @@ function CustomersView({ customers, setCustomers }) {
   const [modal, setModal] = useState(null)
   const [edit, setEdit] = useState(null)
   const [srch, setSrch] = useState('')
+  const [contractCust, setContractCust] = useState(null)
 
   const save = (f) => {
     if (edit) { setCustomers(p=>p.map(x=>x.id===edit.id?{...x,...f}:x)); setEdit(null) }
@@ -348,6 +349,7 @@ function CustomersView({ customers, setCustomers }) {
                     <div className="flex gap-1">
                       <ActBtn label="수정" onClick={()=>{setEdit(c);setModal('form')}}/>
                       <ActBtn label="삭제" color="red" onClick={()=>del(c.id)}/>
+                      <ActBtn label="계약서" color="blue" onClick={()=>setContractCust(c)}/>
                     </div>
                   </TD>
                 </tr>
@@ -361,7 +363,145 @@ function CustomersView({ customers, setCustomers }) {
           <CustomerForm initial={edit||{}} onSave={save} onCancel={()=>{setModal(null);setEdit(null)}}/>
         </Modal>
       )}
+      {contractCust && (
+        <CustomerContractsModal customer={contractCust} onClose={()=>setContractCust(null)} />
+      )}
     </div>
+  )
+}
+
+// ── 고객사 계약 관리 ──────────────────────────────────────
+function CustomerContractsModal({ customer, onClose }) {
+  const STORE_KEY = 'qualytree.sal_contracts'
+  const [contracts, setContracts] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState({ contractNo: '', startDate: '', endDate: '', productItems: '', reviewDate: '', reviewer: '', status: '유효', notes: '' })
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      setContracts(all.filter(c => c.customerId === customer.id))
+    } catch {}
+  }, [customer.id])
+
+  const persistAll = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      const other = all.filter(c => c.customerId !== customer.id)
+      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setContracts(list)
+  }
+
+  const openNew = () => {
+    setEditId(null)
+    setForm({ contractNo: '', startDate: new Date().toISOString().slice(0,10), endDate: '', productItems: customer.items||'', reviewDate: '', reviewer: '', status: '유효', notes: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (c) => {
+    setEditId(c.id)
+    setForm({ contractNo: c.contractNo, startDate: c.startDate, endDate: c.endDate, productItems: c.productItems, reviewDate: c.reviewDate, reviewer: c.reviewer, status: c.status, notes: c.notes })
+    setShowForm(true)
+  }
+
+  const handleSave = () => {
+    if (!form.contractNo.trim()) return
+    if (editId) {
+      persistAll(contracts.map(c => c.id === editId ? { ...c, ...form } : c))
+    } else {
+      persistAll([...contracts, { id: Date.now().toString(), customerId: customer.id, customerName: customer.name, ...form }])
+    }
+    setShowForm(false)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persistAll(contracts.filter(c => c.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  return (
+    <Modal title={`${customer.name} - 계약 관리`} onClose={onClose} size="xl">
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <span className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>총 {contracts.length}건</span>
+          <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
+            <Plus size={14} /> 신규 계약
+          </button>
+        </div>
+        {contracts.length === 0 && !showForm && (
+          <div className="text-center py-8" style={{ color: 'var(--ink-faint)' }}>
+            <p className="text-[14px]">등록된 계약서가 없습니다</p>
+          </div>
+        )}
+        {showForm && (
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">계약번호</span>
+                <input value={form.contractNo} onChange={e=>setF('contractNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">계약품목</span>
+                <input value={form.productItems} onChange={e=>setF('productItems',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">시작일</span>
+                <input type="date" value={form.startDate} onChange={e=>setF('startDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">종료일</span>
+                <input type="date" value={form.endDate} onChange={e=>setF('endDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">검토일</span>
+                <input type="date" value={form.reviewDate} onChange={e=>setF('reviewDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[12px] font-medium">검토자</span>
+                <input value={form.reviewer} onChange={e=>setF('reviewer',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+              </label>
+              <label className="flex flex-col gap-1 col-span-2">
+                <span className="text-[12px] font-medium">상태</span>
+                <select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                  <option>유효</option><option>만료</option><option>해지</option><option>갱신중</option>
+                </select>
+              </label>
+            </div>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">비고</span>
+              <textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+              <button onClick={handleSave} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+            </div>
+          </div>
+        )}
+        <div className="space-y-2">
+          {contracts.map(c => (
+            <div key={c.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-[14px] font-semibold">{c.contractNo}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{c.productItems}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{c.startDate} ~ {c.endDate}</p>
+                  {c.reviewDate && <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>검토: {c.reviewDate} ({c.reviewer})</p>}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge text={c.status} tone={c.status==='유효'?'green':c.status==='만료'?'red':'gray'} />
+                  <button onClick={()=>openEdit(c)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                  <button onClick={()=>handleDelete(c.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
   )
 }
 
