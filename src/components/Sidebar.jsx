@@ -132,6 +132,7 @@ items: [
 { to: '/qms-overview', label: 'QMS 개요' },
 { to: '/record-master', label: '기록 대장' },
 { to: '/document-control', label: '문서관리' },
+      { to: '/sop', label: '작업표준서(SOP)' },
 ],
 },
 {
