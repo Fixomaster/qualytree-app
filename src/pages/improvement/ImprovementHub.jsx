@@ -1,5 +1,5 @@
 // src/pages/improvement/ImprovementHub.jsx
-// ISO 13485:2016 §8.5 개선활동 허브
+// ISO 13485:2016 Â§8.5 ê°ì íë íë¸
 import React, { useState, useMemo } from 'react'
 import AIDraftButton from '../../components/AIDraftButton'
 import { useSearchParams, Link } from 'react-router-dom'
@@ -26,12 +26,12 @@ const IMP_STATUS = {
 }
 
 const IMP_STATUS_LABEL = {
-  idea:      '아이디어',
-  approved:  '승인됨',
-  in_progress: '진행 중',
-  verify:    '효과 검증',
-  done:      '완료',
-  cancelled: '취소',
+  idea:      'ìì´ëì´',
+  approved:  'ì¹ì¸ë¨',
+  in_progress: 'ì§í ì¤',
+  verify:    'í¨ê³¼ ê²ì¦',
+  done:      'ìë£',
+  cancelled: 'ì·¨ì',
 }
 
 const IMP_STATUS_COLOR = {
@@ -44,16 +44,16 @@ const IMP_STATUS_COLOR = {
 }
 
 const IMP_TYPE = {
-  process:   '프로세스 개선',
-  quality:   '품질 개선',
-  safety:    '안전 개선',
-  cost:      '비용 절감',
-  delivery:  '납기 개선',
-  morale:    '업무 환경',
-  preventive:'예방 조치',
+  process:   'íë¡ì¸ì¤ ê°ì ',
+  quality:   'íì§ ê°ì ',
+  safety:    'ìì  ê°ì ',
+  cost:      'ë¹ì© ì ê°',
+  delivery:  'ë©ê¸° ê°ì ',
+  morale:    'ìë¬´ íê²½',
+  preventive:'ìë°© ì¡°ì¹',
 }
 
-const IMP_PRIORITY = { high: '높음', medium: '보통', low: '낮음' }
+const IMP_PRIORITY = { high: 'ëì', medium: 'ë³´íµ', low: 'ë®ì' }
 const IMP_PRIORITY_COLOR = { high: '#EF4444', medium: '#F59E0B', low: '#6B7280' }
 
 function load() {
@@ -116,31 +116,31 @@ export default function ImprovementHub() {
   }
 
   return (
-    <AppLayout user={user} title="개선활동" subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적">
+    <AppLayout user={user} title="ê°ì íë" subtitle="ISO 13485 Â§8.5 Â· ê°ì  ê³¼ì  ê´ë¦¬ Â· KPI ì¶ì ">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
-        {/* 배너 */}
+        {/* ë°°ë */}
         <HubBanner
-          title="개선활동"
-          subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적 · 트렌드 분석"
+          title="ê°ì íë"
+          subtitle="ISO 13485 Â§8.5 Â· ê°ì  ê³¼ì  ê´ë¦¬ Â· KPI ì¶ì  Â· í¸ë ë ë¶ì"
           icon={TrendingUp}
           color="#10B981"
           quickActions={[
-            { label: '과제 등록', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
+            { label: 'ê³¼ì  ë±ë¡', icon: Plus, onClick: () => { setEditItem(null); setShowForm(true) }, primary: true },
           ]}
-          workflow={['아이디어 제안', '과제 승인', '실행 계획', '개선 실시', '효과 검증', '완료 공유']}
+          workflow={['ìì´ëì´ ì ì', 'ê³¼ì  ì¹ì¸', 'ì¤í ê³í', 'ê°ì  ì¤ì', 'í¨ê³¼ ê²ì¦', 'ìë£ ê³µì ']}
         />
         <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:'12px' }}>
           <AIDraftButton docType="ncr" />
         </div>
 
-        {/* KPI 카드 */}
+        {/* KPI ì¹´ë */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: '전체 과제', value: stats.total, icon: Target, color: '#6366F1' },
-            { label: '진행 중', value: stats.active, icon: Clock, color: '#F59E0B' },
-            { label: '완료', value: stats.done, icon: CheckCircle2, color: '#10B981' },
-            { label: '긴급 과제', value: stats.highPriority, icon: AlertTriangle, color: '#EF4444', urgent: stats.highPriority > 0 },
+            { label: 'ì ì²´ ê³¼ì ', value: stats.total, icon: Target, color: '#6366F1' },
+            { label: 'ì§í ì¤', value: stats.active, icon: Clock, color: '#F59E0B' },
+            { label: 'ìë£', value: stats.done, icon: CheckCircle2, color: '#10B981' },
+            { label: 'ê¸´ê¸ ê³¼ì ', value: stats.highPriority, icon: AlertTriangle, color: '#EF4444', urgent: stats.highPriority > 0 },
           ].map((kpi) => (
             <div
               key={kpi.label}
@@ -162,12 +162,13 @@ export default function ImprovementHub() {
           ))}
         </div>
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex gap-1 mb-6 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
           {[
-            { key: 'list', label: '개선 과제', icon: TrendingUp },
-            { key: 'capa', label: 'CAPA (NCR연계)', icon: ShieldCheck },
-            { key: 'trend', label: '현황분석', icon: ArrowUpRight },
+            { key: 'list', label: 'ê°ì  ê³¼ì ', icon: TrendingUp },
+            { key: 'capa', label: 'CAPA (NCRì°ê³)', icon: ShieldCheck },
+            { key: 'trend', label: 'íí©ë¶ì', icon: ArrowUpRight },
+            { key: 'pa', label: 'PA 통계', icon: BarChart2 },
           ].map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -185,7 +186,7 @@ export default function ImprovementHub() {
           ))}
         </div>
 
-        {/* 과제 목록 탭 */}
+        {/* ê³¼ì  ëª©ë¡ í­ */}
         {tab === 'list' && (
           <>
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
@@ -201,7 +202,7 @@ export default function ImprovementHub() {
                       border: 'none', cursor: 'pointer',
                     }}
                   >
-                    {s === 'all' ? '전체' : IMP_STATUS_LABEL[s]}
+                    {s === 'all' ? 'ì ì²´' : IMP_STATUS_LABEL[s]}
                   </button>
                 ))}
               </div>
@@ -210,7 +211,7 @@ export default function ImprovementHub() {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: '#10B981', color: '#fff', border: 'none', cursor: 'pointer' }}
               >
-                <Plus size={15} /> 과제 등록
+                <Plus size={15} /> ê³¼ì  ë±ë¡
               </button>
             </div>
 
@@ -220,7 +221,7 @@ export default function ImprovementHub() {
                 className="px-2.5 py-1 rounded-lg text-[11px] font-medium"
                 style={{ background: filterType === 'all' ? '#10B981' : 'var(--bg-soft)', color: filterType === 'all' ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}
               >
-                전체 유형
+                ì ì²´ ì í
               </button>
               {Object.entries(IMP_TYPE).map(([k, v]) => (
                 <button
@@ -245,8 +246,8 @@ export default function ImprovementHub() {
             {filtered.length === 0 ? (
               <EmptyState
                 icon={Lightbulb}
-                title="등록된 개선 과제 없음"
-                desc="프로세스 개선, 비용 절감, 품질 향상 등 개선 아이디어를 등록하세요."
+                title="ë±ë¡ë ê°ì  ê³¼ì  ìì"
+                desc="íë¡ì¸ì¤ ê°ì , ë¹ì© ì ê°, íì§ í¥ì ë± ê°ì  ìì´ëì´ë¥¼ ë±ë¡íì¸ì."
               />
             ) : (
               <div className="space-y-3">
@@ -276,12 +277,13 @@ export default function ImprovementHub() {
           />
         </>)}
         {tab === 'trend' && <TrendTab items={items} />}
+        {tab === 'pa' && <PaStatsTab items={items}/>}
       </div>
     </AppLayout>
   )
 }
 
-/* ── 개선 과제 카드 ── */
+/* ââ ê°ì  ê³¼ì  ì¹´ë ââ */
 function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
   const [open, setOpen] = useState(() => !!highlight)
   const cardRef = React.useRef(null)
@@ -303,7 +305,7 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-mono text-[11px] font-bold" style={{ color: 'var(--ink-faint)' }}>{item.id}</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: `${pc}20`, color: pc }}>
-                {IMP_PRIORITY[item.priority] || '보통'}
+                {IMP_PRIORITY[item.priority] || 'ë³´íµ'}
               </span>
               {item.type && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
@@ -313,9 +315,9 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
             </div>
             <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{item.title}</div>
             <div className="flex gap-3 mt-1 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-              {item.assignee && <span>👤 {item.assignee}</span>}
-              {item.dueDate && <span>📅 {item.dueDate}</span>}
-              {item.dept && <span>🏢 {item.dept}</span>}
+              {item.assignee && <span>ð¤ {item.assignee}</span>}
+              {item.dueDate && <span>ð {item.dueDate}</span>}
+              {item.dept && <span>ð¢ {item.dept}</span>}
             </div>
           </div>
         </div>
@@ -333,14 +335,14 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
             <div className="pt-4 text-[13px] leading-relaxed" style={{ color: 'var(--ink-soft)' }}>{item.description}</div>
           )}
           <div className="pt-3 flex flex-wrap gap-2">
-            {item.status === 'idea' && <ActionBtn color="#3B82F6" onClick={() => onStatusChange('approved')}>승인</ActionBtn>}
-            {item.status === 'approved' && <ActionBtn color="#F59E0B" onClick={() => onStatusChange('in_progress')}>시작</ActionBtn>}
-            {item.status === 'in_progress' && <ActionBtn color="#8B5CF6" onClick={() => onStatusChange('verify')}>효과 검증</ActionBtn>}
-            {item.status === 'verify' && <ActionBtn color="#10B981" onClick={() => onStatusChange('done')}>완료 처리</ActionBtn>}
+            {item.status === 'idea' && <ActionBtn color="#3B82F6" onClick={() => onStatusChange('approved')}>ì¹ì¸</ActionBtn>}
+            {item.status === 'approved' && <ActionBtn color="#F59E0B" onClick={() => onStatusChange('in_progress')}>ìì</ActionBtn>}
+            {item.status === 'in_progress' && <ActionBtn color="#8B5CF6" onClick={() => onStatusChange('verify')}>í¨ê³¼ ê²ì¦</ActionBtn>}
+            {item.status === 'verify' && <ActionBtn color="#10B981" onClick={() => onStatusChange('done')}>ìë£ ì²ë¦¬</ActionBtn>}
             {!['done', 'cancelled'].includes(item.status) && (
-              <ActionBtn color="#EF4444" onClick={() => onStatusChange('cancelled')}>취소</ActionBtn>
+              <ActionBtn color="#EF4444" onClick={() => onStatusChange('cancelled')}>ì·¨ì</ActionBtn>
             )}
-            <ActionBtn color="#6B7280" onClick={onEdit}>수정</ActionBtn>
+            <ActionBtn color="#6B7280" onClick={onEdit}>ìì </ActionBtn>
           </div>
         </div>
       )}
@@ -348,7 +350,7 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
   )
 }
 
-/* ── 개선 과제 폼 ── */
+/* ââ ê°ì  ê³¼ì  í¼ ââ */
 function ImprovementForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState({
     title: initial?.title || '',
@@ -365,58 +367,58 @@ function ImprovementForm({ initial, onSave, onCancel }) {
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
       <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>
-        {initial ? '과제 수정' : '개선 과제 등록'}
+        {initial ? 'ê³¼ì  ìì ' : 'ê°ì  ê³¼ì  ë±ë¡'}
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="과제명 *" colSpan>
-          <input {...f('title')} placeholder="개선 과제명을 입력하세요" className="qt-input" />
+        <FormField label="ê³¼ì ëª *" colSpan>
+          <input {...f('title')} placeholder="ê°ì  ê³¼ì ëªì ìë ¥íì¸ì" className="qt-input" />
         </FormField>
-        <FormField label="개선 유형">
+        <FormField label="ê°ì  ì í">
           <select {...f('type')} className="qt-input">
             {Object.entries(IMP_TYPE).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </FormField>
-        <FormField label="우선순위">
+        <FormField label="ì°ì ìì">
           <select {...f('priority')} className="qt-input">
             {Object.entries(IMP_PRIORITY).map(([k, v]) => (
               <option key={k} value={k}>{v}</option>
             ))}
           </select>
         </FormField>
-        <FormField label="관련 부서">
-          <input {...f('dept')} placeholder="예: 생산부" className="qt-input" />
+        <FormField label="ê´ë ¨ ë¶ì">
+          <input {...f('dept')} placeholder="ì: ìì°ë¶" className="qt-input" />
         </FormField>
-        <FormField label="담당자">
-          <input {...f('assignee')} placeholder="과제 담당자" className="qt-input" />
+        <FormField label="ë´ë¹ì">
+          <input {...f('assignee')} placeholder="ê³¼ì  ë´ë¹ì" className="qt-input" />
         </FormField>
-        <FormField label="완료 목표일">
+        <FormField label="ìë£ ëª©íì¼">
           <input type="date" {...f('dueDate')} className="qt-input" />
         </FormField>
-        <FormField label="과제 내용" colSpan>
-          <textarea {...f('description')} rows={3} placeholder="현황, 문제점, 개선 방향을 기술하세요" className="qt-input" style={{ resize: 'vertical' }} />
+        <FormField label="ê³¼ì  ë´ì©" colSpan>
+          <textarea {...f('description')} rows={3} placeholder="íí©, ë¬¸ì ì , ê°ì  ë°©í¥ì ê¸°ì íì¸ì" className="qt-input" style={{ resize: 'vertical' }} />
         </FormField>
-        <FormField label="기대 효과" colSpan>
-          <input {...f('expectedEffect')} placeholder="예: 불량률 20% 감소, 납기 단축 3일" className="qt-input" />
+        <FormField label="ê¸°ë í¨ê³¼" colSpan>
+          <input {...f('expectedEffect')} placeholder="ì: ë¶ëë¥  20% ê°ì, ë©ê¸° ë¨ì¶ 3ì¼" className="qt-input" />
         </FormField>
       </div>
       <div className="flex justify-end gap-3 mt-4">
-        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>ì·¨ì</button>
         <button
           onClick={() => { if (form.title) onSave(form) }}
           disabled={!form.title}
           className="px-5 py-2 rounded-xl text-[13px] font-semibold"
           style={{ background: form.title ? '#10B981' : 'var(--bg-soft)', color: form.title ? '#fff' : 'var(--ink-faint)', border: 'none', cursor: form.title ? 'pointer' : 'not-allowed' }}
         >
-          {initial ? '저장' : '등록'}
+          {initial ? 'ì ì¥' : 'ë±ë¡'}
         </button>
       </div>
     </div>
   )
 }
 
-/* ── 현황분석 탭 ── */
+/* ââ íí©ë¶ì í­ ââ */
 function TrendTab({ items }) {
   const byType = useMemo(() => {
     const counts = {}
@@ -433,7 +435,7 @@ function TrendTab({ items }) {
   const byMonth = useMemo(() => {
     const counts = {}
     items.forEach(i => {
-      const month = i.createdAt?.slice(0, 7) || '알 수 없음'
+      const month = i.createdAt?.slice(0, 7) || 'ì ì ìì'
       counts[month] = (counts[month] || 0) + 1
     })
     return Object.entries(counts).sort()
@@ -443,31 +445,31 @@ function TrendTab({ items }) {
   const completionRate = items.length > 0 ? Math.round((completed.length / items.length) * 100) : 0
 
   if (items.length === 0) {
-    return <EmptyState icon={BarChart2} title="데이터 없음" desc="개선 과제를 등록하면 현황을 확인할 수 있습니다." />
+    return <EmptyState icon={BarChart2} title="ë°ì´í° ìì" desc="ê°ì  ê³¼ì ë¥¼ ë±ë¡íë©´ íí©ì íì¸í  ì ììµëë¤." />
   }
 
   return (
     <div className="space-y-6">
       <div className="p-3.5 rounded-xl text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-        부서별 품질목표 KPI 설정·실적 추적은 <Link to="/quality-objectives" className="underline" style={{ color: 'var(--moss, #10B981)' }}>품질목표</Link> 메뉴(경영·전략)에서 관리하세요.
+        ë¶ìë³ íì§ëª©í KPI ì¤ì Â·ì¤ì  ì¶ì ì <Link to="/quality-objectives" className="underline" style={{ color: 'var(--moss, #10B981)' }}>íì§ëª©í</Link> ë©ë´(ê²½ìÂ·ì ëµ)ìì ê´ë¦¬íì¸ì.
       </div>
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex items-center justify-between mb-3">
-          <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>전체 완료율</div>
+          <div className="text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>ì ì²´ ìë£ì¨</div>
           <div className="text-[24px] font-bold" style={{ color: '#10B981' }}>{completionRate}%</div>
         </div>
         <div className="h-3 rounded-full" style={{ background: 'var(--bg-soft)' }}>
           <div className="h-3 rounded-full transition-all" style={{ width: `${completionRate}%`, background: '#10B981' }} />
         </div>
         <div className="flex justify-between mt-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-          <span>완료: {completed.length}건</span>
-          <span>전체: {items.length}건</span>
+          <span>ìë£: {completed.length}ê±´</span>
+          <span>ì ì²´: {items.length}ê±´</span>
         </div>
       </div>
 
       {byStatus.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>상태별 현황</div>
+          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>ìíë³ íí©</div>
           <div className="flex flex-wrap gap-2">
             {byStatus.map(([status, count]) => (
               <span
@@ -475,7 +477,7 @@ function TrendTab({ items }) {
                 className="text-[12px] px-3 py-1.5 rounded-lg font-medium"
                 style={{ background: `${IMP_STATUS_COLOR[status] || '#6B7280'}18`, color: IMP_STATUS_COLOR[status] || '#6B7280' }}
               >
-                {IMP_STATUS_LABEL[status] || status} {count}건
+                {IMP_STATUS_LABEL[status] || status} {count}ê±´
               </span>
             ))}
           </div>
@@ -484,7 +486,7 @@ function TrendTab({ items }) {
 
       {byType.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>유형별 분포</div>
+          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>ì íë³ ë¶í¬</div>
           <div className="space-y-3">
             {byType.map(([type, count]) => {
               const pct = Math.round((count / items.length) * 100)
@@ -492,7 +494,7 @@ function TrendTab({ items }) {
                 <div key={type}>
                   <div className="flex justify-between text-[12px] mb-1">
                     <span style={{ color: 'var(--ink-soft)' }}>{IMP_TYPE[type] || type}</span>
-                    <span style={{ color: 'var(--ink-faint)' }}>{count}건 ({pct}%)</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>{count}ê±´ ({pct}%)</span>
                   </div>
                   <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
                     <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: '#10B981' }} />
@@ -506,7 +508,7 @@ function TrendTab({ items }) {
 
       {byMonth.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>월별 등록 추이</div>
+          <div className="text-[14px] font-semibold mb-4" style={{ color: 'var(--ink)' }}>ìë³ ë±ë¡ ì¶ì´</div>
           <div className="space-y-2">
             {byMonth.slice(-6).map(([month, count]) => {
               const max = Math.max(...byMonth.map(([, c]) => c))
@@ -515,7 +517,7 @@ function TrendTab({ items }) {
                   <span className="text-[12px] w-20 flex-shrink-0" style={{ color: 'var(--ink-faint)' }}>{month}</span>
                   <div className="flex-1 h-6 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                     <div className="h-6 rounded-lg flex items-center pl-2" style={{ width: `${(count / max) * 100}%`, background: '#10B98120' }}>
-                      <span className="text-[11px] font-medium" style={{ color: '#10B981' }}>{count}건</span>
+                      <span className="text-[11px] font-medium" style={{ color: '#10B981' }}>{count}ê±´</span>
                     </div>
                   </div>
                 </div>
@@ -528,7 +530,7 @@ function TrendTab({ items }) {
   )
 }
 
-/* ── 공통 컴포넌트 ── */
+/* ââ ê³µíµ ì»´í¬ëí¸ ââ */
 function ActionBtn({ color, onClick, children }) {
   return (
     <button
@@ -562,7 +564,7 @@ function EmptyState({ icon: Icon, title, desc }) {
 
 
 /* ================================================================
-   CAPA (NCR 연계) — QualityHub에서 이관 (ISO 13485 §8.5.2/§8.5.3)
+   CAPA (NCR ì°ê³) â QualityHubìì ì´ê´ (ISO 13485 Â§8.5.2/Â§8.5.3)
    ================================================================ */
 function CapaList({ capas, selectedId, onSelect, onChanged }) {
   const selected = selectedId ? capas.find((c) => c.id === selectedId) : null
@@ -578,9 +580,9 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
           style={{ color: 'var(--ink-faint)', margin: '0 auto' }}
           strokeWidth={1.4}
         />
-        <div className="mt-3">발의된 CAPA가 없습니다.</div>
+        <div className="mt-3">ë°ìë CAPAê° ììµëë¤.</div>
         <div className="mt-1 text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-          Critical NCR 발의 시 또는 같은 항목 Major NCR 3건 누적 시 자동 후보로 등록됩니다.
+          Critical NCR ë°ì ì ëë ê°ì í­ëª© Major NCR 3ê±´ ëì  ì ìë íë³´ë¡ ë±ë¡ë©ëë¤.
         </div>
       </div>
     )
@@ -591,7 +593,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
       <div className="lg:col-span-5">
         <div className="card-base p-3">
           <div className="font-mono text-[10px] tracking-[0.16em] uppercase px-2 mb-2" style={{ color: 'var(--ink-mute)' }}>
-            CAPA · {capas.length}건
+            CAPA Â· {capas.length}ê±´
           </div>
           <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
             {capas.map((c) => {
@@ -609,7 +611,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
                     <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
                   </div>
                   <div className="text-[13px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>{c.title}</div>
-                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} · {c.raisedBy}</div>
+                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} Â· {c.raisedBy}</div>
                 </button>
               )
             })}
@@ -621,7 +623,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
           <CapaDetail capaRecord={selected} onChanged={onChanged} />
         ) : (
           <div className="card-base p-10 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
-            좌측에서 CAPA를 선택하세요
+            ì¢ì¸¡ìì CAPAë¥¼ ì ííì¸ì
           </div>
         )}
       </div>
@@ -630,7 +632,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
 }
 
 /* ================================================================
-   CAPA 상세 — 근본원인분석 → 시정조치 → 예방조치 → 효과성검증 → 승인·종결
+   CAPA ìì¸ â ê·¼ë³¸ìì¸ë¶ì â ìì ì¡°ì¹ â ìë°©ì¡°ì¹ â í¨ê³¼ì±ê²ì¦ â ì¹ì¸Â·ì¢ê²°
    ================================================================ */
 const CAPA_STAGE_ORDER = ['open', 'rca', 'corrective', 'preventive', 'verification', 'closed']
 
@@ -642,19 +644,19 @@ function CapaDetail({ capaRecord, onChanged }) {
   const [rca, setRca] = useState(capaRecord.rootCause || { method: '', cause: '', evidence: '' })
   const [corrective, setCorrective] = useState(capaRecord.correctiveAction || { action: '', owner: '', dueDate: '', completedDate: '' })
   const [preventive, setPreventive] = useState(capaRecord.preventiveAction || { action: '', owner: '', dueDate: '' })
-  const [verification, setVerification] = useState(capaRecord.verification || { method: '', result: '효과있음', verifiedBy: '', verifiedDate: '' })
+  const [verification, setVerification] = useState(capaRecord.verification || { method: '', result: 'í¨ê³¼ìì', verifiedBy: '', verifiedDate: '' })
 
   const saveStage = (stageKey, data, nextStatus) => {
-    if (!canEdit) { alert('CAPA 기록은 검사관(Level 2) 이상 권한이 필요합니다.'); return }
+    if (!canEdit) { alert('CAPA ê¸°ë¡ì ê²ì¬ê´(Level 2) ì´ì ê¶íì´ íìí©ëë¤.'); return }
     capa.updateStage(capaRecord.id, { [stageKey]: data }, nextStatus)
     onChanged()
   }
 
   const closeCapa = () => {
-    if (!canApprove) { alert('CAPA 승인·종결은 매니저(Level 3) 권한이 필요합니다.'); return }
-    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 — 종결 승인')
+    if (!canApprove) { alert('CAPA ì¹ì¸Â·ì¢ê²°ì ë§¤ëì (Level 3) ê¶íì´ íìí©ëë¤.'); return }
+    const reason = prompt('ì¢ê²° ì¹ì¸ ì¬ì  (í¨ê³¼ì±ê²ì¦ ê²°ê³¼ ê¸°ì¤):', 'í¨ê³¼ì± ê²ì¦ ìë£ â ì¢ê²° ì¹ì¸')
     if (reason == null) return
-    capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || '종결' })
+    capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || 'ì¢ê²°' })
     onChanged()
   }
 
@@ -671,69 +673,69 @@ function CapaDetail({ capaRecord, onChanged }) {
       </div>
       <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>{capaRecord.description || capaRecord.triggerReason}</div>
 
-      {/* 근본원인분석 */}
-      <CapaStageCard title="① 근본원인분석 (RCA)" citation="ISO 13485 §8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
-        <SelectFieldQ label="분석 기법" value={rca.method} onChange={(v) => setRca((r) => ({ ...r, method: v }))} options={['', '5-Why', '피쉬본(어골도)', 'FMEA', '기타']} disabled={!canEdit || stageIdx > 1} />
-        <TextAreaFieldQ label="근본원인" value={rca.cause} onChange={(v) => setRca((r) => ({ ...r, cause: v }))} disabled={!canEdit || stageIdx > 1} />
-        <TextAreaFieldQ label="근거·증거" value={rca.evidence} onChange={(v) => setRca((r) => ({ ...r, evidence: v }))} disabled={!canEdit || stageIdx > 1} />
+      {/* ê·¼ë³¸ìì¸ë¶ì */}
+      <CapaStageCard title="â  ê·¼ë³¸ìì¸ë¶ì (RCA)" citation="ISO 13485 Â§8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
+        <SelectFieldQ label="ë¶ì ê¸°ë²" value={rca.method} onChange={(v) => setRca((r) => ({ ...r, method: v }))} options={['', '5-Why', 'í¼ì¬ë³¸(ì´ê³¨ë)', 'FMEA', 'ê¸°í']} disabled={!canEdit || stageIdx > 1} />
+        <TextAreaFieldQ label="ê·¼ë³¸ìì¸" value={rca.cause} onChange={(v) => setRca((r) => ({ ...r, cause: v }))} disabled={!canEdit || stageIdx > 1} />
+        <TextAreaFieldQ label="ê·¼ê±°Â·ì¦ê±°" value={rca.evidence} onChange={(v) => setRca((r) => ({ ...r, evidence: v }))} disabled={!canEdit || stageIdx > 1} />
         {canEdit && stageIdx <= 1 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>ì ì¥ Â· ë¤ì ë¨ê³ë¡</button></div>
         )}
       </CapaStageCard>
 
-      {/* 시정조치 */}
-      <CapaStageCard title="② 시정조치" citation="ISO 13485 §8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
-        <TextAreaFieldQ label="시정조치 내용" value={corrective.action} onChange={(v) => setCorrective((c) => ({ ...c, action: v }))} disabled={!canEdit || stageIdx > 2} />
+      {/* ìì ì¡°ì¹ */}
+      <CapaStageCard title="â¡ ìì ì¡°ì¹" citation="ISO 13485 Â§8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
+        <TextAreaFieldQ label="ìì ì¡°ì¹ ë´ì©" value={corrective.action} onChange={(v) => setCorrective((c) => ({ ...c, action: v }))} disabled={!canEdit || stageIdx > 2} />
         <div className="grid sm:grid-cols-3 gap-2">
-          <FieldQ label="담당자" value={corrective.owner} onChange={(v) => setCorrective((c) => ({ ...c, owner: v }))} disabled={!canEdit || stageIdx > 2} />
-          <FieldQ label="완료 기한" type="date" value={corrective.dueDate} onChange={(v) => setCorrective((c) => ({ ...c, dueDate: v }))} disabled={!canEdit || stageIdx > 2} />
-          <FieldQ label="완료일" type="date" value={corrective.completedDate} onChange={(v) => setCorrective((c) => ({ ...c, completedDate: v }))} disabled={!canEdit || stageIdx > 2} />
+          <FieldQ label="ë´ë¹ì" value={corrective.owner} onChange={(v) => setCorrective((c) => ({ ...c, owner: v }))} disabled={!canEdit || stageIdx > 2} />
+          <FieldQ label="ìë£ ê¸°í" type="date" value={corrective.dueDate} onChange={(v) => setCorrective((c) => ({ ...c, dueDate: v }))} disabled={!canEdit || stageIdx > 2} />
+          <FieldQ label="ìë£ì¼" type="date" value={corrective.completedDate} onChange={(v) => setCorrective((c) => ({ ...c, completedDate: v }))} disabled={!canEdit || stageIdx > 2} />
         </div>
         {canEdit && stageIdx >= 1 && stageIdx <= 2 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>ì ì¥ Â· ë¤ì ë¨ê³ë¡</button></div>
         )}
       </CapaStageCard>
 
-      {/* 예방조치 */}
-      <CapaStageCard title="③ 예방조치" citation="ISO 13485 §8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
-        <TextAreaFieldQ label="예방조치 내용" value={preventive.action} onChange={(v) => setPreventive((p) => ({ ...p, action: v }))} disabled={!canEdit || stageIdx > 3} />
+      {/* ìë°©ì¡°ì¹ */}
+      <CapaStageCard title="â¢ ìë°©ì¡°ì¹" citation="ISO 13485 Â§8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
+        <TextAreaFieldQ label="ìë°©ì¡°ì¹ ë´ì©" value={preventive.action} onChange={(v) => setPreventive((p) => ({ ...p, action: v }))} disabled={!canEdit || stageIdx > 3} />
         <div className="grid sm:grid-cols-2 gap-2">
-          <FieldQ label="담당자" value={preventive.owner} onChange={(v) => setPreventive((p) => ({ ...p, owner: v }))} disabled={!canEdit || stageIdx > 3} />
-          <FieldQ label="완료 기한" type="date" value={preventive.dueDate} onChange={(v) => setPreventive((p) => ({ ...p, dueDate: v }))} disabled={!canEdit || stageIdx > 3} />
+          <FieldQ label="ë´ë¹ì" value={preventive.owner} onChange={(v) => setPreventive((p) => ({ ...p, owner: v }))} disabled={!canEdit || stageIdx > 3} />
+          <FieldQ label="ìë£ ê¸°í" type="date" value={preventive.dueDate} onChange={(v) => setPreventive((p) => ({ ...p, dueDate: v }))} disabled={!canEdit || stageIdx > 3} />
         </div>
         {canEdit && stageIdx >= 2 && stageIdx <= 3 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>ì ì¥ Â· ë¤ì ë¨ê³ë¡</button></div>
         )}
       </CapaStageCard>
 
-      {/* 효과성검증 */}
-      <CapaStageCard title="④ 효과성검증" citation="ISO 13485 §8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
-        <TextAreaFieldQ label="검증 방법" value={verification.method} onChange={(v) => setVerification((x) => ({ ...x, method: v }))} disabled={!canEdit || stageIdx > 4} />
+      {/* í¨ê³¼ì±ê²ì¦ */}
+      <CapaStageCard title="â£ í¨ê³¼ì±ê²ì¦" citation="ISO 13485 Â§8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
+        <TextAreaFieldQ label="ê²ì¦ ë°©ë²" value={verification.method} onChange={(v) => setVerification((x) => ({ ...x, method: v }))} disabled={!canEdit || stageIdx > 4} />
         <div className="grid sm:grid-cols-3 gap-2">
-          <SelectFieldQ label="검증 결과" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['효과있음', '불충분 · 재조치 필요']} disabled={!canEdit || stageIdx > 4} />
-          <FieldQ label="검증자" value={verification.verifiedBy} onChange={(v) => setVerification((x) => ({ ...x, verifiedBy: v }))} disabled={!canEdit || stageIdx > 4} />
-          <FieldQ label="검증일" type="date" value={verification.verifiedDate} onChange={(v) => setVerification((x) => ({ ...x, verifiedDate: v }))} disabled={!canEdit || stageIdx > 4} />
+          <SelectFieldQ label="ê²ì¦ ê²°ê³¼" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['í¨ê³¼ìì', 'ë¶ì¶©ë¶ Â· ì¬ì¡°ì¹ íì']} disabled={!canEdit || stageIdx > 4} />
+          <FieldQ label="ê²ì¦ì" value={verification.verifiedBy} onChange={(v) => setVerification((x) => ({ ...x, verifiedBy: v }))} disabled={!canEdit || stageIdx > 4} />
+          <FieldQ label="ê²ì¦ì¼" type="date" value={verification.verifiedDate} onChange={(v) => setVerification((x) => ({ ...x, verifiedDate: v }))} disabled={!canEdit || stageIdx > 4} />
         </div>
         {canEdit && stageIdx >= 3 && stageIdx <= 4 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 승인 대기로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>ì ì¥ Â· ì¹ì¸ ëê¸°ë¡</button></div>
         )}
       </CapaStageCard>
 
-      {/* 승인·종결 */}
-      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
+      {/* ì¹ì¸Â·ì¢ê²° */}
+      <CapaStageCard title="â¤ ì¹ì¸ Â· ì¢ê²°" citation="ISO 13485 Â§8.5.2 (ë§¤ëì  ì¹ì¸)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
         {stageIdx === 5 ? (
           <div className="text-[12.5px]" style={{ color: 'var(--moss)' }}>
             <CheckCircle2 size={14} className="inline mr-1" />
-            {capaRecord.closure?.by} 승인 · {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} — {capaRecord.closure?.reason}
+            {capaRecord.closure?.by} ì¹ì¸ Â· {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} â {capaRecord.closure?.reason}
           </div>
         ) : stageIdx === 4 ? (
           canApprove ? (
-            <div className="flex justify-end"><button onClick={closeCapa} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><CheckCircle2 size={13} /> 승인 및 종결</button></div>
+            <div className="flex justify-end"><button onClick={closeCapa} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><CheckCircle2 size={13} /> ì¹ì¸ ë° ì¢ê²°</button></div>
           ) : (
-            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>효과성검증까지 완료되었습니다. 매니저(Level 3) 승인을 기다리는 중입니다.</div>
+            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>í¨ê³¼ì±ê²ì¦ê¹ì§ ìë£ëììµëë¤. ë§¤ëì (Level 3) ì¹ì¸ì ê¸°ë¤ë¦¬ë ì¤ìëë¤.</div>
           )
         ) : (
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>이전 단계를 먼저 완료하세요.</div>
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>ì´ì  ë¨ê³ë¥¼ ë¨¼ì  ìë£íì¸ì.</div>
         )}
       </CapaStageCard>
     </div>
@@ -768,7 +770,7 @@ function SelectFieldQ({ label, value, onChange, options, disabled }) {
     <label className="block">
       <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
       <select className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => <option key={o} value={o}>{o || '(선택)'}</option>)}
+        {options.map((o) => <option key={o} value={o}>{o || '(ì í)'}</option>)}
       </select>
     </label>
   )
@@ -779,5 +781,127 @@ function TextAreaFieldQ({ label, value, onChange, disabled }) {
       <span className="block text-[11.5px] font-medium mb-1" style={{ color: 'var(--ink-mute)' }}>{label}</span>
       <textarea className="input-base" style={{ padding: '0.5rem 0.7rem', fontSize: 13, minHeight: 60 }} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} />
     </label>
+  )
+}
+
+
+// ── PA(예방조치) 통계 탭 ──────────────────────────────────────
+const PA_KEY = 'qualytree.pa_records'
+function PaStatsTab({ items = [] }) {
+  const [pas, setPas] = React.useState([])
+  const [showForm, setShowForm] = React.useState(false)
+  const [editId, setEditId] = React.useState(null)
+  const EMPTY = { paNo:'', title:'', source:'내부감사', category:'공정개선', description:'', targetDate:'', owner:'', completedDate:'', effectiveness:'', status:'계획' }
+  const [form, setForm] = React.useState(EMPTY)
+
+  React.useEffect(()=>{ try { setPas(JSON.parse(localStorage.getItem(PA_KEY)||'[]')) } catch {} },[])
+  const persist = list => { try { localStorage.setItem(PA_KEY, JSON.stringify(list)) } catch {}; setPas(list) }
+  const setF = (k,v) => setForm(f=>({...f,[k]:v}))
+  const save = () => {
+    if (!form.paNo.trim()) return
+    if (editId) persist(pas.map(r=>r.id===editId?{...r,...form}:r))
+    else persist([...pas, {id:Date.now().toString(),...form}])
+    setShowForm(false); setEditId(null); setForm(EMPTY)
+  }
+  const del = id => { if(!window.confirm('삭제?')) return; persist(pas.filter(r=>r.id!==id)) }
+  const inp = { width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:13 }
+
+  // Stats
+  const total = pas.length
+  const completed = pas.filter(p=>p.status==='완료').length
+  const overdue = pas.filter(p=>p.status!=='완료'&&p.targetDate&&p.targetDate<new Date().toISOString().slice(0,10)).length
+  const bySource = pas.reduce((a,p)=>{ a[p.source]=(a[p.source]||0)+1; return a },{})
+  const byCat = pas.reduce((a,p)=>{ a[p.category]=(a[p.category]||0)+1; return a },{})
+
+  const statusColor = s => s==='완료'?'#16A34A':s==='진행중'?'#2563EB':s==='지연'?'#DC2626':'#6B7280'
+  const bar = (label, count, max, color) => (
+    <div key={label} style={{marginBottom:6}}>
+      <div style={{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:2}}>
+        <span>{label}</span><span style={{fontWeight:600}}>{count}</span>
+      </div>
+      <div style={{height:8,borderRadius:4,background:'var(--border)'}}>
+        <div style={{height:8,borderRadius:4,background:color,width:`${max>0?Math.round(count/max*100):0}%`,transition:'width .3s'}}/>
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{padding:'4px 0'}}>
+      {/* Stats Cards */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+        {[[String.fromCharCode(51204,52404),'total',total,'#6366F1'],[String.fromCharCode(50756,47308),'comp',completed,'#16A34A'],[String.fromCharCode(51648,50672),'od',overdue,'#DC2626']].map(([l,,v,c])=>(
+          <div key={l} style={{background:'var(--surface-2)',borderRadius:10,padding:'12px 14px',border:'1px solid var(--border)',textAlign:'center'}}>
+            <div style={{fontSize:24,fontWeight:700,color:c}}>{v}</div>
+            <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>{l}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts */}
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,marginBottom:20}}>
+        <div style={{background:'var(--surface-2)',borderRadius:10,padding:14,border:'1px solid var(--border)'}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>발생 원천별</div>
+          {Object.entries(bySource).map(([k,v])=>bar(k,v,total,'#6366F1'))}
+          {Object.keys(bySource).length===0&&<div style={{fontSize:12,color:'var(--ink-faint)'}}>데이터 없음</div>}
+        </div>
+        <div style={{background:'var(--surface-2)',borderRadius:10,padding:14,border:'1px solid var(--border)'}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:10}}>카테고리별</div>
+          {Object.entries(byCat).map(([k,v])=>bar(k,v,total,'#16A34A'))}
+          {Object.keys(byCat).length===0&&<div style={{fontSize:12,color:'var(--ink-faint)'}}>데이터 없음</div>}
+        </div>
+      </div>
+
+      {/* PA List */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <span style={{fontSize:13,fontWeight:600}}>PA 목록 ({pas.length}건)</span>
+        <button onClick={()=>{setEditId(null);setForm({...EMPTY,targetDate:new Date(Date.now()+30*864e5).toISOString().slice(0,10)});setShowForm(true)}} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:600}}>
+          <BarChart2 size={14}/> PA 신규
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:16}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>PA 번호</div><input value={form.paNo} onChange={e=>setF('paNo',e.target.value)} style={inp} placeholder='PA-2026-001'/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>상태</div><select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>{['계획','진행중','완료','지연'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>제목</div><input value={form.title} onChange={e=>setF('title',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>발생 원천</div><select value={form.source} onChange={e=>setF('source',e.target.value)} style={inp}>{['내부감사','외부감사','고객불만','경영검토','위험분석','기타'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>카테고리</div><select value={form.category} onChange={e=>setF('category',e.target.value)} style={inp}>{['공정개선','설계개선','교육강화','문서개정','설비개선','기타'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>예방조치 내용</div><textarea value={form.description} onChange={e=>setF('description',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>목표완료일</div><input type='date' value={form.targetDate} onChange={e=>setF('targetDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>담당자</div><input value={form.owner} onChange={e=>setF('owner',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>실제완료일</div><input type='date' value={form.completedDate} onChange={e=>setF('completedDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>효과성 평가</div><input value={form.effectiveness} onChange={e=>setF('effectiveness',e.target.value)} style={inp} placeholder='유효/무효/미평가'/></div>
+          </div>
+          <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>취소</button>
+            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>저장</button>
+          </div>
+        </div>
+      )}
+
+      {pas.length===0&&!showForm&&(<div style={{textAlign:'center',padding:'32px 0',color:'var(--ink-faint)'}}><BarChart2 size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{fontSize:14}}>예방조치 기록이 없습니다</p></div>)}
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {pas.map(r=>(
+          <div key={r.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderLeft:`3px solid ${statusColor(r.status)}`,borderRadius:10,padding:'12px 14px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                  <span style={{fontSize:14,fontWeight:600}}>{r.paNo}</span>
+                  <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor(r.status)+'22',color:statusColor(r.status),fontWeight:600}}>{r.status}</span>
+                  <span style={{fontSize:11,color:'var(--ink-faint)'}}>{r.source} / {r.category}</span>
+                </div>
+                <div style={{fontSize:13}}>{r.title}</div>
+                <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>담당: {r.owner} · 목표: {r.targetDate}{r.completedDate?' · 완료: '+r.completedDate:''}</div>
+              </div>
+              <div style={{display:'flex',gap:4}}>
+                <button onClick={()=>{setEditId(r.id);setForm({paNo:r.paNo,title:r.title,source:r.source,category:r.category,description:r.description,targetDate:r.targetDate,owner:r.owner,completedDate:r.completedDate,effectiveness:r.effectiveness,status:r.status});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
+                <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>삭제</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
