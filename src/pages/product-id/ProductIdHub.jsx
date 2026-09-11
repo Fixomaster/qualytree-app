@@ -107,6 +107,9 @@ function ProductCard({ item, hasNcr, hasQuar, expanded, onToggle }) {
 export default function ProductIdHub() {
   const navigate = useNavigate()
   const [tick, setTick] = useState(0)
+  const [showUdiUpload, setShowUdiUpload] = useState(false)
+  const [udiLookupDi, setUdiLookupDi] = useState('')
+  const [udiLookupResult, setUdiLookupResult] = useState(null)
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState(null)
   const [viewMode, setViewMode] = useState('board')
@@ -144,6 +147,14 @@ export default function ProductIdHub() {
       <HubBanner icon={Tag} title="제품 식별·상태" subtitle="ISO 13485 §7.5.8 제품 식별 및 상태" color="#7C3AED" />
       <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 16px' }}>
 
+                <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+          <button onClick={()=>setShowUdiUpload(true)} style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', background:'var(--accent)', color:'#fff', border:'none', borderRadius:8, fontSize:13, cursor:'pointer' }}>
+            CSV 업로드
+          </button>
+          <a href="https://udiportal.mfds.go.kr" target="_blank" rel="noopener noreferrer" style={{ display:'flex', alignItems:'center', gap:4, padding:'6px 12px', background:'#f3f4f6', color:'#374151', border:'1px solid #d1d5db', borderRadius:8, fontSize:13, cursor:'pointer', textDecoration:'none' }}>
+            식약처 UDIDS 조회 ↗
+          </a>
+        </div>
         {/* 헤더 */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
@@ -367,6 +378,105 @@ export default function ProductIdHub() {
         )}
 
       </div>
+          {showUdiUpload && (
+        <UdiCsvImportModal onClose={()=>setShowUdiUpload(false)} onImport={(rows)=>{
+          try {
+            const existing = JSON.parse(localStorage.getItem('qualytree.product_id')||'[]')
+            const merged = [...existing]
+            rows.forEach(r=>{ if(!merged.find(e=>e.udi===r.udi)) merged.push({id:Date.now().toString()+Math.random(),createdAt:new Date().toISOString(),...r}) })
+            localStorage.setItem('qualytree.product_id', JSON.stringify(merged))
+            setTick(n=>n+1)
+            setShowUdiUpload(false)
+          } catch(e){ alert('오류: '+e.message) }
+        }} />
+      )}
     </AppLayout>
+  )
+}
+
+
+// ── UDI CSV 업로드 모달 ────────────────────────────────────────────
+function UdiCsvImportModal({ onClose, onImport }) {
+  const [csvText, setCsvText] = React.useState('')
+  const [preview, setPreview] = React.useState([])
+  const [error, setError] = React.useState('')
+
+  const COLS = ['udi','productName','modelNumber','lotNumber','expiryDate','quantity']
+
+  const parseCsv = (text) => {
+    try {
+      const lines = text.trim().split('\n').filter(l=>l.trim())
+      if (lines.length < 2) { setError('열 헤더를 포함하여 2줄 이상 입력하세요'); setPreview([]); return }
+      const headers = lines[0].split(',').map(h=>h.trim())
+      const rows = lines.slice(1).map(line => {
+        const vals = line.split(',').map(v=>v.trim())
+        const obj = {}
+        headers.forEach((h,i) => { obj[h] = vals[i] || '' })
+        return obj
+      })
+      setPreview(rows)
+      setError('')
+    } catch(e) { setError(e.message) }
+  }
+
+  const handleText = (v) => { setCsvText(v); parseCsv(v) }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background:'rgba(0,0,0,0.4)' }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-4" style={{ background:'var(--surface)' }}>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-[16px] font-bold">UDI CSV 업로드</h2>
+            <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>헤더: udi, productName, modelNumber, lotNumber, expiryDate, quantity</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background:'var(--surface-2)' }}>✕</button>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-[12px] font-medium">CSV 데이터 붙여넣기</label>
+          <textarea
+            value={csvText}
+            onChange={e=>handleText(e.target.value)}
+            rows={8}
+            placeholder={"udi,productName,modelNumber,lotNumber,expiryDate,quantity\n01-12345678-1-1,제품A,M-001,LOT001,2027-12-31,100"}
+            className="w-full border rounded-lg px-3 py-2 text-[13px] font-mono"
+            style={{ borderColor:'var(--border)', background:'var(--surface)', resize:'vertical' }}
+          />
+          {error && <p className="text-[12px]" style={{ color:'#dc2626' }}>{error}</p>}
+        </div>
+
+        {preview.length > 0 && (
+          <div>
+            <p className="text-[12px] font-medium mb-1">미리보기 ({preview.length}건)</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[12px]" style={{ borderCollapse:'collapse' }}>
+                <thead>
+                  <tr style={{ background:'var(--surface-2)' }}>
+                    {Object.keys(preview[0]).map(k=><th key={k} className="px-2 py-1 text-left border" style={{ borderColor:'var(--border)' }}>{k}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.slice(0,5).map((r,i)=>(
+                    <tr key={i}>
+                      {Object.values(r).map((v,j)=><td key={j} className="px-2 py-1 border" style={{ borderColor:'var(--border)' }}>{v}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {preview.length > 5 && <p className="text-[11px] mt-1" style={{ color:'var(--ink-faint)' }}>외 {preview.length-5}건 추가</p>}
+            </div>
+          </div>
+        )}
+
+        <div className="flex gap-2 justify-end">
+          <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+          <button
+            onClick={()=>{ if(preview.length>0) onImport(preview); else alert('데이터를 입력하세요') }}
+            className="px-3 py-1.5 rounded-lg text-[13px] font-medium"
+            style={{ background:'var(--accent)', color:'#fff' }}
+          >가져오기 ({preview.length}건)</button>
+        </div>
+      </div>
+    </div>
   )
 }
