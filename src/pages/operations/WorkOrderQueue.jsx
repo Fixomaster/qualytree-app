@@ -14,6 +14,8 @@ import {
   Sparkles,
   X,
   ChevronRight,
+  Edit2,
+  Trash2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -76,6 +78,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
   const [filter, setFilter] = useState('all') // all | pending | in_progress | completed
   const [showNew, setShowNew] = useState(false)
   const [selectedId, setSelectedId] = useState(() => searchParams.get('id') || null)
+  const [batchWo, setBatchWo] = useState(null)
 
   const reload = () => setOpState(operations.load())
 
@@ -298,7 +301,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
               <DetailPanel
                 wo={selected}
                 findBlock={findBlock}
-                onOpenEbr={() => nav(`/operations/${selected.id}/ebr`)}
+                onOpenEbr={() => setBatchWo(selected)}
                 onClose={() => setSelectedId(null)}
               />
             ) : (
@@ -329,6 +332,9 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
             setShowNew(false)
           }}
         />
+      )}
+      {batchWo && (
+        <WoBatchModal wo={batchWo} onClose={() => setBatchWo(null)} />
       )}
     </OpsShell>
   )
@@ -1049,4 +1055,131 @@ function isOverdue(dueDate) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   return due < today
+}
+
+
+// ── 배치기록서 모달 ────────────────────────────────────────────────────
+const WO_BR_KEY = 'qualytree.wo_batch_records'
+function WoBatchModal({ wo, onClose }) {
+  const EMPTY = { batchNo:'', lotNo:'', actualQty:'', startDate:'', endDate:'', operators:'', equipment:'', yieldRate:'', inspResult:'합격', status:'작성중', notes:'' }
+  const [recs, setRecs] = useState([])
+  const [form, setForm] = useState(EMPTY)
+  const [editId, setEditId] = useState(null)
+  const [showForm, setShowForm] = useState(false)
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(WO_BR_KEY) || '[]')
+      setRecs(all.filter(r => r.woId === wo.id))
+    } catch {}
+  }, [wo.id])
+
+  const persist = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(WO_BR_KEY) || '[]')
+      const other = all.filter(r => r.woId !== wo.id)
+      localStorage.setItem(WO_BR_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setRecs(list)
+  }
+
+  const openNew = () => {
+    const today = new Date().toISOString().slice(0,10)
+    setForm({ ...EMPTY, batchNo:'BR-'+Date.now().toString().slice(-6), startDate:today, endDate:today })
+    setEditId(null)
+    setShowForm(true)
+  }
+
+  const openEdit = (r) => {
+    setForm({ batchNo:r.batchNo, lotNo:r.lotNo, actualQty:r.actualQty, startDate:r.startDate, endDate:r.endDate, operators:r.operators, equipment:r.equipment, yieldRate:r.yieldRate, inspResult:r.inspResult, status:r.status, notes:r.notes })
+    setEditId(r.id)
+    setShowForm(true)
+  }
+
+  const save = () => {
+    if (!form.batchNo.trim()) return
+    if (editId) {
+      persist(recs.map(r => r.id === editId ? { ...r, ...form } : r))
+    } else {
+      persist([...recs, { id: Date.now().toString(), woId: wo.id, woNo: wo.orderNo, productName: wo.productName, planQty: wo.quantity, ...form }])
+    }
+    setShowForm(false)
+  }
+
+  const del = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persist(recs.filter(r => r.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const statusColor = (s) => s==='완료'?'green':s==='승인'?'blue':'gray'
+  const inspColor = (s) => s==='합격'?'green':s==='불합격'?'red':'yellow'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background:'rgba(0,0,0,0.4)' }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-4" style={{ background:'var(--surface)' }}>
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-[16px] font-bold">배치기록서</h2>
+            <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{wo.orderNo} — {wo.productName}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}><Plus size={14}/>신규</button>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background:'var(--surface-2)' }}><X size={16}/></button>
+          </div>
+        </div>
+
+        {showForm && (
+          <div className="rounded-xl border p-4 space-y-3" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">배치번호</span><input value={form.batchNo} onChange={e=>setF('batchNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">로트번호</span><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">실제 생산수량</span><input type="number" value={form.actualQty} onChange={e=>setF('actualQty',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">수율 (%)</span><input type="number" value={form.yieldRate} onChange={e=>setF('yieldRate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업 시작일</span><input type="date" value={form.startDate} onChange={e=>setF('startDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업 종료일</span><input type="date" value={form.endDate} onChange={e=>setF('endDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업자</span><input value={form.operators} onChange={e=>setF('operators',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">사용 설비</span><input value={form.equipment} onChange={e=>setF('equipment',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">검사결과</span><select value={form.inspResult} onChange={e=>setF('inspResult',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>합격</option><option>불합격</option><option>보류</option></select></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">상태</span><select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>작성중</option><option>완료</option><option>승인</option></select></label>
+              <label className="flex flex-col gap-1 col-span-2"><span className="text-[12px] font-medium">비고</span><textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+              <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+            </div>
+          </div>
+        )}
+
+        {recs.length === 0 && !showForm && (
+          <div className="text-center py-8" style={{ color:'var(--ink-faint)' }}>
+            <p className="text-[14px]">배치기록서가 없습니다</p>
+            <p className="text-[12px] mt-1">신규 버튼으로 배치기록서를 작성하세요</p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {recs.map(r => (
+            <div key={r.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[14px] font-semibold">{r.batchNo}</p>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.status==='승인'?'var(--accent-soft)':(r.status==='완료'?'rgba(34,197,94,0.12)':' rgba(148,163,184,0.15)'), color: r.status==='승인'?'var(--accent)':(r.status==='완료'?'#16a34a':'var(--ink-mute)') }}>{r.status}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.inspResult==='합격'?'rgba(34,197,94,0.12)':(r.inspResult==='불합격'?'rgba(239,68,68,0.12)':' rgba(234,179,8,0.12)'), color: r.inspResult==='합격'?'#16a34a':(r.inspResult==='불합격'?'#dc2626':'#b45309') }}>{r.inspResult}</span>
+                  </div>
+                  <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>로트: {r.lotNo} · 계획 {r.planQty} → 실적 {r.actualQty} · 수율 {r.yieldRate}%</p>
+                  <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{r.startDate} ~ {r.endDate} · {r.operators}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={()=>openEdit(r)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                  <button onClick={()=>del(r.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
 }
