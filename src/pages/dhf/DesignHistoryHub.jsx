@@ -354,6 +354,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
             { key: 'analysis', label: '현황 분석' },
             { key: 'risk', label: '위험관리 (ISO 14971)' },
             { key: 'minutes', label: '회의록' },
+               { key: 'transfer', label: '설계 이전 (Design Transfer)' },
           ].map(t => (
             <button key={t.key}
               onClick={() => !t.disabled && setTab(t.key)}
@@ -505,6 +506,9 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
         )}
         {tab === 'minutes' && (
           <DhfMinutesView dhfId={selectedId} />
+        )}
+        {tab === 'transfer' && (
+          <DhfTransferView dhfId={selectedId} />
         )}
     </div>
   )
@@ -1271,6 +1275,155 @@ function DhfMinutesView({ dhfId }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── DHF 설계 이전 뷰 ────────────────────────────────────────────
+function DhfTransferView({ dhfId }) {
+  const STORE_KEY = 'qualytree.dhf_transfer'
+  const [items, setItems] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const [form, setForm] = useState({ name: '', transferDate: '', targetProcess: '', responsible: '', status: '계획', verifyMethod: '', verifyDate: '', verifyResult: '', notes: '' })
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      setItems(all.filter(m => m.dhfId === dhfId))
+    } catch {}
+  }, [dhfId])
+
+  const persistAll = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      const other = all.filter(m => m.dhfId !== dhfId)
+      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setItems(list)
+  }
+
+  const openNew = () => {
+    setEditId(null)
+    setForm({ name: '', transferDate: new Date().toISOString().slice(0,10), targetProcess: '', responsible: '', status: '계획', verifyMethod: '', verifyDate: '', verifyResult: '', notes: '' })
+    setShowForm(true)
+  }
+
+  const openEdit = (m) => {
+    setEditId(m.id)
+    setForm({ name: m.name, transferDate: m.transferDate, targetProcess: m.targetProcess, responsible: m.responsible, status: m.status, verifyMethod: m.verifyMethod, verifyDate: m.verifyDate, verifyResult: m.verifyResult, notes: m.notes })
+    setShowForm(true)
+  }
+
+  const handleSave = () => {
+    if (!form.name.trim()) return
+    if (editId) {
+      persistAll(items.map(m => m.id === editId ? { ...m, ...form } : m))
+    } else {
+      persistAll([...items, { id: Date.now().toString(), dhfId, ...form }])
+    }
+    setShowForm(false)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persistAll(items.filter(m => m.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  if (!dhfId) return (
+    <div className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>
+      <p className="text-[14px]">DHF 항목을 먼저 선택하세요</p>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <span className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>총 {items.length}건</span>
+        <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background: 'var(--accent)', color: '#fff' }}>
+          <Plus size={14} /> 이전 항목 추가
+        </button>
+      </div>
+
+      {items.length === 0 && !showForm && (
+        <div className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>
+          <p className="text-[14px]">등록된 설계 이전 항목이 없습니다</p>
+          <p className="text-[12px] mt-1">ISO 13485 §7.3.8 — 설계 및 개발 이전</p>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: 'var(--border)', background: 'var(--surface-2)' }}>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">이전 항목명</span>
+              <input value={form.name} onChange={e=>setF('name',e.target.value)} placeholder="예: 회로도, BOM, 치수도면" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">이전일</span>
+              <input type="date" value={form.transferDate} onChange={e=>setF('transferDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">수신 부서/공정</span>
+              <input value={form.targetProcess} onChange={e=>setF('targetProcess',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">담당자</span>
+              <input value={form.responsible} onChange={e=>setF('responsible',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">상태</span>
+              <select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option>계획</option><option>진행중</option><option>완료</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">검증 방법</span>
+              <input value={form.verifyMethod} onChange={e=>setF('verifyMethod',e.target.value)} placeholder="예: 시제품 검토, 공정 시범생산" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">검증일</span>
+              <input type="date" value={form.verifyDate} onChange={e=>setF('verifyDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">검증 결과</span>
+              <select value={form.verifyResult} onChange={e=>setF('verifyResult',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option value="">-</option><option>합격</option><option>불합격</option><option>조건부합격</option>
+              </select>
+            </label>
+          </div>
+          <label className="flex flex-col gap-1">
+            <span className="text-[12px] font-medium">비고</span>
+            <textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+          </label>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+            <button onClick={handleSave} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {items.map(m => (
+          <div key={m.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[14px] font-semibold">{m.name}</p>
+                <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>이전일: {m.transferDate} → {m.targetProcess} ({m.responsible})</p>
+                {m.verifyDate && <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>검증: {m.verifyDate} — {m.verifyMethod}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                {m.verifyResult && <Badge text={m.verifyResult} tone={m.verifyResult==='합격'?'green':m.verifyResult==='불합격'?'red':'yellow'} />}
+                <Badge text={m.status} tone={m.status==='완료'?'green':m.status==='진행중'?'blue':'gray'} />
+                <button onClick={()=>openEdit(m)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                <button onClick={()=>handleDelete(m.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
