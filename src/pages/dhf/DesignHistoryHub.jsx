@@ -502,7 +502,7 @@ export default function DesignHistoryHub({ embedded = false, productKey: scopePr
 
         {/* 위험관리 (ISO 14971) 연동 뷰 */}
         {tab === 'risk' && (
-          <RiskHub embedded={true} productKey={selected?.productKey || null} productLabel={selected?.productName || ''} />
+          <DhfRiskView dhfId={selectedId} />
         )}
         {tab === 'minutes' && (
           <DhfMinutesView dhfId={selectedId} />
@@ -1419,6 +1419,195 @@ function DhfTransferView({ dhfId }) {
                 <Badge text={m.status} tone={m.status==='완료'?'green':m.status==='진행중'?'blue':'gray'} />
                 <button onClick={()=>openEdit(m)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
                 <button onClick={()=>handleDelete(m.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── DHF 위험관리 뷰 (ISO 14971) ──────────────────────────────────────
+function DhfRiskView({ dhfId }) {
+  const STORE_KEY = 'qualytree.dhf_risks'
+  const [risks, setRisks] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState(null)
+  const EMPTY = { hazard:'', hazardSit:'', harm:'', severity:3, prob:2, controlMeasure:'', resSeverity:2, resProb:1, resAccept:'허용', status:'식별' }
+  const [form, setForm] = useState(EMPTY)
+
+  useEffect(() => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      setRisks(all.filter(r => r.dhfId === dhfId))
+    } catch {}
+  }, [dhfId])
+
+  const persistAll = (list) => {
+    try {
+      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+      const other = all.filter(r => r.dhfId !== dhfId)
+      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+    } catch {}
+    setRisks(list)
+  }
+
+  const rpn = (s, p) => s * p
+  const riskTone = (v) => v <= 4 ? 'green' : v <= 9 ? 'yellow' : 'red'
+  const riskLabel = (v) => v <= 4 ? '낮음' : v <= 9 ? '중간' : '높음'
+
+  const openNew = () => { setEditId(null); setForm(EMPTY); setShowForm(true) }
+  const openEdit = (r) => { setEditId(r.id); setForm({ hazard:r.hazard, hazardSit:r.hazardSit, harm:r.harm, severity:r.severity, prob:r.prob, controlMeasure:r.controlMeasure, resSeverity:r.resSeverity, resProb:r.resProb, resAccept:r.resAccept, status:r.status }); setShowForm(true) }
+
+  const handleSave = () => {
+    if (!form.hazard.trim()) return
+    const item = { ...form, rpn: rpn(form.severity, form.prob), resRpn: rpn(form.resSeverity, form.resProb) }
+    if (editId) {
+      persistAll(risks.map(r => r.id === editId ? { ...r, ...item } : r))
+    } else {
+      persistAll([...risks, { id: Date.now().toString(), dhfId, ...item }])
+    }
+    setShowForm(false)
+  }
+
+  const handleDelete = (id) => {
+    if (!window.confirm('삭제하시겠습니까?')) return
+    persistAll(risks.filter(r => r.id !== id))
+  }
+
+  const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  if (!dhfId) return (
+    <div className="text-center py-12" style={{ color: 'var(--ink-faint)' }}>
+      <p className="text-[14px]">DHF 항목을 먼저 선택하세요</p>
+    </div>
+  )
+
+  const unacceptable = risks.filter(r => (r.resRpn||r.rpn) > 9 || r.resAccept === '불허용').length
+
+  return (
+    <div className="space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border p-3 text-center" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+          <p className="text-[22px] font-bold">{risks.length}</p>
+          <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>식별 위험</p>
+        </div>
+        <div className="rounded-xl border p-3 text-center" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+          <p className="text-[22px] font-bold" style={{ color:'var(--danger)' }}>{unacceptable}</p>
+          <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>수용 불가</p>
+        </div>
+        <div className="rounded-xl border p-3 text-center" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+          <p className="text-[22px] font-bold" style={{ color:'var(--success)' }}>{risks.length - unacceptable}</p>
+          <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>수용 가능</p>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center">
+        <p className="text-[13px]" style={{ color:'var(--ink-faint)' }}>ISO 14971 — 위험관리 프로세스</p>
+        <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>
+          <Plus size={14}/> 위험 추가
+        </button>
+      </div>
+
+      {risks.length === 0 && !showForm && (
+        <div className="text-center py-10" style={{ color:'var(--ink-faint)' }}>
+          <p className="text-[14px]">등록된 위험항목이 없습니다</p>
+          <p className="text-[12px] mt-1">위험 식별 → 평가 → 통제방안 → 잔류위험 순으로 작성하세요</p>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
+          <p className="text-[13px] font-semibold">위험 식별 · 평가</p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">위험요인 (Hazard)</span>
+              <input value={form.hazard} onChange={e=>setF('hazard',e.target.value)} placeholder="예: 전기 과부하" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">위험상황</span>
+              <input value={form.hazardSit} onChange={e=>setF('hazardSit',e.target.value)} placeholder="예: 절연 파괴 시" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">위해 (Harm)</span>
+              <input value={form.harm} onChange={e=>setF('harm',e.target.value)} placeholder="예: 감전, 화재" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">심각도 (1-5)</span>
+              <select value={form.severity} onChange={e=>setF('severity',Number(e.target.value))} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option value={1}>1 - 경미</option><option value={2}>2 - 낮음</option><option value={3}>3 - 중간</option><option value={4}>4 - 심각</option><option value={5}>5 - 치명</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">발생가능성 (1-5)</span>
+              <select value={form.prob} onChange={e=>setF('prob',Number(e.target.value))} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option value={1}>1 - 극히 낮음</option><option value={2}>2 - 낮음</option><option value={3}>3 - 중간</option><option value={4}>4 - 높음</option><option value={5}>5 - 매우 높음</option>
+              </select>
+            </label>
+          </div>
+          <p className="text-[12px] font-medium">초기 RPN: <strong>{form.severity * form.prob}</strong> — {riskLabel(form.severity * form.prob)}</p>
+          <hr style={{ borderColor:'var(--border)' }} />
+          <p className="text-[13px] font-semibold">위험통제방안 · 잔류위험</p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 col-span-2">
+              <span className="text-[12px] font-medium">통제방안</span>
+              <textarea value={form.controlMeasure} onChange={e=>setF('controlMeasure',e.target.value)} rows={2} placeholder="예: 과전류 보호 회로 추가" className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }} />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">잔류 심각도</span>
+              <select value={form.resSeverity} onChange={e=>setF('resSeverity',Number(e.target.value))} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">잔류 발생가능성</span>
+              <select value={form.resProb} onChange={e=>setF('resProb',Number(e.target.value))} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">잔류위험 수용</span>
+              <select value={form.resAccept} onChange={e=>setF('resAccept',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option>허용</option><option>불허용</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[12px] font-medium">상태</span>
+              <select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+                <option>식별</option><option>평가완료</option><option>통제완료</option><option>검증완료</option>
+              </select>
+            </label>
+          </div>
+          <p className="text-[12px] font-medium">잔류 RPN: <strong>{form.resSeverity * form.resProb}</strong> — {riskLabel(form.resSeverity * form.resProb)}</p>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+            <button onClick={handleSave} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {risks.map(r => (
+          <div key={r.id} className="rounded-xl border p-3" style={{ borderColor:'var(--border)', background:'var(--surface)' }}>
+            <div className="flex justify-between items-start">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-[14px] font-semibold">{r.hazard}</p>
+                  <Badge text={r.status} tone={r.status==='검증완료'?'green':r.status==='통제완료'?'blue':'gray'} />
+                </div>
+                <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>{r.hazardSit} → {r.harm}</p>
+                <div className="flex gap-3 mt-1 flex-wrap">
+                  <span className="text-[12px]">초기 RPN: <Badge text={(r.rpn||r.severity*r.prob)+'('+ riskLabel(r.rpn||r.severity*r.prob)+')'} tone={riskTone(r.rpn||r.severity*r.prob)} /></span>
+                  <span className="text-[12px]">잔류 RPN: <Badge text={(r.resRpn||r.resSeverity*r.resProb)+'('+ riskLabel(r.resRpn||r.resSeverity*r.resProb)+')'} tone={riskTone(r.resRpn||r.resSeverity*r.resProb)} /></span>
+                  <Badge text={r.resAccept} tone={r.resAccept==='허용'?'green':'red'} />
+                </div>
+                {r.controlMeasure && <p className="text-[12px] mt-1" style={{ color:'var(--ink-faint)' }}>통제: {r.controlMeasure}</p>}
+              </div>
+              <div className="flex items-center gap-1 ml-2">
+                <button onClick={()=>openEdit(r)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>
+                <button onClick={()=>handleDelete(r.id)} className="p-1 rounded" style={{ color:'var(--danger)' }}><Trash2 size={14}/></button>
               </div>
             </div>
           </div>
