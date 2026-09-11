@@ -647,7 +647,7 @@ function RoleDocForm({ dept, canEdit, onAction, refresh }) {
 function QmTab({ qm, onAction, refresh }) {
   const canEdit = permissions.can('company.qm.edit')
   const canApprove = permissions.can('company.qm.approve')
-  const cur = qm || { name: '', title: '', appointedDate: '', requirements: [], status: QM_STATUS.DRAFT }
+  const cur = qm || { name: '', title: '', appointedDate: '', requirements: [], status: QM_STATUS.DRAFT, authorityScope: '', signatureName: '', signatureDate: '' }
   const [form, setForm] = useState(cur)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const reqSet = new Set(form.requirements || [])
@@ -725,6 +725,22 @@ function QmTab({ qm, onAction, refresh }) {
         {!allReqChecked && (
           <div className="text-[11px] mt-2" style={{ color: 'var(--ink-faint)' }}>4개 항목을 모두 체크해야 지정 승인이 가능합니다.</div>
         )}
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-[12px] font-semibold mb-1" style={{ color: 'var(--ink)' }}>권한 범위</div>
+        <textarea className="w-full border rounded p-2 text-[12px] resize-none" rows={3} value={form.authorityScope || ''} onChange={(e) => setF('authorityScope', e.target.value)} disabled={!canEdit} placeholder="예: QMS 수립·실행·유지·개선 전권, 최고경영자 보고 권한 등" style={{ background: 'var(--bg-card)', color: 'var(--ink)', borderColor: 'var(--line)' }} />
+      </div>
+
+      <div className="rounded-lg p-3" style={{ background: 'var(--bg-soft)' }}>
+        <div className="text-[12px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>서명란</div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Field label="서명자 성명" value={form.signatureName || ''} onChange={(v) => setF('signatureName', v)} />
+          <Field label="서명일" type="date" value={form.signatureDate || ''} onChange={(v) => setF('signatureDate', v)} />
+        </div>
+        <div className="mt-2 border rounded p-3 min-h-[48px] flex items-end" style={{ borderColor: 'var(--line)', background: 'var(--bg-card)' }}>
+          <span className="text-[11px] italic" style={{ color: 'var(--ink-faint)' }}>{form.signatureName || '(서명란)'}</span>
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--line)' }}>
