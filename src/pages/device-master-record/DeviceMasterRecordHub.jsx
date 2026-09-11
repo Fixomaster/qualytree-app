@@ -353,7 +353,7 @@ export default function DeviceMasterRecordHub() {
                 </div>
                 <div className="flex gap-2">
                   <select className="border rounded text-xs px-2 py-1 text-gray-600" value={selected.status}
-                    onChange={e=>updateField('root','status',e.target.value)}>
+                    disabled={ro} onChange={e=>updateField('root','status',e.target.value)}>
                     <option value="draft">초안</option>
                     <option value="active">승인</option>
                     <option value="obsolete">폐기</option>
@@ -375,12 +375,12 @@ export default function DeviceMasterRecordHub() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">버전</span>
                     <input className="border rounded px-2 py-0.5 text-xs w-16" value={selected.version}
-                      onChange={e=>updateField('root','version',e.target.value)}/>
+                      readOnly={ro} onChange={e=>updateField('root','version',e.target.value)}/>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">DHF 연계 ID</span>
                     <input className="border rounded px-2 py-0.5 text-xs w-32" value={selected.dhfRef}
-                      onChange={e=>updateField('root','dhfRef',e.target.value)} placeholder="DHF 문서번호"/>
+                      readOnly={ro} onChange={e=>updateField('root','dhfRef',e.target.value)} placeholder="DHF 문서번호"/>
                   </div>
                 </div>
               )}
