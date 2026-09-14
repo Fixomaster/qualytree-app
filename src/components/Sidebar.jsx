@@ -88,6 +88,7 @@ items: [
 label: '생산·제조', icon: Factory,
 items: [
 { to: '/manufacturing', label: '생산 현황' },
+      { to: '/batch-records', label: '작업지시·배치기록' },
 { to: '/process-validation', label: '공정유효성확인(실행)' },
 { to: '/traceability', label: '제품추적성관리' },
 { to: '/product-id', label: '제품식별·상태' },
