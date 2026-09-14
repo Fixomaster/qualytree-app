@@ -89,3 +89,42 @@ export async function signOutSupabase() {
   const { error } = await supabase.auth.signOut()
   return { error }
 }
+
+// ── 운영자 전용: 전체 회사 + 구독 현황 조회 ──────────────────────────
+export async function getCompaniesWithSubscriptions() {
+  // company_members 전체 조회 → companies join
+  const { data: members, error: mErr } = await supabase
+    .from('company_members')
+    .select('company_id, companies:company_id(id, name, business_number, type, created_at)')
+    .not('company_id', 'is', null)
+  if (mErr) return { data: null, error: mErr }
+
+  // 회사별 중복 제거 + 멤버 수 집계
+  const seen = new Set()
+  const companies = []
+  const memberCounts = {}
+  for (const m of (members || [])) {
+    if (!m.company_id) continue
+    memberCounts[m.company_id] = (memberCounts[m.company_id] || 0) + 1
+    if (!seen.has(m.company_id) && m.companies) {
+      seen.add(m.company_id)
+      companies.push(m.companies)
+    }
+  }
+  if (companies.length === 0) return { data: [], error: null }
+
+  // subscriptions 조회
+  const { data: subs } = await supabase
+    .from('subscriptions')
+    .select('company_id, plan, expires_at, updated_at')
+    .in('company_id', companies.map(c => c.id))
+  const subMap = {}
+  for (const s of (subs || [])) subMap[s.company_id] = s
+
+  return {
+    data: companies
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      .map(c => ({ ...c, memberCount: memberCounts[c.id] || 0, subscription: subMap[c.id] || null })),
+    error: null,
+  }
+}
