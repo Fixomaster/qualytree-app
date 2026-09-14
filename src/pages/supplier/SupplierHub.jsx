@@ -21,6 +21,7 @@ import { eid, ENTITY_TYPES } from '../../lib/entityRegistry'
 // ── localStorage ──────────────────────────────────────────────
 const LS_SUP  = 'qualytree.suppliers'
 const LS_EVAL = 'qualytree.supplier_evals'
+const LS_AUDIT = 'qualytree.supplier_audits'
 
 function lsR(key, fb = []) {
   try { const p = JSON.parse(localStorage.getItem(key) || 'null'); return Array.isArray(p) ? p : fb } catch { return fb }
@@ -217,6 +218,7 @@ export default function SupplierHub() {
   const TABS = [
     { key: 'asl',  label: '공급업체 목록', icon: Building2 },
     { key: 'eval', label: '공급업체 평가',  icon: TrendingUp },
+    { key: 'audit', label: '실사 체크리스트', icon: ClipboardCheck },
   ]
 
   return (
@@ -346,6 +348,7 @@ export default function SupplierHub() {
       {modal === 'supplier' && <SupForm form={form} fld={fld} editId={editId} onSubmit={submitSup} onClose={() => setModal(null)} />}
       {modal === 'eval'     && <EvalForm form={form} fld={fld} fldSelect={fldSelect} suppliers={suppliers} criteria={criteria} policy={policy} onSubmit={submitEval} onClose={() => setModal(null)} />}
       {modal === 'criteria' && <CriteriaManager criteria={criteria} policy={policy} onSubmit={submitCriteria} onClose={() => setModal(null)} />}
+            {tab === 'audit' && <AuditTab suppliers={suppliers}/>}
     </AppLayout>
   )
 }
@@ -777,6 +780,123 @@ function F({ label, children }) {
   )
 }
 const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: 'var(--ink)', background: 'var(--bg-card)', outline: 'none' }
+
+const AUDIT_CHECKS = [
+  { id:'q1', cat:'문서 검토', text:'품질매뉴얼 및 절차서 보유' },
+  { id:'q2', cat:'문서 검토', text:'기록 관리 적절성' },
+  { id:'q3', cat:'품질 시스템', text:'내부심사 실시 여부' },
+  { id:'q4', cat:'품질 시스템', text:'CAPA 시스템 운영' },
+  { id:'q5', cat:'생산 공정', text:'공정 관리 기준 준수' },
+  { id:'q6', cat:'생산 공정', text:'설비 교정 이력 관리' },
+  { id:'q7', cat:'제품 검사', text:'수입검사 기준 및 실시' },
+  { id:'q8', cat:'제품 검사', text:'COA/성적서 관리' },
+  { id:'q9', cat:'시정조치', text:'부적합 처리 절차 운영' },
+  { id:'q10', cat:'시정조치', text:'이전 부적합 시정 완료' },
+]
+
+function AuditTab({ suppliers }) {
+  const [audits, setAudits] = useState(() => JSON.parse(localStorage.getItem(LS_AUDIT) || '[]'))
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ supplierId:'', auditor:'', auditDate: new Date().toISOString().slice(0,10) })
+  const [checks, setChecks] = useState(() => Object.fromEntries(AUDIT_CHECKS.map(q => [q.id, {result:'', note:''}])))
+  const setCheck = (id, f, v) => setChecks(p => ({ ...p, [id]: { ...p[id], [f]: v } }))
+
+  const save = () => {
+    if (!form.supplierId) return
+    const pass = Object.values(checks).filter(c => c.result === 'pass').length
+    const total = AUDIT_CHECKS.length
+    const verdict = pass >= total * 0.8 ? '적합' : pass >= total * 0.6 ? '조건부적합' : '부적합'
+    const sup = suppliers.find(s => s.id === form.supplierId)
+    const entry = { ...form, id: Date.now().toString(), supplierName: sup ? sup.name : form.supplierId, checks: { ...checks }, pass, total, verdict, createdAt: new Date().toISOString() }
+    const updated = [entry, ...audits]
+    setAudits(updated); localStorage.setItem(LS_AUDIT, JSON.stringify(updated))
+    setShowForm(false)
+    setForm({ supplierId:'', auditor:'', auditDate: new Date().toISOString().slice(0,10) })
+    setChecks(Object.fromEntries(AUDIT_CHECKS.map(q => [q.id, {result:'', note:''}])))
+  }
+
+  const printReport = (a) => {
+    const rows = AUDIT_CHECKS.map(q => {
+      const c = a.checks[q.id] || {}
+      const res = c.result === 'pass' ? '합격' : c.result === 'fail' ? '불합격' : 'N/A'
+      const col = c.result === 'pass' ? '#16a34a' : c.result === 'fail' ? '#dc2626' : '#888'
+      return '<tr><td>' + q.cat + '</td><td>' + q.text + '</td><td style="color:' + col + '">' + res + '</td><td>' + (c.note||'') + '</td></tr>'
+    }).join('')
+    const html = '<html><head><title>공급업체 실사 보고서</title><style>body{font-family:sans-serif;padding:24px}h2{margin-bottom:8px}p{margin-bottom:16px;font-size:14px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:13px}th{background:#f5f5f5}</style></head><body><h2>공급업체 실사 보고서</h2><p>업체: ' + a.supplierName + ' | 심사원: ' + (a.auditor||'-') + ' | 실사일: ' + a.auditDate + ' | 판정: <b>' + a.verdict + '</b> (' + a.pass + '/' + a.total + '점)</p><table><thead><tr><th>분류</th><th>항목</th><th>결과</th><th>비고</th></tr></thead><tbody>' + rows + '</tbody></table></body></html>'
+    const w = window.open('','_blank','width=820,height=720'); w.document.write(html); w.document.close(); w.print()
+  }
+
+  const del = (id) => { const u = audits.filter(a => a.id !== id); setAudits(u); localStorage.setItem(LS_AUDIT, JSON.stringify(u)) }
+  const cats = [...new Set(AUDIT_CHECKS.map(q => q.cat))]
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div className="font-semibold text-[15px]">실사 체크리스트</div>
+        <button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1 px-3 py-2 rounded-xl text-[13px] font-semibold" style={{ background: showForm ? 'var(--bg)' : 'var(--accent)', color: showForm ? 'var(--ink)' : '#fff', border: showForm ? '1px solid var(--line)' : 'none' }}><Plus size={14}/>{showForm ? '취소' : '실사 기록 추가'}</button>
+      </div>
+      {showForm && (
+        <div className="rounded-2xl p-5" style={{ background:'var(--bg-card)', border:'1px solid var(--accent)' }}>
+          <div className="grid gap-3 mb-4" style={{ gridTemplateColumns:'repeat(3,1fr)' }}>
+            <div><div className="text-[12px] mb-1" style={{ color:'var(--ink-faint)' }}>공급업체</div>
+              <select value={form.supplierId} onChange={e => setForm(p=>({...p,supplierId:e.target.value}))} className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}>
+                <option value="">-- 선택 --</option>
+                {suppliers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
+              </select></div>
+            <div><div className="text-[12px] mb-1" style={{ color:'var(--ink-faint)' }}>심사원</div>
+              <input type="text" value={form.auditor} onChange={e=>setForm(p=>({...p,auditor:e.target.value}))} placeholder="성명" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/></div>
+            <div><div className="text-[12px] mb-1" style={{ color:'var(--ink-faint)' }}>실사 일자</div>
+              <input type="date" value={form.auditDate} onChange={e=>setForm(p=>({...p,auditDate:e.target.value}))} className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'var(--ink)' }}/></div>
+          </div>
+          <div className="space-y-3 mb-4">
+            {cats.map(cat => (
+              <div key={cat}>
+                <div className="font-semibold text-[13px] mb-1 px-1">{cat}</div>
+                {AUDIT_CHECKS.filter(q=>q.cat===cat).map(q=>(
+                  <div key={q.id} className="flex items-center gap-2 p-2 mb-1 rounded-xl" style={{ background:'var(--bg)' }}>
+                    <span className="flex-1 text-[13px]">{q.text}</span>
+                    <select value={checks[q.id].result} onChange={e=>setCheck(q.id,'result',e.target.value)} className="px-2 py-1 rounded-lg text-[12px]" style={{ background:'var(--bg-card)', border:'1px solid var(--line)', color:'var(--ink)' }}>
+                      <option value="">-</option><option value="pass">합격</option><option value="fail">불합격</option><option value="na">N/A</option>
+                    </select>
+                    <input type="text" value={checks[q.id].note} onChange={e=>setCheck(q.id,'note',e.target.value)} placeholder="비고" style={{ background:'var(--bg-card)', border:'1px solid var(--line)', color:'var(--ink)', padding:'4px 8px', borderRadius:8, fontSize:12, width:140 }}/>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-4 py-2 rounded-xl text-[13px]" style={{ background:'var(--bg)', border:'1px solid var(--line)' }}>취소</button>
+            <button onClick={save} className="px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background:'var(--accent)', color:'#fff', border:'none' }}>저장</button>
+          </div>
+        </div>
+      )}
+      {audits.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl" style={{ background:'var(--bg-card)', border:'1px solid var(--line)', color:'var(--ink-faint)' }}>실사 기록이 없습니다.</div>
+      ) : (
+        <div className="space-y-2">
+          {audits.map(a => {
+            const vc = a.verdict === '적합' ? '#16a34a' : a.verdict === '조건부적합' ? '#d97706' : '#dc2626'
+            return (
+              <div key={a.id} className="rounded-2xl p-4 flex items-center gap-3" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="font-semibold text-[15px]">{a.supplierName}</span>
+                    <span className="px-2 py-0.5 rounded-lg text-[12px] font-semibold" style={{ background: vc+'22', color: vc }}>{a.verdict}</span>
+                    <span className="text-[13px]" style={{ color:'var(--ink-faint)' }}>{a.pass}/{a.total}점</span>
+                  </div>
+                  <div className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{a.auditDate} · {a.auditor}</div>
+                </div>
+                <button onClick={()=>printReport(a)} className="px-3 py-1.5 rounded-xl text-[12px]" style={{ background:'var(--bg)', border:'1px solid var(--line)' }}>보고서 출력</button>
+                <button onClick={()=>del(a.id)} className="p-1.5 rounded-xl" style={{ background:'var(--bg)', border:'1px solid var(--line)', color:'#dc2626' }}><Trash2 size={14}/></button>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 
 function SupEmpty({ onAdd }) {
   return (
