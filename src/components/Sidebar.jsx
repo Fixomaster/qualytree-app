@@ -25,6 +25,7 @@ Printer,
   Users,
   Sparkles,
   Shield,
+  CreditCard,
 } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
@@ -608,6 +609,17 @@ style={({ isActive }) => ({
 >
 <Shield size={16} strokeWidth={1.7} />
 <span className="flex-1">백업·DR 관리</span>
+</NavLink>
+<NavLink
+to="/billing"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition"
+style={({ isActive }) => ({
+  background: isActive ? 'var(--moss)' : 'transparent',
+  color: isActive ? '#fff' : 'var(--ink)',
+})}
+>
+<CreditCard size={16} strokeWidth={1.7} />
+<span className="flex-1">플랜 및 결제</span>
 </NavLink>
 <div
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5"
