@@ -107,6 +107,7 @@ export default function ChangeControlHub() {
   const TABS = [
     { key: 'list', label: '변경 목록', icon: ClipboardList },
     { key: 'analysis', label: '현황 분석', icon: TrendingUp },
+  { key: 'regulatory', label: '규제 신고 분류', icon: FileText },
   ]
 
   return (
@@ -200,6 +201,7 @@ export default function ChangeControlHub() {
         {tab === 'analysis' && <ChangeAnalysis ccrs={ccrs} counts={counts} iaMap={iaMap} getReview={getReview} />}
 
       </div>
+            {tab === 'regulatory' && <RegulatoryClassTab ccrs={ccrs}/>}
     </AppLayout>
   )
 }
@@ -502,6 +504,79 @@ function ChangeAnalysis({ ccrs, counts, iaMap, getReview }) {
       </div>
     </div>
   )
+}
+
+function RegulatoryClassTab({ ccrs }) {
+  const LS_KEY = 'qualytree.change_reg_class';
+  const [overrides, setOverrides] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch { return {}; }
+  });
+  const classify = (r) => {
+    if (overrides[r.id]) return overrides[r.id];
+    if (r.regulations && String(r.regulations).trim().length > 2) return 'required';
+    if (r.targetType === 'product') return 'review';
+    return 'none';
+  };
+  const setOverride = (id, val) => {
+    const next = Object.assign({}, overrides, { [id]: val || null });
+    if (!val) delete next[id];
+    setOverrides(next);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(next)); } catch {}
+  };
+  const CLASS_META = {
+    required: { label: '신고 필요', color: '#dc2626', bg: '#fef2f2' },
+    review:   { label: '검토 필요', color: '#d97706', bg: '#fffbeb' },
+    done:     { label: '신고 완료', color: '#059669', bg: '#f0fdf4' },
+    none:     { label: '해당없음', color: '#6b7280', bg: '#f9fafb' },
+  };
+  const counts = { required: 0, review: 0, done: 0, none: 0 };
+  ccrs.forEach(r => { const c = classify(r); if (counts[c] !== undefined) counts[c]++; });
+  return (
+    <div style={{ padding: '0 4px' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {Object.entries(CLASS_META).map(([k, m]) => (
+          <div key={k} style={{ background: m.bg, border: '1px solid ' + m.color, borderRadius: '10px', padding: '10px 18px', minWidth: '110px', textAlign: 'center' }}>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: m.color }}>{counts[k]}</div>
+            <div style={{ fontSize: '12px', color: m.color, marginTop: '2px' }}>{m.label}</div>
+          </div>
+        ))}
+        <button onClick={() => { window.location.href = '/regulatory'; }}
+          style={{ marginLeft: 'auto', padding: '10px 18px', background: 'var(--ink)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+          인허가 허브 →
+        </button>
+      </div>
+      {ccrs.length === 0 ? (
+        <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: '48px 0' }}>변경 기록이 없습니다.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {ccrs.map(r => {
+            const tm = TARGET_META[r.targetType] || TARGET_META.product;
+            const cls = classify(r);
+            const m = CLASS_META[cls];
+            return (
+              <div key={r.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '10px', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <span style={{ background: tm.color + '20', color: tm.color, borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>{tm.label}</span>
+                <div style={{ flex: 1, minWidth: '180px' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>{r.action || r.reason || r.id}</div>
+                  {r.regulations ? <div style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '2px' }}>{r.regulations}</div> : null}
+                </div>
+                <span style={{ background: m.bg, color: m.color, border: '1px solid ' + m.color, borderRadius: '6px', padding: '2px 10px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>{m.label}</span>
+                <select value={overrides[r.id] || ''}
+                  onChange={e => setOverride(r.id, e.target.value)}
+                  style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--ink)', cursor: 'pointer' }}>
+                  <option value=''>자동분류</option>
+                  <option value='required'>신고 필요</option>
+                  <option value='review'>검토 필요</option>
+                  <option value='done'>신고 완료</option>
+                  <option value='none'>해당없음</option>
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ChangeEmpty({ hasAny }) {
