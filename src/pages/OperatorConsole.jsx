@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../lib/auth'
-import { supabase, isPlatformOperator } from '../lib/supabase'
+import { supabase, isPlatformOperator, getCompaniesWithSubscriptions } from '../lib/supabase'
 
 export default function OperatorConsole() {
   const navigate = useNavigate()
@@ -17,6 +17,9 @@ export default function OperatorConsole() {
   const [isOperator, setIsOperator] = useState(false)
   const [requests, setRequests] = useState([])
   const [filter, setFilter] = useState('pending')
+  const [tab, setTab] = useState('requests')
+  const [companies, setCompanies] = useState([])
+  const [companiesLoading, setCompaniesLoading] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -60,6 +63,20 @@ export default function OperatorConsole() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'companies' || !isOperator) return
+    setCompaniesLoading(true)
+    getCompaniesWithSubscriptions().then(({ data }) => {
+      setCompanies(data || [])
+      setCompaniesLoading(false)
+    })
+  }, [tab, isOperator])
+
+  const handleViewAs = (company) => {
+    auth.viewAs({ id: company.id, name: company.name, business_number: company.business_number, type: company.type })
+    navigate('/home')
+  }
 
   const inp = { width: '100%', boxSizing: 'border-box', border: '1px solid #cbd5e1', borderRadius: 8, padding: '9px 11px', fontSize: 13 }
   const loadOperators = async () => {
@@ -352,13 +369,18 @@ export default function OperatorConsole() {
       <div style={styles.header}>
         <div>
           <div style={styles.brand}>Qualytree · 운영자 콘솔</div>
-          <div style={styles.subtitle}>가입 요청 관리</div>
+          <div style={{ display:'flex', gap:6, marginTop:8 }}>
+            {[['requests','가입 신청'],['companies','회사 관리']].map(([id,label])=>(
+              <button key={id} onClick={()=>setTab(id)} style={{ padding:'4px 14px', borderRadius:20, border:'1px solid', fontSize:12, fontWeight:500, cursor:'pointer', background:tab===id?'#1c1917':'transparent', color:tab===id?'#fff':'#78716c', borderColor:tab===id?'#1c1917':'#d6d3d1' }}>{label}</button>
+            ))}
+          </div>
         </div>
         <div style={{ display:'flex', gap:8 }}>
           <button onClick={() => navigate('/preview')} style={styles.linkButton}>페이지 미리보기 →</button>
           <button onClick={handleSignOut} style={styles.linkButton}>로그아웃</button>
         </div>
       </div>
+      {tab === 'requests' && (<>
         {/* 운영자 관리 */}
         <div style={{ maxWidth: 1100, margin: '0 auto 16px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>운영자 관리</div>
@@ -586,6 +608,45 @@ export default function OperatorConsole() {
           )}
         </div>
       </div>
+      </>)}
+      {tab === 'companies' && (
+        <div style={{ padding:'24px 32px' }}>
+          <div style={{ fontSize:16, fontWeight:700, color:'#1c1917', marginBottom:16 }}>회사 관리</div>
+          {companiesLoading ? (
+            <div style={{ color:'#78716c', fontSize:14 }}>불러오는 중…</div>
+          ) : companies.length === 0 ? (
+            <div style={{ color:'#a8a29e', fontSize:13, padding:'40px 0', textAlign:'center' }}>등록된 회사가 없습니다.</div>
+          ) : (
+            <div style={{ background:'#fff', border:'1px solid #e7e5e4', borderRadius:12, overflow:'hidden' }}>
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                <thead><tr style={{ background:'#fafaf9', borderBottom:'1px solid #e7e5e4' }}>
+                  {['회사명','사업자번호','유형','가입일','플랜','만료일','멤버',''].map(h=>(
+                    <th key={h} style={{ padding:'10px 16px', textAlign:'left', fontWeight:600, color:'#57534e' }}>{h}</th>
+                  ))}
+                </tr></thead>
+                <tbody>
+                  {companies.map(c => {
+                    const sub = c.subscription
+                    const expired = sub?.expires_at && new Date(sub.expires_at) < new Date()
+                    return (
+                      <tr key={c.id} style={{ borderBottom:'1px solid #f5f5f4' }}>
+                        <td style={{ padding:'12px 16px', fontWeight:600, color:'#1c1917' }}>{c.name || '-'}</td>
+                        <td style={{ padding:'12px 16px', color:'#57534e' }}>{c.business_number || '-'}</td>
+                        <td style={{ padding:'12px 16px', color:'#57534e' }}>{c.type || '-'}</td>
+                        <td style={{ padding:'12px 16px', color:'#57534e', fontSize:12 }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'}</td>
+                        <td style={{ padding:'12px 16px' }}>{sub ? <span style={{ background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:600 }}>{sub.plan}</span> : <span style={{ background:'#f5f5f4', color:'#a8a29e', padding:'2px 8px', borderRadius:10, fontSize:11 }}>무료</span>}</td>
+                        <td style={{ padding:'12px 16px', color:expired?'#ef4444':'#57534e', fontSize:12 }}>{sub?.expires_at ? new Date(sub.expires_at).toLocaleDateString('ko-KR') : '-'}</td>
+                        <td style={{ padding:'12px 16px', color:'#57534e', textAlign:'center' }}>{c.memberCount}</td>
+                        <td style={{ padding:'12px 16px', textAlign:'right' }}><button onClick={()=>handleViewAs(c)} style={{ padding:'5px 12px', background:'#1c1917', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:500, cursor:'pointer' }}>이 계정으로 →</button></td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
