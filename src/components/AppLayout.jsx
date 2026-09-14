@@ -1,5 +1,6 @@
 // src/components/AppLayout.jsx
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { deptAuth } from '../lib/deptAuth'
@@ -21,11 +22,26 @@ export default function AppLayout({ user: userProp, title, subtitle, children })
   // user prop 없으면 auth.current() fallback
   const user = userProp ?? auth.current()
 
+  const [viewingAs, setViewingAs] = useState(() => auth.viewingAs())
+  useEffect(() => {
+    const h = () => setViewingAs(auth.viewingAs())
+    window.addEventListener('qualytree:viewAsChanged', h)
+    return () => window.removeEventListener('qualytree:viewAsChanged', h)
+  }, [])
+  const navigate = useNavigate()
+  const exitViewAs = () => { auth.exitViewAs(); navigate('/operator') }
+
   return (
     <div className="flex">
       <Sidebar />
       <div className="flex-1 min-w-0">
         <TopBar user={user} title={title} subtitle={subtitle} />
+        {viewingAs && (
+          <div style={{ background:'#1c1917', color:'#fff', padding:'8px 24px', display:'flex', alignItems:'center', justifyContent:'space-between', fontSize:13 }}>
+            <span>🏢 <b>{viewingAs.name}</b> 계정으로 접속 중 — 슈퍼관리자 뷰</span>
+            <button onClick={exitViewAs} style={{ background:'#fff', color:'#1c1917', border:'none', borderRadius:6, padding:'4px 12px', fontSize:12, fontWeight:600, cursor:'pointer' }}>나가기 ×</button>
+          </div>
+        )}
         <main>{children}</main>
       </div>
     </div>
