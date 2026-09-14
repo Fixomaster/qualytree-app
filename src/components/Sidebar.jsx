@@ -68,7 +68,7 @@ function relevantDeptOptions() {
 
 const DOMAINS = [
 {
-label: '수주�고객', icon: TrendingUp,
+label: '수주·고객', icon: TrendingUp,
 items: [
 { to: '/sales', label: '영업 현황' },
 { to: '/customer-req', label: '고객 요구사항 검토' },
@@ -76,41 +76,41 @@ items: [
 ],
 },
 {
-label: '구매�자재', icon: ShoppingCart,
+label: '구매·자재', icon: ShoppingCart,
 items: [
 { to: '/purchase', label: '구매 현황' },
 { to: '/supplier', label: '공급업체 관리' },
-{ to: '/purchase-info', label: '구매정보�수입검사' },
+{ to: '/purchase-info', label: '구매정보·수입검사' },
 ],
 },
 {
-label: '생산�제조', icon: Factory,
+label: '생산·제조', icon: Factory,
 items: [
 { to: '/manufacturing', label: '생산 현황' },
 { to: '/process-validation', label: '공정유효성확인(실행)' },
 { to: '/traceability', label: '제품추적성관리' },
-{ to: '/product-id', label: '제품식별�상태' },
+{ to: '/product-id', label: '제품식별·상태' },
 { to: '/customer-property', label: '고객자산관리' },
-{ to: '/preservation', label: '제품보존�취급' },
-{ to: '/inventory', label: '재고�출고관리' },
-{ to: '/cleanliness', label: '청결�오염 관리' },
+{ to: '/preservation', label: '제품보존·취급' },
+{ to: '/inventory', label: '재고·출고관리' },
+{ to: '/cleanliness', label: '청결·오염 관리' },
 { to: '/sterile', label: '멸균 의료기기' },
-{ to: '/service', label: '설치�서비스' },
+{ to: '/service', label: '설치·서비스' },
   { to: '/oem-full', label: 'OEM 전공정위탁' },
   { to: '/oem-partial', label: 'OEM 일부위탁' },
 ],
 },
 {
-label: '품질�검사', icon: ShieldCheck,
+label: '품질·검사', icon: ShieldCheck,
 items: [
-{ to: '/inspection', label: '공정�최종 검사' },
-{ to: '/quality', label: 'NCR�부적합' },
+{ to: '/inspection', label: '공정·최종 검사' },
+{ to: '/quality', label: 'NCR·부적합' },
 { to: '/containment', label: '격리관리' },
-{ to: '/improvement', label: 'CAPA�개선' },
+{ to: '/improvement', label: 'CAPA·개선' },
 { to: '/change-control',label: '변경관리' },
 { to: '/audit', label: '내부감사' },
 { to: '/workenv', label: '작업환경관리' },
-{ to: '/measurement', label: '측정�분석�개선' },
+{ to: '/measurement', label: '측정·분석·개선' },
 { to: '/kpi-dashboard', label: '품질 KPI' },
     { to: '/post-market-safety', label: '시판후안전관리' },
     { to: '/csv', label: 'CSV 유효성확인' },
@@ -119,18 +119,18 @@ items: [
 ],
 },
 {
-label: '설계�개발', icon: Code2,
+label: '설계·개발', icon: Code2,
 items: [
-{ to: '/products', label: '제품�설계개발' },
+{ to: '/products', label: '제품·설계개발' },
 { to: '/design-history', label: '설계이력파일(DHF)' },
           { to: '/risk', label: '제품 위험관리 (ISO 14971)' },
           { to: '/device-master-record', label: '의료기기 파일(DMR)' },
       { to: '/product-standard', label: '제품 표준서' },
-      { to: '/label-packaging', label: '라벨�포장재 관리' },
+      { to: '/label-packaging', label: '라벨·포장재 관리' },
 ],
 },
 {
-label: '문서�규정', icon: FileText,
+label: '문서·규정', icon: FileText,
 items: [
 { to: '/qms-overview', label: 'QMS 개요' },
 { to: '/record-master', label: '기록 대장' },
@@ -140,7 +140,7 @@ items: [
 ],
 },
 {
-label: '설비�교정', icon: Wrench,
+label: '설비·교정', icon: Wrench,
 items: [
 { to: '/equipment', label: '설비 현황' },
 { to: '/calibration', label: '교정관리' },
@@ -148,20 +148,20 @@ items: [
 ],
 },
 {
-label: '교육�인력', icon: GraduationCap,
+label: '교육·인력', icon: GraduationCap,
 items: [
 { to: '/training', label: '교육훈련' },
 { to: '/competency', label: '역량관리' },
-{ to: '/org-responsibility', label: '조직�책임' },
+{ to: '/org-responsibility', label: '조직·책임' },
 { to: '/resource-plan', label: '자원 계획' },
 ],
 },
 {
-label: '경영�전략', icon: BarChart3,
+label: '경영·전략', icon: BarChart3,
 items: [
 { to: '/management-review', label: '경영검토' },
 { to: '/quality-plan', label: '품질계획' },
-{ to: '/management-commitment', label: '경영의지�품질방침�목표' },
+{ to: '/management-commitment', label: '경영의지·품질방침·목표' },
 ],
 },
 ]
@@ -181,7 +181,7 @@ const loc = useLocation()
 const cur = auth.current()
 const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
 
-// #6/#7: 부서 보기 전환 — CEO/매니저가 부서별 메뉴�대시보드를 바꿔볼 수 있도록.
+// #6/#7: 부서 보기 전환 — CEO/매니저가 부서별 메뉴·대시보드를 바꿔볼 수 있도록.
 // 옵션은 온보딩 조직도에 등록된 부서 기준으로 추려 "부서명이 너무 많다"는 문제를 줄인다.
 const canSwitchDept = (cur?.level ?? 0) >= 2
 const [dept, setDeptState] = useState(() => deptAuth.getDepartment() || 'ALL')
@@ -559,7 +559,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 })}
 >
 <Crown size={16} strokeWidth={1.7} />
-<span>플랜�요금 관리</span>
+<span>플랜·요금 관리</span>
 </NavLink>
 <NavLink
   to="/operator/super"
@@ -607,7 +607,7 @@ style={({ isActive }) => ({
 })}
 >
 <Shield size={16} strokeWidth={1.7} />
-<span className="flex-1">백업�DR 관리</span>
+<span className="flex-1">백업·DR 관리</span>
 </NavLink>
 <div
 className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5"
