@@ -1,236 +1,168 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+// src/pages/ai/AIDraftHub.jsx
+// AI 초안 생성 허브 — ISO 13485 QMS 문서 자동 초안
+import React, { useState } from 'react'
+import { Sparkles, Copy, Check, FileText, AlertCircle } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 
 const DOC_TYPES = [
-  { value: 'ncr',  label: '부적합보고서 (NCR)',       fields: ['department','product','description','date'] },
-  { value: 'capa', label: 'CAPA 시정·예방조치',        fields: ['rootCause','assignee','dueDate'] },
-  { value: 'sop',  label: '표준작업절차서 (SOP)',       fields: ['processName','department','isoClause'] },
-  { value: 'risk', label: '위험 분석 (ISO 14971)',      fields: ['product','intendedUse','hazardArea'] },
-  { value: 'memo', label: '내부 품질 메모',              fields: ['subject','to','body'] },
+  { key: 'sop', label: '작업표준서 (SOP)', iso: '§4.2.4', fields: [
+    { key: 'title', label: 'SOP 제목', placeholder: '예: 원자재 수입검사 절차' },
+    { key: 'purpose', label: '목적 (한 줄)', placeholder: '예: 수입 원자재의 품질 적합성을 확인하기 위함' },
+    { key: 'dept', label: '담당 부서', placeholder: '예: 구매팀, 품질팀' },
+    { key: 'iso', label: '관련 ISO 조항', placeholder: '예: §7.4.3' },
+  ]},
+  { key: 'capa', label: 'CAPA 보고서', iso: '§8.5.2/8.5.3', fields: [
+    { key: 'type', label: '부적합 유형', placeholder: '예: 공정 부적합, 고객불만, 내부심사' },
+    { key: 'dept', label: '발생 부서', placeholder: '예: 생산부' },
+    { key: 'description', label: '문제 현상 (구체적으로)', placeholder: '예: A라인 조립 불량률 3% 초과, 규격은 1% 이하' },
+  ]},
+  { key: 'risk', label: '위험 평가서', iso: 'ISO 14971', fields: [
+    { key: 'product', label: '제품명', placeholder: '예: 혈당 측정기 HG-100' },
+    { key: 'hazard', label: '위험 상황', placeholder: '예: 측정값 오류로 인한 잘못된 인슐린 투여' },
+    { key: 'use', label: '의도된 용도', placeholder: '예: 가정에서 당뇨 환자가 혈당을 자가 측정' },
+  ]},
+  { key: 'complaint', label: '고객불만 조사보고서', iso: '§8.2.1', fields: [
+    { key: 'type', label: '불만 유형', placeholder: '예: 제품 오작동, 포장 불량' },
+    { key: 'product', label: '해당 제품', placeholder: '예: 혈압계 BP-200 Lot.2024-05' },
+    { key: 'description', label: '고객 진술 요약', placeholder: '예: 사용 3일 만에 화면이 표시되지 않음' },
+  ]},
+  { key: 'change', label: '변경요청서 (CCR)', iso: '§4.1.4', fields: [
+    { key: 'type', label: '변경 유형', placeholder: '예: 설계변경, 공정변경, 원자재 변경' },
+    { key: 'target', label: '변경 대상', placeholder: '예: 제품 A의 전원 회로 설계' },
+    { key: 'reason', label: '변경 이유', placeholder: '예: 부품 단종으로 인한 대체 부품 채택 필요' },
+  ]},
+  { key: 'supplier', label: '공급업체 평가보고서', iso: '§7.4.1', fields: [
+    { key: 'name', label: '공급업체명', placeholder: '예: (주)ABC 전자' },
+    { key: 'item', label: '공급 품목', placeholder: '예: PCB 기판, 전원 모듈' },
+    { key: 'evalType', label: '평가 유형', placeholder: '예: 신규 등록, 정기 평가, 실사' },
+  ]},
+  { key: 'qm', label: '품질매뉴얼 섹션', iso: '§4.2.2', fields: [
+    { key: 'section', label: 'ISO 조항', placeholder: '예: §7.1 제품 실현 기획' },
+    { key: 'company', label: '회사명', placeholder: '예: (주)모어컴퍼니' },
+    { key: 'productType', label: '의료기기 유형', placeholder: '예: 2등급 혈당측정기' },
+  ]},
 ]
 
-const FIELD_LABELS = {
-  department:   '발견/적용 부서',
-  product:      '제품/공정명',
-  description:  '부적합 내용',
-  date:         '발견일',
-  rootCause:    '근본 원인',
-  assignee:     '담당자',
-  dueDate:      '목표 완료일',
-  processName:  '프로세스명',
-  isoClause:    '관련 ISO 조항',
-  intendedUse:  '의도된 용도',
-  hazardArea:   '위험 영역',
-  subject:      '제목',
-  to:           '수신',
-  body:         '내용 요점',
-}
-
 export default function AIDraftHub() {
-  const [docType,  setDocType]  = useState('ncr')
-  const [context,  setContext]  = useState({})
-  const [draft,    setDraft]    = useState('')
-  const [usage,    setUsage]    = useState(null)
-  const [loading,  setLoading]  = useState(false)
-  const [error,    setError]    = useState('')
-  const [copied,   setCopied]   = useState(false)
+  const [selectedType, setSelectedType] = useState(null)
+  const [fieldValues, setFieldValues] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [copied, setCopied] = useState(false)
 
-  const selectedType = DOC_TYPES.find(d => d.value === docType)
+  const docType = DOC_TYPES.find(d => d.key === selectedType)
+  const allFilled = docType?.fields.every(f => fieldValues[f.key]?.trim())
 
-  // 이번 달 사용량 미리 로드
-  useEffect(() => {
-    loadUsage()
-  }, [])
-
-  async function loadUsage() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
-    const companyId = session.user?.user_metadata?.company_id || session.user?.id
-    if (!companyId) return
-    const ym = new Date().toISOString().slice(0, 7)
-    const { data } = await supabase
-      .from('ai_usage_log')
-      .select('count, plan')
-      .eq('company_id', companyId)
-      .eq('month', ym)
-      .single()
-    if (data) setUsage({ used: data.count, plan: data.plan })
-  }
-
-  async function generate() {
-    setError('')
-    setDraft('')
-    setLoading(true)
+  const handleGenerate = async () => {
+    if (!selectedType) return
+    setLoading(true); setResult(null); setError(null)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('로그인이 필요합니다.')
-      const companyId = session.user?.user_metadata?.company_id || session.user?.id
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-draft`,
-        {
-          method:  'POST',
-          headers: {
-            'Content-Type':  'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ docType, context, companyId }),
-        }
-      )
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'AI 오류')
-      setDraft(json.draft)
-      setUsage(json.usage)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+      const res = await fetch('/api/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docType: selectedType, fields: fieldValues }),
+      })
+      const data = await res.json()
+      if (data.ok) setResult(data.draft)
+      else setError(data.error || '생성 실패. ANTHROPIC_API_KEY가 Vercel 환경변수에 설정되어 있는지 확인하세요.')
+    } catch (e) { setError(e.message) }
+    finally { setLoading(false) }
   }
 
-  function handleContext(field, value) {
-    setContext(prev => ({ ...prev, [field]: value }))
+  const handleCopy = () => {
+    navigator.clipboard.writeText(result || '')
+    setCopied(true); setTimeout(() => setCopied(false), 2000)
   }
-
-  async function copyDraft() {
-    await navigator.clipboard.writeText(draft)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
-  const planLimit = { free: 10, starter: 50, pro: 200, enterprise: 999 }
-  const limit = planLimit[usage?.plan ?? 'free'] ?? 10
-  const usedPct = usage ? Math.min((usage.used / limit) * 100, 100) : 0
 
   return (
     <AppLayout>
-    <div style={{ padding: '24px', maxWidth: '900px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      {/* 헤더 */}
-      <div style={{ marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1a3a2a', margin: 0 }}>
-          AI 초안 생성
-        </h1>
-        <p style={{ color: '#555', marginTop: '6px', fontSize: '14px' }}>
-          Claude AI가 ISO 13485 · KGMP 규정에 맞는 품질 문서 초안을 생성합니다.
-        </p>
-      </div>
-
-      {/* 사용량 표시 */}
-      {usage && (
-        <div style={{ background: '#f0f7f4', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <span style={{ fontSize: '13px', color: '#1a3a2a', fontWeight: 600 }}>
-            이번 달 사용량
-          </span>
-          <div style={{ flex: 1, background: '#d4e8df', borderRadius: '99px', height: '8px' }}>
-            <div style={{ width: usedPct + '%', background: usedPct >= 90 ? '#c0392b' : '#2ecc71', height: '8px', borderRadius: '99px', transition: 'width .3s' }} />
+      <div style={{ padding: '24px', maxWidth: 920, margin: '0 auto' }}>
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <Sparkles size={22} style={{ color: 'var(--moss)' }} />
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>AI 초안 생성</h1>
           </div>
-          <span style={{ fontSize: '13px', color: '#333' }}>
-            {usage.used} / {limit}회 ({usage.plan ?? 'free'})
-          </span>
+          <p style={{ color: 'var(--ink-faint)', margin: 0, fontSize: 13 }}>
+            ISO 13485 GMP 문서를 AI로 초안 생성합니다. 결과는 반드시 검토·수정 후 사용하세요.
+          </p>
         </div>
-      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* 왼쪽: 입력 패널 */}
-        <div>
-          {/* 문서 유형 선택 */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: '#333' }}>
-              문서 유형
-            </label>
-            <select
-              value={docType}
-              onChange={e => { setDocType(e.target.value); setContext({}) }}
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px' }}
-            >
-              {DOC_TYPES.map(d => (
-                <option key={d.value} value={d.value}>{d.label}</option>
+        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20, alignItems: 'start' }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>문서 유형</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {DOC_TYPES.map(dt => (
+                <button key={dt.key} onClick={() => { setSelectedType(dt.key); setFieldValues({}); setResult(null); setError(null) }}
+                  style={{ textAlign: 'left', padding: '10px 14px', borderRadius: 8, border: '1px solid',
+                    borderColor: selectedType === dt.key ? 'var(--moss)' : 'var(--line)',
+                    background: selectedType === dt.key ? 'rgba(60,130,90,0.08)' : 'var(--surface)', cursor: 'pointer' }}>
+                  <div style={{ fontSize: 13, fontWeight: selectedType === dt.key ? 600 : 400, color: selectedType === dt.key ? 'var(--moss)' : 'var(--ink)' }}>{dt.label}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 2 }}>{dt.iso}</div>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
-          {/* 동적 입력 필드 */}
-          {selectedType?.fields.map(field => (
-            <div key={field} style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '4px', color: '#444' }}>
-                {FIELD_LABELS[field] ?? field}
-              </label>
-              {field === 'description' || field === 'body' || field === 'intendedUse' ? (
-                <textarea
-                  rows={3}
-                  value={context[field] ?? ''}
-                  onChange={e => handleContext(field, e.target.value)}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', resize: 'vertical', boxSizing: 'border-box' }}
-                  placeholder={FIELD_LABELS[field]}
-                />
-              ) : (
-                <input
-                  type={field === 'date' || field === 'dueDate' ? 'date' : 'text'}
-                  value={context[field] ?? ''}
-                  onChange={e => handleContext(field, e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #ccc', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box' }}
-                  placeholder={FIELD_LABELS[field]}
-                />
-              )}
-            </div>
-          ))}
-
-          {error && (
-            <div style={{ background: '#fdecea', border: '1px solid #e74c3c', borderRadius: '6px', padding: '10px 14px', color: '#c0392b', fontSize: '13px', marginBottom: '12px' }}>
-              {error}
-            </div>
-          )}
-
-          <button
-            onClick={generate}
-            disabled={loading}
-            style={{ width: '100%', padding: '12px', background: loading ? '#aaa' : '#1a3a2a', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer' }}
-          >
-            {loading ? '생성 중…' : '✦ AI 초안 생성'}
-          </button>
-        </div>
-
-        {/* 오른쪽: 결과 패널 */}
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label style={{ fontSize: '13px', fontWeight: 600, color: '#333' }}>생성된 초안</label>
-            {draft && (
-              <button
-                onClick={copyDraft}
-                style={{ fontSize: '12px', padding: '4px 10px', background: copied ? '#2ecc71' : '#eee', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                {copied ? '복사됨 ✓' : '클립보드 복사'}
-              </button>
+          <div>
+            {!selectedType ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--ink-faint)', background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--line)' }}>
+                <Sparkles size={36} strokeWidth={1} style={{ opacity: 0.3, marginBottom: 12 }} />
+                <p style={{ fontSize: 13 }}>좌측에서 생성할 문서 유형을 선택하세요</p>
+              </div>
+            ) : (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 24 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileText size={16} style={{ color: 'var(--moss)' }} /> {docType.label}
+                  <span style={{ fontSize: 12, color: 'var(--ink-faint)', fontWeight: 400 }}>{docType.iso}</span>
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+                  {docType.fields.map(f => (
+                    <div key={f.key}>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-faint)', marginBottom: 4 }}>{f.label}</label>
+                      <input type="text" placeholder={f.placeholder} value={fieldValues[f.key] || ''}
+                        onChange={e => setFieldValues(p => ({ ...p, [f.key]: e.target.value }))}
+                        style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, boxSizing: 'border-box' }} />
+                    </div>
+                  ))}
+                </div>
+                <button onClick={handleGenerate} disabled={loading || !allFilled}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px',
+                    background: allFilled && !loading ? 'var(--moss)' : 'var(--line)',
+                    color: allFilled && !loading ? '#fff' : 'var(--ink-faint)',
+                    border: 'none', borderRadius: 8, cursor: allFilled && !loading ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 600 }}>
+                  <Sparkles size={15} /> {loading ? 'AI 생성 중...' : 'AI 초안 생성'}
+                </button>
+                {error && (
+                  <div style={{ marginTop: 16, padding: '12px 16px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca', display: 'flex', gap: 8 }}>
+                    <AlertCircle size={16} style={{ color: '#dc2626', flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontSize: 13, color: '#991b1b' }}>{error}</span>
+                  </div>
+                )}
+                {result && (
+                  <div style={{ marginTop: 20 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600 }}>생성된 초안</span>
+                      <button onClick={handleCopy} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+                        background: copied ? '#f0fdf4' : 'var(--bg)', border: '1px solid var(--line)', borderRadius: 6, cursor: 'pointer', fontSize: 12,
+                        color: copied ? '#059669' : 'var(--ink)' }}>
+                        {copied ? <><Check size={12} /> 복사됨</> : <><Copy size={12} /> 복사</>}
+                      </button>
+                    </div>
+                    <div style={{ background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 8, padding: 16,
+                      fontSize: 13, lineHeight: 1.7, whiteSpace: 'pre-wrap', maxHeight: 480, overflowY: 'auto' }}>
+                      {result}
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 8 }}>
+                      ⚠️ AI가 생성한 초안입니다. 반드시 검토·수정 후 공식 기록으로 저장하세요.
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
-          <textarea
-            readOnly
-            value={draft}
-            placeholder="AI가 생성한 초안이 여기에 표시됩니다."
-            style={{ flex: 1, minHeight: '420px', padding: '12px', border: '1px solid #ccc', borderRadius: '8px', fontSize: '13px', resize: 'vertical', background: draft ? '#fff' : '#fafafa', color: '#222', lineHeight: 1.6 }}
-          />
         </div>
       </div>
-
-      {/* SQL 안내 */}
-      <details style={{ marginTop: '32px', fontSize: '12px', color: '#888' }}>
-        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Supabase 설정 안내 (관리자용)</summary>
-        <pre style={{ background: '#f5f5f5', padding: '12px', borderRadius: '6px', marginTop: '8px', overflow: 'auto' }}>{`-- ai_usage_log 테이블 생성
-CREATE TABLE ai_usage_log (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id  UUID NOT NULL,
-  month       TEXT NOT NULL,   -- 'YYYY-MM'
-  plan        TEXT NOT NULL DEFAULT 'free',
-  count       INT  NOT NULL DEFAULT 0,
-  updated_at  TIMESTAMPTZ DEFAULT now(),
-  UNIQUE (company_id, month)
-);
-ALTER TABLE ai_usage_log ENABLE ROW LEVEL SECURITY;
--- Edge Function 배포 후 secrets 설정:
--- supabase secrets set ANTHROPIC_API_KEY=sk-ant-...`}</pre>
-      </details>
-    </div>
     </AppLayout>
   )
 }
