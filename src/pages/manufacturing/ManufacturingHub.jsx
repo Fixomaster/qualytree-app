@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Cog,
   ClipboardList,
@@ -747,6 +747,12 @@ function MfgHome({wo,proc,onNavigate}){
 }
 
 /* ─── 메인 ─── */
+function WoRedirect(){
+  const nav=useNavigate();
+  React.useEffect(()=>{nav('/batch-records',{replace:true});},[]);
+  return <div style={{padding:'60px 20px',textAlign:'center',color:'var(--ink-faint)',fontSize:14}}>작업지시·배치기록 페이지로 이동 중…</div>;
+}
+
 export default function ManufacturingHub(){
   const user=auth.current()
   const [searchParams] = useSearchParams()
@@ -791,11 +797,7 @@ export default function ManufacturingHub(){
   const tabLabels={wo:'작업지시(WO)',proc:'공정기록',inspect:'공정검사',ncr:'부적합(NCR)',perf:'생산실적'}
   const viewMap={
     home:<MfgHome wo={wo} proc={proc} onNavigate={setView}/>,
-    wo:(<div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'60px 20px',textAlign:'center'}}>
-    <div style={{fontSize:15,fontWeight:600,marginBottom:8,color:'var(--ink)'}}>작업지시·배치기록서 전용 페이지로 이전되었습니다</div>
-    <div style={{fontSize:13,color:'var(--ink-faint)',marginBottom:20}}>더 완성된 전용 페이지에서 작업지시 생성, 배치기록 입력, 실적 관리를 할 수 있습니다.</div>
-    <a href="/batch-records" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'10px 24px',background:'var(--moss)',color:'#fff',borderRadius:8,textDecoration:'none',fontWeight:600,fontSize:14}}>작업지시·배치기록 바로가기 →</a>
-  </div>),
+    wo:<WoRedirect />,
     proc:<ProcRecView proc={proc} setProc={setProc} wo={wo} pcps={pcps} focusWo={focusWo}/>,
     inspect:<InspectView proc={proc} wo={wo}/>,
     ncr:<NcrView wo={wo} openId={editId}/>,
