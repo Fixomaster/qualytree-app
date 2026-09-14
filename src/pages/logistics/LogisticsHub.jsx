@@ -8,6 +8,7 @@ import {
   AlertOctagon,
   Plus,
   Trash2,
+  ClipboardCheck,
   Save,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
@@ -71,10 +72,12 @@ export default function LogisticsHub() {
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
           <TabButton active={tab === 'logs'} onClick={() => setTab('logs')} icon={Truck} label="수입검사·입고·출고·유통기록" en="LOGS" count={allLogs.length} />
           <TabButton active={tab === 'ae'} onClick={() => setTab('ae')} icon={AlertOctagon} label="이상사례 보고" en="ADVERSE EVENTS" count={allAe.length} />
+        <TabButton active={tab==='release'} onClick={()=>setTab('release')} icon={ClipboardCheck} label={[52636,54616,32,49849,51064,183,54032,51221].map(c=>String.fromCodePoint(c)).join('')} en="RELEASE APPROVAL" />
         </div>
 
         {tab === 'logs' && <LogsTab key={'logs' + tick} onAction={showToast} refresh={refresh} />}
         {tab === 'ae' && <AeTab key={'ae' + tick} onAction={showToast} refresh={refresh} />}
+      {tab === 'release' && <ReleaseTab />}
       </div>
     </AppLayout>
   )
@@ -327,6 +330,115 @@ function StatCard({ label, value, hint, icon: Icon, tone }) {
         <div className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>{label}</div>
         <div className="text-[20px] font-bold tabular-nums" style={{ color: 'var(--ink)' }}>{value}</div>
         <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{hint}</div>
+      </div>
+    </div>
+  )
+}
+
+function ReleaseTab() {
+  const LS = 'qualytree.release_approvals'
+  const load = () => { try { return JSON.parse(localStorage.getItem(LS)||'[]') } catch { return [] } }
+  const [records, setRecords] = React.useState(load)
+  const EMPTY = {lotNo:'',productName:'',qty:'',verdict:'합격',inspector:'',signerName:'',signerTitle:'',notes:''}
+  const [form, setForm] = React.useState(EMPTY)
+  const [showForm, setShowForm] = React.useState(false)
+
+  const save = arr => { localStorage.setItem(LS, JSON.stringify(arr)); setRecords(arr) }
+  const F = (k,v) => setForm(p=>({...p,[k]:v}))
+
+  const handleSubmit = () => {
+    if (!form.lotNo || !form.productName) return alert('로트번호와 제품명은 필수입니다')
+    save([{id:Date.now(),...form,signedAt:new Date().toISOString()},...records])
+    setForm(EMPTY); setShowForm(false)
+  }
+
+  const handleDelete = id => {
+    if (!confirm('삭제하시겠습니까?')) return
+    save(records.filter(r=>r.id!==id))
+  }
+
+  const handlePrint = rec => {
+    const vcls = rec.verdict==='합격'?'green':rec.verdict==='불합격'?'red':'orange'
+    const html = '<'+'!DOCTYPE html><html><head><meta charset="utf-8"><title>출하판정표<\/title><style>body{font-family:sans-serif;margin:40px}h2{text-align:center}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:8px}th{background:#f0f0f0;width:140px}.v{font-weight:bold;color:'+vcls+'}.sig{margin-top:40px;text-align:right}<\/style><\/head><body><h2>출하 판정표<\/h2><table><tr><th>Lot No.<\/th><td>'+rec.lotNo+'<\/td><th>제품명<\/th><td>'+rec.productName+'<\/td><\/tr><tr><th>수량<\/th><td>'+(rec.qty||'-')+'<\/td><th>판정일<\/th><td>'+(rec.signedAt?new Date(rec.signedAt).toLocaleDateString('ko-KR'):'-')+'<\/td><\/tr><tr><th>검사자<\/th><td>'+(rec.inspector||'-')+'<\/td><th>판정결과<\/th><td class="v">'+rec.verdict+'<\/td><\/tr><tr><th>비고<\/th><td colspan="3">'+(rec.notes||'-')+'<\/td><\/tr><\/table><div class="sig"><p>서명자: '+(rec.signerName||'-')+' ('+(rec.signerTitle||'-')+')<\/p><p>전자서명 일시: '+(rec.signedAt?new Date(rec.signedAt).toLocaleString('ko-KR'):'-')+'<\/p><\/div><script>window.print();<\/sc'+'ript><\/body><\/html>'
+    const w = window.open('','_blank','width=820,height=700')
+    if (!w) { alert('팝업이 차단되었습니다'); return }
+    w.document.write(html); w.document.close()
+  }
+
+  const vc = v => v==='합격'?'text-green-600':v==='불합격'?'text-red-600':'text-yellow-600'
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold text-gray-700">{[52636,54616,32,49849,51064,183,54032,51221].map(c=>String.fromCodePoint(c)).join('')} {[44592,47197].map(c=>String.fromCodePoint(c)).join('')}</h2>
+        <button onClick={()=>setShowForm(p=>!p)} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">+ {[49888,44508,32,54032,51221].map(c=>String.fromCodePoint(c)).join('')}</button>
+      </div>
+
+      {showForm && (
+        <div className="bg-white border rounded-lg p-4 space-y-3 shadow-sm">
+          <h3 className="font-semibold text-gray-700">{[52636,54616,32,54032,51221,32,51077,47141].map(c=>String.fromCodePoint(c)).join('')}</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="block text-xs text-gray-500 mb-1">Lot No. *</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.lotNo} onChange={e=>F('lotNo',e.target.value)} placeholder="LOT-2024-001"/></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[51228,54408,47749].map(c=>String.fromCodePoint(c)).join('')} *</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.productName} onChange={e=>F('productName',e.target.value)}/></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[49688,47049].map(c=>String.fromCodePoint(c)).join('')}</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.qty} onChange={e=>F('qty',e.target.value)} placeholder="100"/></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[54032,51221,44208,44284].map(c=>String.fromCodePoint(c)).join('')} *</label>
+              <select className="w-full border rounded px-2 py-1 text-sm" value={form.verdict} onChange={e=>F('verdict',e.target.value)}>
+                <option value={[54633,44201].map(c=>String.fromCodePoint(c)).join('')}>{[54633,44201].map(c=>String.fromCodePoint(c)).join('')}</option>
+                <option value={[48520,54633,44201].map(c=>String.fromCodePoint(c)).join('')}>{[48520,54633,44201].map(c=>String.fromCodePoint(c)).join('')}</option>
+                <option value={[48372,47448].map(c=>String.fromCodePoint(c)).join('')}>{[48372,47448].map(c=>String.fromCodePoint(c)).join('')}</option>
+              </select></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[44160,49324,51088].map(c=>String.fromCodePoint(c)).join('')}</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.inspector} onChange={e=>F('inspector',e.target.value)}/></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[49436,47749,51088,32,49457,47749].map(c=>String.fromCodePoint(c)).join('')}</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.signerName} onChange={e=>F('signerName',e.target.value)}/></div>
+            <div><label className="block text-xs text-gray-500 mb-1">{[49436,47749,51088,32,51649,50948].map(c=>String.fromCodePoint(c)).join('')}</label>
+              <input className="w-full border rounded px-2 py-1 text-sm" value={form.signerTitle} onChange={e=>F('signerTitle',e.target.value)}/></div>
+            <div className="col-span-2"><label className="block text-xs text-gray-500 mb-1">{[48708,44256].map(c=>String.fromCodePoint(c)).join('')}</label>
+              <textarea className="w-full border rounded px-2 py-1 text-sm" rows={2} value={form.notes} onChange={e=>F('notes',e.target.value)}/></div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 border rounded text-sm text-gray-600 hover:bg-gray-50">{[52712,49548].map(c=>String.fromCodePoint(c)).join('')}</button>
+            <button onClick={handleSubmit} className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">{[51200,51109,32,40,51204,51088,49436,47749,41].map(c=>String.fromCodePoint(c)).join('')}</button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs text-gray-500">
+            <tr>
+              <th className="px-3 py-2 text-left">Lot No.</th>
+              <th className="px-3 py-2 text-left">{[51228,54408,47749].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-left">{[49688,47049].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-center">{[54032,51221].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-left">{[44160,49324,51088].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-left">{[49436,47749,51088].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-left">{[54032,51221,51068,49884].map(c=>String.fromCodePoint(c)).join('')}</th>
+              <th className="px-3 py-2 text-center">{[51089,52629].map(c=>String.fromCodePoint(c)).join('')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.length===0 && <tr><td colSpan={8} className="px-3 py-8 text-center text-gray-400">{[52636,54616,32,54032,51221,32,44592,47197,51060,32,50630,49845,45768,45796].map(c=>String.fromCodePoint(c)).join('')}</td></tr>}
+            {records.map(rec=>(
+              <tr key={rec.id} className="border-t hover:bg-gray-50">
+                <td className="px-3 py-2 font-mono text-xs">{rec.lotNo}</td>
+                <td className="px-3 py-2">{rec.productName}</td>
+                <td className="px-3 py-2">{rec.qty||'-'}</td>
+                <td className={`px-3 py-2 text-center font-semibold ${vc(rec.verdict)}`}>{rec.verdict}</td>
+                <td className="px-3 py-2">{rec.inspector||'-'}</td>
+                <td className="px-3 py-2">{rec.signerName}{rec.signerTitle?` (${rec.signerTitle})`:''}</td>
+                <td className="px-3 py-2 text-xs text-gray-500">{rec.signedAt?new Date(rec.signedAt).toLocaleString('ko-KR'):'-'}</td>
+                <td className="px-3 py-2 text-center space-x-2">
+                  <button onClick={()=>handlePrint(rec)} className="text-blue-500 hover:text-blue-700 text-xs">{[52636,47141].map(c=>String.fromCodePoint(c)).join('')}</button>
+                  <button onClick={()=>handleDelete(rec.id)} className="text-red-400 hover:text-red-600 text-xs">{[49325,51228].map(c=>String.fromCodePoint(c)).join('')}</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
