@@ -14,6 +14,7 @@ import {
 import { resetCloudSync } from './cloudSync'
 
 const KEY = 'qualytree.auth'
+const VIEWING_AS_KEY = 'qualytree.viewingAs'
 export const PENDING_JOIN_KEY = 'qualytree.pendingJoin'
 
 // 페이지 로드 시 SIGNED_IN·TOKEN_REFRESHED 이벤트가 거의 동시에 여러 번 발생하면
@@ -86,6 +87,27 @@ export const auth = {
     return session
   },
 
+  
+  // ── 운영자 회사 전환 ──────────────────────────────────────────────────
+  viewAs(company) {
+    try {
+      localStorage.setItem(VIEWING_AS_KEY, JSON.stringify(company))
+      window.dispatchEvent(new Event('qualytree:viewAsChanged'))
+    } catch { /* ignore */ }
+  },
+  exitViewAs() {
+    try {
+      localStorage.removeItem(VIEWING_AS_KEY)
+      window.dispatchEvent(new Event('qualytree:viewAsChanged'))
+    } catch { /* ignore */ }
+  },
+  viewingAs() {
+    try {
+      const raw = localStorage.getItem(VIEWING_AS_KEY)
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  },
+
   signOut() {
     localStorage.removeItem(KEY)
     try { resetCloudSync() } catch { /* ignore */ }
@@ -103,6 +125,16 @@ export const auth = {
       }
       if (session && !session.identityKind) {
         session.identityKind = 'demo'
+      }
+      // 운영자가 특정 회사로 접속 중이면 company 오버라이드
+      if (session) {
+        const vaRaw = localStorage.getItem(VIEWING_AS_KEY)
+        if (vaRaw) {
+          try {
+            const va = JSON.parse(vaRaw)
+            return { ...session, company: va, _viewingAs: true }
+          } catch { /* ignore */ }
+        }
       }
       return session
     } catch {
