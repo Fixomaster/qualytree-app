@@ -125,6 +125,7 @@ items: [
           { to: '/risk', label: '제품 위험관리 (ISO 14971)' },
           { to: '/device-master-record', label: '의료기기 파일(DMR)' },
       { to: '/product-standard', label: '제품 표준서' },
+      { to: '/label-packaging', label: '라벨·포장재 관리' },
 ],
 },
 {
