@@ -18,6 +18,7 @@ import { getMergedEnvLogs, CLEAN_CLASS_PARTICLE_LIMIT, paToMmH2O, mmH2OToPa } fr
 
 // ── localStorage (구역 정의만 이 화면에서 직접 쓴다) ────────────
 const LS_ZONE = 'qualytree.env_zones'
+const LS_MANUAL = 'qualytree.env_logs_manual'
 function lsR(k) { try { return JSON.parse(localStorage.getItem(k) || '[]') } catch { return [] } }
 function lsW(k, d) { localStorage.setItem(k, JSON.stringify(d)) }
 function genZoneId() { return `ZON-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
@@ -54,6 +55,8 @@ export default function WorkEnvHub() {
   const initialTab = ['logs','zones','analysis'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'logs'
   const [logs, setLogs]   = useState(() => getMergedEnvLogs())
   const [zones, setZones] = useState(() => lsR(LS_ZONE))
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({zone:'',temp:'',humidity:'',particle:'',pressure:'',memo:''})
   const [tab, setTab]     = useState(initialTab)
   const [search, setSearch]         = useState('')
   const [zoneFilter, setZoneFilter] = useState('all')
@@ -102,7 +105,19 @@ export default function WorkEnvHub() {
     { key: 'logs',     label: '모니터링 기록',  icon: Activity },
     { key: 'zones',    label: '구역 관리',      icon: MapPin },
     { key: 'analysis', label: '현황 분석',      icon: BarChart2 },
+    { key: 'trend', label: '추세 분석', icon: TrendingUp },
   ]
+
+
+  const handleAddLog = () => {
+    if (!form.temp && !form.humidity) return
+    const entry = { ...form, zoneId: form.zone, id: Date.now().toString(), measuredAt: new Date().toISOString(), deviations: [] }
+    const ex = JSON.parse(localStorage.getItem(LS_MANUAL) || '[]')
+    localStorage.setItem(LS_MANUAL, JSON.stringify([entry, ...ex]))
+    setLogs(prev => [entry, ...prev])
+    setForm({zone:'',temp:'',humidity:'',particle:'',pressure:'',memo:''})
+    setShowForm(false)
+  }
 
   return (
     <AppLayout user={user} title="작업환경 관리" subtitle="ISO 13485 §6.4 · 제조 구역 환경 모니터링 · 이탈 감지 · NCR 연동">
@@ -175,6 +190,10 @@ export default function WorkEnvHub() {
                 <ExternalLink size={14} /> 청결·오염 관리에서 기록 추가
               </button>
             </div>
+            <div className="flex justify-end mb-2">
+              <button onClick={() => setShowForm(s => !s)} className="flex items-center gap-1 px-3 py-2 rounded-xl text-[13px] font-semibold" style={{ background: showForm ? 'var(--bg)' : 'var(--accent)', color: showForm ? 'var(--ink)' : '#fff', border: showForm ? '1px solid var(--line)' : 'none' }}><Plus size={14}/>{showForm ? '취소' : '기록 입력'}</button>
+            </div>
+            {showForm && <LogInputForm form={form} setForm={setForm} onSave={handleAddLog} onCancel={() => setShowForm(false)} zones={zones}/>}
 
             {zones.length === 0 ? (
               <div className="text-center py-16 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
@@ -205,6 +224,7 @@ export default function WorkEnvHub() {
 
         {/* ── 현황 분석 탭 ── */}
         {tab === 'analysis' && <EnvAnalysis logs={logs} zones={zones} />}
+            {tab === 'trend' && <TrendTab logs={logs}/>}
 
       </div>
 
@@ -217,6 +237,82 @@ export default function WorkEnvHub() {
 }
 
 // ── 측정 기록 행 (읽기 전용) ────────────────────────────────────
+
+function LogInputForm({ form, setForm, onSave, onCancel, zones }) {
+  const F = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  return (
+    <div className="rounded-2xl p-5 mb-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--accent)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+      <div className="font-semibold mb-3 text-[15px]">환경 모니터링 기록 입력</div>
+      <div className="grid gap-3 mb-3" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>구역</div>
+          <select value={form.zone} onChange={e => F('zone', e.target.value)} className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
+            <option value="">-- 선택 --</option>
+            {zones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+          </select></div>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>온도 (°C)</div>
+          <input type="number" step="0.1" value={form.temp} onChange={e => F('temp', e.target.value)} placeholder="22.5" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}/></div>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>습도 (%RH)</div>
+          <input type="number" step="0.1" value={form.humidity} onChange={e => F('humidity', e.target.value)} placeholder="45" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}/></div>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>입자수 (개/m³)</div>
+          <input type="number" value={form.particle} onChange={e => F('particle', e.target.value)} placeholder="3520" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}/></div>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>차압 (Pa)</div>
+          <input type="number" step="0.1" value={form.pressure} onChange={e => F('pressure', e.target.value)} placeholder="12.5" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}/></div>
+        <div><div className="text-[12px] mb-1" style={{ color: 'var(--ink-faint)' }}>메모</div>
+          <input type="text" value={form.memo} onChange={e => F('memo', e.target.value)} placeholder="특이사항" className="w-full px-2 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }}/></div>
+      </div>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg)', border: '1px solid var(--line)' }}>취소</button>
+        <button onClick={onSave} className="px-4 py-2 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--accent)', color: '#fff', border: 'none' }}>저장</button>
+      </div>
+    </div>
+  )
+}
+
+function TrendTab({ logs }) {
+  const sorted = [...logs].filter(l => l.measuredAt).sort((a, b) => a.measuredAt.localeCompare(b.measuredAt))
+  const last = sorted.slice(-30)
+  if (last.length === 0) return (
+    <div className="text-center py-16 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink-faint)' }}>기록 데이터가 없습니다.</div>
+  )
+  const vals = k => last.map(l => parseFloat(l[k] || 0)).filter(v => !isNaN(v) && v > 0)
+  const avg = k => { const v = vals(k); return v.length ? (v.reduce((a,b)=>a+b,0)/v.length).toFixed(1) : '--' }
+  const W = 500, H = 110
+  const makeLine = (arr, color) => {
+    if (arr.length < 2) return null
+    const mn = Math.min(...arr), mx = Math.max(...arr), range = mx - mn || 1
+    const pts = arr.map((v,i) => [40+(i/(arr.length-1))*(W-60), H-20-((v-mn)/range)*(H-40)])
+    const d = pts.map((p,i) => [(i?'L':'M'), p[0].toFixed(1), ',', p[1].toFixed(1)].join('')).join(' ')
+    return { d, pts, color, mn, mx }
+  }
+  const tVals = vals('temp'), hVals = vals('humidity')
+  const tLine = makeLine(tVals,'#EF4444'), hLine = makeLine(hVals,'#3B82F6')
+  const Chart = ({l, label}) => !l ? null : (
+    <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+      <div className="flex items-center gap-2 mb-2 font-semibold text-[14px]"><TrendingUp size={15} style={{ color: l.color }}/>{label}</div>
+      <svg viewBox={"0 0 " + W + " " + H} style={{ width:'100%', height:110 }}>
+        <line x1="40" y1={H-20} x2={W-20} y2={H-20} stroke="var(--line)" strokeWidth="1"/>
+        <text x="35" y="24" textAnchor="end" fontSize="10" fill="var(--ink-faint)">{l.mx}</text>
+        <text x="35" y={H-22} textAnchor="end" fontSize="10" fill="var(--ink-faint)">{l.mn}</text>
+        <path d={l.d} fill="none" stroke={l.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+        {l.pts.map((p,i)=><circle key={i} cx={p[0]} cy={p[1]} r="3" fill={l.color}/>)}
+      </svg>
+    </div>
+  )
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+        {[{Icon:Thermometer,label:'평균 온도',val:avg('temp')+'°C',c:'#EF4444'},{Icon:Droplets,label:'평균 습도',val:avg('humidity')+'%RH',c:'#3B82F6'},{Icon:Activity,label:'측정 건수',val:last.length+'건',c:'#8B5CF6'}].map((s,i)=>(
+          <div key={i} className="rounded-2xl p-4 flex items-center gap-3" style={{ background:'var(--bg-card)', border:'1px solid var(--line)' }}>
+            <s.Icon size={28} style={{ color:s.c, flexShrink:0 }}/><div><div className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{s.label}</div><div className="font-bold text-[18px]">{s.val}</div></div>
+          </div>
+        ))}
+      </div>
+      <Chart l={tLine} label={'온도 추세 (최근 ' + tVals.length + '건)'}/>
+      <Chart l={hLine} label={'습도 추세 (최근 ' + hVals.length + '건)'}/>
+    </div>
+  )
+}
+
 function LogRow({ log, zone, expanded, onToggle }) {
   const devs = log.deviations || []
   const hasDeviation = devs.length > 0
