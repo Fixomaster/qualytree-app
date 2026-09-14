@@ -42,7 +42,7 @@ try { PreviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/PreviewHu
 
 // ââ ì ê· íë¸ (Tasks #28-#61) ââââââââââââââââââââââââââââââââââââââââ
 let AuditHub, ImprovementHub, DeptHome, ProcessFlow, ExportHub
-let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub, EnterpriseRiskHub, ProductStandardHub, SopHub
+let RiskHub, CalibrationHub, SupplierHub, ComplaintHub, TraceabilityHub, CustomerPropertyHub, EnterpriseRiskHub, ProductStandardHub, SopHub, LabelPackagingHub
 let ChangeControlHub, InspectionHub, WorkEnvHub, ValidationHub, QualityDashboard
 let DesignHistoryHub, CompetencyHub, ServiceHub, PreservationHub, QualityPlanHub, InventoryHub
 let CustomerReqHub, InfrastructureHub, DocControlHub, QualityObjectivesHub, ProductIdHub
@@ -58,6 +58,7 @@ try { RiskHub = React.lazy(() => import(/* @vite-ignore */ './pages/risk/RiskHub
 try { EnterpriseRiskHub = React.lazy(() => import(/* @vite-ignore */ './pages/enterprise-risk/EnterpriseRiskHub')) } catch {}
 try { ProductStandardHub = React.lazy(() => import(/* @vite-ignore */ './pages/product-standard/ProductStandardHub')) } catch {}
 try { SopHub = React.lazy(() => import(/* @vite-ignore */ './pages/sop/SopHub')) } catch {}
+try { LabelPackagingHub = React.lazy(() => import(/* @vite-ignore */ './pages/label-packaging/LabelPackagingHub')) } catch {}
 try { CalibrationHub = React.lazy(() => import(/* @vite-ignore */ './pages/calibration/CalibrationHub')) } catch {}
 try { SupplierHub = React.lazy(() => import(/* @vite-ignore */ './pages/supplier/SupplierHub')) } catch {}
 try { ComplaintHub = React.lazy(() => import(/* @vite-ignore */ './pages/complaint/ComplaintHub')) } catch {}
@@ -205,6 +206,7 @@ return (
 <Route path="/risk" element={<ProtectedRoute><LazyRoute Component={RiskHub} /></ProtectedRoute>} />
               <Route path="/enterprise-risk" element={<ProtectedRoute><LazyRoute Component={EnterpriseRiskHub} /></ProtectedRoute>} />
               <Route path="/product-standard" element={<ProtectedRoute><LazyRoute Component={ProductStandardHub} /></ProtectedRoute>} />
+              <Route path="/label-packaging" element={<ProtectedRoute><LazyRoute Component={LabelPackagingHub} /></ProtectedRoute>} />
               <Route path="/sop" element={<ProtectedRoute><LazyRoute Component={SopHub} /></ProtectedRoute>} />
 <Route path="/calibration" element={<ProtectedRoute><LazyRoute Component={CalibrationHub} /></ProtectedRoute>} />
 <Route path="/supplier" element={<ProtectedRoute><LazyRoute Component={SupplierHub} /></ProtectedRoute>} />
