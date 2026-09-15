@@ -324,6 +324,19 @@ function ProfileTab({ company, members, onAction, refresh }) {
   )
 }
 function CompanyDocsTab({ onAction, refresh }) {
+  const CATEGORY_ORDER = Object.values(DOC_CATEGORY)
+  const CATEGORY_HINT = {
+    [DOC_CATEGORY.BIZ_REG]: '관할 세무서 발급 사업자등록증 사본',
+    [DOC_CATEGORY.MFG_LICENSE]: '제조업허가증 (해당 시)',
+    [DOC_CATEGORY.FACILITY_PLAN]: '제조소 평면도 (작업구역·보관구역 표시)',
+    [DOC_CATEGORY.FACILITY_PHOTO]: '제조소 외관·내부 사진',
+    [DOC_CATEGORY.FACILITY_REG]: '제조소 등록 확인 자료',
+    [DOC_CATEGORY.IMPORT_LICENSE]: '수입업 허가증 (수입업자인 경우)',
+    [DOC_CATEGORY.AGENT_CONTRACT]: '해외 제조사 대리인 지정 계약서 (Authorization Letter)',
+    [DOC_CATEGORY.GMP_CERT]: '제조소 GMP 적합인정서/인증서',
+    [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 인증서',
+  }
+  const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
   const canEdit = permissions.can('company.docs.edit')
   const [list, setList] = useState(() => companyDocs.getDocuments())
   const [naList, setNaList] = useState(() => companyDocs.load().naCategories || [])
