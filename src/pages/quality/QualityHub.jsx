@@ -1,4 +1,4 @@
-// src/pages/quality/QualityHub.jsx Ã¢ÂÂ ISO 13485 ÃÂ§8.3 NCRÃÂ·Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ© ÃªÂ´ÂÃ«Â¦Â¬
+// src/pages/quality/QualityHub.jsx â ISO 13485 Â§8.3 NCR·부적합 관리
 import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp, Wrench, ClipboardCheck, Trash2 } from 'lucide-react'
@@ -25,24 +25,24 @@ function getLinkedCapas(ncrId) {
   } catch { return [] }
 }
 
-const STATUS_LABEL = { investigating: 'Ã¬Â¡Â°Ã¬ÂÂ¬Ã¬Â¤Â', contained: 'ÃªÂ²Â©Ã«Â¦Â¬Ã¬ÂÂÃ«Â£Â', corrected: 'Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£Â', closed: 'Ã¬Â¢ÂÃªÂ²Â°' }
+const STATUS_LABEL = { investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
 const STATUS_COLOR = { investigating: '#EAB308', contained: '#3B82F6', corrected: '#8B5CF6', closed: '#22C55E' }
 const SEV_COLOR = { Critical: '#DC2626', Major: '#F97316', Minor: '#64748B' }
 const SEVERITIES = ['Critical', 'Major', 'Minor']
-const SOURCES = ['Ã«ÂÂ´Ã«Â¶ÂÃªÂ²ÂÃ¬ÂÂ¬', 'ÃªÂ³Â ÃªÂ°ÂÃ«Â¶ÂÃ«Â§Â', 'ÃªÂ³ÂµÃªÂ¸ÂÃ¬ÂÂÃ¬Â²Â´', 'ÃªÂ³ÂµÃ¬Â Â', 'ÃªÂ¸Â°Ã­ÂÂ']
+const SOURCES = ['내부검사', '고객불만', '공급업체', '공정', '기타']
 
 export default function QualityHub() {
   const [ncrs, setNcrs] = useState(lsRead)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
   const [expanded, setExpanded] = useState(null)
-  const [form, setForm] = useState({ title: '', severity: 'Major', source: 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ²ÂÃ¬ÂÂ¬', description: '', detectedAt: '', detectedBy: '' })
+  const [form, setForm] = useState({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' })
 
   const [qTab, setQTab] = useState('ncr')
   function reload() { setNcrs(lsRead()) }
 
   function save() {
-    if (!form.title.trim()) return alert('Ã¬Â ÂÃ«ÂªÂ©Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ')
+    if (!form.title.trim()) return alert('제목을 입력하세요')
     const cur = auth.current()
     const all = lsRead()
     const newRecord = {
@@ -73,7 +73,7 @@ export default function QualityHub() {
   }
 
   function remove(id) {
-    if (!confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) return
+    if (!confirm('삭제하시겠습니까?')) return
     lsWrite(lsRead().filter(r => r.id !== id))
     reload()
   }
@@ -96,7 +96,7 @@ export default function QualityHub() {
 
   return (
     <AppLayout>
-      <HubBanner icon={ShieldAlert} title="NCRÃÂ·Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ© ÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 13485 ÃÂ§8.3" color="#DC2626" />
+      <HubBanner icon={ShieldAlert} title="NCR·부적합 관리" subtitle="ISO 13485 Â§8.3" color="#DC2626" />
 
       {/* Tab Nav #181 */}
       <div style={{display:'flex',gap:8,marginBottom:16}}>
@@ -109,7 +109,7 @@ export default function QualityHub() {
       {qTab === 'ncr' && (<>
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 20 }}>
-        {[['Ã¬Â ÂÃ¬Â²Â´', stats.total, 'var(--ink)'], ['Ã¬Â¡Â°Ã¬ÂÂ¬Ã¬Â¤Â', stats.investigating, '#EAB308'], ['ÃªÂ²Â©Ã«Â¦Â¬Ã¬ÂÂÃ«Â£Â', stats.contained, '#3B82F6'], ['Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£Â', stats.corrected, '#8B5CF6'], ['Ã¬Â¢ÂÃªÂ²Â°', stats.closed, '#22C55E']].map(([label, n, color]) => (
+        {[['전체', stats.total, 'var(--ink)'], ['조사중', stats.investigating, '#EAB308'], ['격리완료', stats.contained, '#3B82F6'], ['시정완료', stats.corrected, '#8B5CF6'], ['종결', stats.closed, '#22C55E']].map(([label, n, color]) => (
           <div key={label} style={statCard}>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>{n}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{label}</div>
@@ -121,15 +121,15 @@ export default function QualityHub() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} />
-          <input style={{ ...inp, paddingLeft: 30 }} placeholder="NCR ID Ã«ÂÂÃ«ÂÂ Ã¬Â ÂÃ«ÂªÂ© ÃªÂ²ÂÃ¬ÂÂ" value={search} onChange={e => setSearch(e.target.value)} />
+          <input style={{ ...inp, paddingLeft: 30 }} placeholder="NCR ID 또는 제목 검색" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button style={btn('#DC2626')} onClick={() => { setForm({ title: '', severity: 'Major', source: 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ²ÂÃ¬ÂÂ¬', description: '', detectedAt: '', detectedBy: '' }); setModal(true) }}>
-          <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ© Ã«ÂÂ±Ã«Â¡Â
+        <button style={btn('#DC2626')} onClick={() => { setForm({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' }); setModal(true) }}>
+          <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />부적합 등록
         </button>
       </div>
 
       {/* List */}
-      {filtered.length === 0 && <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: 40 }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ©Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤</div>}
+      {filtered.length === 0 && <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: 40 }}>등록된 부적합이 없습니다</div>}
       {filtered.map(r => (
         <NcrCard key={r.id} r={r}
           expanded={expanded === r.id}
@@ -144,16 +144,16 @@ export default function QualityHub() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: 500, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 16 }}>Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ© Ã¬ÂÂ ÃªÂ·Â Ã«ÂÂ±Ã«Â¡Â</h3>
+              <h3 style={{ margin: 0, fontSize: 16 }}>부적합 신규 등록</h3>
               <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModal(false)}><X size={18} /></button>
             </div>
             {[
-              ['Ã¬Â ÂÃ«ÂªÂ©', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Ã«Â¶ÂÃ¬Â ÂÃ­ÂÂ© Ã«ÂÂ´Ã¬ÂÂ© Ã¬ÂÂÃ¬ÂÂ½" />],
-              ['Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
-              ['Ã«Â°ÂÃ¬ÂÂÃ¬Â¶ÂÃ¬Â²Â', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
-              ['Ã«Â°ÂÃªÂ²Â¬Ã¬ÂÂ¼', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
-              ['Ã«Â°ÂÃªÂ²Â¬Ã¬ÂÂ', <input style={inp} value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} />],
-              ['Ã¬ÂÂÃ¬ÂÂ¸Ã«ÂÂ´Ã¬ÂÂ©', <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />],
+              ['제목', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적합 내용 요약" />],
+              ['심각도', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['발생출처', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['발견일', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
+              ['발견자', <input style={inp} value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} />],
+              ['상세내용', <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />],
             ].map(([label, el]) => (
               <div key={label} style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>{label}</label>
@@ -161,8 +161,8 @@ export default function QualityHub() {
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button style={btn('transparent', 'var(--ink)')} onClick={() => setModal(false)}>Ã¬Â·Â¨Ã¬ÂÂ</button>
-              <button style={btn('#DC2626')} onClick={save}>Ã«ÂÂ±Ã«Â¡Â</button>
+              <button style={btn('transparent', 'var(--ink)')} onClick={() => setModal(false)}>취소</button>
+              <button style={btn('#DC2626')} onClick={save}>등록</button>
             </div>
           </div>
         </div>
@@ -185,7 +185,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
   const capasDone = linkedCapas.length === 0 || linkedCapas.every(c => c.status === CAPA_STATUS.CLOSED)
 
   function doCorrect() {
-    if (!capasDone) return alert('Ã¬ÂÂ°ÃªÂ²Â°Ã«ÂÂ CAPAÃªÂ°Â Ã¬ÂÂÃ¬Â§Â Ã¬ÂÂÃ«Â£ÂÃ«ÂÂÃ¬Â§Â Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. CAPAÃÂ·ÃªÂ°ÂÃ¬ÂÂ  Ã«Â©ÂÃ«ÂÂ´Ã¬ÂÂÃ¬ÂÂ CAPAÃ«Â¥Â¼ Ã¬Â¢ÂÃªÂ²Â°Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+    if (!capasDone) return alert('연결된 CAPA가 아직 완료되지 않았습니다. CAPA·개선 메뉴에서 CAPA를 종결하세요.')
     onUpdate({ status: 'corrected', correctedAt: new Date().toISOString() })
   }
 
@@ -194,8 +194,8 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
       status: 'closed',
       closedAt: new Date().toISOString(),
       approvals: [{
-        role: 'Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ',
-        name: curUser?.name || 'Ã«Â¯Â¸Ã­ÂÂÃ¬ÂÂ¸',
+        role: '승인자',
+        name: curUser?.name || '미확인',
         email: curUser?.email || '',
         level: curUser?.level || 0,
         note: approveNote,
@@ -224,108 +224,108 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
         <div style={{ borderTop: '1px solid var(--line)', padding: 16 }}>
           {/* Meta */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14, fontSize: 13, color: 'var(--ink-faint)' }}>
-            <span>Ã¬Â¶ÂÃ¬Â²Â: {r.source}</span>
-            <span>Ã«Â°ÂÃªÂ²Â¬Ã¬ÂÂ¼: {r.detectedAt || '-'}</span>
-            <span>Ã«Â°ÂÃªÂ²Â¬Ã¬ÂÂ: {r.detectedBy || '-'}</span>
-            <span>Ã«ÂÂ±Ã«Â¡ÂÃ¬ÂÂ: {r.createdByName || '-'}</span>
+            <span>출처: {r.source}</span>
+            <span>발견일: {r.detectedAt || '-'}</span>
+            <span>발견자: {r.detectedBy || '-'}</span>
+            <span>등록자: {r.createdByName || '-'}</span>
           </div>
           {r.description && (
             <div style={{ fontSize: 13, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, marginBottom: 14, lineHeight: 1.6 }}>{r.description}</div>
           )}
 
-          {/* Stage 1 Ã¢ÂÂ ÃªÂ²Â©Ã«Â¦Â¬ Ã¬Â¡Â°Ã¬Â¹Â Ã«Â©ÂÃ«ÂÂ´Ã«Â¡Â Ã¬ÂÂ´Ã«ÂÂ */}
+          {/* Stage 1 â 격리 조치 메뉴로 이동 */}
           {r.status === 'investigating' && (
             <div style={stageBox('#EAB308')}>
-              {stageTitle('#EAB308', 'Ã¢ÂÂ  ÃªÂ²Â©Ã«Â¦Â¬ Ã¬Â¡Â°Ã¬Â¹Â')}
+              {stageTitle('#EAB308', 'â  격리 조치')}
               <p style={{ fontSize: 13, color: 'var(--ink-faint)', margin: '0 0 12px', lineHeight: 1.6 }}>
-                ÃªÂ²Â©Ã«Â¦Â¬ Ã¬ÂÂ¬Ã«Â¶Â(ÃªÂ²Â©Ã«Â¦Â¬ Ã¬ÂÂ¤Ã¬ÂÂ / ÃªÂ²Â©Ã«Â¦Â¬ Ã«Â¶ÂÃ­ÂÂÃ¬ÂÂ)Ã«Â¥Â¼ ÃªÂ²Â©Ã«Â¦Â¬ÃªÂ´ÂÃ«Â¦Â¬ Ã«Â©ÂÃ«ÂÂ´Ã¬ÂÂÃ¬ÂÂ ÃªÂ²Â°Ã¬Â ÂÃ­ÂÂ´Ã¬Â£Â¼Ã¬ÂÂ¸Ã¬ÂÂ.
-                ÃªÂ²Â°Ã¬Â Â Ã¬ÂÂÃ«Â£Â Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã«ÂÂ¤Ã¬ÂÂ Ã«ÂÂ¨ÃªÂ³ÂÃ«Â¡Â Ã¬Â ÂÃ­ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
+                격리 여부(격리 실시 / 격리 불필요)를 격리관리 메뉴에서 결정해주세요.
+                결정 완료 시 자동으로 다음 단계로 전환됩니다.
               </p>
-              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>ÃªÂ²Â©Ã«Â¦Â¬ÃªÂ´ÂÃ«Â¦Â¬ Ã«Â©ÂÃ«ÂÂ´Ã«Â¡Â Ã¬ÂÂ´Ã«ÂÂ Ã¢ÂÂ</Link>
+              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>격리관리 메뉴로 이동 â</Link>
             </div>
           )}
 
-          {/* Stage 2 Ã¢ÂÂ CAPA Ã­ÂÂÃ¬ÂÂ¸ Ã­ÂÂ Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£Â */}
+          {/* Stage 2 â CAPA 확인 후 시정완료 */}
           {r.status === 'contained' && (
             <div style={stageBox('#3B82F6')}>
-              {stageTitle('#3B82F6', 'Ã¢ÂÂ¡ CAPA Ã¬Â§ÂÃ­ÂÂ Ã­ÂÂÃ¬ÂÂ¸')}
+              {stageTitle('#3B82F6', 'â¡ CAPA 진행 확인')}
               {r.containmentSkipped
-                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>ÃªÂ²Â©Ã«Â¦Â¬: Ã«Â¶ÂÃ­ÂÂÃ¬ÂÂ Ã¬Â²ÂÃ«Â¦Â¬Ã«ÂÂ¨ ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
+                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨 ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
                 : r.containment
-                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>ÃªÂ²Â©Ã«Â¦Â¬ Ã¬Â¡Â°Ã¬Â¹Â: {r.containment}</div>
+                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {r.containment}</div>
                   : null}
               {linkedCapas.length > 0 ? (
                 <div style={{ marginBottom: 10 }}>
                   {linkedCapas.map(c => (
                     <div key={c.id} style={{ fontSize: 13, padding: '6px 10px', background: 'var(--bg)', borderRadius: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{c.id} Ã¢ÂÂ {c.title}</span>
+                      <span>{c.id} â {c.title}</span>
                       <span style={{ fontWeight: 600, color: c.status === CAPA_STATUS.CLOSED ? '#22C55E' : '#F97316' }}>{c.status}</span>
                     </div>
                   ))}
                   {!capasDone && (
                     <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>
-                      CAPA Ã¬ÂÂÃ«Â£Â Ã­ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£ÂÃ«Â¡Â Ã¬Â ÂÃ­ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
-                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPAÃÂ·ÃªÂ°ÂÃ¬ÂÂ  Ã«Â©ÂÃ«ÂÂ´ Ã¢ÂÂ</Link>
+                      CAPA 완료 후 자동으로 시정완료로 전환됩니다.
+                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPA·개선 메뉴 â</Link>
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂÃ¬ÂÂ± CAPA Ã¬ÂÂÃ¬ÂÂ (CriticalÃÂ·Ã«Â°ÂÃ«Â³Âµ Major NCRÃ¬ÂÂ´ Ã¬ÂÂÃ«ÂÂ ÃªÂ²Â½Ã¬ÂÂ° Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£Â ÃªÂ°ÂÃ«ÂÂ¥)</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>자동 생성 CAPA 없음 (Critical·반복 Major NCR이 아닌 경우 직접 시정완료 가능)</div>
               )}
               <button
                 style={btn(capasDone ? '#8B5CF6' : '#CBD5E1', capasDone ? '#fff' : '#94A3B8')}
                 onClick={doCorrect}
-              >Ã¬ÂÂÃ¬Â ÂÃ¬ÂÂÃ«Â£ÂÃ«Â¡Â Ã¬Â ÂÃ­ÂÂ</button>
+              >시정완료로 전환</button>
             </div>
           )}
 
-          {/* Stage 3 Ã¢ÂÂ Ã¬ÂÂ­Ã­ÂÂ  ÃªÂ¸Â°Ã«Â°Â Ã¬ÂÂ¹Ã¬ÂÂ¸ */}
+          {/* Stage 3 â 역할 기반 승인 */}
           {r.status === 'corrected' && (
             <div style={stageBox('#8B5CF6')}>
-              {stageTitle('#8B5CF6', 'Ã¢ÂÂ¢ ÃªÂ²ÂÃ­ÂÂ ÃÂ·Ã¬ÂÂ¹Ã¬ÂÂ¸')}
+              {stageTitle('#8B5CF6', 'â¢ 검토·승인')}
               {isApprover ? (
                 <>
                   <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 10 }}>
-                    Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ: <strong style={{ color: 'var(--ink)' }}>{curUser?.name}</strong> (Level {curUser?.level})
+                    승인자: <strong style={{ color: 'var(--ink)' }}>{curUser?.name}</strong> (Level {curUser?.level})
                   </div>
                   <textarea
                     style={{ ...inp, minHeight: 60, resize: 'vertical', marginBottom: 10 }}
-                    placeholder="Ã¬ÂÂ¹Ã¬ÂÂ¸ Ã¬ÂÂÃªÂ²Â¬ (Ã¬ÂÂ Ã­ÂÂ)"
+                    placeholder="승인 의견 (선택)"
                     value={approveNote}
                     onChange={e => setApproveNote(e.target.value)}
                   />
-                  <button style={btn('#22C55E')} onClick={doApprove}>Ã¬ÂÂ¹Ã¬ÂÂ¸Ã­ÂÂÃªÂ³Â  Ã¬Â¢ÂÃªÂ²Â°</button>
+                  <button style={btn('#22C55E')} onClick={doApprove}>승인하고 종결</button>
                 </>
               ) : (
                 <div style={{ padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>Ã¬ÂÂ¹Ã¬ÂÂ¸ Ã«ÂÂÃªÂ¸Â° Ã¬Â¤Â</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>승인 대기 중</div>
                   <div style={{ color: 'var(--ink-faint)', lineHeight: 1.6 }}>
-                    Level 3 Ã¬ÂÂ´Ã¬ÂÂ ÃªÂ´ÂÃ«Â¦Â¬Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ´ Ã­ÂÂÃ¬ÂÂÃ­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.<br />
-                    ÃªÂ´ÂÃ«Â¦Â¬Ã¬ÂÂÃªÂ°Â Ã¬ÂÂ´ NCRÃ¬ÂÂ Ã¬ÂÂ´Ã«Â©Â´ Ã¬ÂÂ¹Ã¬ÂÂ¸ Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ´ Ã­ÂÂÃ¬ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
+                    Level 3 이상 관리자의 승인이 필요합니다.<br />
+                    관리자가 이 NCR을 열면 승인 버튼이 표시됩니다.
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Stage 4 Ã¢ÂÂ Ã¬Â¢ÂÃªÂ²Â° */}
+          {/* Stage 4 â 종결 */}
           {r.status === 'closed' && (
             <div style={stageBox('#22C55E')}>
-              {stageTitle('#22C55E', 'Ã¢ÂÂ Ã¬Â¢ÂÃªÂ²Â° Ã¬ÂÂÃ«Â£Â')}
+              {stageTitle('#22C55E', 'â 종결 완료')}
               {r.approvals && r.approvals.map(a => (
                 <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
                   {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong>
-                  {a.note ? <span> Ã¢ÂÂ {a.note}</span> : null}
+                  {a.note ? <span> â {a.note}</span> : null}
                   <span> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})</span>
                 </div>
               ))}
-              {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>Ã¬Â¢ÂÃªÂ²Â°Ã¬ÂÂ¼: {r.closedAt.slice(0, 10)}</div>}
+              {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>종결일: {r.closedAt.slice(0, 10)}</div>}
             </div>
           )}
 
           {/* Delete */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-            <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, cursor: 'pointer' }} onClick={onRemove}>Ã¬ÂÂ­Ã¬Â Â</button>
+            <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, cursor: 'pointer' }} onClick={onRemove}>삭제</button>
           </div>
         </div>
       )}
@@ -334,7 +334,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
 }
 
 
-// ââ 재작업(Rework) 기록 탭 âââââââââââââââââââââââââââââââââââââ
+// ── 재작업(Rework) 기록 탭 ─────────────────────────────────────
 const REWORK_KEY = 'qualytree.rework_records'
 function ReworkTab({ ncrs = [] }) {
   const [records, setRecords] = React.useState([])
@@ -424,8 +424,8 @@ function ReworkTab({ ncrs = [] }) {
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:inspColor+'22',color:inspColor,fontWeight:600}}>{r.inspResult}</span>
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor+'22',color:statusColor,fontWeight:600}}>{r.status}</span>
                   </div>
-                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`Â· 롟: ${r.lotNo}`} Â· {r.reworkDate} Â· 작업자: {r.operators}</div>
-                  {r.reworkDesc&&<div style={{fontSize:12,marginTop:4,color:'var(--ink)'}}>{r.reworkDesc.slice(0,80)}{r.reworkDesc.length>80?'â¦':''}</div>}
+                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`· 롟: ${r.lotNo}`} · {r.reworkDate} · 작업자: {r.operators}</div>
+                  {r.reworkDesc&&<div style={{fontSize:12,marginTop:4,color:'var(--ink)'}}>{r.reworkDesc.slice(0,80)}{r.reworkDesc.length>80?'…':''}</div>}
                 </div>
                 <div style={{display:'flex',gap:4}}>
                   <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,reworkNo:r.reworkNo,productName:r.productName,lotNo:r.lotNo,reworkDate:r.reworkDate,operators:r.operators,reworkDesc:r.reworkDesc,result:r.result,inspResult:r.inspResult,inspBy:r.inspBy,status:r.status,notes:r.notes});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
