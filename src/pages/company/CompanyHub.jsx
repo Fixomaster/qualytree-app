@@ -336,7 +336,6 @@ function CompanyDocsTab({ onAction, refresh }) {
     [DOC_CATEGORY.GMP_CERT]: '제조소 GMP 적합인정서/인증서',
     [DOC_CATEGORY.ISO13485_CERT]: 'ISO 13485 인증서',
   }
-  const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
   const canEdit = permissions.can('company.docs.edit')
   const [list, setList] = useState(() => companyDocs.getDocuments())
   const [naList, setNaList] = useState(() => companyDocs.load().naCategories || [])
@@ -420,6 +419,7 @@ function CompanyDocsTab({ onAction, refresh }) {
 /* ── 추가 문서 — 고정 9개 항목 외 회사가 필요에 따라 자유롭게 등록하는 문서 ── */
 const EMPTY_CUSTOM_DOC = { category: '', title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' }
 
+const EMPTY_DOC_FOR = (category) => ({ category, title: '', issuer: '', issueDate: '', expiryDate: '', notes: '' })
 function CustomDocsSection({ docs, canEdit, onSave, onDelete, onAttach, onRemoveFile }) {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_CUSTOM_DOC)
