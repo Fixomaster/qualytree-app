@@ -334,13 +334,13 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
 }
 
 
-// ââ ì¬ìì(Rework) ê¸°ë¡ í­ âââââââââââââââââââââââââââââââââââââ
+// ââ 재작업(Rework) 기록 탭 âââââââââââââââââââââââââââââââââââââ
 const REWORK_KEY = 'qualytree.rework_records'
 function ReworkTab({ ncrs = [] }) {
   const [records, setRecords] = React.useState([])
   const [showForm, setShowForm] = React.useState(false)
   const [editId, setEditId] = React.useState(null)
-  const EMPTY = { ncrId:'', reworkNo:'', productName:'', lotNo:'', reworkDate:'', operators:'', reworkDesc:'', result:'', inspResult:'í©ê²©', inspBy:'', status:'ìì±ì¤', notes:'' }
+  const EMPTY = { ncrId:'', reworkNo:'', productName:'', lotNo:'', reworkDate:'', operators:'', reworkDesc:'', result:'', inspResult:'합격', inspBy:'', status:'작성중', notes:'' }
   const [form, setForm] = React.useState(EMPTY)
 
   React.useEffect(()=>{ try { setRecords(JSON.parse(localStorage.getItem(REWORK_KEY)||'[]')) } catch {} },[])
@@ -352,16 +352,16 @@ function ReworkTab({ ncrs = [] }) {
     else persist([...records, {id:Date.now().toString(),...form}])
     setShowForm(false); setEditId(null); setForm(EMPTY)
   }
-  const del = id => { if(!window.confirm('ì­ì íìê² ìµëê¹?')) return; persist(records.filter(r=>r.id!==id)) }
+  const del = id => { if(!window.confirm('삭제하시겠습니깊?')) return; persist(records.filter(r=>r.id!==id)) }
 
   const inp = { width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:13 }
 
   return (
     <div style={{padding:'4px 0'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`ì¬ìì ê¸°ë¡ ${records.length}ê±´`}</span>
+        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`재작업 기록 ${records.length}건`}</span>
         <button onClick={()=>{setEditId(null);setForm({...EMPTY,reworkDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:600}}>
-          <Wrench size={14}/> ì ê·
+          <Wrench size={14}/> 신규
         </button>
       </div>
 
@@ -369,37 +369,37 @@ function ReworkTab({ ncrs = [] }) {
         <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:16}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì°ê²° NCR ID</div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>연결 NCR ID</div>
               <select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}>
-                <option value=''>-- ì í --</option>
+                <option value=''>-- 선택 --</option>
                 {ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ë²í¸</div><input value={form.reworkNo} onChange={e=>setF('reworkNo',e.target.value)} style={inp} placeholder='RW-2026-001'/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì íëª</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ë¡ë²í¸</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ììì¼</div><input type='date' value={form.reworkDate} onChange={e=>setF('reworkDate',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ììì</div><input value={form.operators} onChange={e=>setF('operators',e.target.value)} style={inp} placeholder='ì±ëª ë³µì ìë ¥'/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ë´ì©</div><textarea value={form.reworkDesc} onChange={e=>setF('reworkDesc',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ê²°ê³¼</div><textarea value={form.result} onChange={e=>setF('result',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 번호</div><input value={form.reworkNo} onChange={e=>setF('reworkNo',e.target.value)} style={inp} placeholder='RW-2026-001'/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>제품명</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>롟번호</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업일</div><input type='date' value={form.reworkDate} onChange={e=>setF('reworkDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>작업자</div><input value={form.operators} onChange={e=>setF('operators',e.target.value)} style={inp} placeholder='성명 복수 입력'/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 내용</div><textarea value={form.reworkDesc} onChange={e=>setF('reworkDesc',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 결과</div><textarea value={form.result} onChange={e=>setF('result',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ê²ì¬ íì </div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>검사 판정</div>
               <select value={form.inspResult} onChange={e=>setF('inspResult',e.target.value)} style={inp}>
-                {['í©ê²©','ë¶í©ê²©','ë³´ë¥'].map(o=><option key={o}>{o}</option>)}
+                {['합격','불합격','보류'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ê²ì¬ì</div><input value={form.inspBy} onChange={e=>setF('inspBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>검사자</div><input value={form.inspBy} onChange={e=>setF('inspBy',e.target.value)} style={inp}/></div>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìí</div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>상태</div>
               <select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>
-                {['ìì±ì¤','ìë£','ì¹ì¸'].map(o=><option key={o}>{o}</option>)}
+                {['작성중','완료','승인'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>í¹ì´ì¬í­</div><input value={form.notes} onChange={e=>setF('notes',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>특이사항</div><input value={form.notes} onChange={e=>setF('notes',e.target.value)} style={inp}/></div>
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>ì·¨ì</button>
-            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>ì ì¥</button>
+            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>취소</button>
+            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>저장</button>
           </div>
         </div>
       )}
@@ -407,14 +407,14 @@ function ReworkTab({ ncrs = [] }) {
       {records.length===0&&!showForm&&(
         <div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}>
           <Wrench size={32} style={{opacity:0.3,marginBottom:8}}/>
-          <p style={{fontSize:14}}>ì¬ìì ê¸°ë¡ì´ ììµëë¤</p>
+          <p style={{fontSize:14}}>재작업 기록이 없습니다</p>
         </div>
       )}
 
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {records.map(r=>{
-          const statusColor = r.status==='ì¹ì¸'?'#16A34A':r.status==='ìë£'?'#2563EB':'#6B7280'
-          const inspColor = r.inspResult==='í©ê²©'?'#16A34A':r.inspResult==='ë¶í©ê²©'?'#DC2626':'#D97706'
+          const statusColor = r.status==='승인'?'#16A34A':r.status==='완료'?'#2563EB':'#6B7280'
+          const inspColor = r.inspResult==='합격'?'#16A34A':r.inspResult==='불합격'?'#DC2626':'#D97706'
           return (
             <div key={r.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -424,12 +424,12 @@ function ReworkTab({ ncrs = [] }) {
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:inspColor+'22',color:inspColor,fontWeight:600}}>{r.inspResult}</span>
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor+'22',color:statusColor,fontWeight:600}}>{r.status}</span>
                   </div>
-                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`Â· ë¡: ${r.lotNo}`} Â· {r.reworkDate} Â· ììì: {r.operators}</div>
+                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`Â· 롟: ${r.lotNo}`} Â· {r.reworkDate} Â· 작업자: {r.operators}</div>
                   {r.reworkDesc&&<div style={{fontSize:12,marginTop:4,color:'var(--ink)'}}>{r.reworkDesc.slice(0,80)}{r.reworkDesc.length>80?'â¦':''}</div>}
                 </div>
                 <div style={{display:'flex',gap:4}}>
-                  <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,reworkNo:r.reworkNo,productName:r.productName,lotNo:r.lotNo,reworkDate:r.reworkDate,operators:r.operators,reworkDesc:r.reworkDesc,result:r.result,inspResult:r.inspResult,inspBy:r.inspBy,status:r.status,notes:r.notes});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>í¸ì§</button>
-                  <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>ì­ì </button>
+                  <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,reworkNo:r.reworkNo,productName:r.productName,lotNo:r.lotNo,reworkDate:r.reworkDate,operators:r.operators,reworkDesc:r.reworkDesc,result:r.result,inspResult:r.inspResult,inspBy:r.inspBy,status:r.status,notes:r.notes});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
+                  <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>삭제</button>
                 </div>
               </div>
             </div>
