@@ -38,6 +38,7 @@ export default function QualityHub() {
   const [expanded, setExpanded] = useState(null)
   const [form, setForm] = useState({ title: '', severity: 'Major', source: 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ²ÂÃ¬ÂÂ¬', description: '', detectedAt: '', detectedBy: '' })
 
+  const [qTab, setQTab] = useState('ncr')
   function reload() { setNcrs(lsRead()) }
 
   function save() {
