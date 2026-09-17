@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Qualytree 첫 로그인 후 온보딩 5단계(기본정보·제품·인증 확인·조직도·품질매뉴얼·절차서·계정) 화면을 따라가며 입력 항목과 데이터 흐름을 안내하는 가이드 투어">
+<meta property="og:title" content="Qualytree 온보딩 5단계 투어">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="robots" content="noindex, nofollow">
+<title>Qualytree 온보딩 5단계 투어</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+KR:wght@600;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* =====================================================================
+   Qualytree Guided Tour — 템플릿
+   -------------------------------------------------------------
+   새 투어(입력 방법, 수정 방법 등)를 만들 때는 아래 두 가지만 바꾸면 됩니다.
+     1) img/ 폴더의 화면 캡처 (권장: 1280px 폭 · 2x 배율)
+     2) 하단 <script> 의 TOUR 객체 (parts / steps)
+   카메라·자막·데이터 흐름 패널·영상 출력 모드는 모두 공통 엔진이 처리합니다.
+   ===================================================================== */
+:root{
+  --ground:#f6f4ee; --paper:#ffffff; --ink:#1a1f1c; --ink-2:#4b544f; --ink-3:#7d8781;
+  --line:#e3e0d6; --forest:#0f3d2e; --forest-2:#17553f; --moss:#d9e6dd; --amber:#c98b2a; --amber-2:#f3e4c6;
+  --stage:#0b1a14; --stage-text:#f3f1ea; --stage-muted:#b5c2ba; --spot:rgba(4,12,9,.42);
+  --ok:#2c8a5b; --warn:#b3532e;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+    --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+  --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+
+/* ---------- 헤더 ---------- */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .name{font-family:Fraunces,"Noto Serif KR",Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--forest)}
+.brand .name span{color:var(--ink);font-family:"Noto Serif KR",serif;font-size:18px;font-weight:700;margin-left:4px}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.meta{font-size:12.5px;color:var(--ink-3);text-align:right}
+
+/* ---------- 스테이지 ---------- */
+.stagebox{position:relative;background:var(--stage);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(6,20,14,.28)}
+.stage{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;overflow:hidden}
+.layer{position:absolute;inset:0;transform-origin:0 0;will-change:transform,opacity;transition:transform .9s cubic-bezier(.66,0,.28,1),opacity .5s ease}
+.layer img{position:absolute;left:0;top:0;width:100%;height:auto;display:block;user-select:none;-webkit-user-drag:none}
+.layer .spot{position:absolute;border:2px solid var(--amber);border-radius:10px;box-shadow:0 0 0 9999px var(--spot),0 0 0 3px rgba(201,139,42,.35);transition:opacity .6s ease;pointer-events:none}
+.layer .spot::after{content:"";position:absolute;inset:-8px;border:1px solid rgba(201,139,42,.55);border-radius:14px;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.9;transform:scale(1.015)}}
+.layer.hidden-layer{opacity:0}
+.vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(5,14,10,.86) 0%,rgba(5,14,10,.55) 22%,rgba(5,14,10,0) 46%)}
+
+/* 상단 진행 세그먼트 */
+.progress{position:absolute;left:16px;right:16px;top:12px;display:flex;gap:4px;z-index:5}
+.progress i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden;position:relative}
+.progress i b{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--amber);border-radius:2px}
+.progress i.done b{width:100%}
+.progress i.cur b{transition:width .2s linear}
+
+/* 파트 태그 */
+.parttag{position:absolute;left:16px;top:26px;z-index:5;display:flex;align-items:center;gap:8px;color:var(--stage-muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.parttag .code{color:var(--stage-text);background:rgba(255,255,255,.12);padding:3px 8px;border-radius:5px;letter-spacing:.06em;font-size:11.5px}
+
+/* 자막 카드 */
+.caption{position:absolute;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;padding:0 22px 20px;align-items:end;color:var(--stage-text)}
+.cap-main{min-width:0}
+.cap-main .num{display:inline-flex;align-items:center;gap:8px;color:var(--amber);font-size:12px;letter-spacing:.14em;margin-bottom:6px}
+.cap-main .num::before{content:"";width:22px;height:1px;background:var(--amber)}
+.cap-main h2{margin:0 0 6px;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(18px,2.4vw,27px);line-height:1.3;letter-spacing:-.01em;text-wrap:balance}
+.cap-main p{margin:0;max-width:60ch;font-size:clamp(13px,1.35vw,15.5px);line-height:1.65;color:#e7ebe6}
+.cap-main .tip{margin-top:8px;display:inline-block;font-size:12.5px;color:var(--amber-2);background:rgba(201,139,42,.16);border:1px solid rgba(201,139,42,.35);padding:4px 9px;border-radius:6px}
+
+/* 데이터 흐름 패널 */
+.flow{background:rgba(9,22,16,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;min-width:0}
+.flow .h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--stage-muted);margin-bottom:8px;display:flex;justify-content:space-between}
+.flow .row{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;font-size:12.5px;line-height:1.45;padding:5px 0;border-top:1px dashed rgba(255,255,255,.12)}
+.flow .row:first-of-type{border-top:0}
+.flow .k{color:var(--amber);font-weight:500;letter-spacing:.04em;font-size:11.5px;padding-top:1px}
+.flow .v{color:#e9ede8;min-width:0;overflow-wrap:anywhere}
+.flow .v code{font-family:"JetBrains Mono",monospace;font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;color:#dfe8e2}
+.flow.empty{display:none}
+
+/* 타이틀 카드(인트로/아웃트로) */
+.titlecard{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:center;padding:6% 8%;color:var(--stage-text);background:linear-gradient(120deg,rgba(9,28,20,.94),rgba(9,28,20,.72) 60%,rgba(9,28,20,.5));opacity:0;pointer-events:none;transition:opacity .7s ease}
+.titlecard.show{opacity:1}
+.titlecard .kicker{color:var(--amber);letter-spacing:.16em;text-transform:uppercase;font-size:12px;margin-bottom:14px}
+.titlecard h1{margin:0;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(26px,4.4vw,52px);line-height:1.18;letter-spacing:-.01em;text-wrap:balance}
+.titlecard h1 .lat{font-family:Fraunces,serif;font-weight:600}
+.titlecard p{margin:16px 0 0;max-width:52ch;font-size:clamp(13px,1.5vw,17px);color:#dfe5e0}
+.titlecard .steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.titlecard .steps span{border:1px solid rgba(255,255,255,.25);padding:6px 12px;border-radius:999px;font-size:13px;color:#e8ece9}
+.titlecard .steps span b{color:var(--amber);margin-right:6px;font-family:"JetBrains Mono",monospace;font-weight:500}
+
+/* ---------- 컨트롤 ---------- */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px 0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 12px;font:inherit;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1}
+.btn:hover{border-color:var(--forest)}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn.primary{background:var(--forest);color:#fff;border-color:var(--forest);min-width:96px;justify-content:center}
+.btn.primary:hover{background:var(--forest-2)}
+.counter{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--forest)}
+
+/* ---------- 스텝 레일 ---------- */
+.rail{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.rail .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.part{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 12px 8px;min-width:0}
+.part .ph{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.part .ph .pc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--amber);letter-spacing:.06em}
+.part .ph .pt{font-weight:700;font-size:14px}
+.part ol{list-style:none;margin:0;padding:0}
+.part li{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink-2);line-height:1.4}
+.part li:hover{background:var(--moss)}
+.part li.cur{background:var(--moss);color:var(--ink);font-weight:500}
+.part li.cur .n{background:var(--forest);color:#fff;border-color:var(--forest)}
+.part li .n{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);font-family:"JetBrains Mono",monospace;font-size:10.5px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);margin-top:1px}
+
+/* ---------- 하단 안내 ---------- */
+.foot{margin-top:26px;display:grid;grid-template-columns:1.2fr 1fr;gap:20px;font-size:13px;color:var(--ink-2)}
+.foot h3{margin:0 0 6px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.foot p{margin:0 0 6px}
+.keys{display:flex;gap:8px;flex-wrap:wrap}
+.keys span{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:2px 8px;font-family:"JetBrains Mono",monospace;font-size:11.5px}
+
+/* ---------- 반응형 ---------- */
+@media (max-width:760px){
+  .caption{grid-template-columns:1fr;gap:10px;padding:0 14px 14px}
+  .flow{display:none}
+  .foot{grid-template-columns:1fr}
+  .cap-main p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+}
+/* ---------- 영상 출력 모드 (?video=1) ---------- */
+body.video .wrap{max-width:none;padding:0}
+body.video .top,body.video .controls,body.video .rail,body.video .foot{display:none}
+body.video .stagebox{border-radius:0;box-shadow:none}
+body.video .stage{aspect-ratio:auto;height:100vh}
+body.video .caption{padding:0 56px 44px;gap:36px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+body.video .cap-main .num{font-size:17px;margin-bottom:10px}
+body.video .cap-main h2{font-size:42px;margin-bottom:10px}
+body.video .cap-main p{font-size:22px;line-height:1.6;max-width:44ch}
+body.video .cap-main .tip{font-size:18px;padding:7px 14px;margin-top:12px}
+body.video .flow{padding:18px 22px;border-radius:14px}
+body.video .flow .h{font-size:14px;margin-bottom:12px}
+body.video .flow .row{grid-template-columns:70px 1fr;font-size:18px;padding:8px 0}
+body.video .flow .k{font-size:15px}
+body.video .parttag{font-size:16px;top:36px;left:28px}
+body.video .parttag .code{font-size:15px}
+body.video .progress{top:16px;left:28px;right:28px}
+body.video .progress i{height:5px}
+body.video .titlecard .kicker{font-size:18px}
+body.video .titlecard h1{font-size:64px}
+body.video .titlecard p{font-size:24px;max-width:48ch}
+body.video .titlecard .steps span{font-size:18px;padding:9px 18px}
+body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(5,14,10,.6) 26%,rgba(5,14,10,0) 50%)}
+@media (prefers-reduced-motion:reduce){.layer{transition:opacity .4s ease}.layer .spot::after{animation:none}}
+:fullscreen .stagebox{border-radius:0;height:100%}
+:fullscreen .stage{aspect-ratio:auto;height:100%}
+</style>
+<style>
+.backlink{font-size:12.5px;color:var(--ink-3);text-decoration:none;display:inline-block;margin-bottom:6px}
+.backlink:hover{color:var(--forest)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      
+      <div class="eyebrow">Qualytree Platform · Guided Tour · ONB-001</div>
+      <div class="brand"><div class="name">Qualytree<span>온보딩</span></div></div>
+    </div>
+    <div class="meta">가입 정보 확인 → 회사·제품 → 조직도 → 매뉴얼 → 절차서 → 계정<br>화면 캡처 기준: qualytree-app main (2026-09-18 온보딩 5단계 개편 반영)</div>
+  </header>
+
+  <div class="stagebox" id="stagebox">
+    <div class="stage" id="stage">
+      <div class="layer" id="layerA"><img alt=""><div class="spot"></div></div>
+      <div class="layer hidden-layer" id="layerB"><img alt=""><div class="spot"></div></div>
+      <div class="vignette"></div>
+      <div class="progress" id="progress"></div>
+      <div class="parttag" id="parttag"><span class="code">P1</span><span>시작하기</span></div>
+      <div class="caption" id="caption">
+        <div class="cap-main">
+          <div class="num" id="capNum">STEP 1 / 16</div>
+          <h2 id="capTitle"></h2>
+          <p id="capBody"></p>
+          <div class="tip" id="capTip" hidden></div>
+        </div>
+        <div class="flow" id="flow">
+          <div class="h"><span>데이터 흐름</span><span id="flowCode" class="mono"></span></div>
+          <div id="flowRows"></div>
+        </div>
+      </div>
+      <div class="titlecard" id="titlecard">
+        <div class="kicker" id="tcKicker"></div>
+        <h1 id="tcTitle"></h1>
+        <p id="tcBody"></p>
+        <div class="steps" id="tcSteps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnPrev" aria-label="이전 단계">← 이전</button>
+    <button class="btn primary" id="btnPlay">▶ 재생</button>
+    <button class="btn" id="btnNext" aria-label="다음 단계">다음 →</button>
+    <span class="counter" id="counter">01 / 16</span>
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="chkLoop"> 반복 재생</label>
+    <button class="btn" id="btnFull">⛶ 전체화면</button>
+  </div>
+
+  <nav class="rail" aria-label="단계 목록"><div class="parts" id="parts"></div></nav>
+
+  <section class="foot">
+    <div>
+      <h3>이 투어에 대하여</h3>
+      <p>실제 화면을 캡처해 단계별로 확대·이동하며 설명합니다. 각 단계의 오른쪽 패널은 그 항목이 <b>어디에 저장되고 이후 어느 화면·문서로 연결되는지</b>를 보여줍니다.</p>
+      <p>화면의 회사·제품·금액은 설명용 데모 데이터입니다.</p>
+    </div>
+    <div>
+      <h3>조작 방법</h3>
+      <div class="keys">열리면 자동 재생됩니다. 화면 클릭 또는 <span>Space</span> 재생/일시정지 <span>←</span><span>→</span> 단계 이동 <span>F</span> 전체화면 <span>Home</span> 처음으로</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   TOUR 데이터 — 새 투어를 만들 때 이 객체만 교체합니다.
+   step 필드:
+     part   : parts[].code 와 일치
+     img    : 캡처 파일명 (img/ 폴더)
+     rect   : [x, y, w, h] — 이미지 크기 대비 0~1 비율. [0,0,1,1] = 전체 화면
+     title  : 자막 제목 / body : 설명 / tip : (선택) 강조 한 줄
+     flow   : (선택) { code, in, save, link } — 입력 → 저장 → 연결
+     dur    : (선택) 자동 재생 시 머무는 시간(초). 없으면 TOUR.pace(기본 3초)
+     card   : (선택) 타이틀 카드 { kicker, title, body, steps[] } — 이미지 위에 덮어 표시
+   ===================================================================== */
+const TOUR = {
+ "id": "ONB-001",
+ "title": "온보딩 5단계",
+ "pace": 3,
+ "parts": [
+  {
+   "code": "P0",
+   "name": "소개"
+  },
+  {
+   "code": "P1",
+   "name": "화면 구성"
+  },
+  {
+   "code": "P2",
+   "name": "가입 정보 확인"
+  },
+  {
+   "code": "P3",
+   "name": "STEP 1 · 기본정보·제품"
+  },
+  {
+   "code": "P4",
+   "name": "STEP 2 · 조직도"
+  },
+  {
+   "code": "P5",
+   "name": "STEP 3 · 품질매뉴얼"
+  },
+  {
+   "code": "P6",
+   "name": "STEP 4 · 절차서"
+  },
+  {
+   "code": "P7",
+   "name": "STEP 5 · 계정 발급"
+  },
+  {
+   "code": "P8",
+   "name": "완료 이후"
+  },
+  {
+   "code": "P9",
+   "name": "정리"
+  }
+ ],
+ "steps": [
+  {
+   "part": "P0",
+   "img": "img/01_overview.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "온보딩 6단계",
+   "body": "",
+   "card": {
+    "kicker": "Qualytree Platform · 사용 안내",
+    "title": "승인 후 첫 로그인, 그 다음 <span class='lat'>5 Steps</span>",
+    "body": "가입 시 확정된 플랜·인증을 바탕으로 회사·제품·조직·품질매뉴얼·절차서·계정을 한 번 입력하면 KGMP 대시보드의 필요 문서가 자동으로 구성됩니다. 어떤 항목이 어디로 이어지는지 함께 보여드립니다.",
+    "steps": [
+     "기본정보·제품·인증",
+     "조직도",
+     "품질매뉴얼",
+     "절차서",
+     "계정 발급"
+    ]
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_overview.jpg",
+   "rect": [
+    0.1242,
+    0.1093,
+    0.6124,
+    0.036
+   ],
+   "title": "5단계 표시기 — 어디까지 왔는지",
+   "body": "상단 카드가 5단계입니다. 완료한 단계는 체크로 바뀌고, 앞 단계로 되돌아가 수정할 수 있습니다. 뒤 단계로 건너뛰려면 그 사이 단계의 필수 입력이 모두 채워져 있어야 합니다.",
+   "flow": {
+    "code": "STEPS[5] · done{}",
+    "in": "—",
+    "save": "qualytree.onboarding.done",
+    "link": "진행률 % · 홈 START HERE 카드"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_overview.jpg",
+   "rect": [
+    0.0859,
+    0.0081,
+    0.2052,
+    0.0356
+   ],
+   "title": "입력한 내용은 자동 저장됩니다",
+   "body": "왼쪽 위 ‘나가기’로 언제든 중단해도 입력값은 브라우저에 자동 저장되어 다음에 이어서 진행합니다. 오른쪽 진행률은 완료한 단계 수로 계산됩니다.",
+   "tip": "각 단계의 필수 항목이 채워져야 ‘완료’로 집계됩니다. 방문만으로는 완료되지 않습니다.",
+   "flow": {
+    "code": "useEffect → localStorage",
+    "in": "단계별 입력",
+    "save": "qualytree.onboarding (단일 객체)",
+    "link": "진행률 · 대시보드 완성도"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/01_overview.jpg",
+   "rect": [
+    0.1156,
+    0.1883,
+    0.6233,
+    0.049
+   ],
+   "title": "가입 시 선택한 내용 — 읽기 전용",
+   "body": "맨 위 초록 배너에 가입 신청에서 확정된 요금제(예: 제조업체 기본)·결제 주기·인증이 표시됩니다. 요금과 인증은 가입 단계에서 이미 결정되어 청구와 연결되므로 온보딩에서는 확인만 하고 바꾸지 않습니다.",
+   "tip": "온보딩에는 금액이 나오지 않습니다. 청구 금액은 가입 신청서 기준입니다.",
+   "flow": {
+    "code": "readSignup() → plan · certs",
+    "in": "—",
+    "save": "qualytree.signup → onboarding.plan / certs",
+    "link": "KGMP·ISO 13485·FDA 대시보드 문서 세트 · 좌석 수(STEP 5)"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/01_overview.jpg",
+   "rect": [
+    0.751,
+    0.1947,
+    0.1271,
+    0.0492
+   ],
+   "title": "바꿔야 하면 ‘변경 요청 (운영팀)’",
+   "body": "인증을 추가하거나 요금제를 바꾸려면 배너 오른쪽 ‘변경 요청 (운영팀)’을 누릅니다. 회사명이 담긴 메일이 열리고, 운영팀이 확인 후 다음 청구에 반영합니다.",
+   "flow": {
+    "code": "mailto:contact@qualy-tree.com",
+    "in": "클릭",
+    "save": "—",
+    "link": "운영팀 승인 → 플랜·인증 갱신 → 청구 반영"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/03_step1_error.jpg",
+   "rect": [
+    0.1172,
+    0.8873,
+    0.7836,
+    0.0505
+   ],
+   "title": "필수값이 비면 넘어가지 않습니다",
+   "body": "회사명·대표자·사업자등록번호를 비우거나 제품을 등록하지 않고 ‘이 단계 완료·다음’을 누르면 빨간 안내가 뜹니다. 온보딩 전 단계가 같은 방식입니다 — 무엇이 빠졌는지 한 문장으로 알려주고, 채우면 바로 진행됩니다.",
+   "flow": {
+    "code": "stepValid(key)",
+    "in": "다음 클릭",
+    "save": "—",
+    "link": "stepErrorMessage → 보완 후 재시도"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/04_step2_info_empty.jpg",
+   "rect": [
+    0.1352,
+    0.3638,
+    0.6628,
+    0.0346
+   ],
+   "title": "STEP 1 · 신규 회사라면 체크",
+   "body": "아직 제조업 허가가 없는 회사는 이 체크박스를 켜면 제조업 허가번호·품질관리 책임자를 비워 둔 채 다음 단계로 갈 수 있습니다. 허가를 받은 뒤 기본정보에서 채우면 됩니다.",
+   "flow": {
+    "code": "company.newLicense",
+    "in": "체크",
+    "save": "onboarding.company.newLicense",
+    "link": "허가번호·책임자 필수 여부 전환 · 품질매뉴얼 AI 초안 문구"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/04_step2_info_empty.jpg",
+   "rect": [
+    0.1086,
+    0.4138,
+    0.3977,
+    0.1688
+   ],
+   "title": "회사 정보 — 허가증·사업자등록증 기준",
+   "body": "회사명·대표자·사업자등록번호는 필수, 제조업 허가번호와 품질관리 책임자는 허가 회사에 필수입니다. 여기 값이 품질매뉴얼 표지, 조직도, 인허가 서류의 회사 정보란에 그대로 들어갑니다.",
+   "flow": {
+    "code": "company{name,ceo,bizNumber,licenseNo,qmRep}",
+    "in": "텍스트 5개",
+    "save": "onboarding.company",
+    "link": "품질매뉴얼 초안 · 기본정보 화면 · GMP 신청서"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/05_step2_search.jpg",
+   "rect": [
+    0.1203,
+    0.6642,
+    0.7594,
+    0.1105
+   ],
+   "title": "제품 등록 — 식약처 품목 검색",
+   "body": "품목명을 치면 식약처 의료기기 분류표에서 후보가 뜹니다. 예: ‘골절’ → 골절합용 나사(3등급) · 골절합용 판. 하나를 고르면 분류번호·등급·추적관리 여부가 자동으로 채워집니다.",
+   "tip": "분류표는 서버에서 받아 30일간 브라우저에 캐시됩니다. 검색은 즉시 이루어집니다.",
+   "flow": {
+    "code": "mfds.search(q)",
+    "in": "품목명 검색어",
+    "save": "qualytree.mfdsClassifications (캐시)",
+    "link": "분류번호 A11010.01 · 3등급 자동 입력"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/06_step2_product_form.jpg",
+   "rect": [
+    0.1187,
+    0.6978,
+    0.7625,
+    0.153
+   ],
+   "title": "제품 정보 확인 후 저장",
+   "body": "제품명·등급·분류번호가 채워졌습니다. 대분류·중분류(인허가 업종 분류)는 AI가 추천하고 직접 고칠 수 있습니다. 신체 접촉·SW 포함·멸균 여부는 이후 필수 문서(생체적합성·SW·멸균 밸리데이션)를 자동으로 여닫는 기준입니다.",
+   "flow": {
+    "code": "saveProduct() → products[]",
+    "in": "제품명 · 등급 · 분류번호 · 속성 4개",
+    "save": "onboarding.products[{id,name,classNo,grade,…}]",
+    "link": "제품 관리(/products) · 조건부 문서(▲) 자동 트리거"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/07_step2_filled.jpg",
+   "rect": [
+    0.1172,
+    0.8787,
+    0.0892,
+    0.0382
+   ],
+   "title": "저장된 제품 목록",
+   "body": "저장하면 아래 목록에 쌓입니다. 목록의 항목을 누르면 수정, 휴지통으로 삭제합니다. 제품이 1개 이상 있어야 다음 단계로 갈 수 있습니다.",
+   "flow": {
+    "code": "products.length ≥ 1",
+    "in": "—",
+    "save": "onboarding.products",
+    "link": "STEP 1 완료 조건"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/08_step3_org_empty.jpg",
+   "rect": [
+    0.1298,
+    0.4297,
+    0.4144,
+    0.1806
+   ],
+   "title": "STEP 2 · 기본 조직도 템플릿",
+   "body": "의료기기 제조사 표준 조직(대표이사 → 품질책임자·연구개발·회계·영업 등)이 미리 그려져 있습니다. 우리 회사에 맞게 부서를 더하거나 이름을 바꾸면 됩니다.",
+   "flow": {
+    "code": "departments[] (트리)",
+    "in": "—",
+    "save": "onboarding.departments",
+    "link": "품질매뉴얼 2장 조직도 · 계정 발급의 부서 선택"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/08_step3_org_empty.jpg",
+   "rect": [
+    0.5373,
+    0.6813,
+    0.2344,
+    0.0692
+   ],
+   "title": "부서 추가 — 위치 선택",
+   "body": "기준 부서를 고르고 ‘하위로 추가 / 동일 레벨 추가 / 중간에 삽입’ 중 하나를 선택한 뒤 부서명을 입력해 ‘추가’합니다. 겸임(독립 보고선) 옵션으로 실제 조직 구조를 그대로 표현할 수 있습니다.",
+   "flow": {
+    "code": "add(mode)",
+    "in": "기준 부서 · 모드 · 부서명",
+    "save": "onboarding.departments",
+    "link": "조직도 이미지 · 품질문서 반영"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/09_step3_org_filled.jpg",
+   "rect": [
+    0.1355,
+    0.5068,
+    0.7199,
+    0.0833
+   ],
+   "title": "추가된 부서와 조직도 이미지 저장",
+   "body": "‘생산부’가 대표이사 아래에 추가되었습니다. 오른쪽 위 ‘조직도 이미지로 저장 → 품질문서 반영’을 누르면 현재 조직도가 이미지로 저장되어 품질매뉴얼 조직도 장에 삽입됩니다.",
+   "flow": {
+    "code": "captureChart()",
+    "in": "버튼 클릭",
+    "save": "orgChartImage (dataURL)",
+    "link": "품질매뉴얼 2. 조직도 및 책임과 권한"
+   }
+  },
+  {
+   "part": "P5",
+   "img": "img/10_step4_manual.jpg",
+   "rect": [
+    0.1203,
+    0.2644,
+    0.7594,
+    0.0512
+   ],
+   "title": "STEP 3 · 품질매뉴얼 작성 방식",
+   "body": "AI 초안으로 시작 / 직접 작성 / 추후 작성 중 하나를 고릅니다. AI 초안은 앞에서 입력한 회사·제품·부서·인증 정보를 바탕으로 장별 초안을 만들어 검토만 하면 되게 합니다.",
+   "flow": {
+    "code": "manual.mode = ai | manual | later",
+    "in": "카드 선택",
+    "save": "onboarding.manual.mode",
+    "link": "품질문서 화면(/documents)의 초안 생성 근거"
+   }
+  },
+  {
+   "part": "P5",
+   "img": "img/11_step4_manual_chapters.jpg",
+   "rect": [
+    0.1086,
+    0.4282,
+    0.7375,
+    0.4314
+   ],
+   "title": "매뉴얼 목차 — 포함/제외",
+   "body": "ISO 13485·KGMP 구조의 9개 장이 기본으로 잡혀 있습니다. 해당 없는 장은 ‘제외’, 필요한 장은 아래 입력란으로 직접 추가합니다(예: 부록 – 멸균 밸리데이션). 초안 참조에 회사·제품·부서·인증 수가 표시됩니다.",
+   "flow": {
+    "code": "manual.chapters[{id,included}]",
+    "in": "포함/제외 · 장 추가",
+    "save": "onboarding.manual.chapters",
+    "link": "품질문서 > 품질매뉴얼 탭 목차"
+   }
+  },
+  {
+   "part": "P6",
+   "img": "img/12_step5_procedures.jpg",
+   "rect": [
+    0.1086,
+    0.3596,
+    0.7281,
+    0.5377
+   ],
+   "title": "STEP 4 · 절차서 구성",
+   "body": "문서관리·기록관리·설계관리·경영검토·교육훈련 등 34개 표준 절차서가 나열됩니다. 우리 회사에 해당하는 것만 ‘해당’으로 두고 나머지는 ‘비해당’으로 바꿉니다. 비해당 사유는 매뉴얼 적용 범위에 반영됩니다.",
+   "tip": "최소 1개는 ‘해당’이어야 다음 단계로 진행됩니다.",
+   "flow": {
+    "code": "procedures[{id,applicable}]",
+    "in": "해당/비해당 토글 · 직접 추가",
+    "save": "onboarding.procedures",
+    "link": "품질문서 > 절차서 탭 · KGMP 대시보드 절차서 카드"
+   }
+  },
+  {
+   "part": "P7",
+   "img": "img/13_step6_accounts.jpg",
+   "rect": [
+    0.1086,
+    0.3683,
+    0.7189,
+    0.0738
+   ],
+   "title": "STEP 5 · 관리자가 첫 구성원",
+   "body": "지금 온보딩을 진행 중인 관리자(대표 계정)가 첫 구성원으로 자동 등록됩니다. 좌석 사용 수는 플랜의 좌석 한도와 함께 표시됩니다.",
+   "flow": {
+    "code": "members[0] = auth.current()",
+    "in": "—",
+    "save": "onboarding.members",
+    "link": "좌석 사용 n / 한도"
+   }
+  },
+  {
+   "part": "P7",
+   "img": "img/14_step6_added.jpg",
+   "rect": [
+    0.1086,
+    0.3683,
+    0.7189,
+    0.1564
+   ],
+   "title": "구성원 추가 — 이름·부서·역할·이메일",
+   "body": "‘구성원 추가’로 행을 늘리고 이름, 부서, 역할(매니저·RA / 검사관 / 작업자), 이메일을 입력합니다. 승인되면 초대 메일과 임시 비밀번호가 발급됩니다. 역할이 곧 화면 권한 레벨입니다.",
+   "tip": "계정은 사람마다 하나씩. 공유 계정은 전자기록 귀속 요건 때문에 허용되지 않습니다.",
+   "flow": {
+    "code": "members[{name,dept,role,email}]",
+    "in": "텍스트 · 선택",
+    "save": "onboarding.members",
+    "link": "계정 관리 · 권한 레벨(LV1~3) · 교육훈련 대상자"
+   }
+  },
+  {
+   "part": "P7",
+   "img": "img/14_step6_added.jpg",
+   "rect": [
+    0.7392,
+    0.5456,
+    0.1717,
+    0.0744
+   ],
+   "title": "온보딩 완료 · 홈으로",
+   "body": "마지막 단계의 버튼은 ‘온보딩 완료 · 홈으로’입니다. 누르면 5단계 필수 입력을 다시 한 번 검사하고, 빠진 단계가 있으면 그 단계로 되돌려 보냅니다. 모두 통과하면 홈 대시보드로 이동합니다.",
+   "flow": {
+    "code": "finishOnboarding() → done{5}",
+    "in": "클릭",
+    "save": "onboarding.done = 전부 true",
+    "link": "홈 대시보드 · KGMP 대시보드 완성도"
+   }
+  },
+  {
+   "part": "P8",
+   "img": "img/15_home_after.jpg",
+   "rect": [
+    0.2594,
+    0.0879,
+    0.2327,
+    0.0662
+   ],
+   "title": "홈 대시보드 — 오늘 할 일",
+   "body": "온보딩이 끝나면 홈에서 미결 NCR·CAPA·활성 작업지시·개선 과제와 내 할 일, 빠른 실행(NCR 등록·작업지시·개선 등록·내부감사), 업무 흐름(수주→생산→검사→NCR/CAPA→경영검토)이 보입니다.",
+   "flow": {
+    "code": "/home (DeptHome)",
+    "in": "—",
+    "save": "—",
+    "link": "부서 보기 전환 · GMP 대시보드 카드"
+   }
+  },
+  {
+   "part": "P8",
+   "img": "img/16_dashboard.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "title": "KGMP 대시보드 — 필요 문서가 자동 구성",
+   "body": "온보딩에서 정한 인증·제품 속성에 따라 공통 제출 문서·기술문서·절차서 카드가 구성되고, 각 항목의 상태(미비·이용중·완료)와 전체 완성도가 계산됩니다. 이제부터는 이 카드를 하나씩 채워 가면 됩니다.",
+   "flow": {
+    "code": "gmpProgress.loadContext()",
+    "in": "—",
+    "save": "—",
+    "link": "문서별 상세(/section/:cardId) · 다음 투어: 품질문서·검사 입력"
+   }
+  },
+  {
+   "part": "P9",
+   "img": "img/16_dashboard.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "정리",
+   "body": "",
+   "card": {
+    "kicker": "정리",
+    "title": "5단계 한 번이면, 우리 회사 <span class='lat'>Quality Tree</span>가 세워집니다",
+    "body": "회사·제품·조직·매뉴얼·절차서·계정 — 여기서 입력한 값이 이후 모든 문서와 화면의 기준값이 됩니다. 요금제와 인증은 가입 단계에서 확정되어 그대로 이어집니다. 다음 투어에서는 품질문서 작성·승인, 검사값 입력, 입력값 수정과 변경관리를 안내합니다.",
+    "steps": [
+     "DOC-001 품질문서 작성과 승인",
+     "OPS-001 검사 단계 입력",
+     "EDIT-001 입력값 수정과 변경관리"
+    ]
+   }
+  }
+ ]
+};
+/* ===================================================================== 엔진 */
+(function(){
+  const $ = s => document.querySelector(s);
+  const stage=$('#stage'), layers=[$('#layerA'),$('#layerB')];
+  const params=new URLSearchParams(location.search);
+  const VIDEO = params.get('video')==='1';
+  if(VIDEO) document.body.classList.add('video');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const steps=TOUR.steps, N=steps.length;
+  let cur=-1, active=0, playing=false, timer=null, raf=null, stepStart=0, stepDur=0, loop=false;
+  const imgCache={};
+
+  /* ---- 진행 바 / 레일 구성 ---- */
+  const prog=$('#progress');
+  steps.forEach(()=>{const i=document.createElement('i');i.innerHTML='<b></b>';prog.appendChild(i)});
+  const partsEl=$('#parts');
+  TOUR.parts.forEach(p=>{
+    const box=document.createElement('div');box.className='part';
+    const list=steps.map((s,i)=>({s,i})).filter(x=>x.s.part===p.code);
+    box.innerHTML=`<div class="ph"><span class="pc">${p.code}</span><span class="pt">${p.name}</span></div><ol>${list.map(x=>`<li data-i="${x.i}"><span class="n">${String(x.i+1).padStart(2,'0')}</span><span>${x.s.title}</span></li>`).join('')}</ol>`;
+    partsEl.appendChild(box);
+  });
+  partsEl.addEventListener('click',e=>{const li=e.target.closest('li[data-i]');if(li){pause();go(+li.dataset.i)}});
+
+  function loadImg(src){
+    return new Promise(res=>{
+      if(imgCache[src]) return res(imgCache[src]);
+      const im=new Image(); im.onload=()=>{imgCache[src]=im;res(im)}; im.onerror=()=>res(null); im.src=src;
+    });
+  }
+
+  /* ---- 카메라 계산: rect(비율) → transform ---- */
+  function camera(layer, im, rect, settle){
+    const W=stage.clientWidth, H=stage.clientHeight;
+    const iw=im?im.naturalWidth:1600, ih=im?im.naturalHeight:900;
+    const dispH = W*ih/iw;               // 이미지가 스테이지 폭에 맞을 때의 높이
+    const [rx,ry,rw,rh]=rect;
+    const full = rw>=0.99 && rh>=0.99;
+    const pad = full?1.0:1.22;
+    // 자막이 하단 ~34%를 차지하므로, 확대 영역은 위쪽 66% 안에 들어오게 계산
+    const usableH = full?H:(VIDEO?H*0.58:H*0.64);
+    let s = Math.min(W/(rw*W*pad), usableH/(rh*dispH*pad));
+    if(full) s=Math.max(W/W, H/dispH);   // 전체 화면은 cover
+    const maxS = (iw/W)*1.05;            // 원본 해상도 초과 확대 방지
+    s=Math.min(s,maxS);
+    const cx=(rx+rw/2)*W, cy=(ry+rh/2)*dispH;
+    let tx=W/2-s*cx, ty=(full?H/2:usableH/2)-s*cy;
+    // 이미지 밖 여백이 보이지 않게 클램프
+    const sw=W*s, sh=dispH*s;
+    if(full){ if(sw>=W) tx=Math.min(0,Math.max(W-sw,tx)); else tx=(W-sw)/2;
+              if(sh>=H) ty=Math.min(0,Math.max(H-sh,ty)); else ty=(H-sh)/2; }
+    layer.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+    const spot=layer.querySelector('.spot');
+    if(full){ spot.style.opacity=0; }
+    else{
+      spot.style.opacity=1;
+      spot.style.left=(rx*W-8)+'px'; spot.style.top=(ry*dispH-8)+'px';
+      spot.style.width=(rw*W+16)+'px'; spot.style.height=(rh*dispH+16)+'px';
+      spot.style.borderWidth=(2/s)+'px'; spot.style.borderRadius=(10/s)+'px';
+    }
+  }
+
+  function durOf(s){ if(s.dur) return s.dur; return TOUR.pace||3; }   // 데모용: 단계당 기본 3초 (TOUR.pace 로 조정, 단계별 dur 우선)
+
+  async function go(i, opts={}){
+    if(i<0) i=0; if(i>=N){ if(loop||VIDEO&&params.get('loop')==='1'){i=0} else { pause(); markDone(); return; } }
+    const s=steps[i]; const prev=cur; cur=i;
+    const im=await loadImg(s.img);
+    const sameImg = prev>=0 && steps[prev].img===s.img;
+    let layer=layers[active];
+    if(!sameImg){
+      active=1-active; layer=layers[active];
+      layer.querySelector('img').src=s.img;
+      layer.style.transition='none';
+      // 새 레이어는 살짝 넓은 화각에서 시작해 당겨집니다
+      const r=s.rect; const wide=[r[0]-r[2]*0.15, r[1]-r[3]*0.15, r[2]*1.3, r[3]*1.3];
+      camera(layer, im, r[2]>=.99?r:wide, false);
+      void layer.offsetWidth; layer.style.transition='';
+      layers[1-active].classList.add('hidden-layer'); layer.classList.remove('hidden-layer');
+    }
+    requestAnimationFrame(()=>camera(layer, im, s.rect, true));
+
+    /* 자막 */
+    const part=TOUR.parts.find(p=>p.code===s.part)||{};
+    $('#parttag').innerHTML=`<span class="code">${s.part}</span><span>${part.name||''}</span>`;
+    $('#capNum').textContent=`STEP ${String(i+1).padStart(2,'0')} / ${N}`;
+    $('#capTitle').innerHTML=s.title; $('#capBody').innerHTML=s.body;
+    const tip=$('#capTip'); tip.hidden=!s.tip; tip.textContent=s.tip||'';
+    const flow=$('#flow');
+    if(s.flow){ flow.classList.remove('empty'); $('#flowCode').textContent=s.flow.code||'';
+      $('#flowRows').innerHTML=[['입력',s.flow.in],['저장',s.flow.save],['연결',s.flow.link]].map(([k,v])=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+    } else flow.classList.add('empty');
+    const tc=$('#titlecard');
+    if(s.card){ $('#tcKicker').textContent=s.card.kicker||''; $('#tcTitle').innerHTML=s.card.title||''; $('#tcBody').innerHTML=s.card.body||'';
+      $('#tcSteps').innerHTML=(s.card.steps||[]).map((t,k)=>`<span><b>${String(k+1).padStart(2,'0')}</b>${t}</span>`).join(''); tc.classList.add('show'); $('#caption').style.opacity=0; }
+    else { tc.classList.remove('show'); $('#caption').style.opacity=1; }
+
+    /* 진행 표시 */
+    [...prog.children].forEach((el,k)=>{el.className=k<i?'done':(k===i?'cur':'');el.firstChild.style.width=k<i?'100%':'0'});
+    $('#counter').textContent=`${String(i+1).padStart(2,'0')} / ${N}`;
+    document.querySelectorAll('.part li').forEach(li=>li.classList.toggle('cur',+li.dataset.i===i));
+    const curLi=document.querySelector('.part li.cur'); if(curLi&&!VIDEO) curLi.scrollIntoView({block:'nearest'});
+    try{localStorage.setItem('qt-tour-'+TOUR.id,String(i))}catch(e){}
+
+    if(playing) schedule();
+  }
+
+  function schedule(){
+    clearTimeout(timer); cancelAnimationFrame(raf);
+    stepDur=durOf(steps[cur])*1000; stepStart=performance.now();
+    const bar=prog.children[cur].firstChild;
+    const tick=()=>{ const p=Math.min(1,(performance.now()-stepStart)/stepDur); bar.style.width=(p*100)+'%'; if(p<1) raf=requestAnimationFrame(tick); };
+    raf=requestAnimationFrame(tick);
+    timer=setTimeout(()=>go(cur+1),stepDur);
+  }
+  function play(){ playing=true; $('#btnPlay').textContent='❚❚ 일시정지'; if(cur>=N-1&&!loop) cur=-1; if(cur<0) go(0); else schedule(); }
+  function pause(){ playing=false; clearTimeout(timer); cancelAnimationFrame(raf); $('#btnPlay').textContent='▶ 재생'; }
+  function markDone(){ window.__tourDone=true; document.body.dataset.done='1'; }
+
+  $('#btnPlay').onclick=()=>playing?pause():play();
+  stage.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; playing?pause():play(); });
+  stage.style.cursor='pointer';
+  $('#btnPrev').onclick=()=>{pause();go(cur-1)};
+  $('#btnNext').onclick=()=>{pause();go(Math.min(N-1,cur+1))};
+  $('#chkLoop').onchange=e=>loop=e.target.checked;
+  $('#btnFull').onclick=()=>{const b=$('#stagebox'); if(document.fullscreenElement) document.exitFullscreen(); else b.requestFullscreen&&b.requestFullscreen();};
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT') return;
+    if(e.key===' '){e.preventDefault();playing?pause():play();}
+    else if(e.key==='ArrowRight'){pause();go(Math.min(N-1,cur+1));}
+    else if(e.key==='ArrowLeft'){pause();go(cur-1);}
+    else if(e.key==='Home'){pause();go(0);}
+    else if(e.key.toLowerCase()==='f'){$('#btnFull').click();}
+  });
+  let rs; addEventListener('resize',()=>{clearTimeout(rs);rs=setTimeout(()=>{ if(cur>=0){ const s=steps[cur]; loadImg(s.img).then(im=>{ layers[active].style.transition='none'; camera(layers[active],im,s.rect,true); void layers[active].offsetWidth; layers[active].style.transition=''; }); } },120)});
+
+  /* 시작: 이미지 선로딩 후 첫 단계 */
+  Promise.all([...new Set(steps.map(s=>s.img))].map(loadImg)).then(()=>{
+    let start=0; if(!VIDEO){ try{ const v=+localStorage.getItem('qt-tour-'+TOUR.id); if(v>0&&v<N-1) start=v; }catch(e){} }
+    // 기본 동작: 열리면 처음부터 자동 재생 (?autoplay=0 이면 마지막 본 단계에서 정지 상태로 시작)
+    if(params.get('autoplay')==='0'){ go(start); }
+    else { cur=-1; setTimeout(play, VIDEO?600:300); }
+  });
+})();
+</script>
+
+</body>
+</html>

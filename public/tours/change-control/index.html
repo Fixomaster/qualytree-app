@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Qualytree에서 이미 저장한 값을 고치는 두 가지 방법 — 기본정보 즉시 저장과 제품·공정 변경 시 자동 발의되는 CCR의 검토·승인·이행 흐름 안내">
+<meta property="og:title" content="Qualytree 입력값 수정과 변경관리 투어">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="robots" content="noindex, nofollow">
+<title>Qualytree 입력값 수정과 변경관리 투어</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+KR:wght@600;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* =====================================================================
+   Qualytree Guided Tour — 템플릿
+   -------------------------------------------------------------
+   새 투어(입력 방법, 수정 방법 등)를 만들 때는 아래 두 가지만 바꾸면 됩니다.
+     1) img/ 폴더의 화면 캡처 (권장: 1280px 폭 · 2x 배율)
+     2) 하단 <script> 의 TOUR 객체 (parts / steps)
+   카메라·자막·데이터 흐름 패널·영상 출력 모드는 모두 공통 엔진이 처리합니다.
+   ===================================================================== */
+:root{
+  --ground:#f6f4ee; --paper:#ffffff; --ink:#1a1f1c; --ink-2:#4b544f; --ink-3:#7d8781;
+  --line:#e3e0d6; --forest:#0f3d2e; --forest-2:#17553f; --moss:#d9e6dd; --amber:#c98b2a; --amber-2:#f3e4c6;
+  --stage:#0b1a14; --stage-text:#f3f1ea; --stage-muted:#b5c2ba; --spot:rgba(4,12,9,.42);
+  --ok:#2c8a5b; --warn:#b3532e;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+    --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+  --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+
+/* ---------- 헤더 ---------- */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .name{font-family:Fraunces,"Noto Serif KR",Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--forest)}
+.brand .name span{color:var(--ink);font-family:"Noto Serif KR",serif;font-size:18px;font-weight:700;margin-left:4px}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.meta{font-size:12.5px;color:var(--ink-3);text-align:right}
+
+/* ---------- 스테이지 ---------- */
+.stagebox{position:relative;background:var(--stage);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(6,20,14,.28)}
+.stage{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;overflow:hidden}
+.layer{position:absolute;inset:0;transform-origin:0 0;will-change:transform,opacity;transition:transform .9s cubic-bezier(.66,0,.28,1),opacity .5s ease}
+.layer img{position:absolute;left:0;top:0;width:100%;height:auto;display:block;user-select:none;-webkit-user-drag:none}
+.layer .spot{position:absolute;border:2px solid var(--amber);border-radius:10px;box-shadow:0 0 0 9999px var(--spot),0 0 0 3px rgba(201,139,42,.35);transition:opacity .6s ease;pointer-events:none}
+.layer .spot::after{content:"";position:absolute;inset:-8px;border:1px solid rgba(201,139,42,.55);border-radius:14px;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.9;transform:scale(1.015)}}
+.layer.hidden-layer{opacity:0}
+.vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(5,14,10,.86) 0%,rgba(5,14,10,.55) 22%,rgba(5,14,10,0) 46%)}
+
+/* 상단 진행 세그먼트 */
+.progress{position:absolute;left:16px;right:16px;top:12px;display:flex;gap:4px;z-index:5}
+.progress i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden;position:relative}
+.progress i b{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--amber);border-radius:2px}
+.progress i.done b{width:100%}
+.progress i.cur b{transition:width .2s linear}
+
+/* 파트 태그 */
+.parttag{position:absolute;left:16px;top:26px;z-index:5;display:flex;align-items:center;gap:8px;color:var(--stage-muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.parttag .code{color:var(--stage-text);background:rgba(255,255,255,.12);padding:3px 8px;border-radius:5px;letter-spacing:.06em;font-size:11.5px}
+
+/* 자막 카드 */
+.caption{position:absolute;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;padding:0 22px 20px;align-items:end;color:var(--stage-text)}
+.cap-main{min-width:0}
+.cap-main .num{display:inline-flex;align-items:center;gap:8px;color:var(--amber);font-size:12px;letter-spacing:.14em;margin-bottom:6px}
+.cap-main .num::before{content:"";width:22px;height:1px;background:var(--amber)}
+.cap-main h2{margin:0 0 6px;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(18px,2.4vw,27px);line-height:1.3;letter-spacing:-.01em;text-wrap:balance}
+.cap-main p{margin:0;max-width:60ch;font-size:clamp(13px,1.35vw,15.5px);line-height:1.65;color:#e7ebe6}
+.cap-main .tip{margin-top:8px;display:inline-block;font-size:12.5px;color:var(--amber-2);background:rgba(201,139,42,.16);border:1px solid rgba(201,139,42,.35);padding:4px 9px;border-radius:6px}
+
+/* 데이터 흐름 패널 */
+.flow{background:rgba(9,22,16,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;min-width:0}
+.flow .h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--stage-muted);margin-bottom:8px;display:flex;justify-content:space-between}
+.flow .row{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;font-size:12.5px;line-height:1.45;padding:5px 0;border-top:1px dashed rgba(255,255,255,.12)}
+.flow .row:first-of-type{border-top:0}
+.flow .k{color:var(--amber);font-weight:500;letter-spacing:.04em;font-size:11.5px;padding-top:1px}
+.flow .v{color:#e9ede8;min-width:0;overflow-wrap:anywhere}
+.flow .v code{font-family:"JetBrains Mono",monospace;font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;color:#dfe8e2}
+.flow.empty{display:none}
+
+/* 타이틀 카드(인트로/아웃트로) */
+.titlecard{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:center;padding:6% 8%;color:var(--stage-text);background:linear-gradient(120deg,rgba(9,28,20,.94),rgba(9,28,20,.72) 60%,rgba(9,28,20,.5));opacity:0;pointer-events:none;transition:opacity .7s ease}
+.titlecard.show{opacity:1}
+.titlecard .kicker{color:var(--amber);letter-spacing:.16em;text-transform:uppercase;font-size:12px;margin-bottom:14px}
+.titlecard h1{margin:0;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(26px,4.4vw,52px);line-height:1.18;letter-spacing:-.01em;text-wrap:balance}
+.titlecard h1 .lat{font-family:Fraunces,serif;font-weight:600}
+.titlecard p{margin:16px 0 0;max-width:52ch;font-size:clamp(13px,1.5vw,17px);color:#dfe5e0}
+.titlecard .steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.titlecard .steps span{border:1px solid rgba(255,255,255,.25);padding:6px 12px;border-radius:999px;font-size:13px;color:#e8ece9}
+.titlecard .steps span b{color:var(--amber);margin-right:6px;font-family:"JetBrains Mono",monospace;font-weight:500}
+
+/* ---------- 컨트롤 ---------- */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px 0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 12px;font:inherit;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1}
+.btn:hover{border-color:var(--forest)}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn.primary{background:var(--forest);color:#fff;border-color:var(--forest);min-width:96px;justify-content:center}
+.btn.primary:hover{background:var(--forest-2)}
+.counter{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--forest)}
+
+/* ---------- 스텝 레일 ---------- */
+.rail{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.rail .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.part{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 12px 8px;min-width:0}
+.part .ph{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.part .ph .pc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--amber);letter-spacing:.06em}
+.part .ph .pt{font-weight:700;font-size:14px}
+.part ol{list-style:none;margin:0;padding:0}
+.part li{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink-2);line-height:1.4}
+.part li:hover{background:var(--moss)}
+.part li.cur{background:var(--moss);color:var(--ink);font-weight:500}
+.part li.cur .n{background:var(--forest);color:#fff;border-color:var(--forest)}
+.part li .n{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);font-family:"JetBrains Mono",monospace;font-size:10.5px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);margin-top:1px}
+
+/* ---------- 하단 안내 ---------- */
+.foot{margin-top:26px;display:grid;grid-template-columns:1.2fr 1fr;gap:20px;font-size:13px;color:var(--ink-2)}
+.foot h3{margin:0 0 6px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.foot p{margin:0 0 6px}
+.keys{display:flex;gap:8px;flex-wrap:wrap}
+.keys span{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:2px 8px;font-family:"JetBrains Mono",monospace;font-size:11.5px}
+
+/* ---------- 반응형 ---------- */
+@media (max-width:760px){
+  .caption{grid-template-columns:1fr;gap:10px;padding:0 14px 14px}
+  .flow{display:none}
+  .foot{grid-template-columns:1fr}
+  .cap-main p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+}
+/* ---------- 영상 출력 모드 (?video=1) ---------- */
+body.video .wrap{max-width:none;padding:0}
+body.video .top,body.video .controls,body.video .rail,body.video .foot{display:none}
+body.video .stagebox{border-radius:0;box-shadow:none}
+body.video .stage{aspect-ratio:auto;height:100vh}
+body.video .caption{padding:0 56px 44px;gap:36px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+body.video .cap-main .num{font-size:17px;margin-bottom:10px}
+body.video .cap-main h2{font-size:42px;margin-bottom:10px}
+body.video .cap-main p{font-size:22px;line-height:1.6;max-width:44ch}
+body.video .cap-main .tip{font-size:18px;padding:7px 14px;margin-top:12px}
+body.video .flow{padding:18px 22px;border-radius:14px}
+body.video .flow .h{font-size:14px;margin-bottom:12px}
+body.video .flow .row{grid-template-columns:70px 1fr;font-size:18px;padding:8px 0}
+body.video .flow .k{font-size:15px}
+body.video .parttag{font-size:16px;top:36px;left:28px}
+body.video .parttag .code{font-size:15px}
+body.video .progress{top:16px;left:28px;right:28px}
+body.video .progress i{height:5px}
+body.video .titlecard .kicker{font-size:18px}
+body.video .titlecard h1{font-size:64px}
+body.video .titlecard p{font-size:24px;max-width:48ch}
+body.video .titlecard .steps span{font-size:18px;padding:9px 18px}
+body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(5,14,10,.6) 26%,rgba(5,14,10,0) 50%)}
+@media (prefers-reduced-motion:reduce){.layer{transition:opacity .4s ease}.layer .spot::after{animation:none}}
+:fullscreen .stagebox{border-radius:0;height:100%}
+:fullscreen .stage{aspect-ratio:auto;height:100%}
+</style>
+<style>
+.backlink{font-size:12.5px;color:var(--ink-3);text-decoration:none;display:inline-block;margin-bottom:6px}
+.backlink:hover{color:var(--forest)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      
+      <div class="eyebrow">Qualytree Platform · Guided Tour · EDIT-001</div>
+      <div class="brand"><div class="name">Qualytree<span>수정·변경관리</span></div></div>
+    </div>
+    <div class="meta">수정 → CCR 발의 → 검토·승인 → 발효 → 이력<br>화면 캡처 기준: qualytree-app main 24d3de4 · 2026-09-18</div>
+  </header>
+
+  <div class="stagebox" id="stagebox">
+    <div class="stage" id="stage">
+      <div class="layer" id="layerA"><img alt=""><div class="spot"></div></div>
+      <div class="layer hidden-layer" id="layerB"><img alt=""><div class="spot"></div></div>
+      <div class="vignette"></div>
+      <div class="progress" id="progress"></div>
+      <div class="parttag" id="parttag"><span class="code">P1</span><span>시작하기</span></div>
+      <div class="caption" id="caption">
+        <div class="cap-main">
+          <div class="num" id="capNum">STEP 1 / 16</div>
+          <h2 id="capTitle"></h2>
+          <p id="capBody"></p>
+          <div class="tip" id="capTip" hidden></div>
+        </div>
+        <div class="flow" id="flow">
+          <div class="h"><span>데이터 흐름</span><span id="flowCode" class="mono"></span></div>
+          <div id="flowRows"></div>
+        </div>
+      </div>
+      <div class="titlecard" id="titlecard">
+        <div class="kicker" id="tcKicker"></div>
+        <h1 id="tcTitle"></h1>
+        <p id="tcBody"></p>
+        <div class="steps" id="tcSteps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnPrev" aria-label="이전 단계">← 이전</button>
+    <button class="btn primary" id="btnPlay">▶ 재생</button>
+    <button class="btn" id="btnNext" aria-label="다음 단계">다음 →</button>
+    <span class="counter" id="counter">01 / 16</span>
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="chkLoop"> 반복 재생</label>
+    <button class="btn" id="btnFull">⛶ 전체화면</button>
+  </div>
+
+  <nav class="rail" aria-label="단계 목록"><div class="parts" id="parts"></div></nav>
+
+  <section class="foot">
+    <div>
+      <h3>이 투어에 대하여</h3>
+      <p>실제 화면을 캡처해 단계별로 확대·이동하며 설명합니다. 각 단계의 오른쪽 패널은 그 항목이 <b>어디에 저장되고 이후 어느 화면·문서로 연결되는지</b>를 보여줍니다.</p>
+      <p>화면의 회사·제품·변경 내용은 설명용 데모 데이터입니다.</p>
+    </div>
+    <div>
+      <h3>조작 방법</h3>
+      <div class="keys">열리면 자동 재생됩니다. 화면 클릭 또는 <span>Space</span> 재생/일시정지 <span>←</span><span>→</span> 단계 이동 <span>F</span> 전체화면 <span>Home</span> 처음으로</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   TOUR 데이터 — 새 투어를 만들 때 이 객체만 교체합니다.
+   step 필드:
+     part   : parts[].code 와 일치
+     img    : 캡처 파일명 (img/ 폴더)
+     rect   : [x, y, w, h] — 이미지 크기 대비 0~1 비율. [0,0,1,1] = 전체 화면
+     title  : 자막 제목 / body : 설명 / tip : (선택) 강조 한 줄
+     flow   : (선택) { code, in, save, link } — 입력 → 저장 → 연결
+     dur    : (선택) 자동 재생 시 머무는 시간(초). 없으면 TOUR.pace(기본 3초)
+     card   : (선택) 타이틀 카드 { kicker, title, body, steps[] } — 이미지 위에 덮어 표시
+   ===================================================================== */
+const TOUR = {
+ "id": "EDIT-001",
+ "title": "입력값 수정과 변경관리",
+ "pace": 3,
+ "parts": [
+  {
+   "code": "P0",
+   "name": "소개"
+  },
+  {
+   "code": "P1",
+   "name": "일반 항목 수정"
+  },
+  {
+   "code": "P2",
+   "name": "변경관리 대상 수정"
+  },
+  {
+   "code": "P3",
+   "name": "CCR 검토·승인"
+  },
+  {
+   "code": "P4",
+   "name": "변경 이력 확인"
+  },
+  {
+   "code": "P5",
+   "name": "정리"
+  }
+ ],
+ "steps": [
+  {
+   "part": "P0",
+   "img": "img/01_company_profile.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "입력값 수정과 변경관리",
+   "body": "",
+   "card": {
+    "kicker": "Qualytree Platform · 사용 안내",
+    "title": "이미 저장한 값, 어떻게 고치고 어떻게 남기나 <span class='lat'>Edit &amp; Change Control</span>",
+    "body": "Qualytree의 수정은 두 종류입니다. 회사 기본정보처럼 그냥 고쳐 저장하면 끝나는 항목과, 제품·공정·문서처럼 고치는 순간 변경기록(CCR)이 자동으로 남고 검토·승인을 거쳐야 하는 항목입니다. 이 안내에서는 두 경우를 차례로 따라가며, 변경관리 화면에서 전·후 값을 확인하고 승인·발효까지 처리하는 과정을 보여드립니다.",
+    "steps": [
+     "기본정보(기업정보) 수정 → 저장",
+     "제품 정보 수정 → 변경 사유 입력 → CCR 자동 발의",
+     "변경관리 허브: 전·후 비교 → 영향평가 → 승인 → 이행 완료",
+     "이력·버전으로 흔적 확인"
+    ]
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_company_profile.jpg",
+   "rect": [
+    0.2094,
+    0.2419,
+    0.7846,
+    0.0341
+   ],
+   "title": "기본정보 화면의 네 가지 탭",
+   "body": "왼쪽 메뉴 ‘기본정보’(/company)에는 기업정보·회사문서함·조직도·품질책임자 지정 탭이 있습니다. 회사 자체에 관한 정보라 별도 승인 없이 담당자가 바로 고쳐 저장할 수 있는 영역입니다.",
+   "flow": {
+    "code": "CompanyHub · tab=profile",
+    "in": "기업정보 / 회사문서함 / 조직도·직무기술서 / 품질책임자 지정",
+    "save": "탭별로 별도 저장소 (기업정보: localStorage 'qualytree.company_master')",
+    "link": "품질문서·인허가 대시보드에 회사명·대표자 등이 자동 인용"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_company_profile.jpg",
+   "rect": [
+    0.593,
+    0.3505,
+    0.3914,
+    0.0431
+   ],
+   "title": "고칠 항목을 찾습니다",
+   "body": "예로 ‘대표이사’ 항목을 바꿔 보겠습니다. 회사명·사업자등록번호·대표이사는 별표(*)가 붙은 필수 항목이라 비워 두면 저장이 막힙니다. 나머지 주소·연락처·인증 현황은 필요할 때 채우면 됩니다.",
+   "flow": {
+    "code": "ProfileTab · form.ceoName",
+    "in": "필수: 회사명(국문)·사업자등록번호·대표이사 / 선택: 주소·연락처·허가·인증번호",
+    "save": "form 상태 (입력 중에는 저장 전)",
+    "link": "품질매뉴얼·조직도 문서의 대표자 서명란"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/02_company_edit.jpg",
+   "rect": [
+    0.593,
+    0.3505,
+    0.3914,
+    0.0431
+   ],
+   "title": "값을 바꿔 넣습니다",
+   "body": "‘김대표’를 ‘이대표’로 고쳤습니다. 회사 유형은 목록에서 고르는 객관식이라 오타 없이 선택만 하면 됩니다. 이 단계까지는 화면에만 바뀐 상태이며 아직 저장되지 않았습니다.",
+   "tip": "대표자 변경은 식약처 제조업 허가증 변경 신고 대상입니다. 화면 값만 바꾸지 말고 허가 담당자에게도 알리세요.",
+   "flow": {
+    "code": "set('ceoName', v)",
+    "in": "대표이사: 김대표 → 이대표 / 회사 유형: 제조업체",
+    "save": "아직 저장 전 (브라우저 화면 상태만 변경)",
+    "link": "—"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/03_company_saved.jpg",
+   "rect": [
+    0.2062,
+    0.8924,
+    0.7812,
+    0.0782
+   ],
+   "title": "저장 — 바로 반영됩니다",
+   "body": "맨 아래 ‘제품 범위’ 칸 밑의 ‘저장’ 버튼을 누르면 필수 항목 검사를 거쳐 즉시 저장됩니다. 기업정보는 변경관리(CCR) 대상이 아니므로 별도 승인 없이 그대로 확정되고, 다음에 화면을 열면 바뀐 값이 보입니다.",
+   "tip": "현재 화면에서는 ‘저장’ 버튼 글씨가 옅게 보이고 저장 후 확인 문구가 바로 사라질 수 있습니다. 새로고침해서 값이 남아 있는지 확인하면 됩니다.",
+   "flow": {
+    "code": "ProfileTab.save()",
+    "in": "기업정보 폼 전체",
+    "save": "localStorage 'qualytree.company_master' (즉시 덮어쓰기, CCR 미발의)",
+    "link": "기본정보 상단 요약 카드·품질문서 생성 시 참조"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/04_products.jpg",
+   "rect": [
+    0.2078,
+    0.3167,
+    0.7781,
+    0.0544
+   ],
+   "title": "변경관리 대상: 제품·공정 마스터",
+   "body": "이제 두 번째 종류입니다. 제품·공정 화면(/products) 상단에 ‘모든 변경은 CCR 자동 발의’라고 적혀 있습니다. 여기서 고치는 값은 인허가·기술문서와 연결되어 있어, 수정 즉시 변경기록이 남습니다.",
+   "flow": {
+    "code": "ProductsHub",
+    "in": "제품 마스터(품목명·모델·의도된 사용·등급) / 공정 / 검사항목",
+    "save": "제품 데이터: 'qualytree.onboarding'.products / 변경기록: 'qualytree.changeRecords'",
+    "link": "ISO 13485 §4.2.4 / 21 CFR 820.30 · 820.40 (화면 표기)"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/04_products.jpg",
+   "rect": [
+    0.3362,
+    0.6481,
+    0.1245,
+    0.077
+   ],
+   "title": "제품 카드에서 ‘설계 변경’",
+   "body": "데모 제품 ‘ULNA Hook Plate’ 카드의 ‘설계 변경’ 버튼을 누르면 제품 상세로 들어갑니다. 기허가 제품의 정보를 고치는 입구가 이 버튼입니다.",
+   "flow": {
+    "code": "onOpen(product, 'info')",
+    "in": "제품 카드 선택",
+    "save": "—",
+    "link": "제품 상세(기본정보·모델·DHF·DMR·위험관리·공정·검사항목 탭)"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/05_product_info.jpg",
+   "rect": [
+    0.5561,
+    0.5256,
+    0.084,
+    0.077
+   ],
+   "title": "상세 화면의 ‘수정’ 버튼",
+   "body": "제품 기본정보가 읽기 전용으로 표시되고 오른쪽 위에 ‘수정’·‘삭제’ 버튼이 있습니다. 수정 권한(매니저 이상)이 있을 때만 버튼이 보입니다. 오른쪽 ‘변경 이력’ 패널은 아직 0건입니다.",
+   "flow": {
+    "code": "ProductPanel.startEdit() · permissions 'onb.product.edit'",
+    "in": "수정 버튼 클릭",
+    "save": "draft(수정 초안) 생성",
+    "link": "오른쪽 CHANGE HISTORY 패널 = 이 제품의 CCR 목록"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/06_product_edit.jpg",
+   "rect": [
+    0.2258,
+    0.3806,
+    0.4859,
+    0.0468
+   ],
+   "title": "편집 폼에서 값 변경",
+   "body": "제품명·모델 번호·의도된 사용·분류를 고칠 수 있습니다. 예시로 ‘의도된 사용’ 문구를 임상평가 결과에 맞춰 ‘성인 원위 척골 골절 내고정에 한함’으로 한정했습니다.",
+   "flow": {
+    "code": "setDraft({...draft, intendedUse})",
+    "in": "의도된 사용: ‘척골 골절 고정용 임플란트 (Class IIb)’ → ‘… — 성인 원위 척골 골절 내고정에 한함’",
+    "save": "draft (저장 전)",
+    "link": "기술문서·IFU·라벨의 의도된 사용 문구"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/07_product_reason.jpg",
+   "rect": [
+    0.2242,
+    0.8781,
+    0.4891,
+    0.038
+   ],
+   "title": "변경 사유는 필수입니다",
+   "body": "아래 ‘변경 사유 (CCR 필수)’ 칸을 비우면 저장이 되지 않습니다. 왜 바꾸는지 한 줄로 적어 두면 나중에 심사원이나 후임자가 이력을 볼 때 그대로 근거가 됩니다.",
+   "tip": "사유는 ‘오타 수정’처럼 짧아도 되지만, 참고 문서 번호(CER, NCR 등)를 붙이면 추적이 훨씬 쉬워집니다.",
+   "flow": {
+    "code": "reason 필수 검사 → alert",
+    "in": "변경 사유: ‘임상평가 결과 반영 — 의도된 사용 범위 명확화 (CER Rev.2)’",
+    "save": "CCR.reason 필드",
+    "link": "변경관리 허브 목록 검색·상세의 ‘사유’ 항목"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/07_product_reason.jpg",
+   "rect": [
+    0.5834,
+    0.912,
+    0.1299,
+    0.0364
+   ],
+   "title": "‘저장 · CCR 발의’",
+   "body": "버튼 이름 그대로, 저장과 동시에 변경기록(CCR)이 자동으로 만들어집니다. 변경 전·후 값 비교, 작업자·권한·시각, 관련 규제 조항, 영향받는 항목이 시스템이 알아서 붙습니다.",
+   "flow": {
+    "code": "commitChange({targetEid:'product:MRUHP-8H', action:'UPDATE', before, after, reason})",
+    "in": "수정 전 제품 객체 + 수정 후 제품 객체 + 사유",
+    "save": "'qualytree.changeRecords'에 CCR-2026-0006 추가 (diff·hash·performedBy 포함)",
+    "link": "linkage 영향 분석 · regulationMapping 규제 조항 · 진행 중 작업지시 영향"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/08_product_history.jpg",
+   "rect": [
+    0.4656,
+    0.8118,
+    0.2461,
+    0.072
+   ],
+   "title": "바뀐 값이 화면에 반영",
+   "body": "화면이 새로 고쳐지고 ‘의도된 사용’이 새 문구로 표시됩니다. 값 자체는 즉시 바뀌지만, 이것이 조직 안에서 ‘승인된 변경’이 되려면 다음 단계인 변경관리 심사를 거쳐야 합니다.",
+   "flow": {
+    "code": "onboarding.save({...ob, products})",
+    "in": "—",
+    "save": "'qualytree.onboarding'.products[0].intendedUse 갱신",
+    "link": "제품을 인용하는 모든 화면(DMR·기술문서·라벨)에 새 값 노출"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/08_product_history.jpg",
+   "rect": [
+    0.7836,
+    0.5569,
+    0.0859,
+    0.0537
+   ],
+   "title": "변경 이력 1건 생성",
+   "body": "오른쪽 ‘변경 이력’ 패널에 방금 만들어진 CCR-2026-0006이 나타났습니다. UPDATE 표시, 사유, 일시, 수행자(권한 등급)가 함께 기록됩니다. 이 패널은 제품 단위 이력이고, 전체 심사는 변경관리 허브에서 합니다.",
+   "flow": {
+    "code": "getRecordsForEntity('product:MRUHP-8H')",
+    "in": "—",
+    "save": "읽기 전용 (CCR 원본은 수정 불가)",
+    "link": "‘설계변경 바로 가기’ → /change-control"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/09_cc_list.jpg",
+   "rect": [
+    0.2757,
+    0.2249,
+    0.1602,
+    0.0558
+   ],
+   "title": "변경관리 허브의 업무 흐름",
+   "body": "변경관리(/change-control)는 직접 등록하는 화면이 아닙니다. 원천 화면에서 고친 내용이 자동으로 들어오고, 여기서는 ‘영향 평가 → 승인/반려 → 이행 완료’ 세 단계 심사만 합니다.",
+   "flow": {
+    "code": "ChangeControlHub · TARGET_META",
+    "in": "제품·공정·문서·공급업체 변경 CCR (자동 수집)",
+    "save": "심사 상태: localStorage 'qualytree.changeReview' (CCR 원본과 분리 보관)",
+    "link": "ISO 13485 §4.1.4 / §7.3.9 (화면 표기)"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/09_cc_list.jpg",
+   "rect": [
+    0.2602,
+    0.5757,
+    0.0859,
+    0.0547
+   ],
+   "title": "목록에 자동으로 올라온 CCR",
+   "body": "방금 발의한 CCR-2026-0006이 ‘제품 변경 · 정보 수정 · 영향평가 대기’ 상태로 보입니다. 상단 집계에도 전체 1건, 영향평가 대기 1건으로 잡힙니다. 행을 누르면 상세가 펼쳐집니다.",
+   "flow": {
+    "code": "getAllRecords() → status = changeReview.get(ccrId)",
+    "in": "검색(대상명·CCR ID·사유) / 유형·상태 필터",
+    "save": "—",
+    "link": "기본 상태 pending_impact(영향평가 대기)"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/10_cc_detail.jpg",
+   "rect": [
+    0.2227,
+    0.6242,
+    0.2536,
+    0.1749
+   ],
+   "title": "변경 전·후 자동 비교",
+   "body": "상세의 왼쪽 ‘변경된 필드’에 intendedUse의 이전 값 → 새 값이 나란히 표시됩니다. 사람이 적은 것이 아니라 저장 시점에 시스템이 계산한 차이(diff)라서 빠뜨리거나 꾸밀 수 없습니다.",
+   "flow": {
+    "code": "computeDiff(before, after) → r.diff[k].from / .to",
+    "in": "—",
+    "save": "CCR.diff (불변, hash로 무결성 확인)",
+    "link": "관련 규제 조항(regulations) · 영향 엔티티(impacts)"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/11_cc_impact.jpg",
+   "rect": [
+    0.47,
+    0.6441,
+    0.2536,
+    0.3254
+   ],
+   "title": "영향평가 작성",
+   "body": "가운데 열에서 위험도(낮음·보통·높음), 영향 범위, 평가 내용, 결론을 적습니다. 이 변경이 설계·문서·인허가에 어떤 영향을 주는지 담당자가 판단해 기록하는 단계입니다. 내용은 필수입니다.",
+   "tip": "검사원(레벨 2) 이상이면 영향평가를 쓸 수 있습니다. 승인은 매니저(레벨 3)만 가능합니다.",
+   "flow": {
+    "code": "impactAssessments.upsert(ccrId, {riskLevel, affectedAreas, content, conclusion})",
+    "in": "위험도: 보통 / 영향 범위: 기술문서·RMF·인허가 / 내용·결론",
+    "save": "localStorage 'qualytree.impactAssessments' (IA-CCR-2026-0006)",
+    "link": "고위험(높음)으로 저장하면 허브 상단에 ‘고위험 변경 진행 중’ 경고"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/12_cc_pending.jpg",
+   "rect": [
+    0.2398,
+    0.0856,
+    0.0837,
+    0.0428
+   ],
+   "title": "승인 요청 상태로 전환",
+   "body": "‘영향평가 저장 → 승인 요청’을 누르면 상태가 ‘승인 대기’로 바뀌고 화면 맨 위에 ‘승인 대기 1건’ 배너가 뜹니다. 승인 버튼은 발의자 본인에게는 나타나지 않습니다 — 스스로 승인하는 것을 막기 위해서입니다.",
+   "flow": {
+    "code": "changeReview.submitImpact(ccrId) → status 'pending_approval'",
+    "in": "—",
+    "save": "'qualytree.changeReview': requestedByEmail·requestedAt 기록",
+    "link": "isSelfApproval = 요청자 이메일 == 로그인 이메일 → 승인 버튼 숨김"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/13_cc_approve.jpg",
+   "rect": [
+    0.7174,
+    0.7108,
+    0.2536,
+    0.0578
+   ],
+   "title": "승인자 계정에서 승인·반려",
+   "body": "품질책임자 ‘박품질’ 계정으로 접속하면 오른쪽 열에 ‘승인 (박품질)’·‘반려’ 버튼이 보입니다. 승인자 이름은 로그인 사용자로 자동 채워지며 손으로 바꿀 수 없습니다. 의견을 한 줄 적고 승인합니다.",
+   "flow": {
+    "code": "changeReview.approve(ccrId, note) · permissions 'qms.ccr.approve' (매니저)",
+    "in": "승인/반려 의견 (선택)",
+    "save": "approvedBy=로그인 사용자, approvedAt=클릭 시각, status 'approved'",
+    "link": "반려 시 rejected → ‘영향평가 재작성 요청’으로 되돌림"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/14_cc_approved.jpg",
+   "rect": [
+    0.7174,
+    0.7153,
+    0.2536,
+    0.198
+   ],
+   "title": "승인 완료 → 이행 대기",
+   "body": "승인자·승인일시·승인 의견이 고정 표시되고 상태는 ‘승인(이행대기)’입니다. 실제로 문서 개정·라벨 교체 등 후속 조치를 끝낸 뒤 ‘이행 완료’를 누르면 완료일이 자동 기록됩니다.",
+   "flow": {
+    "code": "canImplement = status === 'approved'",
+    "in": "이행 내용 요약 (선택)",
+    "save": "—",
+    "link": "이행 완료 버튼 → changeReview.complete()"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/15_cc_completed.jpg",
+   "rect": [
+    0.7174,
+    0.792,
+    0.2536,
+    0.0942
+   ],
+   "title": "이행 완료 — 변경 발효",
+   "body": "상태가 ‘이행 완료’로 바뀌고 이행자·완료일시·이행 내용이 남습니다. 이 시점부터 영향평가 칸도 읽기 전용이 되어, 발의·평가·승인·이행 네 단계의 누가·언제·왜가 한 화면에 모두 보존됩니다.",
+   "flow": {
+    "code": "changeReview.complete(ccrId, note) → status 'completed'",
+    "in": "이행 내용: ‘IFU Rev.3 발행·라벨 교체, RMF 재검토 완료’",
+    "save": "implementedBy·implementedAt 자동 기록 (수기 입력 불가)",
+    "link": "상단 집계 ‘이행 완료 1’ · 현황 분석 이행 완료율"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/16_cc_analysis.jpg",
+   "rect": [
+    0.2242,
+    0.4903,
+    0.3594,
+    0.0534
+   ],
+   "title": "현황 분석으로 전체 보기",
+   "body": "‘현황 분석’ 탭은 심사 상태별 건수와 유형별 변경 건수, 이행 완료율을 보여 줍니다. 경영검토나 심사 대응 때 ‘변경관리가 돌아가고 있는가’를 한 장으로 설명할 수 있습니다.",
+   "flow": {
+    "code": "ChangeAnalysis · counts / typeStats",
+    "in": "—",
+    "save": "—",
+    "link": "규제 관련 미완료 변경은 빨간 경고로 별도 집계 · ‘규제 신고 분류’ 탭"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/17_inspection_versions.jpg",
+   "rect": [
+    0.2094,
+    0.4177,
+    0.775,
+    0.0614
+   ],
+   "title": "정의 항목의 버전 번호",
+   "body": "검사항목 탭에서는 각 검사 규격에 버전(v1, v2…)이 붙습니다. 데모의 ‘두께’ 항목은 규격 상한을 3.05→3.06으로 고쳐 v2가 되었습니다. 검사 항목 수정은 작업지시 진행 중 eBR 화면이나 온보딩에서 하며, 진행 중인 작업지시는 발급 시점 규격이 그대로 잠깁니다.",
+   "flow": {
+    "code": "inspectionTemplates.update() → version+1",
+    "in": "specMax 3.05 → 3.06 (공급자 변경에 따른 규격 미세 조정)",
+    "save": "'qualytree.inspectionTemplates' (버전·정의자·일시 갱신)",
+    "link": "진행 중 WO는 snapshotForBlock() 시간 잠금 → 변경 미적용"
+   }
+  },
+  {
+   "part": "P5",
+   "img": "img/15_cc_completed.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "정리",
+   "body": "",
+   "card": {
+    "kicker": "Qualytree Platform · 사용 안내",
+    "title": "고치는 건 쉽게, 흔적은 빠짐없이 <span class='lat'>Traceable Edits</span>",
+    "body": "회사 기본정보는 그냥 저장하면 되고, 제품·공정·문서·공급업체처럼 규제와 연결된 항목은 저장하는 순간 변경기록(CCR)이 자동으로 남습니다. 담당자는 사유 한 줄만 적으면 되고, 전·후 비교·수행자·시각·규제 조항은 시스템이 붙입니다. 변경관리 허브에서 영향평가·승인·이행을 거치면 그 변경이 조직의 공식 이력이 됩니다.",
+    "steps": [
+     "기본정보: 저장 즉시 반영, 승인 없음",
+     "제품·공정·문서: 저장 = CCR 자동 발의 (사유 필수)",
+     "변경관리 허브: 전·후 비교 → 영향평가 → 승인(본인 승인 불가) → 이행 완료",
+     "이력·버전은 지워지지 않고 누적 — 심사·인수인계 근거"
+    ]
+   }
+  }
+ ]
+};
+/* ===================================================================== 엔진 */
+(function(){
+  const $ = s => document.querySelector(s);
+  const stage=$('#stage'), layers=[$('#layerA'),$('#layerB')];
+  const params=new URLSearchParams(location.search);
+  const VIDEO = params.get('video')==='1';
+  if(VIDEO) document.body.classList.add('video');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const steps=TOUR.steps, N=steps.length;
+  let cur=-1, active=0, playing=false, timer=null, raf=null, stepStart=0, stepDur=0, loop=false;
+  const imgCache={};
+
+  /* ---- 진행 바 / 레일 구성 ---- */
+  const prog=$('#progress');
+  steps.forEach(()=>{const i=document.createElement('i');i.innerHTML='<b></b>';prog.appendChild(i)});
+  const partsEl=$('#parts');
+  TOUR.parts.forEach(p=>{
+    const box=document.createElement('div');box.className='part';
+    const list=steps.map((s,i)=>({s,i})).filter(x=>x.s.part===p.code);
+    box.innerHTML=`<div class="ph"><span class="pc">${p.code}</span><span class="pt">${p.name}</span></div><ol>${list.map(x=>`<li data-i="${x.i}"><span class="n">${String(x.i+1).padStart(2,'0')}</span><span>${x.s.title}</span></li>`).join('')}</ol>`;
+    partsEl.appendChild(box);
+  });
+  partsEl.addEventListener('click',e=>{const li=e.target.closest('li[data-i]');if(li){pause();go(+li.dataset.i)}});
+
+  function loadImg(src){
+    return new Promise(res=>{
+      if(imgCache[src]) return res(imgCache[src]);
+      const im=new Image(); im.onload=()=>{imgCache[src]=im;res(im)}; im.onerror=()=>res(null); im.src=src;
+    });
+  }
+
+  /* ---- 카메라 계산: rect(비율) → transform ---- */
+  function camera(layer, im, rect, settle){
+    const W=stage.clientWidth, H=stage.clientHeight;
+    const iw=im?im.naturalWidth:1600, ih=im?im.naturalHeight:900;
+    const dispH = W*ih/iw;               // 이미지가 스테이지 폭에 맞을 때의 높이
+    const [rx,ry,rw,rh]=rect;
+    const full = rw>=0.99 && rh>=0.99;
+    const pad = full?1.0:1.22;
+    // 자막이 하단 ~34%를 차지하므로, 확대 영역은 위쪽 66% 안에 들어오게 계산
+    const usableH = full?H:(VIDEO?H*0.58:H*0.64);
+    let s = Math.min(W/(rw*W*pad), usableH/(rh*dispH*pad));
+    if(full) s=Math.max(W/W, H/dispH);   // 전체 화면은 cover
+    const maxS = (iw/W)*1.05;            // 원본 해상도 초과 확대 방지
+    s=Math.min(s,maxS);
+    const cx=(rx+rw/2)*W, cy=(ry+rh/2)*dispH;
+    let tx=W/2-s*cx, ty=(full?H/2:usableH/2)-s*cy;
+    // 이미지 밖 여백이 보이지 않게 클램프
+    const sw=W*s, sh=dispH*s;
+    if(full){ if(sw>=W) tx=Math.min(0,Math.max(W-sw,tx)); else tx=(W-sw)/2;
+              if(sh>=H) ty=Math.min(0,Math.max(H-sh,ty)); else ty=(H-sh)/2; }
+    layer.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+    const spot=layer.querySelector('.spot');
+    if(full){ spot.style.opacity=0; }
+    else{
+      spot.style.opacity=1;
+      spot.style.left=(rx*W-8)+'px'; spot.style.top=(ry*dispH-8)+'px';
+      spot.style.width=(rw*W+16)+'px'; spot.style.height=(rh*dispH+16)+'px';
+      spot.style.borderWidth=(2/s)+'px'; spot.style.borderRadius=(10/s)+'px';
+    }
+  }
+
+  function durOf(s){ if(s.dur) return s.dur; return TOUR.pace||3; }   // 데모용: 단계당 기본 3초 (TOUR.pace 로 조정, 단계별 dur 우선)
+
+  async function go(i, opts={}){
+    if(i<0) i=0; if(i>=N){ if(loop||VIDEO&&params.get('loop')==='1'){i=0} else { pause(); markDone(); return; } }
+    const s=steps[i]; const prev=cur; cur=i;
+    const im=await loadImg(s.img);
+    const sameImg = prev>=0 && steps[prev].img===s.img;
+    let layer=layers[active];
+    if(!sameImg){
+      active=1-active; layer=layers[active];
+      layer.querySelector('img').src=s.img;
+      layer.style.transition='none';
+      // 새 레이어는 살짝 넓은 화각에서 시작해 당겨집니다
+      const r=s.rect; const wide=[r[0]-r[2]*0.15, r[1]-r[3]*0.15, r[2]*1.3, r[3]*1.3];
+      camera(layer, im, r[2]>=.99?r:wide, false);
+      void layer.offsetWidth; layer.style.transition='';
+      layers[1-active].classList.add('hidden-layer'); layer.classList.remove('hidden-layer');
+    }
+    requestAnimationFrame(()=>camera(layer, im, s.rect, true));
+
+    /* 자막 */
+    const part=TOUR.parts.find(p=>p.code===s.part)||{};
+    $('#parttag').innerHTML=`<span class="code">${s.part}</span><span>${part.name||''}</span>`;
+    $('#capNum').textContent=`STEP ${String(i+1).padStart(2,'0')} / ${N}`;
+    $('#capTitle').innerHTML=s.title; $('#capBody').innerHTML=s.body;
+    const tip=$('#capTip'); tip.hidden=!s.tip; tip.textContent=s.tip||'';
+    const flow=$('#flow');
+    if(s.flow){ flow.classList.remove('empty'); $('#flowCode').textContent=s.flow.code||'';
+      $('#flowRows').innerHTML=[['입력',s.flow.in],['저장',s.flow.save],['연결',s.flow.link]].map(([k,v])=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+    } else flow.classList.add('empty');
+    const tc=$('#titlecard');
+    if(s.card){ $('#tcKicker').textContent=s.card.kicker||''; $('#tcTitle').innerHTML=s.card.title||''; $('#tcBody').innerHTML=s.card.body||'';
+      $('#tcSteps').innerHTML=(s.card.steps||[]).map((t,k)=>`<span><b>${String(k+1).padStart(2,'0')}</b>${t}</span>`).join(''); tc.classList.add('show'); $('#caption').style.opacity=0; }
+    else { tc.classList.remove('show'); $('#caption').style.opacity=1; }
+
+    /* 진행 표시 */
+    [...prog.children].forEach((el,k)=>{el.className=k<i?'done':(k===i?'cur':'');el.firstChild.style.width=k<i?'100%':'0'});
+    $('#counter').textContent=`${String(i+1).padStart(2,'0')} / ${N}`;
+    document.querySelectorAll('.part li').forEach(li=>li.classList.toggle('cur',+li.dataset.i===i));
+    const curLi=document.querySelector('.part li.cur'); if(curLi&&!VIDEO) curLi.scrollIntoView({block:'nearest'});
+    try{localStorage.setItem('qt-tour-'+TOUR.id,String(i))}catch(e){}
+
+    if(playing) schedule();
+  }
+
+  function schedule(){
+    clearTimeout(timer); cancelAnimationFrame(raf);
+    stepDur=durOf(steps[cur])*1000; stepStart=performance.now();
+    const bar=prog.children[cur].firstChild;
+    const tick=()=>{ const p=Math.min(1,(performance.now()-stepStart)/stepDur); bar.style.width=(p*100)+'%'; if(p<1) raf=requestAnimationFrame(tick); };
+    raf=requestAnimationFrame(tick);
+    timer=setTimeout(()=>go(cur+1),stepDur);
+  }
+  function play(){ playing=true; $('#btnPlay').textContent='❚❚ 일시정지'; if(cur>=N-1&&!loop) cur=-1; if(cur<0) go(0); else schedule(); }
+  function pause(){ playing=false; clearTimeout(timer); cancelAnimationFrame(raf); $('#btnPlay').textContent='▶ 재생'; }
+  function markDone(){ window.__tourDone=true; document.body.dataset.done='1'; }
+
+  $('#btnPlay').onclick=()=>playing?pause():play();
+  stage.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; playing?pause():play(); });
+  stage.style.cursor='pointer';
+  $('#btnPrev').onclick=()=>{pause();go(cur-1)};
+  $('#btnNext').onclick=()=>{pause();go(Math.min(N-1,cur+1))};
+  $('#chkLoop').onchange=e=>loop=e.target.checked;
+  $('#btnFull').onclick=()=>{const b=$('#stagebox'); if(document.fullscreenElement) document.exitFullscreen(); else b.requestFullscreen&&b.requestFullscreen();};
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT') return;
+    if(e.key===' '){e.preventDefault();playing?pause():play();}
+    else if(e.key==='ArrowRight'){pause();go(Math.min(N-1,cur+1));}
+    else if(e.key==='ArrowLeft'){pause();go(cur-1);}
+    else if(e.key==='Home'){pause();go(0);}
+    else if(e.key.toLowerCase()==='f'){$('#btnFull').click();}
+  });
+  let rs; addEventListener('resize',()=>{clearTimeout(rs);rs=setTimeout(()=>{ if(cur>=0){ const s=steps[cur]; loadImg(s.img).then(im=>{ layers[active].style.transition='none'; camera(layers[active],im,s.rect,true); void layers[active].offsetWidth; layers[active].style.transition=''; }); } },120)});
+
+  /* 시작: 이미지 선로딩 후 첫 단계 */
+  Promise.all([...new Set(steps.map(s=>s.img))].map(loadImg)).then(()=>{
+    let start=0; if(!VIDEO){ try{ const v=+localStorage.getItem('qt-tour-'+TOUR.id); if(v>0&&v<N-1) start=v; }catch(e){} }
+    // 기본 동작: 열리면 처음부터 자동 재생 (?autoplay=0 이면 마지막 본 단계에서 정지 상태로 시작)
+    if(params.get('autoplay')==='0'){ go(start); }
+    else { cur=-1; setTimeout(play, VIDEO?600:300); }
+  });
+})();
+</script>
+
+</body>
+</html>

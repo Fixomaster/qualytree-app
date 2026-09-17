@@ -1,0 +1,922 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="품질매뉴얼·절차서를 AI 초안으로 채우고 검토·승인·발효·개정·폐기까지 결재선을 따라 관리하는 품질문서 화면 안내">
+<meta property="og:title" content="Qualytree 품질문서 작성과 승인 투어">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="robots" content="noindex, nofollow">
+<title>Qualytree 품질문서 작성과 승인 투어</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+KR:wght@600;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* =====================================================================
+   Qualytree Guided Tour — 템플릿
+   -------------------------------------------------------------
+   새 투어(입력 방법, 수정 방법 등)를 만들 때는 아래 두 가지만 바꾸면 됩니다.
+     1) img/ 폴더의 화면 캡처 (권장: 1280px 폭 · 2x 배율)
+     2) 하단 <script> 의 TOUR 객체 (parts / steps)
+   카메라·자막·데이터 흐름 패널·영상 출력 모드는 모두 공통 엔진이 처리합니다.
+   ===================================================================== */
+:root{
+  --ground:#f6f4ee; --paper:#ffffff; --ink:#1a1f1c; --ink-2:#4b544f; --ink-3:#7d8781;
+  --line:#e3e0d6; --forest:#0f3d2e; --forest-2:#17553f; --moss:#d9e6dd; --amber:#c98b2a; --amber-2:#f3e4c6;
+  --stage:#0b1a14; --stage-text:#f3f1ea; --stage-muted:#b5c2ba; --spot:rgba(4,12,9,.42);
+  --ok:#2c8a5b; --warn:#b3532e;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+    --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101512; --paper:#171d19; --ink:#eef0ea; --ink-2:#bcc5bf; --ink-3:#8b958f;
+  --line:#26302a; --forest:#8fd1b3; --forest-2:#6fbf9a; --moss:#1c2f26; --amber:#e0a94d; --amber-2:#3a2d16;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,monospace}
+
+/* ---------- 헤더 ---------- */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.brand{display:flex;align-items:baseline;gap:10px}
+.brand .name{font-family:Fraunces,"Noto Serif KR",Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.02em;color:var(--forest)}
+.brand .name span{color:var(--ink);font-family:"Noto Serif KR",serif;font-size:18px;font-weight:700;margin-left:4px}
+.eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.meta{font-size:12.5px;color:var(--ink-3);text-align:right}
+
+/* ---------- 스테이지 ---------- */
+.stagebox{position:relative;background:var(--stage);border-radius:14px;overflow:hidden;box-shadow:0 18px 50px rgba(6,20,14,.28)}
+.stage{position:relative;width:100%;aspect-ratio:16/9;max-width:100%;overflow:hidden}
+.layer{position:absolute;inset:0;transform-origin:0 0;will-change:transform,opacity;transition:transform .9s cubic-bezier(.66,0,.28,1),opacity .5s ease}
+.layer img{position:absolute;left:0;top:0;width:100%;height:auto;display:block;user-select:none;-webkit-user-drag:none}
+.layer .spot{position:absolute;border:2px solid var(--amber);border-radius:10px;box-shadow:0 0 0 9999px var(--spot),0 0 0 3px rgba(201,139,42,.35);transition:opacity .6s ease;pointer-events:none}
+.layer .spot::after{content:"";position:absolute;inset:-8px;border:1px solid rgba(201,139,42,.55);border-radius:14px;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25;transform:scale(1)}50%{opacity:.9;transform:scale(1.015)}}
+.layer.hidden-layer{opacity:0}
+.vignette{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(5,14,10,.86) 0%,rgba(5,14,10,.55) 22%,rgba(5,14,10,0) 46%)}
+
+/* 상단 진행 세그먼트 */
+.progress{position:absolute;left:16px;right:16px;top:12px;display:flex;gap:4px;z-index:5}
+.progress i{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.22);overflow:hidden;position:relative}
+.progress i b{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--amber);border-radius:2px}
+.progress i.done b{width:100%}
+.progress i.cur b{transition:width .2s linear}
+
+/* 파트 태그 */
+.parttag{position:absolute;left:16px;top:26px;z-index:5;display:flex;align-items:center;gap:8px;color:var(--stage-muted);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+.parttag .code{color:var(--stage-text);background:rgba(255,255,255,.12);padding:3px 8px;border-radius:5px;letter-spacing:.06em;font-size:11.5px}
+
+/* 자막 카드 */
+.caption{position:absolute;left:0;right:0;bottom:0;z-index:5;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;padding:0 22px 20px;align-items:end;color:var(--stage-text)}
+.cap-main{min-width:0}
+.cap-main .num{display:inline-flex;align-items:center;gap:8px;color:var(--amber);font-size:12px;letter-spacing:.14em;margin-bottom:6px}
+.cap-main .num::before{content:"";width:22px;height:1px;background:var(--amber)}
+.cap-main h2{margin:0 0 6px;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(18px,2.4vw,27px);line-height:1.3;letter-spacing:-.01em;text-wrap:balance}
+.cap-main p{margin:0;max-width:60ch;font-size:clamp(13px,1.35vw,15.5px);line-height:1.65;color:#e7ebe6}
+.cap-main .tip{margin-top:8px;display:inline-block;font-size:12.5px;color:var(--amber-2);background:rgba(201,139,42,.16);border:1px solid rgba(201,139,42,.35);padding:4px 9px;border-radius:6px}
+
+/* 데이터 흐름 패널 */
+.flow{background:rgba(9,22,16,.72);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;min-width:0}
+.flow .h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--stage-muted);margin-bottom:8px;display:flex;justify-content:space-between}
+.flow .row{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;font-size:12.5px;line-height:1.45;padding:5px 0;border-top:1px dashed rgba(255,255,255,.12)}
+.flow .row:first-of-type{border-top:0}
+.flow .k{color:var(--amber);font-weight:500;letter-spacing:.04em;font-size:11.5px;padding-top:1px}
+.flow .v{color:#e9ede8;min-width:0;overflow-wrap:anywhere}
+.flow .v code{font-family:"JetBrains Mono",monospace;font-size:11px;background:rgba(255,255,255,.1);padding:1px 5px;border-radius:4px;color:#dfe8e2}
+.flow.empty{display:none}
+
+/* 타이틀 카드(인트로/아웃트로) */
+.titlecard{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;justify-content:center;padding:6% 8%;color:var(--stage-text);background:linear-gradient(120deg,rgba(9,28,20,.94),rgba(9,28,20,.72) 60%,rgba(9,28,20,.5));opacity:0;pointer-events:none;transition:opacity .7s ease}
+.titlecard.show{opacity:1}
+.titlecard .kicker{color:var(--amber);letter-spacing:.16em;text-transform:uppercase;font-size:12px;margin-bottom:14px}
+.titlecard h1{margin:0;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(26px,4.4vw,52px);line-height:1.18;letter-spacing:-.01em;text-wrap:balance}
+.titlecard h1 .lat{font-family:Fraunces,serif;font-weight:600}
+.titlecard p{margin:16px 0 0;max-width:52ch;font-size:clamp(13px,1.5vw,17px);color:#dfe5e0}
+.titlecard .steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+.titlecard .steps span{border:1px solid rgba(255,255,255,.25);padding:6px 12px;border-radius:999px;font-size:13px;color:#e8ece9}
+.titlecard .steps span b{color:var(--amber);margin-right:6px;font-family:"JetBrains Mono",monospace;font-weight:500}
+
+/* ---------- 컨트롤 ---------- */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px 0}
+.btn{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 12px;font:inherit;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1}
+.btn:hover{border-color:var(--forest)}
+.btn:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.btn.primary{background:var(--forest);color:#fff;border-color:var(--forest);min-width:96px;justify-content:center}
+.btn.primary:hover{background:var(--forest-2)}
+.counter{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--forest)}
+
+/* ---------- 스텝 레일 ---------- */
+.rail{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+.rail .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.part{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 12px 8px;min-width:0}
+.part .ph{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.part .ph .pc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--amber);letter-spacing:.06em}
+.part .ph .pt{font-weight:700;font-size:14px}
+.part ol{list-style:none;margin:0;padding:0}
+.part li{display:flex;gap:8px;align-items:flex-start;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--ink-2);line-height:1.4}
+.part li:hover{background:var(--moss)}
+.part li.cur{background:var(--moss);color:var(--ink);font-weight:500}
+.part li.cur .n{background:var(--forest);color:#fff;border-color:var(--forest)}
+.part li .n{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1px solid var(--line);font-family:"JetBrains Mono",monospace;font-size:10.5px;display:flex;align-items:center;justify-content:center;color:var(--ink-3);margin-top:1px}
+
+/* ---------- 하단 안내 ---------- */
+.foot{margin-top:26px;display:grid;grid-template-columns:1.2fr 1fr;gap:20px;font-size:13px;color:var(--ink-2)}
+.foot h3{margin:0 0 6px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.foot p{margin:0 0 6px}
+.keys{display:flex;gap:8px;flex-wrap:wrap}
+.keys span{border:1px solid var(--line);background:var(--paper);border-radius:6px;padding:2px 8px;font-family:"JetBrains Mono",monospace;font-size:11.5px}
+
+/* ---------- 반응형 ---------- */
+@media (max-width:760px){
+  .caption{grid-template-columns:1fr;gap:10px;padding:0 14px 14px}
+  .flow{display:none}
+  .foot{grid-template-columns:1fr}
+  .cap-main p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+}
+/* ---------- 영상 출력 모드 (?video=1) ---------- */
+body.video .wrap{max-width:none;padding:0}
+body.video .top,body.video .controls,body.video .rail,body.video .foot{display:none}
+body.video .stagebox{border-radius:0;box-shadow:none}
+body.video .stage{aspect-ratio:auto;height:100vh}
+body.video .caption{padding:0 56px 44px;gap:36px;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+body.video .cap-main .num{font-size:17px;margin-bottom:10px}
+body.video .cap-main h2{font-size:42px;margin-bottom:10px}
+body.video .cap-main p{font-size:22px;line-height:1.6;max-width:44ch}
+body.video .cap-main .tip{font-size:18px;padding:7px 14px;margin-top:12px}
+body.video .flow{padding:18px 22px;border-radius:14px}
+body.video .flow .h{font-size:14px;margin-bottom:12px}
+body.video .flow .row{grid-template-columns:70px 1fr;font-size:18px;padding:8px 0}
+body.video .flow .k{font-size:15px}
+body.video .parttag{font-size:16px;top:36px;left:28px}
+body.video .parttag .code{font-size:15px}
+body.video .progress{top:16px;left:28px;right:28px}
+body.video .progress i{height:5px}
+body.video .titlecard .kicker{font-size:18px}
+body.video .titlecard h1{font-size:64px}
+body.video .titlecard p{font-size:24px;max-width:48ch}
+body.video .titlecard .steps span{font-size:18px;padding:9px 18px}
+body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(5,14,10,.6) 26%,rgba(5,14,10,0) 50%)}
+@media (prefers-reduced-motion:reduce){.layer{transition:opacity .4s ease}.layer .spot::after{animation:none}}
+:fullscreen .stagebox{border-radius:0;height:100%}
+:fullscreen .stage{aspect-ratio:auto;height:100%}
+</style>
+<style>
+.backlink{font-size:12.5px;color:var(--ink-3);text-decoration:none;display:inline-block;margin-bottom:6px}
+.backlink:hover{color:var(--forest)}
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      
+      <div class="eyebrow">Qualytree Platform · Guided Tour · DOC-001</div>
+      <div class="brand"><div class="name">Qualytree<span>품질문서</span></div></div>
+    </div>
+    <div class="meta">작성 → 검토 → 승인 → 발효 → 개정<br>화면 캡처 기준: qualytree-app main 24d3de4 · 2026-09-18</div>
+  </header>
+
+  <div class="stagebox" id="stagebox">
+    <div class="stage" id="stage">
+      <div class="layer" id="layerA"><img alt=""><div class="spot"></div></div>
+      <div class="layer hidden-layer" id="layerB"><img alt=""><div class="spot"></div></div>
+      <div class="vignette"></div>
+      <div class="progress" id="progress"></div>
+      <div class="parttag" id="parttag"><span class="code">P1</span><span>시작하기</span></div>
+      <div class="caption" id="caption">
+        <div class="cap-main">
+          <div class="num" id="capNum">STEP 1 / 16</div>
+          <h2 id="capTitle"></h2>
+          <p id="capBody"></p>
+          <div class="tip" id="capTip" hidden></div>
+        </div>
+        <div class="flow" id="flow">
+          <div class="h"><span>데이터 흐름</span><span id="flowCode" class="mono"></span></div>
+          <div id="flowRows"></div>
+        </div>
+      </div>
+      <div class="titlecard" id="titlecard">
+        <div class="kicker" id="tcKicker"></div>
+        <h1 id="tcTitle"></h1>
+        <p id="tcBody"></p>
+        <div class="steps" id="tcSteps"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnPrev" aria-label="이전 단계">← 이전</button>
+    <button class="btn primary" id="btnPlay">▶ 재생</button>
+    <button class="btn" id="btnNext" aria-label="다음 단계">다음 →</button>
+    <span class="counter" id="counter">01 / 16</span>
+    <span class="spacer"></span>
+    <label class="toggle"><input type="checkbox" id="chkLoop"> 반복 재생</label>
+    <button class="btn" id="btnFull">⛶ 전체화면</button>
+  </div>
+
+  <nav class="rail" aria-label="단계 목록"><div class="parts" id="parts"></div></nav>
+
+  <section class="foot">
+    <div>
+      <h3>이 투어에 대하여</h3>
+      <p>실제 화면을 캡처해 단계별로 확대·이동하며 설명합니다. 각 단계의 오른쪽 패널은 그 항목이 <b>어디에 저장되고 이후 어느 화면·문서로 연결되는지</b>를 보여줍니다.</p>
+      <p>화면의 회사·문서 내용은 설명용 데모 데이터입니다.</p>
+    </div>
+    <div>
+      <h3>조작 방법</h3>
+      <div class="keys">열리면 자동 재생됩니다. 화면 클릭 또는 <span>Space</span> 재생/일시정지 <span>←</span><span>→</span> 단계 이동 <span>F</span> 전체화면 <span>Home</span> 처음으로</div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* =====================================================================
+   TOUR 데이터 — 새 투어를 만들 때 이 객체만 교체합니다.
+   step 필드:
+     part   : parts[].code 와 일치
+     img    : 캡처 파일명 (img/ 폴더)
+     rect   : [x, y, w, h] — 이미지 크기 대비 0~1 비율. [0,0,1,1] = 전체 화면
+     title  : 자막 제목 / body : 설명 / tip : (선택) 강조 한 줄
+     flow   : (선택) { code, in, save, link } — 입력 → 저장 → 연결
+     dur    : (선택) 자동 재생 시 머무는 시간(초). 없으면 TOUR.pace(기본 3초)
+     card   : (선택) 타이틀 카드 { kicker, title, body, steps[] } — 이미지 위에 덮어 표시
+   ===================================================================== */
+const TOUR = {
+ "id": "DOC-001",
+ "title": "품질문서 작성과 승인",
+ "pace": 3,
+ "parts": [
+  {
+   "code": "P0",
+   "name": "소개"
+  },
+  {
+   "code": "P1",
+   "name": "품질문서 화면"
+  },
+  {
+   "code": "P2",
+   "name": "작성과 AI 초안"
+  },
+  {
+   "code": "P3",
+   "name": "검토·승인·발효"
+  },
+  {
+   "code": "P4",
+   "name": "개정과 양식"
+  },
+  {
+   "code": "P5",
+   "name": "정리"
+  }
+ ],
+ "steps": [
+  {
+   "part": "P0",
+   "img": "img/01_documents.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "품질문서 작성과 승인",
+   "body": "",
+   "card": {
+    "kicker": "Qualytree Platform · 사용 안내",
+    "title": "품질매뉴얼·절차서, <span class='lat'>Draft → Effective</span>까지 한 화면에서",
+    "body": "온보딩에서 고른 매뉴얼 목차와 절차서가 이 화면에 나타납니다. AI 초안으로 빈칸을 채우고, 검토 요청 → 승인 상신 → 대표 승인·발효의 결재선을 따라 문서가 확정되며, 발효 이후에는 개정(Rev↑)·배포·폐기 기록이 자동으로 남습니다. 각 단계에서 무엇이 어디에 저장되고 어느 화면과 연결되는지 함께 보여드립니다.",
+    "steps": [
+     "품질문서 화면 구성",
+     "AI 초안으로 작성하기",
+     "검토 요청 → 승인 상신 → 발효",
+     "개정 · 절차서 · 폐기 · 통합본",
+     "KGMP 카드 · 문서관리와의 연결"
+    ]
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_documents.jpg",
+   "rect": [
+    0.2062,
+    0.0884,
+    0.7812,
+    0.1017
+   ],
+   "title": "결재선 안내: 작성부터 개정까지",
+   "body": "화면 맨 위 파란 안내가 이 화면의 규칙입니다. 작성 → 검토 요청 → 검토 완료·승인 상신 → 대표 승인·발효(Rev.0) 순서로 진행되고, 발효되면 편집이 잠깁니다. 고치려면 개정(Rev.1↑)을 시작해야 합니다.",
+   "tip": "AI 초안에는 ISO 13485 / KGMP 조항 근거가 함께 붙지만, 최종 확정 전 최신 고시 원문과 대조하세요.",
+   "flow": {
+    "code": "/documents · status: draft → review → pending → effective",
+    "in": "—",
+    "save": "localStorage qualytree.documents (문서별 status·rev·history)",
+    "link": "발효(effective) 문서만 KGMP 대시보드 카드 진행률에 반영"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_documents.jpg",
+   "rect": [
+    0.2062,
+    0.2988,
+    0.4265,
+    0.0715
+   ],
+   "title": "네 개의 탭: 매뉴얼·절차서·폐기·용어",
+   "body": "품질매뉴얼(장별 목차), 절차서(선택한 SOP 목록), 폐기문서목록(폐기 사유와 처리자), 용어 사전(RA 용어 풀이) 네 탭입니다. 괄호 숫자는 각 탭의 문서 수이며, 온보딩에서 포함·제외한 항목이 그대로 반영됩니다.",
+   "flow": {
+    "code": "tab = manual | procedures | obsolete | glossary",
+    "in": "탭 클릭 (URL ?tab=… 딥링크 지원)",
+    "save": "—",
+    "link": "온보딩 manual.chapters / procedures → 이 화면 목록"
+   }
+  },
+  {
+   "part": "P1",
+   "img": "img/01_documents.jpg",
+   "rect": [
+    0.2344,
+    0.4214,
+    0.6984,
+    0.5134
+   ],
+   "title": "매뉴얼 목차 9장이 줄지어 있습니다",
+   "body": "0. 회사 소개·적용 범위부터 8. 측정·분석 및 개선까지 ISO 13485 §4~§8 구조를 따르는 장 목록입니다. 오른쪽 배지는 상태를 보여주며 처음에는 모두 ‘미작성’입니다. 각 줄을 누르면 편집 영역이 펼쳐집니다.",
+   "flow": {
+    "code": "items[] = M-m0 … M-m8",
+    "in": "—",
+    "save": "qualytree.onboarding.manual.chapters (included=true만 표시)",
+    "link": "장 번호 c=0·1·2·4 발효 여부 → QMS 카드 qmsManual·qualityPolicy·orgChart 판정"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/01_documents.jpg",
+   "rect": [
+    0.7874,
+    0.361,
+    0.2001,
+    0.066
+   ],
+   "title": "「비어있는 항목 AI 초안 일괄 생성」",
+   "body": "보라색 버튼을 누르면 내용이 없는 장 전부에 기본 초안이 한 번에 채워집니다. 회사명·대표·품질책임자·제품·부서·보유 인증 등 온보딩 값이 본문에 자동 삽입되고, 장마다 ISO 13485 / KGMP 근거 조항이 머리말로 붙습니다.",
+   "tip": "이 화면의 초안은 서버 호출 없이 즉시 생성되므로 인터넷이 끊겨도 동작합니다. 이미 내용이 있는 항목은 건드리지 않습니다.",
+   "flow": {
+    "code": "genAllEmpty() → genManual(c) / genProc(name)",
+    "in": "확인 대화상자 ‘예’",
+    "save": "qualytree.documents[M-id].content · author · updatedAt",
+    "link": "본문에 회사 컨텍스트(getCtx: 회사명·대표·품질책임자·제품·부서·인증) 자동 반영"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/02_ai_all.jpg",
+   "rect": [
+    0.2344,
+    0.4214,
+    0.6958,
+    0.5134
+   ],
+   "title": "모든 장이 ‘작성 중’으로 바뀝니다",
+   "body": "초안이 채워지면 배지가 ‘미작성’에서 ‘작성 중’으로 바뀝니다. 왼쪽 위 ‘발효 완료 0 / 9’는 결재가 끝난 장 수입니다. 이제 한 장씩 열어 회사 실정에 맞게 고치면 됩니다.",
+   "flow": {
+    "code": "badge(): 미작성 → 작성 중",
+    "in": "—",
+    "save": "status = draft (rev 0)",
+    "link": "통합본 ‘작성됨 n / 전체’ 카운트 증가"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/03_editor.jpg",
+   "rect": [
+    0.7294,
+    0.2835,
+    0.2394,
+    0.0242
+   ],
+   "title": "결재선 카드: 작성 › 검토 › 승인",
+   "body": "‘1. 품질방침 및 품질목표’를 열면 맨 위에 작성 › 검토 › 승인(발효) 세 칸이 나타납니다. 현재 단계는 노란색, 끝난 단계는 초록색으로 표시되고 담당자와 날짜가 채워집니다. 지금은 작성 단계이므로 작성 칸에 내 이름이 들어가 있습니다.",
+   "flow": {
+    "code": "ApprovalLine{author, reviewedBy/At, approvedBy/At}",
+    "in": "—",
+    "save": "qualytree.documents.MANUAL (매뉴얼 결재 상태는 한 권 단위)",
+    "link": "정식 양식 .doc 결재란(작성·검토·승인)에 그대로 인쇄"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/03_editor.jpg",
+   "rect": [
+    0.764,
+    0.3133,
+    0.2133,
+    0.0323
+   ],
+   "title": "기존 문서 업로드 · AI 초안 생성",
+   "body": "이미 쓰던 매뉴얼이 있으면 ‘기존 문서 업로드’(.docx/.txt/.md)로 본문을 가져올 수 있습니다. ‘AI 초안 생성’은 이 장만 다시 초안으로 채웁니다. 둘 다 내용이 있으면 덮어쓸지 먼저 묻습니다.",
+   "tip": "구버전 .doc·.hwp·스캔 PDF는 지원하지 않으니 .docx로 저장한 뒤 올려 주세요.",
+   "flow": {
+    "code": "onUpload(mammoth.extractRawText) · genOne()",
+    "in": "파일 선택 / 버튼 클릭",
+    "save": "content 덮어쓰기 (확인 후)",
+    "link": "업로드 본문도 영문 생성·.doc 내보내기·통합본에 동일하게 포함"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/03_editor.jpg",
+   "rect": [
+    0.2164,
+    0.3357,
+    0.7609,
+    0.2026
+   ],
+   "title": "본문 편집 — 근거 조항이 머리말에",
+   "body": "본문 첫 줄에 [1. 품질방침 및 품질목표]와 근거 ISO 13485:2016 §5.3·§5.4.1 / KGMP 별표2 조항이 적혀 있고, 그 아래 회사명이 들어간 방침 문안과 측정 가능한 품질목표 예시가 있습니다. [목표]% 같은 자리표시를 회사 수치로 바꾸면 타이핑할 때마다 자동 저장됩니다.",
+   "flow": {
+    "code": "setContent(id, text)",
+    "in": "본문 직접 편집",
+    "save": "qualytree.documents[M-m1].content · updatedAt (자동 저장)",
+    "link": "통합본·정식 양식 .doc·KGMP 카드에 최신 본문 반영"
+   }
+  },
+  {
+   "part": "P2",
+   "img": "img/03_editor.jpg",
+   "rect": [
+    0.2172,
+    0.5438,
+    0.7594,
+    0.196
+   ],
+   "title": "English (국제 인증용) 영문본",
+   "body": "아래 영역은 같은 문서의 영문본입니다. ‘영문 생성’을 누르면 한글 본문이 용어 사전(품질매뉴얼=Quality Manual, CAPA 등)을 기준으로 번역돼 채워지고, 직접 고칠 수도 있습니다. 한글을 다시 고치면 ‘원문 변경됨·갱신 필요’ 표시가 뜹니다.",
+   "tip": "영문 번역은 운영 서버의 번역 기능을 사용합니다. 서버 키가 설정되지 않은 환경에서는 실패 안내가 뜹니다.",
+   "flow": {
+    "code": "doTranslate() → translateToEn(content, glossary)",
+    "in": "‘영문 생성’ 클릭 또는 직접 입력",
+    "save": "contentEn · enEdited · enSrcAt (원문 시점 기록)",
+    "link": "‘미리보기’·‘양식 .doc’ 시 한글 다음 페이지에 영문판 자동 첨부"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/03_editor.jpg",
+   "rect": [
+    0.8885,
+    0.7349,
+    0.0888,
+    0.0335
+   ],
+   "title": "「검토 요청 →」으로 결재 시작",
+   "body": "본문이 준비되면 오른쪽 아래 노란 버튼 ‘검토 요청 →’을 누릅니다. 내용이 비어 있으면 버튼이 비활성화되어 빈 문서를 결재에 올릴 수 없습니다. 누르는 순간 상태가 ‘검토 중’이 되고 이력이 남습니다.",
+   "flow": {
+    "code": "submitReview(id)",
+    "in": "클릭",
+    "save": "status = review · history += {rev 0, 검토 요청, by, at}",
+    "link": "배지 ‘검토 중’ · 검토자 버튼(반려 / 검토 완료) 표시"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/05_review.jpg",
+   "rect": [
+    0.7938,
+    0.7021,
+    0.1836,
+    0.0343
+   ],
+   "title": "검토 단계: 반려 또는 승인 상신",
+   "body": "검토자는 본문을 읽고 ‘반려’ 또는 ‘검토 완료 · 승인 상신 →’을 고릅니다. 반려하면 작성 단계로 돌아가 다시 편집할 수 있고, 승인 상신하면 검토자 이름과 날짜가 결재선 검토 칸에 기록됩니다.",
+   "tip": "검토 중에는 본문이 읽기 전용입니다. 고쳐야 하면 반려로 되돌린 뒤 편집하세요.",
+   "flow": {
+    "code": "reject(id) / reviewDone(id)",
+    "in": "클릭",
+    "save": "reviewedBy · reviewedAt · status = draft | pending",
+    "link": "결재선 검토 칸 완료 표시 · 결재 이력 한 줄 추가"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/06_pending.jpg",
+   "rect": [
+    0.8264,
+    0.6967,
+    0.151,
+    0.0336
+   ],
+   "title": "「대표 승인 · 발효」",
+   "body": "승인 대기 상태에서는 초록 버튼 ‘대표 승인 · 발효’가 나타납니다. 대표(또는 위임받은 품질책임자)가 누르면 Rev.0으로 발효되고 승인자·발효일이 기록됩니다. 여기서도 ‘반려’로 되돌릴 수 있습니다.",
+   "flow": {
+    "code": "approve(id)",
+    "in": "클릭",
+    "save": "status = effective · approvedBy · approvedAt · history += 승인·발효",
+    "link": "발효 여부가 KGMP 카드 진행률(gmpProgress bridgeFromApp)로 전달"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/07_effective.jpg",
+   "rect": [
+    0.207,
+    0.2095,
+    0.7797,
+    0.0598
+   ],
+   "title": "발효 Rev.0 — 매뉴얼은 한 권 단위",
+   "body": "발효되면 배지가 초록색 ‘발효 Rev.0’으로 바뀌고 ‘발효 완료 9 / 9’가 됩니다. 품질매뉴얼은 장마다 본문을 쓰지만 결재는 한 권으로 처리되므로, 한 번의 승인으로 9개 장이 함께 발효됩니다. 절차서는 문서마다 따로 결재합니다.",
+   "flow": {
+    "code": "statusId(manual) = 'MANUAL'",
+    "in": "—",
+    "save": "qualytree.documents.MANUAL.status = effective",
+    "link": "장 0·4 발효 → QMS 카드 ‘품질매뉴얼(자동 채움)’ 생성 가능 전환"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/07_effective.jpg",
+   "rect": [
+    0.737,
+    0.6972,
+    0.2403,
+    0.0324
+   ],
+   "title": "발효 후 할 수 있는 일 세 가지",
+   "body": "발효본은 편집이 잠기고 ‘발효본 Rev.0 · 발효일 · 승인자’ 띠가 표시됩니다. 대신 배포 등록, 폐기, 개정 시작(Rev.1) 세 버튼이 열립니다. 아래 ‘결재 이력’에는 검토 요청부터 승인·발효까지 누가 언제 했는지 최신순으로 쌓입니다.",
+   "flow": {
+    "code": "distribute() · obsolete() · revise()",
+    "in": "—",
+    "save": "history[] (rev · action · by · at) 영구 누적",
+    "link": "ISO 13485 §4.2.4 문서관리 요구(승인·배포·개정·폐기 이력)의 증빙"
+   }
+  },
+  {
+   "part": "P3",
+   "img": "img/08_distribute.jpg",
+   "rect": [
+    0.2164,
+    0.7568,
+    0.7609,
+    0.0342
+   ],
+   "title": "배포 등록 → 문서배포기록",
+   "body": "‘배포 등록’을 누르고 배포 대상(부서·성명)을 입력하면 ‘문서배포기록’ 목록에 Rev.0 → 제조부 · 김작업 처럼 한 줄이 추가됩니다. 어느 개정판을 누구에게 나눠줬는지 남기는 기록이므로 개정 후에는 다시 배포 등록을 합니다.",
+   "flow": {
+    "code": "distribute(id) → distribution[]",
+    "in": "배포 대상 입력(부서·성명)",
+    "save": "distribution += {recipient, rev, by, at}",
+    "link": "심사 시 배포 현황 증빙 · 개정 시 재배포 대상 확인"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/09_revise.jpg",
+   "rect": [
+    0.2164,
+    0.6941,
+    0.7609,
+    0.0655
+   ],
+   "title": "개정 시작 → Rev.1 작성 중",
+   "body": "‘개정 시작 (Rev.1)’을 누르면 개정번호가 1 올라가고 상태가 다시 ‘작성 중’이 되어 본문을 고칠 수 있습니다. 검토자·승인자 칸은 비워지지만 Rev.0의 결재 이력은 그대로 남아 ‘Rev.1 · 개정 시작’ 줄이 위에 쌓입니다.",
+   "tip": "개정본도 같은 결재선(검토 요청 → 승인 상신 → 대표 승인)을 다시 거쳐야 발효됩니다.",
+   "flow": {
+    "code": "revise(id): rev+1",
+    "in": "클릭",
+    "save": "rev = 1 · status = draft · reviewedBy/approvedBy 초기화 · history += 개정 시작",
+    "link": "정식 양식 문서번호 옆 ‘개정번호 Rev.01’ · 통합본 표지 개정란"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/10_procedures.jpg",
+   "rect": [
+    0.207,
+    0.4017,
+    0.7797,
+    0.5832
+   ],
+   "title": "절차서 탭 — 문서마다 따로 결재",
+   "body": "절차서 탭에는 온보딩에서 ‘적용’으로 고른 절차서만 나열됩니다(예시 10종). 매뉴얼과 달리 절차서는 한 문서씩 작성·검토·승인·개정하며, 문서번호도 QP-01, QP-02… 순서로 자동 부여됩니다.",
+   "flow": {
+    "code": "items[] = P-p0 … · docNumber() = QP-nn",
+    "in": "탭 클릭",
+    "save": "qualytree.documents[P-id] (문서별 status·rev)",
+    "link": "절차서 이름 키워드 → KGMP 카드 항목 매핑 (예: 문서관리 → document_control)"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/11_proc_ai.jpg",
+   "rect": [
+    0.2164,
+    0.2956,
+    0.7609,
+    0.1965
+   ],
+   "title": "절차서 AI 초안: 조항이 자동 매핑",
+   "body": "‘문서관리 절차서’를 열고 ‘AI 초안 생성’을 누르면 이름의 키워드로 근거 조항(문서 → ISO 13485 §4.2.4)을 찾아 머리말에 적고, 목적·적용 범위·용어·책임과 권한·업무 절차·관련 기록·개정 이력 7개 항목의 뼈대를 채웁니다. 5. 업무 절차의 [단계] 칸을 회사 흐름대로 채우면 됩니다.",
+   "flow": {
+    "code": "genProc(name) · PCLAUSE 키워드→조항",
+    "in": "‘AI 초안 생성’ 클릭",
+    "save": "content (7개 표준 항목) · author",
+    "link": "동일 결재선으로 검토·승인 · 발효 시 KGMP 카드 document_control 등 자동 충족"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/12_proc_effective.jpg",
+   "rect": [
+    0.8166,
+    0.6776,
+    0.0578,
+    0.0315
+   ],
+   "title": "폐기 — 사유 없이는 폐기되지 않습니다",
+   "body": "발효된 절차서에서 ‘폐기’를 누르면 폐기 사유를 반드시 입력해야 합니다(ISO 13485 §4.2.4 — 의도치 않은 사용 방지). 사유가 비어 있으면 진행되지 않고, 입력하면 상태가 ‘폐기됨 Rev.n’으로 바뀌어 목록에서 편집·결재 버튼이 사라집니다.",
+   "flow": {
+    "code": "obsolete(id)",
+    "in": "폐기 사유 입력(필수)",
+    "save": "status = obsolete · obsoletedBy · obsoletedAt · obsoleteReason · history += 폐기",
+    "link": "폐기문서목록 탭으로 이동 · 통합본 상태란 ‘폐기’"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/13_obsolete.jpg",
+   "rect": [
+    0.2164,
+    0.3763,
+    0.0931,
+    0.0506
+   ],
+   "title": "폐기문서목록 탭",
+   "body": "폐기한 문서는 삭제되지 않고 폐기문서목록 탭에 폐기일·처리자·사유와 함께 남습니다. 예시는 기록관리 절차서를 문서관리 절차서 Rev.1로 통합하며 폐기한 경우입니다. 심사에서 ‘구판 회수 근거’로 바로 제시할 수 있습니다.",
+   "flow": {
+    "code": "obsoleteItems[] (status === 'obsolete')",
+    "in": "—",
+    "save": "원본 content·history 보존",
+    "link": "정식 양식 .doc 결재란·개정번호는 폐기 시점 값으로 유지"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/16_combined.jpg",
+   "rect": [
+    0.0,
+    0.068,
+    1.0,
+    0.209
+   ],
+   "title": "통합 문서 미리보기 — 표지와 문서 목록",
+   "body": "화면 위 ‘통합 문서 미리보기’를 누르면 품질매뉴얼과 절차서 전체가 한 문서로 열립니다. 표지에는 회사명·생성일·총 문서 수와 함께 문서명·문서번호(QM-0…, QP-01…)·개정·상태·발효일 표가 실립니다. ‘통합 문서 다운로드 (.doc)’는 같은 내용을 Word 파일로 내려받습니다.",
+   "flow": {
+    "code": "previewCombined() / downloadCombined()",
+    "in": "클릭 (본문이 있는 문서만 포함)",
+    "save": "파일 ‘회사명_품질문서_통합본_YYYYMMDD.doc’ (브라우저 다운로드)",
+    "link": "NB·식약처 제출용 패키지 · 개별 ‘정식 양식 .doc 일괄’과 동일 양식"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/16_combined.jpg",
+   "rect": [
+    0.0,
+    0.3062,
+    1.0,
+    0.1152
+   ],
+   "title": "정식 관리문서 양식: 문서번호·개정·결재란",
+   "body": "각 문서는 KGMP 관리문서 양식으로 출력됩니다. 머리표에 회사명·문서 제목·문서번호·개정번호(Rev.01)·제·개정일이, 그 아래 결재란에 작성·검토·승인 담당자와 일자가 이 화면의 결재 기록 그대로 들어갑니다. 영문본이 있으면 다음 페이지에 English판이 이어집니다.",
+   "flow": {
+    "code": "controlledSection(title, docNo, ctx, r)",
+    "in": "—",
+    "save": "—",
+    "link": "결재선(author·reviewedBy·approvedBy) → 결재란 · 조직도 장에는 저장된 조직도 이미지 자동 삽입"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/14_qms_section.jpg",
+   "rect": [
+    0.1539,
+    0.7484,
+    0.6172,
+    0.2143
+   ],
+   "title": "KGMP 카드의 문서 라이브러리와 연결",
+   "body": "홈의 GMP 대시보드 → 01 QMS 카드 아래 ‘자동 생성 문서 라이브러리’에는 문서마다 생성 방식 배지가 붙습니다. 자동 채움(SSoT 데이터), AI 초안(인간 검토·승인 필수), 가이드 작성(객관식), 양식 발행(빈 양식) 네 가지이며, 품질매뉴얼이 발효되면 ‘품질매뉴얼(자동 채움)’이 생성 가능으로 바뀝니다.",
+   "flow": {
+    "code": "documentLibrary.js · mode: autofill | ai_draft | guided | template",
+    "in": "—",
+    "save": "—",
+    "link": "gmpProgress bridgeFromApp: 발효 문서 이름 → 카드 항목(qmsManual·qualityPolicy·document_control…) 자동 충족"
+   }
+  },
+  {
+   "part": "P4",
+   "img": "img/15_doc_control.jpg",
+   "rect": [
+    0.2211,
+    0.3266,
+    0.1728,
+    0.0453
+   ],
+   "title": "문서관리 화면과의 역할 분담",
+   "body": "문서·규정 › 문서관리 화면은 인증서·외부문서 등 그 밖의 문서를 대장으로 등록·이력 관리하는 곳입니다. 절차서·매뉴얼 같은 정식 QMS 문서는 이 안내처럼 ‘품질문서(AI 자동생성)로 이동’ 버튼으로 지금 본 화면에서 다룹니다.",
+   "flow": {
+    "code": "qualytree.doc_register (문서 대장) ↔ qualytree.documents (품질문서)",
+    "in": "—",
+    "save": "저장소가 분리되어 있음",
+    "link": "KGMP 진행률은 두 저장소를 모두 읽어 집계"
+   }
+  },
+  {
+   "part": "P5",
+   "img": "img/07_effective.jpg",
+   "rect": [
+    0,
+    0,
+    1,
+    1
+   ],
+   "dur": 5,
+   "title": "정리",
+   "body": "",
+   "card": {
+    "kicker": "Qualytree Platform · 사용 안내",
+    "title": "문서는 결재선을 따라 <span class='lat'>Rev.0 → Rev.n</span>으로 자랍니다",
+    "body": "빈 목차는 AI 초안으로 채우고, 검토 요청 → 승인 상신 → 대표 승인으로 발효합니다. 발효본은 잠기고 배포·개정·폐기만 가능하며 모든 결재 이력이 문서에 남습니다. 발효 문서는 KGMP 카드 진행률과 정식 양식 .doc·통합본에 자동 반영됩니다. 용어가 낯설면 ‘용어 사전’ 탭을 먼저 읽어 보세요.",
+    "steps": [
+     "온보딩 목차 → 품질문서 목록",
+     "AI 초안 일괄 생성 · 본문 편집 · 영문본",
+     "검토 요청 → 승인 상신 → 대표 승인·발효(Rev.0)",
+     "배포 등록 · 개정 시작(Rev.1) · 폐기(사유 필수)",
+     "통합본 .doc · KGMP 카드 문서 라이브러리 연동"
+    ]
+   }
+  }
+ ]
+};
+/* ===================================================================== 엔진 */
+(function(){
+  const $ = s => document.querySelector(s);
+  const stage=$('#stage'), layers=[$('#layerA'),$('#layerB')];
+  const params=new URLSearchParams(location.search);
+  const VIDEO = params.get('video')==='1';
+  if(VIDEO) document.body.classList.add('video');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const steps=TOUR.steps, N=steps.length;
+  let cur=-1, active=0, playing=false, timer=null, raf=null, stepStart=0, stepDur=0, loop=false;
+  const imgCache={};
+
+  /* ---- 진행 바 / 레일 구성 ---- */
+  const prog=$('#progress');
+  steps.forEach(()=>{const i=document.createElement('i');i.innerHTML='<b></b>';prog.appendChild(i)});
+  const partsEl=$('#parts');
+  TOUR.parts.forEach(p=>{
+    const box=document.createElement('div');box.className='part';
+    const list=steps.map((s,i)=>({s,i})).filter(x=>x.s.part===p.code);
+    box.innerHTML=`<div class="ph"><span class="pc">${p.code}</span><span class="pt">${p.name}</span></div><ol>${list.map(x=>`<li data-i="${x.i}"><span class="n">${String(x.i+1).padStart(2,'0')}</span><span>${x.s.title}</span></li>`).join('')}</ol>`;
+    partsEl.appendChild(box);
+  });
+  partsEl.addEventListener('click',e=>{const li=e.target.closest('li[data-i]');if(li){pause();go(+li.dataset.i)}});
+
+  function loadImg(src){
+    return new Promise(res=>{
+      if(imgCache[src]) return res(imgCache[src]);
+      const im=new Image(); im.onload=()=>{imgCache[src]=im;res(im)}; im.onerror=()=>res(null); im.src=src;
+    });
+  }
+
+  /* ---- 카메라 계산: rect(비율) → transform ---- */
+  function camera(layer, im, rect, settle){
+    const W=stage.clientWidth, H=stage.clientHeight;
+    const iw=im?im.naturalWidth:1600, ih=im?im.naturalHeight:900;
+    const dispH = W*ih/iw;               // 이미지가 스테이지 폭에 맞을 때의 높이
+    const [rx,ry,rw,rh]=rect;
+    const full = rw>=0.99 && rh>=0.99;
+    const pad = full?1.0:1.22;
+    // 자막이 하단 ~34%를 차지하므로, 확대 영역은 위쪽 66% 안에 들어오게 계산
+    const usableH = full?H:(VIDEO?H*0.58:H*0.64);
+    let s = Math.min(W/(rw*W*pad), usableH/(rh*dispH*pad));
+    if(full) s=Math.max(W/W, H/dispH);   // 전체 화면은 cover
+    const maxS = (iw/W)*1.05;            // 원본 해상도 초과 확대 방지
+    s=Math.min(s,maxS);
+    const cx=(rx+rw/2)*W, cy=(ry+rh/2)*dispH;
+    let tx=W/2-s*cx, ty=(full?H/2:usableH/2)-s*cy;
+    // 이미지 밖 여백이 보이지 않게 클램프
+    const sw=W*s, sh=dispH*s;
+    if(full){ if(sw>=W) tx=Math.min(0,Math.max(W-sw,tx)); else tx=(W-sw)/2;
+              if(sh>=H) ty=Math.min(0,Math.max(H-sh,ty)); else ty=(H-sh)/2; }
+    layer.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;
+    const spot=layer.querySelector('.spot');
+    if(full){ spot.style.opacity=0; }
+    else{
+      spot.style.opacity=1;
+      spot.style.left=(rx*W-8)+'px'; spot.style.top=(ry*dispH-8)+'px';
+      spot.style.width=(rw*W+16)+'px'; spot.style.height=(rh*dispH+16)+'px';
+      spot.style.borderWidth=(2/s)+'px'; spot.style.borderRadius=(10/s)+'px';
+    }
+  }
+
+  function durOf(s){ if(s.dur) return s.dur; return TOUR.pace||3; }   // 데모용: 단계당 기본 3초 (TOUR.pace 로 조정, 단계별 dur 우선)
+
+  async function go(i, opts={}){
+    if(i<0) i=0; if(i>=N){ if(loop||VIDEO&&params.get('loop')==='1'){i=0} else { pause(); markDone(); return; } }
+    const s=steps[i]; const prev=cur; cur=i;
+    const im=await loadImg(s.img);
+    const sameImg = prev>=0 && steps[prev].img===s.img;
+    let layer=layers[active];
+    if(!sameImg){
+      active=1-active; layer=layers[active];
+      layer.querySelector('img').src=s.img;
+      layer.style.transition='none';
+      // 새 레이어는 살짝 넓은 화각에서 시작해 당겨집니다
+      const r=s.rect; const wide=[r[0]-r[2]*0.15, r[1]-r[3]*0.15, r[2]*1.3, r[3]*1.3];
+      camera(layer, im, r[2]>=.99?r:wide, false);
+      void layer.offsetWidth; layer.style.transition='';
+      layers[1-active].classList.add('hidden-layer'); layer.classList.remove('hidden-layer');
+    }
+    requestAnimationFrame(()=>camera(layer, im, s.rect, true));
+
+    /* 자막 */
+    const part=TOUR.parts.find(p=>p.code===s.part)||{};
+    $('#parttag').innerHTML=`<span class="code">${s.part}</span><span>${part.name||''}</span>`;
+    $('#capNum').textContent=`STEP ${String(i+1).padStart(2,'0')} / ${N}`;
+    $('#capTitle').innerHTML=s.title; $('#capBody').innerHTML=s.body;
+    const tip=$('#capTip'); tip.hidden=!s.tip; tip.textContent=s.tip||'';
+    const flow=$('#flow');
+    if(s.flow){ flow.classList.remove('empty'); $('#flowCode').textContent=s.flow.code||'';
+      $('#flowRows').innerHTML=[['입력',s.flow.in],['저장',s.flow.save],['연결',s.flow.link]].map(([k,v])=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+    } else flow.classList.add('empty');
+    const tc=$('#titlecard');
+    if(s.card){ $('#tcKicker').textContent=s.card.kicker||''; $('#tcTitle').innerHTML=s.card.title||''; $('#tcBody').innerHTML=s.card.body||'';
+      $('#tcSteps').innerHTML=(s.card.steps||[]).map((t,k)=>`<span><b>${String(k+1).padStart(2,'0')}</b>${t}</span>`).join(''); tc.classList.add('show'); $('#caption').style.opacity=0; }
+    else { tc.classList.remove('show'); $('#caption').style.opacity=1; }
+
+    /* 진행 표시 */
+    [...prog.children].forEach((el,k)=>{el.className=k<i?'done':(k===i?'cur':'');el.firstChild.style.width=k<i?'100%':'0'});
+    $('#counter').textContent=`${String(i+1).padStart(2,'0')} / ${N}`;
+    document.querySelectorAll('.part li').forEach(li=>li.classList.toggle('cur',+li.dataset.i===i));
+    const curLi=document.querySelector('.part li.cur'); if(curLi&&!VIDEO) curLi.scrollIntoView({block:'nearest'});
+    try{localStorage.setItem('qt-tour-'+TOUR.id,String(i))}catch(e){}
+
+    if(playing) schedule();
+  }
+
+  function schedule(){
+    clearTimeout(timer); cancelAnimationFrame(raf);
+    stepDur=durOf(steps[cur])*1000; stepStart=performance.now();
+    const bar=prog.children[cur].firstChild;
+    const tick=()=>{ const p=Math.min(1,(performance.now()-stepStart)/stepDur); bar.style.width=(p*100)+'%'; if(p<1) raf=requestAnimationFrame(tick); };
+    raf=requestAnimationFrame(tick);
+    timer=setTimeout(()=>go(cur+1),stepDur);
+  }
+  function play(){ playing=true; $('#btnPlay').textContent='❚❚ 일시정지'; if(cur>=N-1&&!loop) cur=-1; if(cur<0) go(0); else schedule(); }
+  function pause(){ playing=false; clearTimeout(timer); cancelAnimationFrame(raf); $('#btnPlay').textContent='▶ 재생'; }
+  function markDone(){ window.__tourDone=true; document.body.dataset.done='1'; }
+
+  $('#btnPlay').onclick=()=>playing?pause():play();
+  stage.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; playing?pause():play(); });
+  stage.style.cursor='pointer';
+  $('#btnPrev').onclick=()=>{pause();go(cur-1)};
+  $('#btnNext').onclick=()=>{pause();go(Math.min(N-1,cur+1))};
+  $('#chkLoop').onchange=e=>loop=e.target.checked;
+  $('#btnFull').onclick=()=>{const b=$('#stagebox'); if(document.fullscreenElement) document.exitFullscreen(); else b.requestFullscreen&&b.requestFullscreen();};
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT') return;
+    if(e.key===' '){e.preventDefault();playing?pause():play();}
+    else if(e.key==='ArrowRight'){pause();go(Math.min(N-1,cur+1));}
+    else if(e.key==='ArrowLeft'){pause();go(cur-1);}
+    else if(e.key==='Home'){pause();go(0);}
+    else if(e.key.toLowerCase()==='f'){$('#btnFull').click();}
+  });
+  let rs; addEventListener('resize',()=>{clearTimeout(rs);rs=setTimeout(()=>{ if(cur>=0){ const s=steps[cur]; loadImg(s.img).then(im=>{ layers[active].style.transition='none'; camera(layers[active],im,s.rect,true); void layers[active].offsetWidth; layers[active].style.transition=''; }); } },120)});
+
+  /* 시작: 이미지 선로딩 후 첫 단계 */
+  Promise.all([...new Set(steps.map(s=>s.img))].map(loadImg)).then(()=>{
+    let start=0; if(!VIDEO){ try{ const v=+localStorage.getItem('qt-tour-'+TOUR.id); if(v>0&&v<N-1) start=v; }catch(e){} }
+    // 기본 동작: 열리면 처음부터 자동 재생 (?autoplay=0 이면 마지막 본 단계에서 정지 상태로 시작)
+    if(params.get('autoplay')==='0'){ go(start); }
+    else { cur=-1; setTimeout(play, VIDEO?600:300); }
+  });
+})();
+</script>
+
+</body>
+</html>

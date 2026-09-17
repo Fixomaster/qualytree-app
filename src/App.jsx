@@ -117,6 +117,8 @@ try { Iso13485Hub = React.lazy(() => import(/* @vite-ignore */ './pages/iso13485
 try { CompanyHub = React.lazy(() => import(/* @vite-ignore */ './pages/company/CompanyHub')) } catch {}
 try { LogisticsHub = React.lazy(() => import(/* @vite-ignore */ './pages/logistics/LogisticsHub')) } catch {}
 try { NoticeHub = React.lazy(() => import(/* @vite-ignore */ './pages/notices/NoticeHub')) } catch {}
+let GuideHub
+try { GuideHub = React.lazy(() => import(/* @vite-ignore */ './pages/guides/GuideHub')) } catch {}
 try { ResourcePlanHub = React.lazy(() => import(/* @vite-ignore */ './pages/resource-plan/ResourcePlanHub')) } catch {}
 try { QmsOverviewHub = React.lazy(() => import(/* @vite-ignore */ './pages/qms-overview/QmsOverviewHub')) } catch {}
 try { RecordMasterHub = React.lazy(() => import(/* @vite-ignore */ './pages/record-master/RecordMasterHub')) } catch {}
@@ -261,6 +263,8 @@ return (
 <Route path="/company" element={<ProtectedRoute><LazyRoute Component={CompanyHub} /></ProtectedRoute>} />
 <Route path="/logistics" element={<ProtectedRoute><LazyRoute Component={LogisticsHub} /></ProtectedRoute>} />
 <Route path="/notices" element={<ProtectedRoute><LazyRoute Component={NoticeHub} /></ProtectedRoute>} />
+<Route path="/guides" element={<ProtectedRoute><LazyRoute Component={GuideHub} /></ProtectedRoute>} />
+<Route path="/guides/:slug" element={<ProtectedRoute><LazyRoute Component={GuideHub} /></ProtectedRoute>} />
 <Route path="/product-id" element={<ProtectedRoute><LazyRoute Component={ProductIdHub} /></ProtectedRoute>} />
 <Route path="/resource-plan" element={<ProtectedRoute><LazyRoute Component={ResourcePlanHub} /></ProtectedRoute>} />
 <Route path="/qms-overview" element={<ProtectedRoute><LazyRoute Component={QmsOverviewHub} /></ProtectedRoute>} />

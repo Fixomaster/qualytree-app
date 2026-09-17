@@ -25,8 +25,7 @@ Printer,
   Users,
   Sparkles,
   Shield,
-  CreditCard,
-} from 'lucide-react'
+  CreditCard, PlayCircle } from 'lucide-react'
 import Logo from './Logo'
 import { auth } from '../lib/auth'
 import { menuPermissions } from '../lib/menuPermissions'
@@ -290,6 +289,19 @@ fontWeight: isActive ? 600 : 400,
 >
 <Megaphone size={17} strokeWidth={1.7} />
 <span>공지사항</span>
+</NavLink>
+
+<NavLink
+to="/guides"
+className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13.5px] mb-1 transition"
+style={({ isActive }) => ({
+color: isActive ? 'var(--moss)' : 'var(--ink-soft)',
+background: isActive ? 'var(--leaf-soft)' : 'transparent',
+fontWeight: isActive ? 600 : 400,
+})}
+>
+<PlayCircle size={17} strokeWidth={1.7} />
+<span>사용 안내</span>
 </NavLink>
 
 {isAdmin && (
