@@ -34,6 +34,12 @@
 
   --sky: #2D6E94;
   --sky-soft: #DFEEF6;
+
+  /* Generic aliases used by hub pages (primary action / active tab) */
+  --accent: var(--moss-mid);
+  --accent-soft: var(--leaf-soft);
+  --surface-2: var(--bg-soft);
+  --border: var(--line);
 }
 
 html, body, #root {

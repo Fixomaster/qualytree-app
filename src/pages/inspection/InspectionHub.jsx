@@ -14,6 +14,14 @@ import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { onboarding } from '../../lib/onboardingState'
 import { INSP_TYPES, deriveInspectionStandards } from '../../lib/inspectionStandardConstants'
+import { ensureMfgDefaults } from '../manufacturing/ManufacturingHub'
+
+/** 로컬 날짜 YYYY-MM-DD (toISOString은 UTC 기준이라 자정 전후 하루 어긋남) */
+function todayLocal() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
 
 // ── localStorage ──────────────────────────────────────────────
 const LS_INS = 'qualytree.inspections'
@@ -43,16 +51,18 @@ function ciState(ci) {
   return null
 }
 function loadWos() {
+  ensureMfgDefaults() // /manufacturing 미방문 상태에서도 동일 기본 WO 목록 사용
   try { return JSON.parse(localStorage.getItem('qms_mfg_wo') || '[]') } catch { return [] }
 }
 function loadProcRecords() {
+  ensureMfgDefaults()
   try { return JSON.parse(localStorage.getItem('qms_mfg_proc') || '[]') } catch { return [] }
 }
 
 const emptyForm = () => ({
   inspType: 'ipc', productName: '', productCode: '', lotNo: '', woId: '',
   sampleSize: '', inspectedQty: '', defectQty: '',
-  inspDate: new Date().toISOString().slice(0, 10),
+  inspDate: todayLocal(),
   inspector: '', processStep: '', standardId: '',
   checkItems: [],          // [{ name, spec, result, ok }]
   verdict: 'pending', conditionNote: '', ncrId: '',
@@ -97,7 +107,7 @@ export default function InspectionHub() {
       productName: w.product,
       productCode: std?.productCode || '',
       woId: w.id,
-      inspDate: new Date().toISOString().slice(0, 10),
+      inspDate: todayLocal(),
       inspector: user?.name || '',
       processStep: '최종검사',
       standardId: std?.id || '',

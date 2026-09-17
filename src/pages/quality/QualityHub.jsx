@@ -1,4 +1,4 @@
-// src/pages/quality/QualityHub.jsx â ISO 13485 Â§8.3 NCR·부적합 관리
+// src/pages/quality/QualityHub.jsx — ISO 13485 §8.3 NCR·부적합 관리
 import React, { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp, Wrench, ClipboardCheck, Trash2 } from 'lucide-react'
@@ -25,8 +25,34 @@ function getLinkedCapas(ncrId) {
   } catch { return [] }
 }
 
-const STATUS_LABEL = { investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
-const STATUS_COLOR = { investigating: '#EAB308', contained: '#3B82F6', corrected: '#8B5CF6', closed: '#22C55E' }
+const STATUS_LABEL = { open: '접수', investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
+const STATUS_COLOR = { open: '#DC2626', investigating: '#EAB308', contained: '#3B82F6', corrected: '#8B5CF6', closed: '#22C55E' }
+const SOURCE_TYPE_LABEL = { oos: '공정검사 OOS (자동 발의)', inspectionStage: '검사 단계 OOS (자동 발의)', iqc: '수입검사', manual: '수동 등록' }
+// ncr.raise()는 source를 객체({ type, woId, stageEid, templateId })로 저장하므로 문자열로 요약
+function sourceText(src) {
+  if (src == null || src === '') return '-'
+  if (typeof src === 'string') return src
+  if (typeof src !== 'object') return String(src)
+  const parts = [src.label || SOURCE_TYPE_LABEL[src.type] || src.type || '']
+  if (src.woId) parts.push(`WO ${src.woId}`)
+  if (src.stageType) parts.push(String(src.stageType))
+  if (src.stageEid) parts.push(String(src.stageEid).split(':').pop())
+  if (src.measurementValue !== undefined && src.measurementValue !== '') parts.push(`측정값 ${src.measurementValue}`)
+  return parts.filter(Boolean).join(' · ') || '-'
+}
+// ncr.transition()은 containment를 객체({ quarantineId, quarantineCount, isolatedAt, isolatedBy })로 저장
+function containmentText(c) {
+  if (c == null || c === '') return ''
+  if (typeof c === 'string') return c
+  if (typeof c !== 'object') return String(c)
+  const parts = []
+  if (c.description || c.note) parts.push(c.description || c.note)
+  if (c.quarantineCount != null) parts.push(`격리 ${c.quarantineCount}건`)
+  if (c.quarantineId) parts.push(`격리 ID ${c.quarantineId}`)
+  if (c.isolatedBy) parts.push(`격리자 ${c.isolatedBy}`)
+  if (c.isolatedAt) parts.push(String(c.isolatedAt).slice(0, 10))
+  return parts.join(' · ') || '격리 조치 완료'
+}
 const SEV_COLOR = { Critical: '#DC2626', Major: '#F97316', Minor: '#64748B' }
 const SEVERITIES = ['Critical', 'Major', 'Minor']
 const SOURCES = ['내부검사', '고객불만', '공급업체', '공정', '기타']
@@ -84,7 +110,7 @@ export default function QualityHub() {
 
   const stats = useMemo(() => ({
     total: ncrs.length,
-    investigating: ncrs.filter(r => r.status === 'investigating').length,
+    investigating: ncrs.filter(r => r.status === 'investigating' || r.status === 'open').length,
     contained: ncrs.filter(r => r.status === 'contained').length,
     corrected: ncrs.filter(r => r.status === 'corrected').length,
     closed: ncrs.filter(r => r.status === 'closed').length,
@@ -96,7 +122,7 @@ export default function QualityHub() {
 
   return (
     <AppLayout>
-      <HubBanner icon={ShieldAlert} title="NCR·부적합 관리" subtitle="ISO 13485 Â§8.3" color="#DC2626" />
+      <HubBanner icon={ShieldAlert} title="NCR·부적합 관리" subtitle="ISO 13485 §8.3" color="#DC2626" />
 
       {/* Tab Nav #181 */}
       <div style={{display:'flex',gap:8,marginBottom:16}}>
@@ -215,7 +241,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
         <span style={{ fontSize: 11, fontWeight: 700, color: SEV_COLOR[r.severity] || '#64748B', background: (SEV_COLOR[r.severity] || '#64748B') + '22', padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap' }}>{r.severity}</span>
         <span style={{ fontSize: 11, color: 'var(--ink-faint)', whiteSpace: 'nowrap' }}>{r.id}</span>
         <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{r.title}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLOR[r.status], background: STATUS_COLOR[r.status] + '22', padding: '2px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>{STATUS_LABEL[r.status]}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLOR[r.status] || '#64748B', background: (STATUS_COLOR[r.status] || '#64748B') + '22', padding: '2px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>{STATUS_LABEL[r.status] || r.status || '-'}</span>
         {expanded ? <ChevronUp size={16} color="var(--ink-faint)" /> : <ChevronDown size={16} color="var(--ink-faint)" />}
       </div>
 
@@ -224,7 +250,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
         <div style={{ borderTop: '1px solid var(--line)', padding: 16 }}>
           {/* Meta */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14, fontSize: 13, color: 'var(--ink-faint)' }}>
-            <span>출처: {r.source}</span>
+            <span>출처: {sourceText(r.source)}</span>
             <span>발견일: {r.detectedAt || '-'}</span>
             <span>발견자: {r.detectedBy || '-'}</span>
             <span>등록자: {r.createdByName || '-'}</span>
@@ -233,39 +259,39 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
             <div style={{ fontSize: 13, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, marginBottom: 14, lineHeight: 1.6 }}>{r.description}</div>
           )}
 
-          {/* Stage 1 â 격리 조치 메뉴로 이동 */}
-          {r.status === 'investigating' && (
+          {/* Stage 1 — 격리 조치 메뉴로 이동 (open = 접수 직후, investigating = 조사 중) */}
+          {(r.status === 'open' || r.status === 'investigating') && (
             <div style={stageBox('#EAB308')}>
-              {stageTitle('#EAB308', 'â  격리 조치')}
+              {stageTitle('#EAB308', '① 격리 조치')}
               <p style={{ fontSize: 13, color: 'var(--ink-faint)', margin: '0 0 12px', lineHeight: 1.6 }}>
                 격리 여부(격리 실시 / 격리 불필요)를 격리관리 메뉴에서 결정해주세요.
                 결정 완료 시 자동으로 다음 단계로 전환됩니다.
               </p>
-              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>격리관리 메뉴로 이동 â</Link>
+              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>격리관리 메뉴로 이동 →</Link>
             </div>
           )}
 
-          {/* Stage 2 â CAPA 확인 후 시정완료 */}
+          {/* Stage 2 — CAPA 확인 후 시정완료 */}
           {r.status === 'contained' && (
             <div style={stageBox('#3B82F6')}>
-              {stageTitle('#3B82F6', 'â¡ CAPA 진행 확인')}
+              {stageTitle('#3B82F6', '② CAPA 진행 확인')}
               {r.containmentSkipped
                 ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨 ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
                 : r.containment
-                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {r.containment}</div>
+                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {containmentText(r.containment)}</div>
                   : null}
               {linkedCapas.length > 0 ? (
                 <div style={{ marginBottom: 10 }}>
                   {linkedCapas.map(c => (
                     <div key={c.id} style={{ fontSize: 13, padding: '6px 10px', background: 'var(--bg)', borderRadius: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{c.id} â {c.title}</span>
+                      <span>{c.id} — {c.title}</span>
                       <span style={{ fontWeight: 600, color: c.status === CAPA_STATUS.CLOSED ? '#22C55E' : '#F97316' }}>{c.status}</span>
                     </div>
                   ))}
                   {!capasDone && (
                     <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>
                       CAPA 완료 후 자동으로 시정완료로 전환됩니다.
-                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPA·개선 메뉴 â</Link>
+                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPA·개선 메뉴 →</Link>
                     </div>
                   )}
                 </div>
@@ -279,10 +305,10 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
             </div>
           )}
 
-          {/* Stage 3 â 역할 기반 승인 */}
+          {/* Stage 3 — 역할 기반 승인 */}
           {r.status === 'corrected' && (
             <div style={stageBox('#8B5CF6')}>
-              {stageTitle('#8B5CF6', 'â¢ 검토·승인')}
+              {stageTitle('#8B5CF6', '③ 검토·승인')}
               {isApprover ? (
                 <>
                   <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 10 }}>
@@ -308,14 +334,14 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
             </div>
           )}
 
-          {/* Stage 4 â 종결 */}
+          {/* Stage 4 — 종결 */}
           {r.status === 'closed' && (
             <div style={stageBox('#22C55E')}>
-              {stageTitle('#22C55E', 'â 종결 완료')}
+              {stageTitle('#22C55E', '✓ 종결 완료')}
               {r.approvals && r.approvals.map(a => (
                 <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
                   {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong>
-                  {a.note ? <span> â {a.note}</span> : null}
+                  {a.note ? <span> — {a.note}</span> : null}
                   <span> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})</span>
                 </div>
               ))}

@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Edit2,
   Trash2,
+  ClipboardCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -290,6 +291,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
                   selected={selectedId === wo.id}
                   onSelect={() => setSelectedId(wo.id)}
                   onOpen={() => nav(`/operations/${wo.id}/ebr`)}
+                  onOpenInspection={() => nav(`/operations/${wo.id}/inspection`)}
                   findBlock={findBlock}
                 />
               ))
@@ -302,6 +304,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
                 wo={selected}
                 findBlock={findBlock}
                 onOpenEbr={() => setBatchWo(selected)}
+                onOpenInspection={() => nav(`/operations/${selected.id}/inspection`)}
                 onClose={() => setSelectedId(null)}
               />
             ) : (
@@ -406,7 +409,7 @@ function labelFor(s) {
 /* ================================================================
    WorkOrderCard
    ================================================================ */
-function WorkOrderCard({ wo, selected, onSelect, onOpen, findBlock }) {
+function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findBlock }) {
   const completedCount = wo.stages.filter(
     (s) => s.status === PROCESS_STATUS.COMPLETED
   ).length
@@ -486,6 +489,21 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, findBlock }) {
         </button>
       </div>
 
+      {/* 4단계 검사 화면 진입점 — /operations/:woId/inspection (§13.14 IQC→FAI→IPI→LAI) */}
+      {onOpenInspection && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            onOpenInspection()
+          }}
+          className="mt-2 inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md transition"
+          style={{ background: 'var(--leaf-soft)', color: 'var(--moss)', fontWeight: 500 }}
+          title="검사 단계 (IQC·FAI·IPI·LAI)"
+        >
+          <ClipboardCheck size={13} strokeWidth={1.8} /> 검사 단계 (IQC·FAI·IPI·LAI)
+        </button>
+      )}
+
       {/* 진행률 바 */}
       <div className="mt-3">
         <div
@@ -557,7 +575,7 @@ function StatusPill({ status }) {
 /* ================================================================
    DetailPanel
    ================================================================ */
-function DetailPanel({ wo, findBlock, onOpenEbr, onClose }) {
+function DetailPanel({ wo, findBlock, onOpenEbr, onOpenInspection, onClose }) {
   return (
     <div className="card-base p-5 sticky top-4">
       <div className="flex items-start justify-between mb-3">
@@ -641,6 +659,16 @@ function DetailPanel({ wo, findBlock, onOpenEbr, onClose }) {
           </>
         )}
       </button>
+      {onOpenInspection && (
+        <button
+          onClick={onOpenInspection}
+          className="btn-primary w-full justify-center mt-2"
+          style={{ background: 'var(--moss-mid)' }}
+          title="4단계 검사 (IQC·FAI·IPI·LAI) 화면으로 이동"
+        >
+          검사 단계 (IQC·FAI·IPI·LAI) <ClipboardCheck size={15} />
+        </button>
+      )}
     </div>
   )
 }

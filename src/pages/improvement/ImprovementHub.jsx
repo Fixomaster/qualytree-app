@@ -1,5 +1,5 @@
 // src/pages/improvement/ImprovementHub.jsx
-// ISO 13485:2016 Â§8.5 개선활동 허브
+// ISO 13485:2016 §8.5 개선활동 허브
 import React, { useState, useMemo } from 'react'
 import AIDraftButton from '../../components/AIDraftButton'
 import { useSearchParams, Link } from 'react-router-dom'
@@ -116,13 +116,13 @@ export default function ImprovementHub() {
   }
 
   return (
-    <AppLayout user={user} title="개선활동" subtitle="ISO 13485 Â§8.5 Â· 개선 과제 관리 Â· KPI 추적">
+    <AppLayout user={user} title="개선활동" subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
         {/* 배너 */}
         <HubBanner
           title="개선활동"
-          subtitle="ISO 13485 Â§8.5 Â· 개선 과제 관리 Â· KPI 추적 Â· 트렌드 분석"
+          subtitle="ISO 13485 §8.5 · 개선 과제 관리 · KPI 추적 · 트렌드 분석"
           icon={TrendingUp}
           color="#10B981"
           quickActions={[
@@ -283,7 +283,7 @@ export default function ImprovementHub() {
   )
 }
 
-/* ââ 개선 과제 카드 ââ */
+/* ── 개선 과제 카드 ── */
 function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
   const [open, setOpen] = useState(() => !!highlight)
   const cardRef = React.useRef(null)
@@ -315,9 +315,9 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
             </div>
             <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{item.title}</div>
             <div className="flex gap-3 mt-1 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-              {item.assignee && <span>ð¤ {item.assignee}</span>}
-              {item.dueDate && <span>ð {item.dueDate}</span>}
-              {item.dept && <span>ð¢ {item.dept}</span>}
+              {item.assignee && <span>👤 {item.assignee}</span>}
+              {item.dueDate && <span>📅 {item.dueDate}</span>}
+              {item.dept && <span>🏢 {item.dept}</span>}
             </div>
           </div>
         </div>
@@ -350,7 +350,7 @@ function ImprovementCard({ item, highlight, onEdit, onStatusChange }) {
   )
 }
 
-/* ââ 개선 과제 폼 ââ */
+/* ── 개선 과제 폼 ── */
 function ImprovementForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState({
     title: initial?.title || '',
@@ -418,7 +418,7 @@ function ImprovementForm({ initial, onSave, onCancel }) {
   )
 }
 
-/* ââ 현황분석 탭 ââ */
+/* ── 현황분석 탭 ── */
 function TrendTab({ items }) {
   const byType = useMemo(() => {
     const counts = {}
@@ -530,7 +530,7 @@ function TrendTab({ items }) {
   )
 }
 
-/* ââ 공통 컴포넌트 ââ */
+/* ── 공통 컴포넌트 ── */
 function ActionBtn({ color, onClick, children }) {
   return (
     <button
@@ -564,7 +564,7 @@ function EmptyState({ icon: Icon, title, desc }) {
 
 
 /* ================================================================
-   CAPA (NCR 연계) â QualityHub에서 이관 (ISO 13485 Â§8.5.2/Â§8.5.3)
+   CAPA (NCR 연계) — QualityHub에서 이관 (ISO 13485 §8.5.2/§8.5.3)
    ================================================================ */
 function CapaList({ capas, selectedId, onSelect, onChanged }) {
   const selected = selectedId ? capas.find((c) => c.id === selectedId) : null
@@ -593,7 +593,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
       <div className="lg:col-span-5">
         <div className="card-base p-3">
           <div className="font-mono text-[10px] tracking-[0.16em] uppercase px-2 mb-2" style={{ color: 'var(--ink-mute)' }}>
-            CAPA Â· {capas.length}건
+            CAPA · {capas.length}건
           </div>
           <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
             {capas.map((c) => {
@@ -611,7 +611,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
                     <span className="tag" style={{ background: `var(--${status.tone}-soft)`, color: `var(--${status.tone})` }}>{status.ko}</span>
                   </div>
                   <div className="text-[13px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>{c.title}</div>
-                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} Â· {c.raisedBy}</div>
+                  <div className="font-mono text-[10px] mt-1" style={{ color: 'var(--ink-faint)' }}>{new Date(c.raisedAt).toLocaleDateString('ko-KR')} · {c.raisedBy}</div>
                 </button>
               )
             })}
@@ -632,7 +632,7 @@ function CapaList({ capas, selectedId, onSelect, onChanged }) {
 }
 
 /* ================================================================
-   CAPA 상세 â 근본원인분석 â 시정조치 â 예방조치 â 효과성검증 â 승인·종결
+   CAPA 상세 — 근본원인분석 → 시정조치 → 예방조치 → 효과성검증 → 승인·종결
    ================================================================ */
 const CAPA_STAGE_ORDER = ['open', 'rca', 'corrective', 'preventive', 'verification', 'closed']
 
@@ -654,7 +654,7 @@ function CapaDetail({ capaRecord, onChanged }) {
 
   const closeCapa = () => {
     if (!canApprove) { alert('CAPA 승인·종결은 매니저(Level 3) 권한이 필요합니다.'); return }
-    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 â 종결 승인')
+    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 — 종결 승인')
     if (reason == null) return
     capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || '종결' })
     onChanged()
@@ -674,17 +674,17 @@ function CapaDetail({ capaRecord, onChanged }) {
       <div className="text-[12.5px]" style={{ color: 'var(--ink-mute)' }}>{capaRecord.description || capaRecord.triggerReason}</div>
 
       {/* 근본원인분석 */}
-      <CapaStageCard title="â  근본원인분석 (RCA)" citation="ISO 13485 Â§8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
+      <CapaStageCard title="① 근본원인분석 (RCA)" citation="ISO 13485 §8.5.2" active={stageIdx <= 1} done={stageIdx > 1} locked={stageIdx < 0}>
         <SelectFieldQ label="분석 기법" value={rca.method} onChange={(v) => setRca((r) => ({ ...r, method: v }))} options={['', '5-Why', '피쉬본(어골도)', 'FMEA', '기타']} disabled={!canEdit || stageIdx > 1} />
         <TextAreaFieldQ label="근본원인" value={rca.cause} onChange={(v) => setRca((r) => ({ ...r, cause: v }))} disabled={!canEdit || stageIdx > 1} />
         <TextAreaFieldQ label="근거·증거" value={rca.evidence} onChange={(v) => setRca((r) => ({ ...r, evidence: v }))} disabled={!canEdit || stageIdx > 1} />
         {canEdit && stageIdx <= 1 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 Â· 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('rootCause', rca, 'rca')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
         )}
       </CapaStageCard>
 
       {/* 시정조치 */}
-      <CapaStageCard title="â¡ 시정조치" citation="ISO 13485 Â§8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
+      <CapaStageCard title="② 시정조치" citation="ISO 13485 §8.5.2" active={stageIdx >= 1 && stageIdx <= 2} done={stageIdx > 2} locked={stageIdx < 1}>
         <TextAreaFieldQ label="시정조치 내용" value={corrective.action} onChange={(v) => setCorrective((c) => ({ ...c, action: v }))} disabled={!canEdit || stageIdx > 2} />
         <div className="grid sm:grid-cols-3 gap-2">
           <FieldQ label="담당자" value={corrective.owner} onChange={(v) => setCorrective((c) => ({ ...c, owner: v }))} disabled={!canEdit || stageIdx > 2} />
@@ -692,41 +692,41 @@ function CapaDetail({ capaRecord, onChanged }) {
           <FieldQ label="완료일" type="date" value={corrective.completedDate} onChange={(v) => setCorrective((c) => ({ ...c, completedDate: v }))} disabled={!canEdit || stageIdx > 2} />
         </div>
         {canEdit && stageIdx >= 1 && stageIdx <= 2 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 Â· 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('correctiveAction', corrective, 'corrective')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
         )}
       </CapaStageCard>
 
       {/* 예방조치 */}
-      <CapaStageCard title="â¢ 예방조치" citation="ISO 13485 Â§8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
+      <CapaStageCard title="③ 예방조치" citation="ISO 13485 §8.5.3" active={stageIdx >= 2 && stageIdx <= 3} done={stageIdx > 3} locked={stageIdx < 2}>
         <TextAreaFieldQ label="예방조치 내용" value={preventive.action} onChange={(v) => setPreventive((p) => ({ ...p, action: v }))} disabled={!canEdit || stageIdx > 3} />
         <div className="grid sm:grid-cols-2 gap-2">
           <FieldQ label="담당자" value={preventive.owner} onChange={(v) => setPreventive((p) => ({ ...p, owner: v }))} disabled={!canEdit || stageIdx > 3} />
           <FieldQ label="완료 기한" type="date" value={preventive.dueDate} onChange={(v) => setPreventive((p) => ({ ...p, dueDate: v }))} disabled={!canEdit || stageIdx > 3} />
         </div>
         {canEdit && stageIdx >= 2 && stageIdx <= 3 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 Â· 다음 단계로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('preventiveAction', preventive, 'preventive')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 다음 단계로</button></div>
         )}
       </CapaStageCard>
 
       {/* 효과성검증 */}
-      <CapaStageCard title="â£ 효과성검증" citation="ISO 13485 Â§8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
+      <CapaStageCard title="④ 효과성검증" citation="ISO 13485 §8.5.2(f)" active={stageIdx >= 3 && stageIdx <= 4} done={stageIdx > 4} locked={stageIdx < 3}>
         <TextAreaFieldQ label="검증 방법" value={verification.method} onChange={(v) => setVerification((x) => ({ ...x, method: v }))} disabled={!canEdit || stageIdx > 4} />
         <div className="grid sm:grid-cols-3 gap-2">
-          <SelectFieldQ label="검증 결과" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['효과있음', '불충분 Â· 재조치 필요']} disabled={!canEdit || stageIdx > 4} />
+          <SelectFieldQ label="검증 결과" value={verification.result} onChange={(v) => setVerification((x) => ({ ...x, result: v }))} options={['효과있음', '불충분 · 재조치 필요']} disabled={!canEdit || stageIdx > 4} />
           <FieldQ label="검증자" value={verification.verifiedBy} onChange={(v) => setVerification((x) => ({ ...x, verifiedBy: v }))} disabled={!canEdit || stageIdx > 4} />
           <FieldQ label="검증일" type="date" value={verification.verifiedDate} onChange={(v) => setVerification((x) => ({ ...x, verifiedDate: v }))} disabled={!canEdit || stageIdx > 4} />
         </div>
         {canEdit && stageIdx >= 3 && stageIdx <= 4 && (
-          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 Â· 승인 대기로</button></div>
+          <div className="flex justify-end"><button onClick={() => saveStage('verification', verification, 'verification')} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}>저장 · 승인 대기로</button></div>
         )}
       </CapaStageCard>
 
       {/* 승인·종결 */}
-      <CapaStageCard title="â¤ 승인 Â· 종결" citation="ISO 13485 Â§8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
+      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
         {stageIdx === 5 ? (
           <div className="text-[12.5px]" style={{ color: 'var(--moss)' }}>
             <CheckCircle2 size={14} className="inline mr-1" />
-            {capaRecord.closure?.by} 승인 Â· {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} â {capaRecord.closure?.reason}
+            {capaRecord.closure?.by} 승인 · {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} — {capaRecord.closure?.reason}
           </div>
         ) : stageIdx === 4 ? (
           canApprove ? (

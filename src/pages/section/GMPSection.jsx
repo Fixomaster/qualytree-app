@@ -4,6 +4,7 @@ import { loadContext, computeCardProgress, CARDS, STATUS, FULFILLMENT, isCitatio
 import { getCardDocuments, isDocumentReady, MODE_META, DOC_MODE } from '../../lib/documentLibrary';
 import { equipment as equipmentStore } from '../../lib/equipmentState';
 import { suppliers as supplierStore } from '../../lib/supplierState';
+import AppLayout from '../../components/AppLayout';
 
 /**
  * 12개 카드 공통 상세 페이지 — 카드 ID로 분기
@@ -431,13 +432,15 @@ export default function GMPSection() {
 
   if (!cardDef || !card) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 text-center">
-          <h2 className="text-lg font-bold text-slate-800">카드를 찾을 수 없습니다</h2>
-          <p className="text-sm text-slate-500 mt-2">카드 ID: {cardId}</p>
-          <button onClick={() => navigate('/dashboard')} className="mt-4 text-sm text-indigo-600 hover:underline">← 대시보드로 돌아가기</button>
+      <AppLayout title="GMP 섹션" subtitle="카드를 찾을 수 없습니다">
+        <div className="min-h-screen bg-slate-50 p-6">
+          <div className="max-w-4xl mx-auto bg-white border border-slate-200 rounded-xl p-6 text-center">
+            <h2 className="text-lg font-bold text-slate-800">카드를 찾을 수 없습니다</h2>
+            <p className="text-sm text-slate-500 mt-2">카드 ID: {cardId}</p>
+            <button onClick={() => navigate('/dashboard')} className="mt-4 text-sm text-indigo-600 hover:underline">← 대시보드로 돌아가기</button>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     );
   }
 
@@ -448,6 +451,7 @@ export default function GMPSection() {
   const verification = card.items.filter(i => !i.condition && i.status === STATUS.VERIFICATION && i.resolvedStatus !== STATUS.NA);
 
   return (
+    <AppLayout title={card.cardTitle} subtitle={card.cardRow === 1 ? 'GMP 코어 · 요구항목 충족 현황' : '인허가·시판후 · 요구항목 충족 현황'}>
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-4xl mx-auto">
         <button onClick={() => navigate('/dashboard')} className="text-sm text-slate-500 hover:text-slate-800 mb-3">
@@ -512,5 +516,6 @@ export default function GMPSection() {
 
       <PreviewModal doc={previewDoc} onClose={() => setPreviewDoc(null)} onGoDocuments={() => navigate('/documents')} />
     </div>
+    </AppLayout>
   );
 }

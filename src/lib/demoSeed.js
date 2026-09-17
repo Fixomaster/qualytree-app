@@ -153,6 +153,9 @@ function buildOnboardingState() {
       existingCerts: ['iso-13485', 'kgmp'],
     },
     product: {
+      // 안정적인 엔티티 ID — entityRegistry(_allProducts)·ProductsHub가 저장 전후 동일한
+      // EID(product:MRUHP-8H)를 쓰도록 modelNumber와 동일하게 고정
+      id: 'MRUHP-8H',
       name: 'ULNA Hook Plate',
       modelNumber: 'MRUHP-8H',
       intendedUse: '척골 골절 고정용 임플란트 (Class IIb)',

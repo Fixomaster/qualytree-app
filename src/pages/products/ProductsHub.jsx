@@ -1012,10 +1012,9 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
 
-  const productEid = eid(
-    ENTITY_TYPES.PRODUCT,
-    product?.id || product?.classNo || product?.modelNumber || 'main'
-  )
+  // 엔티티 ID는 저장 전후 동일해야 CCR 이력이 이어진다 (id 없는 구형 레코드는 modelNumber로 고정)
+  const productId = product?.id || product?.classNo || product?.modelNumber || 'main'
+  const productEid = eid(ENTITY_TYPES.PRODUCT, productId)
 
   const ccrs = useMemo(
     () => getRecordsForEntity(productEid),
@@ -1045,14 +1044,14 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
       return
     }
     const before = { ...product }
-    const next = { ...product, ...draft }
+    const next = { ...product, ...draft, id: productId }
 
     // 온보딩 상태 업데이트 (제품 배열에서 해당 제품만 갱신)
     const ob = onboarding.load()
     const list = Array.isArray(ob.products) ? ob.products.slice() : []
-    const idx = list.findIndex((p) => (p.id || 'main') === (product.id || 'main'))
+    const idx = list.findIndex((p) => (p.id || p.modelNumber || 'main') === productId)
     if (idx >= 0) list[idx] = next
-    else list.push(next.id ? next : { ...next, id: 'main' })
+    else list.push(next)
     onboarding.save({ ...ob, products: list })
 
     // CCR 자동 발의

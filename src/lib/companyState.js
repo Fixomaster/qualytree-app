@@ -178,4 +178,24 @@ export const companyDocs = {
   },
 }
 
+// ── 기업정보 마스터 (CompanyHub > 기업정보 탭이 저장하는 'qualytree.company_master') ──
+// 온보딩(onboarding.company)의 name/bizNumber/ceo와 필드명이 달라(companyName/bizNumber/ceoName)
+// 양쪽을 통합 조회할 수 있는 접근자를 제공한다. company_master 값을 우선하고 온보딩 값으로 보완한다.
+export const COMPANY_MASTER_KEY = 'qualytree.company_master'
+
+export function loadCompanyMaster() {
+  try { return JSON.parse(localStorage.getItem(COMPANY_MASTER_KEY) || '{}') || {} } catch { return {} }
+}
+
+export function getCompanyProfile(onboardingCompany) {
+  const m = loadCompanyMaster()
+  const ob = onboardingCompany || {}
+  return {
+    name: m.companyName || ob.name || '',
+    bizNumber: m.bizNumber || ob.bizNumber || '',
+    ceo: m.ceoName || ob.ceo || '',
+    address: m.address || ob.address || '',
+  }
+}
+
 export default companyDocs

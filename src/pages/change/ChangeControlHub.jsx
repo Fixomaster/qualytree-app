@@ -20,13 +20,29 @@ import { getAllRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/c
 import { getEntityDisplayName } from '../../lib/entityRegistry'
 import { changeReview, REVIEW_STATUS } from '../../lib/changeReview'
 
-// ── 대상 엔티티 유형 메타 (원천 화면에서 자동 기록되는 targetType만 이 화면에 노출) ──
+// ── 대상 엔티티 유형 메타 (모든 targetType 표시 — 미등록 유형은 '기타 변경'으로 표기) ──
 const TARGET_META = {
-  product:      { label: '제품 변경',     icon: Package,   color: '#2563EB', hubPath: '/products',          hubLabel: '개발·설계' },
-  processBlock: { label: '공정 변경',     icon: RefreshCw, color: '#059669', hubPath: '/manufacturing',      hubLabel: '생산현황' },
-  document:     { label: '문서 변경',     icon: FileText,  color: '#D97706', hubPath: '/document-control',   hubLabel: '문서관리' },
-  supplier:     { label: '공급업체 변경', icon: GitBranch, color: '#DC2626', hubPath: '/supplier',           hubLabel: '공급업체관리' },
+  product:            { label: '제품 변경',     icon: Package,       color: '#2563EB', hubPath: '/products',          hubLabel: '개발·설계',   group: 'product' },
+  processBlock:       { label: '공정 변경',     icon: RefreshCw,     color: '#059669', hubPath: '/manufacturing',      hubLabel: '생산현황',   group: 'process' },
+  document:           { label: '문서 변경',     icon: FileText,      color: '#D97706', hubPath: '/document-control',   hubLabel: '문서관리',   group: 'document' },
+  supplier:           { label: '공급업체 변경', icon: GitBranch,     color: '#DC2626', hubPath: '/supplier',           hubLabel: '공급업체관리', group: 'supplier' },
+  inspectionTemplate: { label: '검사 항목 변경', icon: ClipboardList, color: '#0891B2', hubPath: '/products',          hubLabel: '검사 항목',   group: 'inspection' },
+  ncr:                { label: 'NCR 변경',      icon: AlertTriangle, color: '#B45309', hubPath: '/quality',            hubLabel: '품질관리',   group: 'quality' },
+  capa:               { label: 'CAPA 변경',     icon: CheckCircle2,  color: '#7C3AED', hubPath: '/quality',            hubLabel: '품질관리',   group: 'quality' },
+  quarantineItem:     { label: '격리 변경',     icon: AlertTriangle, color: '#DB2777', hubPath: '/quality',            hubLabel: '품질관리',   group: 'quality' },
 }
+const OTHER_META = { label: '기타 변경', icon: FileEdit, color: '#6B7280', hubPath: '/', hubLabel: '기타', group: 'other' }
+const metaOf = (targetType) => TARGET_META[targetType] || OTHER_META
+// 유형 필터 (그룹 단위) — 전체 / 제품 / 공정 / 문서 / 공급자 / 검사 항목 / 품질(NCR·CAPA·격리) / 기타
+const TYPE_FILTERS = [
+  { key: 'product',    label: '제품' },
+  { key: 'process',    label: '공정' },
+  { key: 'document',   label: '문서' },
+  { key: 'supplier',   label: '공급자' },
+  { key: 'inspection', label: '검사 항목' },
+  { key: 'quality',    label: '품질(NCR·CAPA·격리)' },
+  { key: 'other',      label: '기타' },
+]
 
 const ACTION_LABEL = { CREATE: '신규 등록', UPDATE: '정보 수정', DELETE: '삭제' }
 
@@ -52,7 +68,6 @@ export default function ChangeControlHub() {
 
   const ccrs = useMemo(() => {
     return getAllRecords()
-      .filter((r) => TARGET_META[r.targetType])
       .sort((a, b) => (b.performedAt || '').localeCompare(a.performedAt || ''))
   }, [refresh])
 
@@ -77,7 +92,7 @@ export default function ChangeControlHub() {
 
   const filtered = useMemo(() => {
     let list = ccrs
-    if (typeFilter !== 'all') list = list.filter((r) => r.targetType === typeFilter)
+    if (typeFilter !== 'all') list = list.filter((r) => metaOf(r.targetType).group === typeFilter)
     if (statusFilter !== 'all') list = list.filter((r) => getReview(r.id).status === statusFilter)
     if (search) {
       const q = search.toLowerCase()
@@ -173,7 +188,7 @@ export default function ChangeControlHub() {
               </div>
               <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
                 <option value="all">전체 유형</option>
-                {Object.entries(TARGET_META).map(([k, t]) => <option key={k} value={k}>{t.label}</option>)}
+                {TYPE_FILTERS.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
               </select>
               <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
                 <option value="all">전체 상태</option>
@@ -209,7 +224,7 @@ export default function ChangeControlHub() {
 // ── 변경 항목 행 ──────────────────────────────────────────────
 function ChangeRow({ ccr: r, review, ia, expanded, onToggle, onChanged }) {
   const user = auth.current()
-  const tm = TARGET_META[r.targetType] || TARGET_META.product
+  const tm = metaOf(r.targetType)
   const sm = STATUS_META[review.status] || STATUS_META[REVIEW_STATUS.PENDING_IMPACT]
   const TIcon = tm.icon
   const SIcon = sm.icon
@@ -407,10 +422,13 @@ const IS = { border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10p
 
 // ── 현황 분석 ─────────────────────────────────────────────────
 function ChangeAnalysis({ ccrs, counts, iaMap, getReview }) {
-  const typeStats = Object.entries(TARGET_META).map(([k, t]) => ({
-    ...t, value: k,
-    count: ccrs.filter((r) => r.targetType === k).length,
-  }))
+  const typeStats = [
+    ...Object.entries(TARGET_META).map(([k, t]) => ({
+      ...t, value: k,
+      count: ccrs.filter((r) => r.targetType === k).length,
+    })),
+    { ...OTHER_META, value: 'other', count: ccrs.filter((r) => !TARGET_META[r.targetType]).length },
+  ]
 
   const total = ccrs.length || 1
   const completedCt = counts[REVIEW_STATUS.COMPLETED] || 0
@@ -550,7 +568,7 @@ function RegulatoryClassTab({ ccrs }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           {ccrs.map(r => {
-            const tm = TARGET_META[r.targetType] || TARGET_META.product;
+            const tm = metaOf(r.targetType);
             const cls = classify(r);
             const m = CLASS_META[cls];
             return (

@@ -25,6 +25,7 @@ import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { syncOrderStatusFromWo, syncWoCompletionEffects } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
+import { operations } from '../../lib/operationsState'
 import { fileStore } from '../../lib/fileStore'
 import { printInspectionCert } from '../../lib/pdfPrint'
 import { loadPcps, findPcpForProduct, orderedSteps, stepStatus, computeWoProgress, deriveStepsFromRecords, deriveCurrentStep } from '../../lib/productionControl'
@@ -111,13 +112,13 @@ function AttachLink({fileId,fileName}){
 }
 
 /* ─── 초기 데이터 ─── */
-const INIT_WO=[
+export const INIT_WO=[
   {id:'WO-2406-018',so:'SO-2406-012',product:'SCS M3.5×22mm',qty:'200',step:'가공중',dueDate:'24-06-25',startDate:'24-06-19',assignee:'3공정팀',progress:'60',status:'진행중'},
   {id:'WO-2406-017',so:'SO-2406-010',product:'SCS M4.0×24mm',qty:'300',step:'검사대기',dueDate:'24-07-05',startDate:'24-06-17',assignee:'검사팀',progress:'80',status:'진행중'},
   {id:'WO-2406-015',so:'SO-2406-008',product:'BPL 4㎖',qty:'50',step:'완료',dueDate:'24-06-20',startDate:'24-06-10',assignee:'—',progress:'100',status:'완료'},
   {id:'WO-2406-014',so:'SO-2406-005',product:'SCS M3.5×24mm',qty:'100',step:'완료',dueDate:'24-06-14',startDate:'24-06-05',assignee:'—',progress:'100',status:'완료'},
 ]
-const INIT_PROC=[
+export const INIT_PROC=[
   {id:'PR-2406-044',wo:'WO-2406-018',date:'24-06-21',step:'CNC 선삭',machine:'CNC-01',operator:'이기술',param:'회전수 2800rpm, 이송속도 0.12mm/rev',result:'합격',note:''},
   {id:'PR-2406-043',wo:'WO-2406-018',date:'24-06-20',step:'원소재 준비',machine:'—',operator:'박자재',param:'Ti-6Al-4V φ12mm, LOT-2406-012',result:'합격',note:''},
   {id:'PR-2406-042',wo:'WO-2406-017',date:'24-06-21',step:'최종검사',machine:'CMM-01',operator:'김검사',param:'치수공차 ±0.05mm',result:'합격',note:''},
@@ -127,6 +128,13 @@ const INIT_INSPECT=[
   {id:'IPC-2406-032',wo:'WO-2406-017',step:'최종치수 검사',date:'24-06-21',inspector:'김검사',spec:'φ4.0mm ±0.02, L=24mm ±0.1',measured:'4.001, 24.05',result:'합격',status:'합격'},
   {id:'IPC-2406-031',wo:'WO-2406-017',step:'표면처리 후 외관 검사',date:'24-06-20',inspector:'이검사',spec:'아노다이징 균일도',measured:'이상 없음 (5EA 제외)',result:'조건부합격',status:'조건부'},
 ]
+/** 다른 허브(검사 등)가 /manufacturing 방문 전에 qms_mfg_wo·qms_mfg_proc를 읽을 때 동일 기본값으로 초기화 */
+export function ensureMfgDefaults(){
+  try{
+    if(localStorage.getItem('qms_mfg_wo')==null)localStorage.setItem('qms_mfg_wo',JSON.stringify(INIT_WO))
+    if(localStorage.getItem('qms_mfg_proc')==null)localStorage.setItem('qms_mfg_proc',JSON.stringify(INIT_PROC))
+  }catch{}
+}
 const INIT_NCR=[
   {id:'NC-2406-003',date:'24-06-20',wo:'WO-2406-017',step:'표면처리 후 외관',desc:'아노다이징 불균일 5EA',severity:'경미',disposition:'재처리',capaNo:'CA-2406-005',status:'조치중'},
   {id:'NC-2406-001',date:'24-06-08',wo:'WO-2406-015',step:'성형 후 치수 검사',desc:'외경 초과공차 1EA — 폐기처리',severity:'경미',disposition:'폐기',capaNo:'—',status:'종결'},
@@ -689,6 +697,36 @@ function PerfView({wo}){
 }
 
 /* ─── 생산 홈 ─── */
+/* 현장 작업 지시(operationsState) → eBR · 4단계 검사(IQC·FAI·IPI·LAI) 진입점 (#A9) */
+function FieldWoLinks(){
+  const nav=useNavigate()
+  const fieldWos=useMemo(()=>{try{return operations.load().workOrders||[]}catch{return[]}},[])
+  if(fieldWos.length===0)return null
+  return(
+    <div className="rounded-xl p-4 mb-6" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-[13.5px] font-semibold" style={{color:'var(--ink)'}}>현장 작업 지시 · 전자 배치 기록(eBR) · 검사 단계</div>
+        <span className="text-[11px]" style={{color:'var(--ink-faint)'}}>§13.7 eBR · §13.14 IQC→FAI→IPI→LAI</span>
+      </div>
+      <div className="space-y-1.5">
+        {fieldWos.slice(0,8).map(w=>(
+          <div key={w.id} className="flex items-center justify-between gap-3 text-[12.5px] flex-wrap" style={{borderTop:'1px solid var(--line)',paddingTop:6}}>
+            <div className="min-w-0">
+              <span className="font-mono" style={{color:'var(--moss)'}}>{w.id}</span>
+              <span className="ml-2" style={{color:'var(--ink)'}}>{w.productName}</span>
+              <span className="ml-2" style={{color:'var(--ink-mute)'}}>로트 {w.lotNumber||'—'} · 수량 {w.quantity||'—'}</span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button onClick={()=>nav(`/operations/${w.id}/ebr`)} className="text-[12px] px-2 py-1 rounded-md" style={{background:'var(--bg-soft)',color:'var(--ink)'}}>eBR</button>
+              <button onClick={()=>nav(`/operations/${w.id}/inspection`)} className="text-[12px] px-2 py-1 rounded-md" style={{background:'var(--leaf-soft)',color:'var(--moss)',fontWeight:500}} title="4단계 검사 화면으로 이동">검사 단계 (IQC·FAI·IPI·LAI)</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function MfgHome({wo,proc,onNavigate}){
   const inProg=wo.filter(w=>w.status==='진행중').length
   const openNcr=useMemo(()=>loadProcessNcrs().filter(n=>n.status!=='closed'&&n.status!=='corrected').length,[proc])
@@ -726,6 +764,7 @@ function MfgHome({wo,proc,onNavigate}){
           </div>
         ))}
       </div>
+      <FieldWoLinks/>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {CARDS.map(card=>(
           <button key={card.id} onClick={()=>onNavigate(card.id)}

@@ -19,7 +19,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
-import { companyDocs, DOC_CATEGORY, QM_STATUS, QM_REQUIREMENTS } from '../../lib/companyState'
+import { companyDocs, DOC_CATEGORY, QM_STATUS, QM_REQUIREMENTS, getCompanyProfile } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
 import { fileStore } from '../../lib/fileStore'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
@@ -40,7 +40,9 @@ export default function CompanyHub() {
   const departments = ob?.departments || []
   const company = ob?.company || {}
   const qm = s.qualityManager
-  const profileDone = !!(company.name && company.bizNumber && company.ceo)
+  // 기업정보 완료 여부 — 기업정보 탭이 저장하는 company_master를 우선, 온보딩 값으로 보완
+  const profile = getCompanyProfile(company)
+  const profileDone = !!(profile.name && profile.bizNumber && profile.ceo)
 
   return (
     <AppLayout user={user} title="기본정보" subtitle="기업정보 / 회사문서함 / 조직도(직무기술서·권한책임서) / 품질책임자 지정">
@@ -76,7 +78,7 @@ export default function CompanyHub() {
           <TabButton active={tab === 'qm'} onClick={() => setTab('qm')} icon={BadgeCheck} label="품질책임자 지정" en="QM APPOINTMENT" count={null} />
         </div>
 
-        {tab === 'profile' && <ProfileTab key={'profile' + tick} company={company} members={ob?.members || []} onAction={showToast} refresh={refresh} />}
+        {tab === 'profile' && <ProfileTab key="profile" company={company} members={ob?.members || []} onAction={showToast} refresh={refresh} />}
         {tab === 'docs' && <CompanyDocsTab key={tick} onAction={showToast} refresh={refresh} />}
         {tab === 'org' && <OrgTab key={'org' + tick} departments={departments} onAction={showToast} refresh={refresh} />}
         {tab === 'qm' && <QmTab key={'qm' + tick} qm={qm} onAction={showToast} refresh={refresh} />}
@@ -245,12 +247,13 @@ function ProfileTab({ company, members, onAction, refresh }) {
     localStorage.setItem(LS_KEY, JSON.stringify(form))
     setSaved(true)
     setTimeout(() => setSaved(false), 2500)
+    if (onAction) onAction('기업정보가 저장되었습니다.')
     if (refresh) refresh()
   }
 
   const SectionHdr = ({ title, icon: Icon }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid var(--border)' }}>
-      {Icon && <Icon size={16} style={{ color: 'var(--accent)' }} />}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 28, marginBottom: 14, paddingBottom: 8, borderBottom: '2px solid var(--line)' }}>
+      {Icon && <Icon size={16} style={{ color: 'var(--moss)' }} />}
       <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{title}</span>
     </div>
   )
@@ -310,7 +313,7 @@ function ProfileTab({ company, members, onAction, refresh }) {
       )}
       <div style={{ marginTop: 24, display: 'flex', gap: 10, alignItems: 'center' }}>
         {canEdit && (
-          <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <button onClick={save} style={{ padding: '8px 22px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
             저장
           </button>
         )}
