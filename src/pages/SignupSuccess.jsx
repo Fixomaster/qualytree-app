@@ -39,7 +39,7 @@ export default function SignupSuccess() {
         <Link to="/login" style={styles.button}>로그인 화면으로</Link>
 
         <div style={styles.footer}>
-          문의: <a href="mailto:support@qualytree.io" style={styles.mail}>support@qualytree.io</a>
+          문의: <a href="mailto:contact@qualy-tree.com" style={styles.mail}>contact@qualy-tree.com</a>
         </div>
       </div>
     </div>
