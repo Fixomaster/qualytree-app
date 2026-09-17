@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
-  Building2, Users, FileText, ClipboardCheck, UserPlus, CreditCard,
+  Building2, Users, FileText, ClipboardCheck, UserPlus,
   Check, ChevronLeft, ChevronRight, Plus, Trash2, ShieldCheck, Info, Sparkles, Settings, Search, Clock,
 } from 'lucide-react'
-import { loadPlans, priceFor, won, CERT_DEFS, CERT_LABEL_TO_ID, PLAN_AVAILABLE_CERT_IDS, certMapForPlan, planForCertIds, planById, syncPlansFromServer } from '../../lib/plans'
+import { CERT_DEFS, CERT_LABEL_TO_ID, certMapForPlan, planById, syncPlansFromServer } from '../../lib/plans'
 import { mfds } from '../../lib/mfds'
 import { classifyProduct } from '../../lib/aiClassify'
 import OrgChartDiagram from '../../components/OrgChartDiagram'
@@ -41,9 +41,7 @@ const MDCAT = {
 }
 const MDCAT1 = Object.keys(MDCAT)
 
-// 요금제는 lib/plans 단일 소스(loadPlans)에서 읽는다 (운영자 /operator/plans 편집 즉시 반영)
-const planAmount = (id, cycle) => { const p = planById(id); return p ? (priceFor(p, cycle) || 0) : 0 }
-const planName = (id) => (planById(id) || {}).name || id
+// 요금제·인증은 가입 신청(qualytree.signup)에서 확정된 값을 읽기 전용으로 표시한다
 function readSignup() {
   try { return JSON.parse(localStorage.getItem('qualytree.signup') || '{}') } catch { return {} }
 }
@@ -74,7 +72,6 @@ const SEED_MANUAL = [
 ]
 
 const STEPS = [
-  { key: 'plan', label: '플랜·결제', icon: CreditCard },
   { key: 'info', label: '기본정보·제품·인증', icon: Building2 },
   { key: 'org', label: '조직도', icon: Users },
   { key: 'manual', label: '품질매뉴얼', icon: FileText },
@@ -140,7 +137,6 @@ export default function Onboarding() {
   const patch = (p) => setState((s) => ({ ...s, ...p }))
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
   const stepValid = (s, key) => {
-    if (key === 'plan') return !!(s.plan && s.plan.id)
     if (key === 'info') {
       const base = !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNumber?.trim()) && (s.products || []).length > 0
       if (s.company?.newLicense) return base
@@ -152,7 +148,7 @@ export default function Onboarding() {
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'plan') return '플랜을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'info') return '회사명·대표자·사업자등록번호를 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다. (제조업 허가번호·품질관리 책임자는 "신규 회사" 체크 시 추후 입력으로 건너뛸 수 있습니다.)'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '회사명·대표자·사업자등록번호를 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다. (제조업 허가번호·품질관리 책임자는 "신규 회사" 체크 시 추후 입력으로 건너뛸 수 있습니다.)'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -209,7 +205,7 @@ export default function Onboarding() {
               온보딩 <span className="text-base font-normal text-slate-500">초기 설정 가이드</span>
             </h1>
             <p className="text-xs text-slate-500 mt-1">
-              플랜을 정하고 KGMP 기준으로 회사·제품을 정의하면 필요한 항목이 자동으로 구성됩니다. 단계대로 따라오시면 됩니다.
+              가입 시 선택한 플랜·인증을 바탕으로 회사·제품을 정의하면 KGMP 기준으로 필요한 항목이 자동으로 구성됩니다. 단계대로 따라오시면 됩니다.
             </p>
           </div>
           <div className="text-right">
@@ -252,7 +248,6 @@ export default function Onboarding() {
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6">
-          {cur.key === 'plan' && <StepPlan state={state} patch={patch} />}
           {cur.key === 'info' && <StepInfo state={state} patch={patch} setState={setState} />}
           {cur.key === 'org' && <StepOrg state={state} setState={setState} />}
           {cur.key === 'manual' && <StepManual state={state} patch={patch} />}
@@ -282,85 +277,23 @@ export default function Onboarding() {
   )
 }
 
-// ───────── STEP 0: 플랜 (가입 선택값 표시 · 수정 가능) ─────────
-function StepPlan({ state, patch }) {
-  const sel = state.plan || {}
-  const sg = readSignup()
-  const planId = sel.id || sg.plan || 'bundle'
-  const cycle = sel.cycle || sg.cycle || 'monthly'
-  const [editing, setEditing] = useState(!planId)
-  const choose = (id) => {
-    // 플랜에 딸린 인증 전체(KGMP·수입GMP·ISO13485·FDA·CE 등)를 한번에 동기화한다.
-    // 예전엔 kgmp·iso13485만 반영되어 FDA/CE/수입사GMP 플랜을 골라도 해당 인증이 켜지지 않는 버그가 있었다.
-    const cm = certMapForPlan(planById(id))
-    patch({ plan: { ...sel, id, cycle }, certs: { ...(state.certs || {}), ...cm } })
-  }
-  const setCycle = (c) => patch({ plan: { ...sel, id: planId, cycle: c } })
-  const amount = planAmount(planId, cycle)
-
-  return (
-    <div className="space-y-5">
-      <Section title="플랜" desc="가입 신청 시 선택한 요금제입니다. 변경이 필요하면 수정하세요. (실제 결제·청구는 가입 신청 단계에서 진행됩니다)" />
-      {!editing ? (
-        <div className="flex items-center justify-between flex-wrap gap-3 p-4 rounded-xl border border-slate-200 bg-slate-50">
-          <div className="text-[13px] text-slate-700">
-            선택한 플랜: <b className="text-slate-900">{planName(planId)}</b> · {cycle === 'annual' ? '연 결제 (15% 할인)' : '월 결제'} · <b className="text-slate-900">{won(amount)}{cycle === 'annual' ? ' / 년' : ' / 월'}</b>
-          </div>
-          <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-[13px] font-medium text-slate-700">플랜 수정</button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden text-[13px]">
-            <button onClick={() => setCycle('monthly')} className={`px-3 py-1.5 ${cycle === 'monthly' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>월 결제</button>
-            <button onClick={() => setCycle('annual')} className={`px-3 py-1.5 ${cycle === 'annual' ? 'bg-emerald-500 text-white' : 'bg-white text-slate-600'}`}>연 결제 (15% 할인)</button>
-          </div>
-          <div className="grid sm:grid-cols-3 gap-3">
-            {loadPlans().filter((p) => p.id !== 'founding').map((p) => {
-              const on = planId === p.id
-              return (
-                <button key={p.id} onClick={() => choose(p.id)}
-                  className={`p-4 rounded-xl border text-left transition ${on ? 'border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'}`}>
-                  <div className="text-[15px] font-semibold text-slate-900">{p.name}</div>
-                  <div className="mt-1 text-[20px] font-bold text-slate-900 tabular-nums">{won(planAmount(p.id, cycle))}<span className="text-[12px] font-normal text-slate-400"> / {cycle === 'annual' ? '년' : '월'}</span></div>
-                </button>
-              )
-            })}
-          </div>
-          <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium">선택 완료</button>
-        </div>
-      )}
-      <Banner>플랜 변경은 다음 결제 주기부터 반영됩니다.</Banner>
-    </div>
-  )
-}
-
 // ───────── STEP 1: 기본정보 · 제품 · 인증 ─────────
 function StepInfo({ state, patch, setState }) {
   const c = state.company
   const setC = (k, v) => patch({ company: { ...c, [k]: v } })
-  const [editCerts, setEditCerts] = useState(false)
-  const onbPlans = loadPlans()
-  const curPlan = planById(state.plan?.id, onbPlans)
-  const cycle = state.plan?.cycle || 'monthly'
-  const [planChange, setPlanChange] = useState(null) // {nextPlan,nextCerts,curPrice,nextPrice}
-  const toggleCert = (id) => {
-    const def = CERT_DEFS.find((c) => c.id === id)
-    if (def && !def.planAvailable) {
-      alert(def.label + '은(는) 준비중입니다. 도입을 원하시면 운영진에게 별도 문의해 주세요.')
-      return
-    }
-    const nextCerts = { ...state.certs, [id]: !state.certs[id] }
-    const onIds = PLAN_AVAILABLE_CERT_IDS.filter((x) => nextCerts[x])
-    if (onIds.length === 0) { alert('최소 1개 이상의 인증이 필요합니다.'); return }
-    const nextPlan = planForCertIds(onIds, onbPlans)
-    if (!nextPlan) { alert('선택한 인증 조합에 맞는 플랜이 없습니다. 운영진에게 문의해 주세요.'); return }
-    if (nextPlan.id === state.plan?.id) { patch({ certs: nextCerts }); return }
-    setPlanChange({ nextPlan, nextCerts, curPrice: curPlan ? (priceFor(curPlan, cycle) || 0) : 0, nextPrice: priceFor(nextPlan, cycle) || 0 })
-  }
-  const applyPlanChange = () => {
-    patch({ plan: { ...(state.plan || {}), id: planChange.nextPlan.id }, certs: planChange.nextCerts })
-    setPlanChange(null)
-  }
+  // 가입 신청에서 확정된 플랜·인증·결제 주기 — 온보딩에서는 읽기 전용으로 표시만 한다.
+  // (요금·플랜 변경은 청구와 직결되므로 운영팀 승인 절차로 처리)
+  const sg = readSignup()
+  const planId = state.plan?.id || sg.plan || ''
+  const SIGNUP_PLAN_NAME = { kgmp: '제조업체 기본 (기본 QMS + KGMP)', kgmp_importer: '수입업체 기본 (기본 QMS + 수입사 GMP)' }
+  const planLabel = SIGNUP_PLAN_NAME[planId] || (planById(planId) || {}).name || (planId ? planId : '가입 신청서 기준')
+  const cycleLabel = (state.plan?.cycle || sg.cycle) === 'annual' ? '연납' : '월납'
+  const sgCertIds = (sg.certs || []).map((x) => CERT_LABEL_TO_ID[x]).filter(Boolean)
+  const certLabels = Array.from(new Set([
+    ...CERT_DEFS.filter((ct) => state.certs[ct.id] || sgCertIds.includes(ct.id)).map((ct) => ct.label),
+    ...((sg.certs || []).filter((x) => typeof x === 'string' && !CERT_LABEL_TO_ID[x])),
+  ]))
+  const changeMail = 'mailto:contact@qualy-tree.com?subject=' + encodeURIComponent('[Qualytree] 플랜·인증 변경 요청 — ' + (c.name || ''))
   const EMPTY = { name: '', itemName: '', grade: '2', cat1: '', cat2: '', etc: '', classNo: '', track: 'N', grp: '', contact: 'none', sterile: false, software: 'none' }
   const [form, setForm] = useState(EMPTY); const [editingId, setEditingId] = useState(null)
   const setF = (k, v) => setForm((ff) => ({ ...ff, [k]: v }))
@@ -421,6 +354,22 @@ function StepInfo({ state, patch, setState }) {
 
   return (
     <div className="space-y-6">
+      <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/60">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="text-[11px] font-mono tracking-[0.14em] uppercase text-emerald-700 mb-1">가입 시 선택한 내용</div>
+            <div className="text-[14px] font-semibold text-slate-900">{planLabel} <span className="font-normal text-slate-500">· {cycleLabel}</span></div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {certLabels.length > 0 ? certLabels.map((l) => (
+                <span key={l} className="px-2.5 py-1 rounded-full bg-white border border-emerald-200 text-[12.5px] text-emerald-800">{l}</span>
+              )) : <span className="text-[12.5px] text-slate-500">인증 정보는 가입 신청서 기준으로 적용됩니다.</span>}
+            </div>
+            <div className="mt-2 text-[12px] text-slate-500">요금제·인증은 가입 신청에서 확정되었습니다. 이 화면에서는 바꿀 수 없으며, 변경이 필요하면 운영팀에 요청해 주세요 (청구에 반영됩니다).</div>
+          </div>
+          <a href={changeMail} className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-[12.5px] font-medium text-slate-700 hover:bg-slate-50">변경 요청 (운영팀)</a>
+        </div>
+      </div>
+
       <Section title="회사 정보" desc="허가증·사업자등록증 기준으로 입력하세요.">
         <label className="flex items-start gap-2 mb-3 p-2.5 rounded-lg cursor-pointer select-none" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
           <input type="checkbox" className="mt-0.5" checked={!!c.newLicense} onChange={(e) => setC('newLicense', e.target.checked)} />
@@ -437,67 +386,6 @@ function StepInfo({ state, patch, setState }) {
         </div>
       </Section>
 
-      <Section title="인증 · 플랜" desc="플랜에 따라 인증이 자동 연동됩니다. 인증을 추가/해제하면 플랜·요금이 함께 바뀌며, 변경 시 확인 창이 표시됩니다.">
-        <div className="mb-3 flex items-center justify-between flex-wrap gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200 text-[12.5px]">
-          <span className="text-slate-600">현재 플랜 <b className="text-slate-900">{curPlan ? curPlan.name : '미선택'}</b></span>
-          <span className="text-slate-700">{curPlan ? (won(priceFor(curPlan, cycle)) + (cycle === 'annual' ? ' / 년' : ' / 월')) : '플랜을 먼저 선택하세요'}</span>
-        </div>
-        {!editCerts ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {CERT_DEFS.filter((ct) => state.certs[ct.id]).map((ct) => (
-              <span key={ct.id} className="px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-[13px] text-emerald-800">{ct.label}</span>
-            ))}
-            {CERT_DEFS.filter((ct) => state.certs[ct.id]).length === 0 && <span className="text-[12.5px] text-slate-400">선택된 인증이 없습니다</span>}
-            <button onClick={() => setEditCerts(true)} className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-[13px] text-slate-700">수정</button>
-          </div>
-        ) : (
-          <>
-            <div className="grid sm:grid-cols-2 gap-2">
-              {CERT_DEFS.map((ct) => {
-                const on = !!state.certs[ct.id]
-                const soon = !ct.planAvailable
-                return (
-                  <button key={ct.id} onClick={() => toggleCert(ct.id)}
-                    className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition ${on ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 bg-white hover:bg-slate-50'} ${soon ? 'opacity-60' : ''}`}>
-                    <span className={`w-5 h-5 rounded flex items-center justify-center ${on ? 'bg-emerald-500 text-white' : 'border border-slate-300'}`}>{on && <Check size={13} />}</span>
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-slate-800 flex items-center gap-1.5">{ct.label}{soon && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">준비중</span>}</span>
-                      <span className="block text-[11px] text-slate-500">{ct.sub}</span>
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            <button onClick={() => setEditCerts(false)} className="mt-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-[13px]">완료</button>
-          </>
-        )}
-        {planChange && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setPlanChange(null)}>
-            <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-[16px] font-bold text-slate-900 mb-1">플랜 변경 확인</h3>
-              <p className="text-[12.5px] text-slate-500 mb-3">인증 구성을 바꾸면 플랜과 요금이 함께 변경됩니다.</p>
-              <div className="rounded-lg border border-slate-200 divide-y divide-slate-100 text-[13px] mb-3">
-                <div className="flex justify-between px-3 py-2"><span className="text-slate-500">현재</span><span className="text-slate-800">{curPlan ? curPlan.name : '미선택'} · {won(planChange.curPrice)}{cycle === 'annual' ? ' / 년' : ' / 월'}</span></div>
-                <div className="flex justify-between px-3 py-2"><span className="text-slate-500">변경 후</span><span className="font-semibold text-slate-900">{planChange.nextPlan.name} · {won(planChange.nextPrice)}{cycle === 'annual' ? ' / 년' : ' / 월'}</span></div>
-                <div className="flex justify-between px-3 py-2">
-                  <span className="text-slate-500">차액</span>
-                  <span className={planChange.nextPrice >= planChange.curPrice ? 'font-bold text-rose-600' : 'font-bold text-emerald-600'}>
-                    {planChange.nextPrice >= planChange.curPrice ? '+' : '−'}{won(Math.abs(planChange.nextPrice - planChange.curPrice))} {planChange.nextPrice >= planChange.curPrice ? '(증액)' : '(감액)'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-800 mb-4">
-                <Info size={14} className="shrink-0 mt-0.5" />
-                <span>{planChange.nextPrice > planChange.curPrice ? '증액분에 대한 실제 청구는 가입/청구 단계에서 결제로 진행됩니다. 변경은 다음 결제 주기부터 반영됩니다.' : '감액은 다음 결제 주기부터 반영됩니다.'}</span>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setPlanChange(null)} className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm">취소</button>
-                <button onClick={applyPlanChange} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium">변경 적용</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Section>
 
       <Section title="제품 등록" desc="식약처 품목 검색으로 분류번호·등급을 자동 입력하거나 직접 입력하세요. 제품명을 입력하면 AI가 대분류·중분류를 자동 추천합니다(오추천 시 직접 수정 가능). '저장'을 누르면 아래 목록에 추가됩니다. 목록에서 항목을 눌러 수정·삭제할 수 있습니다.">
         <div className="border border-slate-200 rounded-lg p-3 space-y-2 bg-slate-50">
