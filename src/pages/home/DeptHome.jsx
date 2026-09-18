@@ -14,7 +14,6 @@ import GuideBanner from '../../components/GuideBanner'
 import { auth } from '../../lib/auth'
 import { deptAuth, DEPT_LIST } from '../../lib/deptAuth'
 import { menuPermissions } from '../../lib/menuPermissions'
-import { loadContext, computeAllCards, computeOverallScore } from '../../lib/gmpProgress'
 import { productDocs } from '../../lib/productDocsState'
 
 // ── localStorage 읽기 헬퍼 ──────────────────────────────────
@@ -567,13 +566,6 @@ export default function DeptHome() {
     } catch { return [] }
   }, [])
 
-  // 기존 홈(Dashboard.jsx)의 핵심 콘텐츠 — 전사 GMP/RA 준수 현황 요약.
-  // 상세 12개 카드 그리드는 /dashboard 에서 그대로 볼 수 있고, 여기서는 요약만 보여준다.
-  const gmpCtx = useMemo(() => { try { return loadContext() } catch { return null } }, [])
-  const gmpCards = useMemo(() => { try { return gmpCtx ? computeAllCards(gmpCtx) : [] } catch { return [] } }, [gmpCtx])
-  const gmpScore = useMemo(() => { try { return gmpCards.length ? computeOverallScore(gmpCards) : null } catch { return null } }, [gmpCards])
-  const activeCerts = gmpCtx ? Object.entries(gmpCtx.certifications || {}).filter(([, v]) => v).map(([k]) => k) : []
-
   const dateStr = now.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
   const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
 
@@ -828,25 +820,6 @@ export default function DeptHome() {
           </div>
         </div>
 
-        {/* GMP·RA 전사 준수 현황 — 상단 KPI 카드와 같은 '현황' 스타일, 왼쪽 정렬 (영역별 상세는 숨김) */}
-        {gmpCtx && gmpCards.length > 0 && (
-          <div className="flex justify-start pt-1 pb-2">
-            <button
-              onClick={() => nav('/dashboard')}
-              className="p-4 rounded-2xl text-left transition hover:scale-[1.02]"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', cursor: 'pointer', minWidth: 180 }}
-            >
-              <div className="flex items-center justify-between gap-6 mb-2">
-                <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>GMP 대시보드</span>
-                <ShieldCheck size={15} style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[26px] font-bold tabular-nums" style={{ color: gmpScore >= 90 ? 'var(--moss)' : gmpScore >= 70 ? 'var(--amber)' : 'var(--rust)' }}>{gmpScore}%</span>
-                <span className="text-[11px] flex items-center gap-0.5" style={{ color: 'var(--ink-faint)' }}>전체 보기 <ChevronRight size={11} /></span>
-              </div>
-            </button>
-          </div>
-        )}
       </div>
     </AppLayout>
   )

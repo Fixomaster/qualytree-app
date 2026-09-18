@@ -189,7 +189,7 @@ return (
       <Route path="/ai-draft" element={<ProtectedRoute><AIDraftHub /></ProtectedRoute>} />
 <Route path="/manager/accounts" element={<LazyRoute Component={MemberAdmin} />} />
               <Route path="/admin/permissions" element={<LazyRoute Component={AdminPermissionsHub} />} />
-<Route path="/dashboard" element={<ProtectedRoute><LazyRoute Component={Dashboard} /></ProtectedRoute>} />
+<Route path="/dashboard" element={<Navigate to="/home" replace />} />
 <Route path="/section/:cardId" element={<ProtectedRoute><LazyRoute Component={GMPSection} /></ProtectedRoute>} />
 <Route path="/onboarding" element={<ProtectedRoute><LazyRoute Component={Onboarding} /></ProtectedRoute>} />
 {/* #WOì ë¦¬ â ììì§ì í(WorkOrderQueue)ë ë³ë ë ê±°ì ë°ì´í°(operationsState.js)ë¥¼ ì°ë ìì  íë©´.
