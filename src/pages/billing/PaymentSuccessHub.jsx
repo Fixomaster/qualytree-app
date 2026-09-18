@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
 import { CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
+import { planById } from '../../lib/plans'
 
 export default function PaymentSuccessHub() {
   const [params] = useSearchParams()
@@ -10,7 +11,7 @@ export default function PaymentSuccessHub() {
   const [message, setMessage] = useState('')
   const [planLabel, setPlanLabel] = useState('')
 
-  const PLAN_LABELS = { free: '무료', starter: '스타터', pro: '프로', enterprise: '엔터프라이즈' }
+  const planLabelFor = (id) => planById(id)?.name || id
 
   useEffect(() => {
     async function confirm() {
@@ -26,7 +27,7 @@ export default function PaymentSuccessHub() {
         return
       }
 
-      setPlanLabel(PLAN_LABELS[plan] || plan)
+      setPlanLabel(planLabelFor(plan))
 
       try {
         const res = await fetch('/api/payments/toss-confirm', {
@@ -37,7 +38,7 @@ export default function PaymentSuccessHub() {
         const data = await res.json()
         if (data.ok) {
           setStatus('success')
-          setMessage(`${PLAN_LABELS[plan] || plan} 플랜으로 업그레이드 완료!`)
+          setMessage(`${planLabelFor(plan)} 플랜으로 업그레이드 완료!`)
         } else {
           setStatus('error')
           setMessage(data.error || '결제 승인 중 오류가 발생했습니다.')

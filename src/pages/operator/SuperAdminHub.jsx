@@ -3,19 +3,23 @@
  * 접근: /operator (슈퍼관리자 계정만)
  * 탭: 회사 목록 | 구독 관리 | 결제 내역 | 플랜 설정
  */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
+import { loadPlans, priceFor } from '../../lib/plans'
 
-const PLANS = [
-  { key: 'free',       label: '무료',         price: 0,      aiLimit: 10,  color: '#888' },
-  { key: 'starter',    label: '스타터',        price: 49000,  aiLimit: 50,  color: '#2980b9' },
-  { key: 'pro',        label: '프로',          price: 149000, aiLimit: 200, color: '#8e44ad' },
-  { key: 'enterprise', label: '엔터프라이즈',   price: 490000, aiLimit: 999, color: '#c0392b' },
-]
+// 플랜 목록은 사이드바 "플랜·요금 관리"(lib/plans.js)와 동일한 단일 소스를 사용한다 —
+// 홈페이지 가입 결제 화면(2026-09 확정: 기본 월 300만원 + 추가 인증 월 100만원)과 일치.
+const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b45309']
+function buildPlans() {
+  return loadPlans().filter((p) => !p.custom).map((p, i) => ({
+    key: p.id, label: p.name, price: priceFor(p, 'monthly') ?? 0, color: PLAN_COLORS[i % PLAN_COLORS.length],
+  }))
+}
 
 const TABS = ['회사 목록', '구독 관리', '결제 내역', '플랜 설정']
 
 export default function SuperAdminHub() {
+  const PLANS = useMemo(buildPlans, [])
   const [tab,       setTab]       = useState(0)
   const [companies, setCompanies] = useState([])
   const [subs,      setSubs]      = useState([])
@@ -58,7 +62,7 @@ export default function SuperAdminHub() {
 
   const totalRevenue = payments.filter(p => p.status === 'paid' && p.created_at?.startsWith(ym))
     .reduce((a, p) => a + (p.amount ?? 0), 0)
-  const paidCount = subs.filter(s => s.plan !== 'free').length
+  const paidCount = subs.filter(s => PLANS.some(p => p.key === s.plan)).length
 
   return (
     <div style={{ minHeight: '100vh', background: '#f0f2f5', fontFamily: 'sans-serif' }}>
@@ -69,9 +73,9 @@ export default function SuperAdminHub() {
       <div style={{ display: 'flex', gap: '16px', padding: '20px 32px 0' }}>
         {[
           { label: '전체 회사', value: companies.length + '개' },
-          { label: '유료 구독', value: paidCount + '개' },
+          { label: '계약된 구독', value: paidCount + '개' },
           { label: '이번 달 결제', value: totalRevenue.toLocaleString() + '원' },
-          { label: '무료 플랜', value: (companies.length - paidCount) + '개' },
+          { label: '미계약', value: (companies.length - paidCount) + '개' },
         ].map(k => (
           <div key={k.label} style={{ flex: 1, background: '#fff', borderRadius: '10px', padding: '16px 20px', boxShadow: '0 1px 4px rgba(0,0,0,.08)' }}>
             <div style={{ fontSize: '12px', color: '#888' }}>{k.label}</div>
@@ -98,7 +102,7 @@ export default function SuperAdminHub() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
                 <tr style={{ background: '#f5f5f5' }}>
-                  {['회사명', '유형', '플랜', 'AI 사용', '가입일', '플랜 변경'].map(h => (
+                  {['회사명', '유형', '플랜', '월 요금', '가입일', '플랜 변경'].map(h => (
                     <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid #e0e0e0' }}>{h}</th>
                   ))}
                 </tr>
@@ -106,21 +110,26 @@ export default function SuperAdminHub() {
               <tbody>
                 {filteredCos.map(co => {
                   const sub = subMap[co.id]
-                  const plan = PLANS.find(p => p.key === (sub?.plan ?? 'free')) ?? PLANS[0]
+                  const plan = PLANS.find(p => p.key === sub?.plan) ?? null
                   return (
                     <tr key={co.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                       <td style={{ padding: '10px 12px', fontWeight: 600 }}>{co.name ?? '-'}</td>
                       <td style={{ padding: '10px 12px', color: '#666' }}>{co.company_type ?? '-'}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        <span style={{ background: plan.color + '22', color: plan.color, padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700 }}>
-                          {plan.label}
-                        </span>
+                        {plan ? (
+                          <span style={{ background: plan.color + '22', color: plan.color, padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700 }}>
+                            {plan.label}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#aaa', fontSize: '12px' }}>미계약</span>
+                        )}
                       </td>
-                      <td style={{ padding: '10px 12px', color: '#666' }}>{sub?.ai_used ?? '-'} / {plan.aiLimit}</td>
+                      <td style={{ padding: '10px 12px', color: '#666' }}>{plan ? plan.price.toLocaleString() + '원/월' : '-'}</td>
                       <td style={{ padding: '10px 12px', color: '#888', fontSize: '12px' }}>{co.created_at?.slice(0,10)}</td>
                       <td style={{ padding: '10px 12px' }}>
-                        <select defaultValue={sub?.plan ?? 'free'} onChange={e => updatePlan(co.id, e.target.value)}
+                        <select defaultValue={sub?.plan ?? ''} onChange={e => updatePlan(co.id, e.target.value)}
                           style={{ padding: '4px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}>
+                          <option value="">미계약</option>
                           {PLANS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
                         </select>
                       </td>
@@ -143,7 +152,7 @@ export default function SuperAdminHub() {
                   <div key={plan.key} style={{ flex: '1 1 200px', border: '2px solid ' + plan.color, borderRadius: '12px', padding: '20px' }}>
                     <div style={{ fontSize: '14px', color: plan.color, fontWeight: 700 }}>{plan.label}</div>
                     <div style={{ fontSize: '32px', fontWeight: 800, margin: '8px 0' }}>{count}</div>
-                    <div style={{ fontSize: '12px', color: '#888' }}>{plan.price.toLocaleString()}원/월 · AI {plan.aiLimit}회</div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>{plan.price.toLocaleString()}원/월</div>
                   </div>
                 )
               })}
@@ -180,17 +189,17 @@ export default function SuperAdminHub() {
         )}
         {!loading && tab === 3 && (
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>플랜 단가 및 AI 한도</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>플랜 단가 (홈페이지 가입 결제 화면과 동일)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '16px' }}>
               {PLANS.map(plan => (
                 <div key={plan.key} style={{ border: '1px solid #e0e0e0', borderRadius: '10px', padding: '20px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: plan.color, marginBottom: '12px' }}>{plan.label}</div>
                   <div style={{ fontSize: '14px', color: '#444' }}>
-                    <div>월 구독료: <strong>{plan.price.toLocaleString()}원</strong></div>
-                    <div>AI 초안 한도: <strong>{plan.aiLimit}회/월</strong></div>
+                    <div>월 구독료: <strong>{plan.price.toLocaleString()}원</strong> (VAT 별도)</div>
+                    <div>AI 초안: <strong>모든 플랜 무제한 포함</strong></div>
                   </div>
                   <div style={{ marginTop: '12px', fontSize: '12px', color: '#888' }}>
-                    플랜 단가 변경은 코드(SuperAdminHub.jsx → PLANS)에서 수정하세요.
+                    플랜 단가 변경은 사이드바 "플랜·요금 관리"(/operator/plans)에서 수정하세요.
                   </div>
                 </div>
               ))}

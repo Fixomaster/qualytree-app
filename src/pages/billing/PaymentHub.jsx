@@ -1,18 +1,27 @@
 // src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 결제
-import { useState, useEffect } from 'react'
+// 요금은 사이드바 "플랜·요금 관리"(lib/plans.js)와 동일한 단일 소스를 사용한다 —
+// 홈페이지 가입 결제 단계(Signup.jsx, 2026-09 확정 요금 모델: 기본 월 300만원 + 추가 인증 월 100만원)와 일치.
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import AppLayout from '../../components/AppLayout'
 import { CreditCard, Check, Sparkles, RefreshCw } from 'lucide-react'
+import { loadPlans, priceFor, won as fmtWon } from '../../lib/plans'
 
-const PLANS = [
-  { key: 'free',       label: '무료',         price: 0,      aiLimit: 10,  color: '#888',    features: ['AI 초안 10회/월', '기본 ISO 허브 전체', '1 사용자', '기본 지원'] },
-  { key: 'starter',   label: '스타터',        price: 49000,  aiLimit: 50,  color: '#2980b9', features: ['AI 초안 50회/월', '전체 ISO 허브', '5 사용자', '이메일 지원', 'PDF 출력'] },
-  { key: 'pro',        label: '프로',          price: 149000, aiLimit: 200, color: '#8e44ad', features: ['AI 초안 200회/월', '전체 허브 + PDF', '20 사용자', '우선 지원', '감사 추적'] },
-  { key: 'enterprise', label: '엔터프라이즈',  price: 490000, aiLimit: 999, color: '#c0392b', features: ['AI 초안 무제한', '전체 기능', '무제한 사용자', '전담 지원', 'Custom 도메인'] },
-]
+const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b45309']
 
 export default function PaymentHub() {
-  const [currentPlan, setCurrentPlan] = useState('free')
+  const PLANS = useMemo(() => {
+    const all = loadPlans().filter((p) => !p.custom)
+    return all.map((p, i) => ({
+      key: p.name,
+      id: p.id,
+      label: p.name,
+      price: priceFor(p, 'monthly') ?? 0,
+      color: PLAN_COLORS[i % PLAN_COLORS.length],
+      features: p.features || [],
+    }))
+  }, [])
+  const [currentPlan, setCurrentPlan] = useState(null)
   const [companyId, setCompanyId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [sdkLoaded, setSdkLoaded] = useState(false)
@@ -38,6 +47,8 @@ export default function PaymentHub() {
       const { data: sub } = await supabase.from('subscriptions').select('plan, expires_at').eq('company_id', profile.company_id).single()
       if (sub?.plan) setCurrentPlan(sub.plan)
       if (sub?.expires_at) setExpiresAt(sub.expires_at)
+      // 구 요금제(free/starter/pro/enterprise)로 저장된 값은 새 인증 기반 플랜 목록에 없으므로
+      // "계약된 플랜 없음"으로 처리한다 — 아래 currentPlanObj가 null이면 안내 카드를 보여준다.
     }
     loadPlan()
   }, [])
@@ -52,8 +63,8 @@ export default function PaymentHub() {
       await tossPayments.requestPayment('카드', {
         amount: plan.price,
         orderId,
-        orderName: `Qualytree ${plan.label} 플랜 1개월`,
-        successUrl: `${window.location.origin}/billing/success?plan=${plan.key}&companyId=${companyId}`,
+        orderName: `Qualytree ${plan.label} 1개월 (VAT 별도)`,
+        successUrl: `${window.location.origin}/billing/success?plan=${plan.id}&companyId=${companyId}`,
         failUrl: `${window.location.origin}/billing?fail=1`,
       })
     } catch (e) {
@@ -62,7 +73,7 @@ export default function PaymentHub() {
     setLoading(false)
   }
 
-  const currentPlanObj = PLANS.find(p => p.key === currentPlan) || PLANS[0]
+  const currentPlanObj = PLANS.find(p => p.id === currentPlan) || null
 
   return (
     <AppLayout>
@@ -72,8 +83,11 @@ export default function PaymentHub() {
             <CreditCard size={22} style={{ color: 'var(--moss)' }} /> 플랜 및 결제
           </h1>
           <p style={{ color: 'var(--ink-faint)', margin: '6px 0 0', fontSize: 13 }}>
-            현재 플랜: <strong style={{ color: currentPlanObj.color }}>{currentPlanObj.label}</strong>
+            현재 플랜: <strong style={{ color: currentPlanObj?.color || 'var(--ink-faint)' }}>{currentPlanObj?.label || '계약된 플랜 없음'}</strong>
             {expiresAt && ` · 만료일: ${expiresAt.slice(0, 10)}`}
+          </p>
+          <p style={{ color: 'var(--ink-faint)', margin: '2px 0 0', fontSize: 12 }}>
+            모든 금액은 VAT 별도이며, 아래 플랜은 홈페이지 가입 결제 화면과 동일한 요금입니다.
           </p>
         </div>
 
@@ -85,7 +99,7 @@ export default function PaymentHub() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 16 }}>
           {PLANS.map(plan => {
-            const isActive = plan.key === currentPlan
+            const isActive = plan.id === currentPlan
             return (
               <div key={plan.key} style={{
                 border: `2px solid ${isActive ? plan.color : 'var(--line)'}`,
@@ -100,11 +114,11 @@ export default function PaymentHub() {
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: plan.color, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{plan.label}</div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
-                    {plan.price === 0 ? '무료' : `₩${plan.price.toLocaleString()}`}
+                    {plan.price === 0 ? '문의' : fmtWon(plan.price)}
                     {plan.price > 0 && <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-faint)' }}>/월</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>
-                    AI 초안 {plan.aiLimit === 999 ? '무제한' : `${plan.aiLimit}회`}/월
+                    VAT 별도 · 월납
                   </div>
                 </div>
 

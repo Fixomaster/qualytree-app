@@ -13,13 +13,9 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')!
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-// 회사 등급별 월 한도 (기본값)
-const PLAN_LIMITS: Record<string, number> = {
-  free:       10,
-  starter:    50,
-  pro:       200,
-  enterprise: 999,
-}
+// 월 AI 초안 생성 한도 — 요금제(인증 기반 구독)와 무관한 내부 비용 가드용 상한.
+// 2026-09 확정 요금 모델은 모든 플랜에 AI 초안을 무제한 포함하므로, 더 이상 플랜별 한도를 두지 않는다.
+const MONTHLY_AI_DRAFT_LIMIT = 500
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -51,12 +47,12 @@ serve(async (req) => {
       .eq('month', ym)
       .single()
 
-    const plan  = usageRow?.plan ?? 'free'
+    const plan  = usageRow?.plan ?? null
     const used  = usageRow?.count ?? 0
-    const limit = PLAN_LIMITS[plan] ?? 10
+    const limit = MONTHLY_AI_DRAFT_LIMIT
 
     if (used >= limit) {
-      return jsonErr(`월 사용 한도 초과 (${used}/${limit}회). 플랜을 업그레이드하세요.`, 429)
+      return jsonErr(`월 사용 한도 초과 (${used}/${limit}회). 담당자에게 문의해 주세요.`, 429)
     }
 
     // 4. 시스템 프롬프트 구성
