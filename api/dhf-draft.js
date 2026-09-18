@@ -1,4 +1,4 @@
-import { extractJsonLoose } from '../lib/aiClient.js'
+import { callAnthropicJson, errorResponse } from '../lib/aiClient.js'
 // Vercel Serverless Function — DHF(설계이력파일) 기록 AI 초안 생성 (Anthropic Claude)
 //
 // 목적: DesignHistoryHub의 "기록 추가"에서, 설계 단계(기록 유형)와 제품 정보를 바탕으로
@@ -10,7 +10,6 @@ import { extractJsonLoose } from '../lib/aiClient.js'
 // 요청(POST): { productName, itemType, intendedUse, context }
 // 응답: { ok, title, description, notes, model } | { ok:false, error, message }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = process.env.DHF_DRAFT_MODEL || 'claude-sonnet-5'
 
 // DesignHistoryHub.jsx의 ITEM_TYPES와 동일하게 유지할 것
@@ -24,14 +23,11 @@ const ITEM_TYPE_GUIDE = {
   change:       { label: '설계 변경', hint: '설계 변경의 배경, 변경 전후 비교, 영향평가(위험·성능·규제), 재검증·재밸리데이션 필요 여부' },
 }
 
-function extractJson(text) {
-  return extractJsonLoose(text, 'object')
-}
+
+export const config = { maxDuration: 60 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) { res.status(500).json({ ok: false, error: 'no_key', message: 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' }); return }
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
@@ -69,21 +65,15 @@ export default async function handler(req, res) {
     '- 이 제품 유형에 실제로 해당하지 않는 내용(예: 소프트웨어 없는 기구에 소프트웨어 검증)은 만들지 않는다.\n' +
     '- 출력은 오직 JSON 객체 하나만 출력한다. 다른 설명, 코드펜스, 서두 텍스트를 절대 출력하지 않는다.'
 
+  let parsed, usedModel
   try {
-    const r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 900,
-        system,
-        messages: [{ role: 'user', content: factLines }],
-      }),
-    })
-    const j = await r.json()
-    if (!r.ok) { res.status(502).json({ ok: false, error: 'upstream', message: (j && j.error && j.error.message) || ('HTTP ' + r.status) }); return }
-    const raw = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')
-    const parsed = extractJson(raw)
+    const r = await callAnthropicJson({ system, prompt: factLines, model: usedModel, maxTokens: 2000, expect: 'object' })
+    parsed = r.data; usedModel = r.model
+  } catch (e) {
+    return errorResponse(res, e)
+  }
+
+  try {
 
     if (!parsed || typeof parsed !== 'object') {
       res.status(502).json({ ok: false, error: 'parse', message: 'AI 응답을 해석할 수 없습니다.' })
@@ -100,7 +90,7 @@ export default async function handler(req, res) {
       return
     }
 
-    res.status(200).json({ ok: true, title, description, notes, model: MODEL })
+    res.status(200).json({ ok: true, title, description, notes, model: usedModel })
   } catch (e) {
     res.status(502).json({ ok: false, error: 'upstream', message: String((e && e.message) || e) })
   }

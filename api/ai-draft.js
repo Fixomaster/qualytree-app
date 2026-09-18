@@ -121,6 +121,8 @@ ISO 조항: ${f.section}
 400-600자 분량의 전문적이고 규제 적합한 내용으로 작성하세요.`,
 }
 
+export const config = { maxDuration: 60 }
+
 export default async function handler(req, res) {
   // GET = 연결 상태 확인 (키 값은 절대 반환하지 않는다)
   //   GET /api/ai-draft          → 키 설정 여부

@@ -11,6 +11,8 @@
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = process.env.TRANSLATE_MODEL || 'claude-haiku-4-5-20251001'
 
+export const config = { maxDuration: 60 }
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
   const key = process.env.ANTHROPIC_API_KEY

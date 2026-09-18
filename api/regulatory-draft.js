@@ -1,4 +1,4 @@
-import { extractJsonLoose } from '../lib/aiClient.js'
+import { callAnthropicJson, errorResponse } from '../lib/aiClient.js'
 // Vercel Serverless Function — 인허가 신규신청 "필요 서류 목록" 항목별 AI 초안 생성 (Anthropic Claude)
 //
 // 목적: RegulatoryHub Step3(필요 서류 목록)에서, 각 서류 항목(예: 사용목적에 관한 자료,
@@ -9,13 +9,12 @@ import { extractJsonLoose } from '../lib/aiClient.js'
 // 요청(POST): { productName, productCode, grade, docLabel, context }
 // 응답: { ok, content, model } | { ok:false, error, message }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = process.env.REG_DRAFT_MODEL || 'claude-sonnet-5'
+
+export const config = { maxDuration: 60 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) { res.status(500).json({ ok: false, error: 'no_key', message: 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' }); return }
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
@@ -53,23 +52,16 @@ export default async function handler(req, res) {
     '- 이 품목 유형에 실제로 해당하지 않는 내용은 만들지 않는다.\n' +
     '- 출력은 오직 JSON 객체 하나만 출력한다. 다른 설명, 코드펜스, 서두 텍스트를 절대 출력하지 않는다.'
 
-  const extractJson = (t) => extractJsonLoose(t, 'object')
+
+  let parsed, usedModel
+  try {
+    const r = await callAnthropicJson({ system, prompt: factLines, model: usedModel, maxTokens: 2000, expect: 'object' })
+    parsed = r.data; usedModel = r.model
+  } catch (e) {
+    return errorResponse(res, e)
+  }
 
   try {
-    const r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 700,
-        system,
-        messages: [{ role: 'user', content: factLines }],
-      }),
-    })
-    const j = await r.json()
-    if (!r.ok) { res.status(502).json({ ok: false, error: 'upstream', message: (j && j.error && j.error.message) || ('HTTP ' + r.status) }); return }
-    const raw = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')
-    const parsed = extractJson(raw)
 
     if (!parsed || typeof parsed !== 'object') {
       res.status(502).json({ ok: false, error: 'parse', message: 'AI 응답을 해석할 수 없습니다.' })
@@ -82,7 +74,7 @@ export default async function handler(req, res) {
       return
     }
 
-    res.status(200).json({ ok: true, content, model: MODEL })
+    res.status(200).json({ ok: true, content, model: usedModel })
   } catch (e) {
     res.status(502).json({ ok: false, error: 'upstream', message: String((e && e.message) || e) })
   }

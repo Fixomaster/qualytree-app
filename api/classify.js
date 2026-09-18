@@ -1,4 +1,4 @@
-import { extractJsonLoose } from '../lib/aiClient.js'
+import { callAnthropicJson, errorResponse } from '../lib/aiClient.js'
 // Vercel Serverless Function — AI 기반 의료기기 인허가 업종(대분류·중분류) 추천 (Anthropic Claude)
 //
 // 목적: 온보딩 "제품 등록"에서 제품명(및 특성)을 입력하면 사전 정의된 MDCAT 분류표 안에서
@@ -9,7 +9,6 @@ import { extractJsonLoose } from '../lib/aiClient.js'
 // 요청(POST): { name, itemName?, contact?, software?, sterile?, grade? }
 // 응답: { ok, cat1, cat2, confidence } | { ok:false, error, message }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = process.env.CLASSIFY_MODEL || 'claude-haiku-4-5-20251001'
 
 // Onboarding.jsx의 MDCAT 표와 동일하게 유지할 것 (식약처 분류 기반 인허가 업종: 대분류 → 중분류)
@@ -30,14 +29,11 @@ function buildTaxonomyText() {
   return MDCAT1.map((c1) => `- ${c1}: ${(MDCAT[c1] || []).join(', ') || '(하위분류 없음)'}`).join('\n')
 }
 
-function extractJson(text) {
-  return extractJsonLoose(text, 'object')
-}
+
+export const config = { maxDuration: 60 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) { res.status(500).json({ ok: false, error: 'no_key', message: 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' }); return }
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
@@ -71,21 +67,15 @@ export default async function handler(req, res) {
     '- 출력은 오직 JSON 하나만: {"cat1":"...","cat2":"...","confidence":"high"|"medium"|"low"}\n' +
     '- 다른 설명, 코드펜스, 서두 텍스트를 절대 출력하지 않는다.'
 
+  let parsed, usedModel
   try {
-    const r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 200,
-        system,
-        messages: [{ role: 'user', content: factLines }],
-      }),
-    })
-    const j = await r.json()
-    if (!r.ok) { res.status(502).json({ ok: false, error: 'upstream', message: (j && j.error && j.error.message) || ('HTTP ' + r.status) }); return }
-    const raw = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')
-    const parsed = extractJson(raw)
+    const r = await callAnthropicJson({ system, prompt: factLines, model: usedModel, maxTokens: 400, expect: 'object' })
+    parsed = r.data; usedModel = r.model
+  } catch (e) {
+    return errorResponse(res, e)
+  }
+
+  try {
 
     // 환각 방지 — 분류표에 실제로 있는 값인지 서버에서 재검증
     let cat1 = parsed && typeof parsed.cat1 === 'string' ? parsed.cat1.trim() : ''
@@ -94,7 +84,7 @@ export default async function handler(req, res) {
     if (!MDCAT1.includes(cat1)) { cat1 = '기타'; cat2 = ''; confidence = 'low' }
     else if (cat2 && !(MDCAT[cat1] || []).includes(cat2)) { cat2 = '' }
 
-    res.status(200).json({ ok: true, cat1, cat2, confidence, model: MODEL })
+    res.status(200).json({ ok: true, cat1, cat2, confidence, model: usedModel })
   } catch (e) {
     res.status(502).json({ ok: false, error: 'upstream', message: String((e && e.message) || e) })
   }

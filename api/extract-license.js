@@ -17,6 +17,8 @@ function extractJson(text) {
   return extractJsonLoose(text, 'object')
 }
 
+export const config = { maxDuration: 60 }
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
   const key = process.env.ANTHROPIC_API_KEY

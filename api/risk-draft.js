@@ -36,6 +36,8 @@ const PROBABILITY = [
 const CONTROL_TYPES = ['inherent', 'protective', 'information', 'none']
 const CONTROL_LABEL = { inherent: '고유 안전 설계', protective: '보호 수단', information: '안전 정보 제공', none: '미조치' }
 
+export const config = { maxDuration: 60 }
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
 
