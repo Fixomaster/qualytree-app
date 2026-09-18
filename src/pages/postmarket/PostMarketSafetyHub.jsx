@@ -485,7 +485,7 @@ function MdrTab() {
 
   const persist = (list) => { try { localStorage.setItem(MDR_KEY, JSON.stringify(list)) } catch {}; setReports(list) }
 
-  const generateDraft = () => {
+  const fillTemplate = () => {
     const today = new Date().toISOString().slice(0,10)
     setForm({
       reportNo: 'MDR-' + Date.now().toString().slice(-6),
@@ -520,12 +520,44 @@ function MdrTab() {
   const del = (id) => { if(!window.confirm('삭제하시겠습니까?')) return; persist(reports.filter(r=>r.id!==id)) }
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
 
+  const [aiLoading, setAiLoading] = React.useState(false)
+  // AI 초안 — 제품명과 사고 개요가 있으면 경위·원인·조치·보고기한 분류를 AI가 채운다.
+  const aiDraft = async () => {
+    if (!showForm) { setForm({ ...EMPTY, reportNo: 'MDR-' + Date.now().toString().slice(-6), reportDate: new Date().toISOString().slice(0,10) }); setShowForm(true) }
+    const productName = (form.productName || '').trim()
+    const summary = (form.eventDescription || '').trim()
+    if (!productName || !summary) {
+      window.alert('AI 초안을 만들려면 먼저 제품명과 사고 개요(이상사례 내용)를 간단히 입력해 주세요.\n\n예: 제품명 "척추 고정용 스크류", 개요 "삽입 중 스크류 헤드가 파단됨"')
+      return
+    }
+    setAiLoading(true)
+    try {
+      const res = await fetch('/api/ai-draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docType: 'mdr', fields: { productName, summary, incidentDate: form.incidentDate, outcome: form.patientOutcome } }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.ok) throw new Error(j.message || 'AI 초안 생성에 실패했습니다.')
+      setForm((f) => ({
+        ...f,
+        eventDescription: j.eventDescription || f.eventDescription,
+        cause: j.cause || f.cause,
+        corrective: j.corrective || f.corrective,
+        reportType: j.reportType || f.reportType,
+      }))
+      if (j.reportTypeReason) window.alert('보고 기한 분류: ' + (j.reportType || '') + '\n근거: ' + j.reportTypeReason + '\n\nAI 초안입니다 — 검토·수정 후 저장하세요.')
+    } catch (e) {
+      window.alert((e && e.message) || 'AI 초안 생성에 실패했습니다.')
+    } finally { setAiLoading(false) }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex gap-2 items-center justify-between">
         <span className="text-[13px]" style={{color:'var(--ink-faint)'}}>MDR 보고서 {reports.length}건</span>
         <div className="flex gap-2">
-          <button onClick={generateDraft} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'#7c3aed',color:'#fff'}}>AI 초안 생성</button>
+          <button onClick={fillTemplate} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--surface-2)',color:'var(--ink)',border:'1px solid var(--border)'}}>양식 채우기</button>
+          <button onClick={aiDraft} disabled={aiLoading} className="px-3 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-60" style={{background:'#7c3aed',color:'#fff'}}>{aiLoading ? 'AI 초안 생성 중…' : 'AI 초안 생성'}</button>
           <button onClick={()=>{setEditId(null);setForm({...EMPTY,reportDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}><Plus size={14}/> 신규</button>
         </div>
       </div>
@@ -556,7 +588,7 @@ function MdrTab() {
       {reports.length===0&&!showForm&&(
         <div className="text-center py-8" style={{color:'var(--ink-faint)'}}>
           <p className="text-[14px]">MDR 보고서가 없습니다</p>
-          <p className="text-[12px] mt-1">AI 초안 생성으로 빠르게 작성하세요</p>
+          <p className="text-[12px] mt-1">제품명과 사고 개요를 입력하고 ‘AI 초안 생성’을 누르면 경위·원인·조치·보고기한이 채워집니다</p>
         </div>
       )}
 

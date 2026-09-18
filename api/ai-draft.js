@@ -3,7 +3,7 @@
 // POST { docType, fields } → { ok, draft, model }
 // 환경변수: ANTHROPIC_API_KEY (Vercel 대시보드에서 설정)
 
-import { callAnthropic, errorResponse } from '../lib/aiClient.js'
+import { callAnthropic, callAnthropicJson, errorResponse } from '../lib/aiClient.js'
 
 const MODEL = process.env.AI_DRAFT_MODEL || 'claude-haiku-4-5-20251001'
 
@@ -95,6 +95,36 @@ const DOC_PROMPTS = {
 5. 합격/조건부합격/불합격 판정 및 근거
 6. 향후 관리 계획`,
 
+  mdr: (f) => `의료기기 시판후 안전관리(Vigilance) 전문가로서 이상사례 보고서(MDR) 초안을 한국어로 작성하세요.
+
+제품명: ${f.productName || '미기재'}
+발생일: ${f.incidentDate || '미기재'}
+현재까지 파악된 사고 개요: ${f.summary || '미기재'}
+환자 영향(파악된 경우): ${f.outcome || '미기재'}
+
+출력은 JSON 객체 하나로만, 다음 키를 채웁니다.
+- "eventDescription": 사고 경위를 [발생일]·[발생 장소]·[사고 경위]·[기기 상태] 순서로 정리. 추정은 '확인 필요'로 표기. 300~450자
+- "cause": 임시 원인 분석 — 제조 공정 / 설계 / 사용자 오류 / 환경 요인 관점으로 각 1~2문장
+- "corrective": 즉시 조치와 후속 조치(조사 계획, 유사 로트 확인, CAPA 발의 여부) 200~350자
+- "reportType": "즉시보고" | "7일보고" | "15일보고" | "30일보고" 중 하나 (사망·중대상해 여부 기준)
+- "reportTypeReason": 위 분류의 근거를 의료기기법 시행규칙·MDR 기준으로 1~2문장
+
+규칙: 주어지지 않은 사실(시리얼번호, 환자 정보 등)은 만들지 않고 '확인 필요'로 남깁니다.`,
+
+  roledoc: (f) => `ISO 13485 §5.5.1 조직·책임 전문가로서 아래 부서(직위)의 직무기술서와 권한·책임서 초안을 한국어로 작성하세요.
+
+회사: ${f.company || '당사'}
+제품 유형: ${f.productType || '의료기기'}
+부서·직위: ${f.dept}
+조직 구성(참고): ${f.orgTree || '미기재'}
+품질책임자: ${f.qmRep || '미지정'}
+
+출력은 JSON 객체 하나로만, 다음 두 키를 채웁니다.
+- "jobDescription": 담당 업무(5~7개 항목), 필요 자격·역량, 보고 체계를 문장형으로. 300~450자.
+- "authorityResponsibility": 의사결정 권한 범위와 품질 관련 책임을 ISO 13485 조항 근거(예: §7.4, §8.2.2)와 함께. 250~400자.
+
+규칙: 사람 이름·직원 수 등 주어지지 않은 사실은 만들지 않습니다. 의료기기 제조사 QMS 문서 어투로 작성합니다.`,
+
   ncr: (f) => `ISO 13485 §8.3 부적합 관리 전문가로서 부적합보고서(NCR) 초안을 한국어로 작성하세요.
 
 발견 부서: ${f.department || f.dept || '미기재'}
@@ -139,6 +169,26 @@ export default async function handler(req, res) {
   }
 
   const prompt = DOC_PROMPTS[docType](fields || {})
+
+  // 두 필드를 구조화해 받아야 하는 유형은 JSON 경로로 호출한다
+  if (docType === 'roledoc' || docType === 'mdr') {
+    try {
+      const r = await callAnthropicJson({ prompt, model: MODEL, maxTokens: 2500, expect: 'object' })
+      const d = r.data || {}
+      const pick = (k) => (typeof d[k] === 'string' ? d[k].trim() : '')
+      const fieldsOut = docType === 'roledoc'
+        ? { jobDescription: pick('jobDescription'), authorityResponsibility: pick('authorityResponsibility') }
+        : { eventDescription: pick('eventDescription'), cause: pick('cause'), corrective: pick('corrective'),
+            reportType: pick('reportType'), reportTypeReason: pick('reportTypeReason') }
+      if (!Object.values(fieldsOut).some(Boolean)) {
+        return res.status(502).json({ ok: false, error: 'empty_result', message: 'AI가 유효한 초안을 생성하지 못했습니다. 다시 시도해 주세요.' })
+      }
+      return res.status(200).json({
+        ok: true, ...fieldsOut, model: r.model,
+        meta: { model: r.model, generatedAt: new Date().toISOString(), docType, usage: r.usage },
+      })
+    } catch (e) { return errorResponse(res, e) }
+  }
 
   try {
     const r = await callAnthropic({ prompt, model: MODEL, maxTokens: 1500 })

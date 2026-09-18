@@ -616,17 +616,19 @@ function OrgTab({ departments, onAction, refresh }) {
         })}
       </div>
       <div>
-        {sel ? <RoleDocForm key={sel.id} dept={sel} canEdit={canEdit} onAction={onAction} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 부서를 선택하세요." />}
+        {sel ? <RoleDocForm key={sel.id} dept={sel} departments={departments} canEdit={canEdit} onAction={onAction} refresh={refresh} /> : <EmptyState icon={Users} text="왼쪽에서 부서를 선택하세요." />}
       </div>
       </div>
     </div>
   )
 }
 
-function RoleDocForm({ dept, canEdit, onAction, refresh }) {
+function RoleDocForm({ dept, departments = [], canEdit, onAction, refresh }) {
   const existing = companyDocs.getRoleDoc(dept.id) || { jobDescription: '', authorityResponsibility: '' }
   const [jobDescription, setJobDescription] = useState(existing.jobDescription)
   const [authorityResponsibility, setAuthorityResponsibility] = useState(existing.authorityResponsibility)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiMeta, setAiMeta] = useState(null)
   const dirty = jobDescription !== existing.jobDescription || authorityResponsibility !== existing.authorityResponsibility
 
   const save = () => {
@@ -636,20 +638,63 @@ function RoleDocForm({ dept, canEdit, onAction, refresh }) {
     refresh()
   }
 
+  // AI 초안 — 서버 함수(/api/ai-draft) 경유. API 키는 서버 환경변수에만 있다 (§11.3 / §22).
+  const aiDraft = async () => {
+    if (!requirePermission('company.roledoc.edit')) return
+    if ((jobDescription || authorityResponsibility) &&
+        !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
+    setAiLoading(true)
+    try {
+      const ob = onboarding.load() || {}
+      const profile = getCompanyProfile(ob.company || {})
+      const products = ob.products || []
+      const res = await fetch('/api/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          docType: 'roledoc',
+          fields: {
+            dept: dept.name,
+            company: profile.name || '',
+            productType: products.map((p) => p.name || p.itemName).filter(Boolean).slice(0, 3).join(', ') || '의료기기',
+            orgTree: departments.map((d) => d.name).filter(Boolean).slice(0, 20).join(', '),
+            qmRep: (ob.company && ob.company.qmRep) || '',
+          },
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.ok) throw new Error(json.message || 'AI 초안 생성에 실패했습니다.')
+      if (json.jobDescription) setJobDescription(json.jobDescription)
+      if (json.authorityResponsibility) setAuthorityResponsibility(json.authorityResponsibility)
+      setAiMeta(json.meta || null)
+      onAction('AI 초안을 채웠습니다. 내용을 검토·수정한 뒤 저장하세요.')
+    } catch (e) {
+      window.alert((e && e.message) || 'AI 초안 생성에 실패했습니다.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <div className="card-base p-4 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="text-[13.5px] font-semibold" style={{ color: 'var(--ink)' }}>{dept.name} — 직무기술서 · 권한책임서</div>
-        {/* #16 AI 초안 작성 — 추후 적용 예정. 조직도·제품·인증 정보를 바탕으로 초안을 자동 생성하는 기능은
-            다른 화면(품질매뉴얼 STEP4)에 이미 적용된 패턴을 이 화면에도 확장할 예정이며, 우선 진입점만 마련해둔다. */}
-        <button type="button" disabled title="조직도·부서 정보를 바탕으로 초안을 자동 생성하는 기능을 준비 중입니다."
-          className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1.5 rounded-lg opacity-50 cursor-not-allowed"
-          style={{ border: '1px solid var(--line)', color: 'var(--ink-faint)' }}>
-          <Sparkles size={12} /> AI 초안 작성 (준비 중)
-        </button>
+        {canEdit && (
+          <button type="button" onClick={aiDraft} disabled={aiLoading}
+            title="부서명·조직 구성·회사 정보를 바탕으로 초안을 생성합니다. 저장 전 검토가 필요합니다."
+            className="inline-flex items-center gap-1.5 text-[11.5px] px-2.5 py-1.5 rounded-lg disabled:opacity-60"
+            style={{ border: '1px solid var(--leaf)', background: 'var(--leaf-soft)', color: 'var(--moss)', fontWeight: 600 }}>
+            <Sparkles size={12} /> {aiLoading ? 'AI 초안 생성 중…' : 'AI 초안 작성'}
+          </button>
+        )}
       </div>
       <TextAreaField label="직무기술서" value={jobDescription} onChange={setJobDescription} minHeight={120} placeholder="담당 업무·필요 자격·보고체계 등을 기술하세요." />
       <TextAreaField label="권한 및 책임서" value={authorityResponsibility} onChange={setAuthorityResponsibility} minHeight={120} placeholder="의사결정 권한 범위·품질 관련 책임 사항을 기술하세요. (ISO 13485 §5.5.1)" />
+      {aiMeta && (
+        <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
+          AI 초안입니다 — 검토·수정 후 저장해야 기록으로 유효합니다. 모델 {aiMeta.model} · 생성 {new Date(aiMeta.generatedAt).toLocaleString('ko-KR')}
+        </div>
+      )}
       {canEdit && (
         <div className="flex justify-end"><button onClick={save} disabled={!dirty} className="btn-primary text-[12.5px]">저장</button></div>
       )}

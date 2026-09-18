@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Shield, Plus, ChevronDown, ChevronRight, CheckCircle, Circle, AlertCircle, Clock, FileText, ExternalLink, Trash2, Pencil, X, BookOpen, Package } from 'lucide-react'
+import { Shield, Plus, ChevronDown, ChevronRight, CheckCircle, Circle, AlertCircle, Clock, FileText, ExternalLink, Trash2, Pencil, X, BookOpen, Package, Sparkles } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { permissions, requirePermission } from '../../lib/permissions'
@@ -150,6 +150,26 @@ export default function RegulatoryHub() {
   const [expandedId, setExpandedId] = useState(null)
   const canApproveLicenseChange = permissions.can('onb.license.approve')
   const [pendingChanges, setPendingChanges] = useState(() => productDocs.getLicenseChangeRequests({ status: 'pending' }))
+  // 서류별 AI 작성 안내 — { [productId + '|' + docId]: { loading, text, error } }
+  const [docAi, setDocAi] = useState({})
+
+  // 서류 항목을 눌러 체크하는 것과 별개로, 'AI 작성 안내'는 그 서류에 무엇을 써야 하는지
+  // 제품 정보(품목명·등급)를 반영한 지침 초안을 서버 함수(/api/regulatory-draft)로 받아 보여준다.
+  const askDocAi = async (product, doc) => {
+    const key = product.id + '|' + doc.id
+    setDocAi((m) => ({ ...m, [key]: { loading: true } }))
+    try {
+      const res = await fetch('/api/regulatory-draft', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docLabel: doc.label, productName: product.name || product.itemName || '', productCode: product.classNo || '', grade: product.classNo || '' }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.ok) throw new Error(j.message || 'AI 안내 생성에 실패했습니다.')
+      setDocAi((m) => ({ ...m, [key]: { text: j.content || '', model: j.model } }))
+    } catch (e) {
+      setDocAi((m) => ({ ...m, [key]: { error: (e && e.message) || 'AI 안내 생성에 실패했습니다.' } }))
+    }
+  }
   const refreshPending = () => setPendingChanges(productDocs.getLicenseChangeRequests({ status: 'pending' }))
 
   const approveLicenseChange = (req) => {
@@ -434,17 +454,35 @@ export default function RegulatoryHub() {
               </div>
               {p.expandDocs && (
                 <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 8, padding: '10px 14px' }}>
-                  {docs.map(d => (
-                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0',
-                      borderBottom: docs.indexOf(d) < docs.length - 1 ? '1px solid #F9FAFB' : 'none', cursor: 'pointer' }}
-                      onClick={() => toggleDoc(p.id, d.id)}>
-                      {p.docs[d.id]
-                        ? <CheckCircle size={16} color="#10B981" style={{ flexShrink: 0 }} />
-                        : <Circle size={16} color="#D1D5DB" style={{ flexShrink: 0 }} />}
-                      <span style={{ fontSize: 13, color: p.docs[d.id] ? '#374151' : '#6B7280',
-                        textDecoration: p.docs[d.id] ? 'none' : 'none' }}>{d.label}</span>
+                  {docs.map(d => {
+                    const aiKey = p.id + '|' + d.id
+                    const ai = docAi[aiKey] || {}
+                    return (
+                    <div key={d.id} style={{ borderBottom: docs.indexOf(d) < docs.length - 1 ? '1px solid #F9FAFB' : 'none', padding: '6px 0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, cursor: 'pointer' }} onClick={() => toggleDoc(p.id, d.id)}>
+                          {p.docs[d.id]
+                            ? <CheckCircle size={16} color="#10B981" style={{ flexShrink: 0 }} />
+                            : <Circle size={16} color="#D1D5DB" style={{ flexShrink: 0 }} />}
+                          <span style={{ fontSize: 13, color: p.docs[d.id] ? '#374151' : '#6B7280' }}>{d.label}</span>
+                        </span>
+                        <button type="button" onClick={() => askDocAi(p, d)} disabled={ai.loading}
+                          title="이 서류에 무엇을 어떻게 작성해야 하는지 AI 안내를 받습니다."
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 600,
+                            padding: '3px 8px', borderRadius: 6, border: '1px solid #DDD6FE', background: '#F5F3FF',
+                            color: '#6D28D9', cursor: ai.loading ? 'default' : 'pointer', opacity: ai.loading ? 0.6 : 1, flexShrink: 0 }}>
+                          <Sparkles size={11} /> {ai.loading ? '생성 중…' : 'AI 작성 안내'}
+                        </button>
+                      </div>
+                      {ai.text && (
+                        <div style={{ marginTop: 6, background: '#F8F7FF', border: '1px solid #EDE9FE', borderRadius: 6, padding: '8px 10px', fontSize: 12.5, lineHeight: 1.65, color: '#374151', whiteSpace: 'pre-wrap' }}>
+                          {ai.text}
+                          <div style={{ marginTop: 6, fontSize: 11, color: '#9CA3AF' }}>AI 안내입니다 — 최신 고시 원문과 대조해 확정하세요. 모델 {ai.model}</div>
+                        </div>
+                      )}
+                      {ai.error && <div style={{ marginTop: 6, fontSize: 12, color: '#DC2626' }}>{ai.error}</div>}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </div>
