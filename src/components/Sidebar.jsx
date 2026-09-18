@@ -643,23 +643,6 @@ style={{ color: 'var(--ink-faint)', cursor: 'not-allowed' }}
 <span className="font-mono text-[9px]" style={{ color: 'var(--ink-faint)' }}>SOON</span>
 </div>
 </nav>
-
-<div className="p-3 border-t" style={{ borderColor: 'var(--line)' }}>
-<NavLink
-to="/onboarding"
-className="block p-3 rounded-xl transition"
-style={({ isActive }) => ({
-background: loc.pathname.startsWith('/onboarding') ? 'var(--moss)' : 'var(--leaf-soft)',
-color: loc.pathname.startsWith('/onboarding') ? 'var(--bg)' : 'var(--moss)',
-})}
->
-<div className="font-mono text-[9.5px] tracking-[0.18em] uppercase opacity-80">
-START HERE
-</div>
-<div className="mt-1 text-[13.5px] font-medium leading-tight">온보딩 진행</div>
-<div className="text-[12px] mt-0.5 opacity-80">5분이면 시작됩니다</div>
-</NavLink>
-</div>
 </aside>
 )
 }
