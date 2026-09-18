@@ -1,3 +1,4 @@
+import { extractJsonLoose } from '../lib/aiClient.js'
 // Vercel Serverless Function — DHF(설계이력파일) 기록 AI 초안 생성 (Anthropic Claude)
 //
 // 목적: DesignHistoryHub의 "기록 추가"에서, 설계 단계(기록 유형)와 제품 정보를 바탕으로
@@ -24,11 +25,7 @@ const ITEM_TYPE_GUIDE = {
 }
 
 function extractJson(text) {
-  const s = (text || '').trim()
-  const start = s.indexOf('{')
-  const end = s.lastIndexOf('}')
-  if (start === -1 || end === -1 || end < start) return null
-  try { return JSON.parse(s.slice(start, end + 1)) } catch { return null }
+  return extractJsonLoose(text, 'object')
 }
 
 export default async function handler(req, res) {

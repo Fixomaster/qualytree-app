@@ -1,3 +1,4 @@
+import { extractJsonLoose } from '../lib/aiClient.js'
 // Vercel Serverless Function — 허가증 PDF 텍스트에서 인허가 핵심 정보 + 모델 목록 자동 추출 (Anthropic Claude)
 //
 // 목적: "기허가 제품 등록" 화면에서 허가증 PDF를 업로드하면(클라이언트에서 pdf.js로 텍스트만 추출해 전송),
@@ -13,11 +14,7 @@ const MODEL = process.env.EXTRACT_MODEL || process.env.CLASSIFY_MODEL || 'claude
 const MAX_TEXT_CHARS = 12000
 
 function extractJson(text) {
-  const s = (text || '').trim()
-  const start = s.indexOf('{')
-  const end = s.lastIndexOf('}')
-  if (start === -1 || end === -1 || end < start) return null
-  try { return JSON.parse(s.slice(start, end + 1)) } catch { return null }
+  return extractJsonLoose(text, 'object')
 }
 
 export default async function handler(req, res) {

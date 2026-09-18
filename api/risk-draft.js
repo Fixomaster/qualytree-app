@@ -11,7 +11,7 @@
 // 응답: { ok, items: [{ category, hazard, hazardousSituation, harm, severity, probability, controlType, controlMeasure }], model }
 //       | { ok:false, error, message }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+import { callAnthropicJson, errorResponse } from '../lib/aiClient.js'
 const MODEL = process.env.RISK_DRAFT_MODEL || 'claude-sonnet-5'
 
 // RiskHub.jsx와 동일하게 유지할 것
@@ -36,18 +36,8 @@ const PROBABILITY = [
 const CONTROL_TYPES = ['inherent', 'protective', 'information', 'none']
 const CONTROL_LABEL = { inherent: '고유 안전 설계', protective: '보호 수단', information: '안전 정보 제공', none: '미조치' }
 
-function extractJson(text) {
-  const s = (text || '').trim()
-  const start = s.indexOf('[')
-  const end = s.lastIndexOf(']')
-  if (start === -1 || end === -1 || end < start) return null
-  try { return JSON.parse(s.slice(start, end + 1)) } catch { return null }
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'method' }); return }
-  const key = process.env.ANTHROPIC_API_KEY
-  if (!key) { res.status(500).json({ ok: false, error: 'no_key', message: 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' }); return }
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
@@ -83,21 +73,15 @@ export default async function handler(req, res) {
     '- 출력은 오직 JSON 배열 하나만 출력한다. 예: [{"category":"...","hazard":"...","hazardousSituation":"...","harm":"...","severity":3,"probability":2,"controlType":"protective","controlMeasure":"..."}]\n' +
     '- 다른 설명, 코드펜스, 서두 텍스트를 절대 출력하지 않는다.'
 
+  let parsed, usedModel
   try {
-    const r = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1800,
-        system,
-        messages: [{ role: 'user', content: factLines }],
-      }),
-    })
-    const j = await r.json()
-    if (!r.ok) { res.status(502).json({ ok: false, error: 'upstream', message: (j && j.error && j.error.message) || ('HTTP ' + r.status) }); return }
-    const raw = (j.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('')
-    const parsed = extractJson(raw)
+    const r = await callAnthropicJson({ system, prompt: factLines, model: MODEL, maxTokens: 4000, expect: 'array' })
+    parsed = r.data; usedModel = r.model
+  } catch (e) {
+    return errorResponse(res, e)
+  }
+
+  try {
 
     if (!Array.isArray(parsed)) {
       res.status(502).json({ ok: false, error: 'parse', message: 'AI 응답을 해석할 수 없습니다.' })
@@ -129,7 +113,7 @@ export default async function handler(req, res) {
       return
     }
 
-    res.status(200).json({ ok: true, items, model: MODEL })
+    res.status(200).json({ ok: true, items, model: usedModel })
   } catch (e) {
     res.status(502).json({ ok: false, error: 'upstream', message: String((e && e.message) || e) })
   }

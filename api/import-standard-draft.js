@@ -1,3 +1,4 @@
+import { extractJsonLoose } from '../lib/aiClient.js'
 // Vercel Serverless Function — 수입관리기준서 섹션별 AI 초안 생성 (Anthropic Claude)
 //
 // 목적: ImportManagementStandardHub.jsx 편집 모달에서, 섹션별(목적·조직·외국제조소 관리 등)로
@@ -43,13 +44,7 @@ export default async function handler(req, res) {
     '- 회사명이 주어지면 자연스럽게 반영하되, 지어낸 조직 부서명이나 담당자 이름은 사용하지 않는다.\n' +
     '- 출력은 오직 JSON 객체 하나만 출력한다. 다른 설명, 코드펜스, 서두 텍스트를 절대 출력하지 않는다.'
 
-  function extractJson(text) {
-    const s = (text || '').trim()
-    const start = s.indexOf('{')
-    const end = s.lastIndexOf('}')
-    if (start === -1 || end === -1 || end < start) return null
-    try { return JSON.parse(s.slice(start, end + 1)) } catch { return null }
-  }
+  const extractJson = (t) => extractJsonLoose(t, 'object')
 
   try {
     const r = await fetch(ANTHROPIC_URL, {

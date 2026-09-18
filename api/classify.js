@@ -1,3 +1,4 @@
+import { extractJsonLoose } from '../lib/aiClient.js'
 // Vercel Serverless Function — AI 기반 의료기기 인허가 업종(대분류·중분류) 추천 (Anthropic Claude)
 //
 // 목적: 온보딩 "제품 등록"에서 제품명(및 특성)을 입력하면 사전 정의된 MDCAT 분류표 안에서
@@ -30,11 +31,7 @@ function buildTaxonomyText() {
 }
 
 function extractJson(text) {
-  const s = (text || '').trim()
-  const start = s.indexOf('{')
-  const end = s.lastIndexOf('}')
-  if (start === -1 || end === -1 || end < start) return null
-  try { return JSON.parse(s.slice(start, end + 1)) } catch { return null }
+  return extractJsonLoose(text, 'object')
 }
 
 export default async function handler(req, res) {
