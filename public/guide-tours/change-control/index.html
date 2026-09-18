@@ -6,7 +6,6 @@
 <meta name="description" content="Qualytree에서 이미 저장한 값을 고치는 두 가지 방법 — 기본정보 즉시 저장과 제품·공정 변경 시 자동 발의되는 CCR의 검토·승인·이행 흐름 안내">
 <meta property="og:title" content="Qualytree 입력값 수정과 변경관리 투어">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<meta name="robots" content="noindex, nofollow">
 <title>Qualytree 입력값 수정과 변경관리 투어</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Noto+Serif+KR:wght@600;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -100,6 +99,16 @@ body{margin:0;background:var(--ground);color:var(--ink);font-family:"Noto Sans K
 .titlecard .steps span{border:1px solid rgba(255,255,255,.25);padding:6px 12px;border-radius:999px;font-size:13px;color:#e8ece9}
 .titlecard .steps span b{color:var(--amber);margin-right:6px;font-family:"JetBrains Mono",monospace;font-weight:500}
 
+/* 미리보기 잠금 카드 (?preview=N) */
+.lockcard{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6% 8%;color:var(--stage-text);background:rgba(6,18,12,.9);opacity:0;pointer-events:none;transition:opacity .6s ease}
+.lockcard.show{opacity:1;pointer-events:auto}
+.lockcard .ic{width:56px;height:56px;border-radius:50%;border:1.5px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:22px}
+.lockcard h3{margin:0 0 10px;font-family:"Noto Serif KR",Fraunces,serif;font-weight:700;font-size:clamp(20px,3vw,34px);line-height:1.25;text-wrap:balance}
+.lockcard p{margin:0;max-width:46ch;font-size:clamp(13px,1.4vw,16px);color:#dfe5e0}
+.lockcard .acts{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:22px}
+.lockcard a{text-decoration:none;font-size:14px;padding:10px 18px;border-radius:9px;border:1px solid rgba(255,255,255,.35);color:#fff}
+.lockcard a.pri{background:var(--amber);border-color:var(--amber);color:#1a1409;font-weight:700}
+body.video .lockcard h3{font-size:44px}body.video .lockcard p{font-size:22px}
 /* ---------- 컨트롤 ---------- */
 .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 4px 0}
 .btn{appearance:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:8px 12px;font:inherit;font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;line-height:1}
@@ -113,8 +122,26 @@ body{margin:0;background:var(--ground);color:var(--ink);font-family:"Noto Sans K
 .toggle input{accent-color:var(--forest)}
 
 /* ---------- 스텝 레일 ---------- */
+/* compact: 한 화면에 영상 + 파트 한 줄 */
+body.compact .rail,body.compact .foot{display:none}
+body.compact .wrap{padding-block:12px 12px}
+body.compact .top{margin-bottom:10px}
+body.compact .stagebox{max-width:calc((100vh - 216px) * 16 / 9);margin:0 auto}
+body.compact .controls{padding-top:10px}
+.chips{display:none}
+body.compact .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;padding:0 4px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+.chip .pc{font-family:"JetBrains Mono",monospace;font-size:10.5px;color:var(--amber);letter-spacing:.06em}
+.chip.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.chip.on .pc{color:#f2c46b}
+.chip.locked{opacity:.6;cursor:default;border-style:dashed}
+.chip .sep{color:var(--ink-3);font-size:12px}
 .rail{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
 .rail .parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.part.locked{opacity:.75;background:transparent;border-style:dashed}.plock{margin:6px 0 4px;font-size:12.5px;color:var(--ink-3)}
+.rt{display:flex;flex-direction:column;align-items:flex-end;gap:7px}
+.langbtn{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.06em;padding:4px 11px;border-radius:999px;border:1px solid var(--line);background:var(--paper);color:var(--ink-2);cursor:pointer}
+.langbtn:hover{border-color:var(--forest);color:var(--forest)}
 .part{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 12px 8px;min-width:0}
 .part .ph{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
 .part .ph .pc{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--amber);letter-spacing:.06em}
@@ -178,11 +205,14 @@ body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(
 <div class="wrap">
   <header class="top">
     <div>
-      
+      <a class="backlink" href="/guides">← 가이드 목록</a><br>
       <div class="eyebrow">Qualytree Platform · Guided Tour · EDIT-001</div>
       <div class="brand"><div class="name">Qualytree<span>수정·변경관리</span></div></div>
     </div>
-    <div class="meta">수정 → CCR 발의 → 검토·승인 → 발효 → 이력<br>화면 캡처 기준: qualytree-app main 24d3de4 · 2026-09-18</div>
+    <div class="rt">
+      <button class="langbtn" id="langbtn" type="button">한국어</button>
+      <div class="meta" id="meta">도입 신청 3단계 → 운영팀 승인 → 첫 로그인까지<br>화면 캡처 기준: qualytree-app main 24d3de4 · 2026-09-18</div>
+    </div>
   </header>
 
   <div class="stagebox" id="stagebox">
@@ -204,6 +234,12 @@ body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(
           <div id="flowRows"></div>
         </div>
       </div>
+      <div class="lockcard" id="lockcard">
+        <div class="ic">🔒</div>
+        <h3>여기부터는 가입 고객에게 제공됩니다</h3>
+        <p id="lockBody">나머지 단계는 가입·승인 후 플랫폼의 ‘사용 안내’ 메뉴에서 전체를 볼 수 있습니다.</p>
+        <div class="acts"><a class="pri" href="/signup">회사 계정 신청</a><a href="/login">로그인</a><a href="/tours/">다른 안내 보기</a></div>
+      </div>
       <div class="titlecard" id="titlecard">
         <div class="kicker" id="tcKicker"></div>
         <h1 id="tcTitle"></h1>
@@ -222,6 +258,8 @@ body.video .vignette{background:linear-gradient(to top,rgba(5,14,10,.9) 0%,rgba(
     <label class="toggle"><input type="checkbox" id="chkLoop"> 반복 재생</label>
     <button class="btn" id="btnFull">⛶ 전체화면</button>
   </div>
+
+  <div class="chips" id="chips"></div>
 
   <nav class="rail" aria-label="단계 목록"><div class="parts" id="parts"></div></nav>
 
@@ -257,27 +295,33 @@ const TOUR = {
  "parts": [
   {
    "code": "P0",
-   "name": "소개"
+   "name": "소개",
+   "nameEn": "Intro"
   },
   {
    "code": "P1",
-   "name": "일반 항목 수정"
+   "name": "일반 항목 수정",
+   "nameEn": "Editing general fields"
   },
   {
    "code": "P2",
-   "name": "변경관리 대상 수정"
+   "name": "변경관리 대상 수정",
+   "nameEn": "Change-controlled fields"
   },
   {
    "code": "P3",
-   "name": "CCR 검토·승인"
+   "name": "CCR 검토·승인",
+   "nameEn": "CCR review & approval"
   },
   {
    "code": "P4",
-   "name": "변경 이력 확인"
+   "name": "변경 이력 확인",
+   "nameEn": "Change history"
   },
   {
    "code": "P5",
-   "name": "정리"
+   "name": "정리",
+   "nameEn": "Wrap-up"
   }
  ],
  "steps": [
@@ -729,7 +773,12 @@ const TOUR = {
     ]
    }
   }
- ]
+ ],
+ "en": {
+  "title": "Editing values & change control",
+  "short": "Change control",
+  "caption": "Edit → raise CCR → review & approve → effective → history<br>Screens captured from qualytree-app main (2026-09-18)"
+ }
 };
 /* ===================================================================== 엔진 */
 (function(){
@@ -738,9 +787,40 @@ const TOUR = {
   const params=new URLSearchParams(location.search);
   const VIDEO = params.get('video')==='1';
   if(VIDEO) document.body.classList.add('video');
+  const COMPACT = !!TOUR.compact || params.get('compact')==='1';
+  if(COMPACT && !VIDEO) document.body.classList.add('compact');
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const steps=TOUR.steps, N=steps.length;
+  /* ---- 화면 문구 다국어 (단계 자막은 한국어 유지) ---- */
+  const L = {
+    en: { prev:'← Prev', play:'▶ Play', pause:'❚❚ Pause', next:'Next →', loop:'Loop', full:'⛶ Fullscreen',
+      back:'← All guides', aboutH:'About this tour',
+      aboutP:'Real product screens, captured and then zoomed and panned step by step. <b>Step captions are in Korean.</b>',
+      aboutP2:'Company, product and figures on screen are demo data.',
+      howH:'Controls', howKeys:'Plays automatically when opened. Click the screen or <span>Space</span> play/pause <span>&larr;</span><span>&rarr;</span> move <span>F</span> fullscreen <span>Home</span> restart',
+      lockH:'The rest is available to customers', lockBody:'You have seen $M of $ALL steps. The full tour is in the <b>Guides</b> menu inside the platform after sign-up and approval.',
+      lockA:'Watch in full (log in)', lockA2:'Request an account', lockB:'Log in', lockC:'Other guides', chipLock:'After sign-up', toggle:'한국어' },
+    ko: { prev:'← 이전', play:'▶ 재생', pause:'❚❚ 일시정지', next:'다음 →', loop:'반복 재생', full:'⛶ 전체화면',
+      back:'← 가이드 목록', aboutH:'이 투어에 대하여',
+      aboutP:'실제 화면을 캡처해 단계별로 확대·이동하며 설명합니다.',
+      aboutP2:'화면의 회사·제품·수치는 설명용 데모 데이터입니다.',
+      howH:'조작 방법', howKeys:'열리면 자동 재생됩니다. 화면 클릭 또는 <span>Space</span> 재생/일시정지 <span>&larr;</span><span>&rarr;</span> 단계 이동 <span>F</span> 전체화면 <span>Home</span> 처음으로',
+      lockH:'여기부터는 가입 고객에게 제공됩니다', lockBody:'전체 $ALL단계 중 $M단계를 미리 보셨습니다. 나머지는 가입·승인 후 플랫폼의 ‘사용 안내’ 메뉴에서 볼 수 있습니다.',
+      lockA:'로그인하고 전체 보기', lockA2:'회사 계정 신청', lockB:'로그인', lockC:'다른 안내 보기', chipLock:'가입 후 제공', toggle:'ENGLISH' }
+  };
+  let LANG = (function(){
+    const q=params.get('lang'); if(q==='ko'||q==='en') return q;
+    try{ const v=localStorage.getItem('qt.lang'); if(v==='ko'||v==='en') return v; }catch(e){}
+    return TOUR.lang0 || 'ko';
+  })();
+  const t = k => L[LANG][k];
+  const partName = p => (LANG==='en' ? (p.nameEn||p.name) : p.name);
+  if(TOUR.partsEn) TOUR.parts.forEach((p,i)=>{ if(!p.nameEn) p.nameEn=TOUR.partsEn[i]; });
+
+  const PREVIEW = TOUR.preview || Math.max(0, parseInt(params.get('preview')||'0',10)) || 0;
+  const ALL = TOUR.total || TOUR.steps.length;
+  const steps = PREVIEW ? TOUR.steps.slice(0, Math.min(PREVIEW, ALL)) : TOUR.steps;
+  const N=steps.length;
   let cur=-1, active=0, playing=false, timer=null, raf=null, stepStart=0, stepDur=0, loop=false;
   const imgCache={};
 
@@ -751,10 +831,20 @@ const TOUR = {
   TOUR.parts.forEach(p=>{
     const box=document.createElement('div');box.className='part';
     const list=steps.map((s,i)=>({s,i})).filter(x=>x.s.part===p.code);
-    box.innerHTML=`<div class="ph"><span class="pc">${p.code}</span><span class="pt">${p.name}</span></div><ol>${list.map(x=>`<li data-i="${x.i}"><span class="n">${String(x.i+1).padStart(2,'0')}</span><span>${x.s.title}</span></li>`).join('')}</ol>`;
+    const lockNote = (PREVIEW && !list.length) ? `<p class="plock">🔒 ${t('chipLock')}</p>` : '';
+    box.innerHTML=`<div class="ph"><span class="pc">${p.code}</span><span class="pt">${partName(p)}</span></div><ol>${list.map(x=>`<li data-i="${x.i}"><span class="n">${String(x.i+1).padStart(2,'0')}</span><span>${x.s.title}</span></li>`).join('')}</ol>${lockNote}`;
+    if(PREVIEW && !list.length) box.classList.add('locked');
     partsEl.appendChild(box);
   });
   partsEl.addEventListener('click',e=>{const li=e.target.closest('li[data-i]');if(li){pause();go(+li.dataset.i)}});
+  const chipsEl=$('#chips');
+  TOUR.parts.forEach(p=>{
+    const first=steps.findIndex(s=>s.part===p.code);
+    const c=document.createElement('button'); c.type='button'; c.className='chip'+(first<0?' locked':''); c.dataset.part=p.code;
+    c.innerHTML=`<span class="pc">${p.code}</span><span class="pn">${partName(p)}</span>${first<0?'<span>🔒</span>':''}`;
+    if(first>=0){ c.dataset.i=first; c.addEventListener('click',()=>{pause();go(first)}); }
+    chipsEl.appendChild(c);
+  });
 
   function loadImg(src){
     return new Promise(res=>{
@@ -797,6 +887,7 @@ const TOUR = {
   function durOf(s){ if(s.dur) return s.dur; return TOUR.pace||3; }   // 데모용: 단계당 기본 3초 (TOUR.pace 로 조정, 단계별 dur 우선)
 
   async function go(i, opts={}){
+    if(PREVIEW){ document.getElementById('lockcard').classList.remove('show'); }
     if(i<0) i=0; if(i>=N){ if(loop||VIDEO&&params.get('loop')==='1'){i=0} else { pause(); markDone(); return; } }
     const s=steps[i]; const prev=cur; cur=i;
     const im=await loadImg(s.img);
@@ -816,7 +907,8 @@ const TOUR = {
 
     /* 자막 */
     const part=TOUR.parts.find(p=>p.code===s.part)||{};
-    $('#parttag').innerHTML=`<span class="code">${s.part}</span><span>${part.name||''}</span>`;
+    $('#parttag').innerHTML=`<span class="code">${s.part}</span><span>${part.code?partName(part):''}</span>`;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.part===s.part));
     $('#capNum').textContent=`STEP ${String(i+1).padStart(2,'0')} / ${N}`;
     $('#capTitle').innerHTML=s.title; $('#capBody').innerHTML=s.body;
     const tip=$('#capTip'); tip.hidden=!s.tip; tip.textContent=s.tip||'';
@@ -847,9 +939,9 @@ const TOUR = {
     raf=requestAnimationFrame(tick);
     timer=setTimeout(()=>go(cur+1),stepDur);
   }
-  function play(){ playing=true; $('#btnPlay').textContent='❚❚ 일시정지'; if(cur>=N-1&&!loop) cur=-1; if(cur<0) go(0); else schedule(); }
-  function pause(){ playing=false; clearTimeout(timer); cancelAnimationFrame(raf); $('#btnPlay').textContent='▶ 재생'; }
-  function markDone(){ window.__tourDone=true; document.body.dataset.done='1'; }
+  function play(){ playing=true; $('#btnPlay').textContent=t('pause'); if(cur>=N-1&&!loop) cur=-1; if(cur<0) go(0); else schedule(); }
+  function pause(){ playing=false; clearTimeout(timer); cancelAnimationFrame(raf); $('#btnPlay').textContent=t('play'); }
+  function markDone(){ window.__tourDone=true; document.body.dataset.done='1'; if(PREVIEW){ document.getElementById('lockcard').classList.add('show'); } }
 
   $('#btnPlay').onclick=()=>playing?pause():play();
   stage.addEventListener('click',e=>{ if(e.target.closest('a,button')) return; playing?pause():play(); });
@@ -867,6 +959,38 @@ const TOUR = {
     else if(e.key.toLowerCase()==='f'){$('#btnFull').click();}
   });
   let rs; addEventListener('resize',()=>{clearTimeout(rs);rs=setTimeout(()=>{ if(cur>=0){ const s=steps[cur]; loadImg(s.img).then(im=>{ layers[active].style.transition='none'; camera(layers[active],im,s.rect,true); void layers[active].offsetWidth; layers[active].style.transition=''; }); } },120)});
+
+  /* ---- 언어 적용 (단계 자막·타이틀 카드는 한국어 유지) ---- */
+  const CAP0=($('#meta')||{}).innerHTML, SHORT0=(document.querySelector('.brand .name span')||{}).textContent;
+  function applyLang(){
+    document.documentElement.lang = LANG==='en'?'en':'ko';
+    const en = LANG==='en' && TOUR.en;
+    const mEl=$('#meta'); if(mEl) mEl.innerHTML = en&&TOUR.en.caption ? TOUR.en.caption : CAP0;
+    const sub=document.querySelector('.brand .name span'); if(sub) sub.textContent = en&&TOUR.en.short ? TOUR.en.short : SHORT0;
+    const bl=document.querySelector('.backlink'); if(bl) bl.textContent=t('back');
+    $('#btnPrev').textContent=t('prev'); $('#btnNext').textContent=t('next'); $('#btnFull').textContent=t('full');
+    $('#btnPlay').textContent = playing?t('pause'):t('play');
+    const lt=document.querySelector('.toggle'); if(lt) lt.lastChild.textContent=' '+t('loop');
+    const lb=$('#langbtn'); if(lb) lb.textContent=t('toggle');
+    const h3=document.querySelector('.lockcard h3'); if(h3) h3.textContent=t('lockH');
+    const lbody=$('#lockBody'); if(lbody) lbody.innerHTML=t('lockBody').replace('$ALL',ALL).replace('$M',N);
+    const la=document.querySelectorAll('.lockcard .acts a');
+    if(la.length===3){
+      if(TOUR.appUrl){ la[0].textContent=t('lockA'); la[0].href=TOUR.appUrl; la[1].textContent=t('lockA2'); la[1].href='/signup'; }
+      else { la[0].textContent=t('lockA2'); la[1].textContent=t('lockB'); }
+      la[2].textContent=t('lockC');
+    }
+    const fh=document.querySelectorAll('.foot h3');
+    if(fh.length===2){ fh[0].textContent=t('aboutH'); fh[1].textContent=t('howH');
+      const ps=fh[0].parentElement.querySelectorAll('p'); if(ps.length>=2){ ps[0].innerHTML=t('aboutP'); ps[1].innerHTML=t('aboutP2'); }
+      const kd=document.querySelector('.foot .keys'); if(kd) kd.innerHTML=t('howKeys'); }
+    document.querySelectorAll('.chip').forEach(c=>{ const p=TOUR.parts.find(x=>x.code===c.dataset.part), el=c.querySelector('.pn'); if(p&&el) el.textContent=partName(p); });
+    document.querySelectorAll('.part').forEach((box,i)=>{ const p=TOUR.parts[i], el=box.querySelector('.pt'); if(p&&el) el.textContent=partName(p);
+      const pl=box.querySelector('.plock'); if(pl) pl.textContent='🔒 '+t('chipLock'); });
+    if(cur>=0&&steps[cur]){ const pp=TOUR.parts.find(p=>p.code===steps[cur].part)||{}; $('#parttag').innerHTML=`<span class="code">${steps[cur].part}</span><span>${pp.code?partName(pp):''}</span>`; }
+  }
+  applyLang();
+  if($('#langbtn')) $('#langbtn').addEventListener('click',()=>{ LANG = LANG==='en'?'ko':'en'; try{localStorage.setItem('qt.lang',LANG)}catch(e){} applyLang(); });
 
   /* 시작: 이미지 선로딩 후 첫 단계 */
   Promise.all([...new Set(steps.map(s=>s.img))].map(loadImg)).then(()=>{

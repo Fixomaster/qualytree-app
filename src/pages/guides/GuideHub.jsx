@@ -29,7 +29,7 @@ export default function GuideHub() {
         </div>
         <iframe
           title={tour.title}
-          src={`/tours/${tour.slug}/index.html`}
+          src={`/guide-tours/${tour.slug}/index.html`}
           style={{ width: '100%', height: 'calc(100vh - 140px)', border: 0, background: 'var(--bg)' }}
           allowFullScreen
         />
@@ -48,7 +48,7 @@ export default function GuideHub() {
           {TOURS.map((t) => (
             <button key={t.slug} onClick={() => nav(`/guides/${t.slug}`)} className="text-left group">
               <div className="relative rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#0b1a14', boxShadow: '0 10px 30px rgba(6,20,14,0.18)' }}>
-                <img src={`/tours/thumbs/${t.slug}.jpg`} alt="" className="w-full h-full object-cover" loading="lazy" />
+                <img src={`/guide-tours/thumbs/${t.slug}.jpg`} alt="" className="w-full h-full object-cover" loading="lazy" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <span className="w-14 h-14 rounded-full flex items-center justify-center transition group-hover:scale-105" style={{ background: 'rgba(255,255,255,0.92)', boxShadow: '0 6px 20px rgba(0,0,0,0.35)' }}>
                     <PlayCircle size={30} style={{ color: 'var(--moss)' }} />
