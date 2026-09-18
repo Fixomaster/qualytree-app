@@ -5,6 +5,8 @@ import { ShieldOff, ChevronDown, ChevronUp, CheckCircle2, Clock, ArrowLeft } fro
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { permissions, requirePermission } from '../../lib/permissions'
+import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
 
 const NCR_KEY = 'qualytree.ncrs'
 
@@ -20,8 +22,21 @@ export default function ContainmentHub() {
   const [ncrs, setNcrs] = useState(readNcrs)
   const [expanded, setExpanded] = useState(focusId || null)
   const [forms, setForms] = useState({}) // { ncrId: { text, skip } }
+  const canDispose = permissions.can('qms.quarantine.dispose')
+  const canReworkApprove = permissions.can('qms.quarantine.reworkApprove')
+  const [qItems, setQItems] = useState(() => quarantine.loadAll())
 
-  function reload() { setNcrs(readNcrs()) }
+  function reload() { setNcrs(readNcrs()); setQItems(quarantine.loadAll()) }
+
+  function dispose(item, disposition) {
+    if (disposition === QUARANTINE_STATUS.REWORK) {
+      if (!requirePermission('qms.quarantine.reworkApprove')) return
+    } else {
+      if (!requirePermission('qms.quarantine.dispose')) return
+    }
+    quarantine.setDisposition(item.id, disposition)
+    reload()
+  }
 
   function getForm(id) { return forms[id] || { text: '', skip: false } }
   function setForm(id, patch) { setForms(f => ({ ...f, [id]: { ...getForm(id), ...patch } })) }
@@ -43,6 +58,7 @@ export default function ContainmentHub() {
         : r
     )
     saveNcrs(all)
+    if (!f.skip) quarantine.isolateFromNcr(ncr)
     reload()
     setExpanded(null)
   }
@@ -74,6 +90,60 @@ export default function ContainmentHub() {
           <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>격리 완료</div>
         </div>
       </div>
+
+      {/* 격리 항목 처분 (재검사/재작업/폐기/특채/출하가능) */}
+      {(() => {
+        const activeQ = qItems.filter(q => [QUARANTINE_STATUS.ISOLATED, QUARANTINE_STATUS.REINSPECTING, QUARANTINE_STATUS.REWORK].includes(q.status))
+        if (activeQ.length === 0) return null
+        const DISPOSITIONS = [
+          { key: QUARANTINE_STATUS.REINSPECTING, label: '재검사 진행' },
+          { key: QUARANTINE_STATUS.REWORK, label: '재작업 (매니저 승인)' },
+          { key: QUARANTINE_STATUS.SCRAPPED, label: '폐기' },
+          { key: QUARANTINE_STATUS.USE_AS_IS, label: '특채' },
+          { key: QUARANTINE_STATUS.RELEASED, label: '출하 가능' },
+        ]
+        return (
+          <>
+            <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>격리 항목 처분 대기 ({activeQ.length}건)</h4>
+            {activeQ.map(item => {
+              const stLabel = QUARANTINE_STATUS_LABEL[item.status]
+              return (
+                <div key={item.id} style={card}>
+                  <div style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{item.id}</span>
+                      <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{item.productName || '(제품명 미상)'} · LOT {item.lotNumber || '—'}</span>
+                      <span style={{ fontSize: 11, color: '#EAB308', background: '#EAB30822', padding: '2px 8px', borderRadius: 20 }}>{stLabel?.ko || item.status}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>
+                      수량 {item.quantity ?? '—'} · 사유: {item.reason} · 격리 {item.isolatedAt ? item.isolatedAt.slice(0, 10) : ''} ({item.isolatedBy})
+                    </div>
+                    {canDispose && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+                        {DISPOSITIONS.map(d => {
+                          const isRework = d.key === QUARANTINE_STATUS.REWORK
+                          const disabled = isRework && !canReworkApprove
+                          return (
+                            <button
+                              key={d.key}
+                              disabled={disabled}
+                              onClick={() => dispose(item, d.key)}
+                              title={disabled ? '재작업 승인은 매니저 권한이 필요합니다' : ''}
+                              style={{ ...btn(disabled ? '#E5E7EB' : '#3B82F6', disabled ? '#9CA3AF' : '#fff'), cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12, padding: '6px 10px' }}
+                            >
+                              {d.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </>
+        )
+      })()}
 
       {/* Pending containment decisions */}
       <h4 style={{ margin: '0 0 10px', fontSize: 14, fontWeight: 700 }}>격리 결정 필요</h4>

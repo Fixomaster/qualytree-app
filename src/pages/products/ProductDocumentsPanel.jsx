@@ -17,6 +17,7 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { permissions, requirePermission } from '../../lib/permissions'
+import { auth } from '../../lib/auth'
 import { fileStore } from '../../lib/fileStore'
 import { productDocs, MARKETS, wiStatus, TECH_DOC_CATEGORY } from '../../lib/productDocsState'
 import { onboarding, productKeyOf, getProductProcesses } from '../../lib/onboardingState'
@@ -175,11 +176,36 @@ const EMPTY_LICENSE = { market: 'KGMP', licenseNo: '', issuer: '', issueDate: ''
 
 function LicenseSection({ product, productKey, onAction, refresh }) {
   const canEdit = permissions.can('onb.license.edit')
+  const canRequestChange = permissions.can('onb.license.requestChange')
   const [list, setList] = useState(() => productDocs.getLicenses(productKey))
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState(EMPTY_LICENSE)
   const setF = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const [busyId, setBusyId] = useState(null)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(EMPTY_LICENSE)
+  const setEF = (k, v) => setEditForm((f) => ({ ...f, [k]: v }))
+  const [, forceTick] = useState(0)
+
+  const startEdit = (l) => {
+    if (!requirePermission('onb.license.requestChange')) return
+    setEditingId(l.id)
+    setEditForm({ market: l.market, licenseNo: l.licenseNo, issuer: l.issuer, issueDate: l.issueDate, expiryDate: l.expiryDate, notes: l.notes })
+  }
+  const cancelEdit = () => { setEditingId(null); setEditForm(EMPTY_LICENSE) }
+  const submitChange = (l) => {
+    if (!requirePermission('onb.license.requestChange')) return
+    const patch = {}
+    Object.keys(editForm).forEach((k) => { if ((editForm[k] || '') !== (l[k] || '')) patch[k] = editForm[k] })
+    if (Object.keys(patch).length === 0) { onAction('변경된 내용이 없습니다.'); setEditingId(null); return }
+    const cur = auth.current ? auth.current() : null
+    productDocs.requestLicenseChange(l.id, patch, { requestedBy: (cur && cur.name) || '' })
+    setEditingId(null)
+    setEditForm(EMPTY_LICENSE)
+    onAction('변경 신청이 접수되었습니다. 승인권자 확인 후 반영됩니다.')
+    forceTick((n) => n + 1)
+    refresh()
+  }
 
   const save = () => {
     if (!requirePermission('onb.license.edit')) return
@@ -266,6 +292,7 @@ function LicenseSection({ product, productKey, onAction, refresh }) {
             const st = productDocs.licenseStatusOf(l.expiryDate)
             const tone = st === '만료' ? 'rose' : st === '만료임박' ? 'amber' : st === '유효' ? 'emerald' : 'slate'
             const marketLabel = (MARKETS.find((m) => m.id === l.market) || {}).label || l.market
+            const pending = productDocs.getPendingLicenseChangeRequest(l.id)
             return (
               <div key={l.id} className="card-base p-3.5">
                 <div className="flex items-start justify-between gap-3">
@@ -273,12 +300,18 @@ function LicenseSection({ product, productKey, onAction, refresh }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge text={marketLabel} tone="slate" />
                       {st && <Badge text={st} tone={tone} />}
+                      {pending && <Badge text="변경 승인 대기중" tone="amber" />}
                       <span className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{l.licenseNo || '(번호 미입력)'}</span>
                     </div>
                     <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
                       {l.issuer || '발급기관 미입력'} · 발급 {l.issueDate || '—'} · 만료 {l.expiryDate || '—'}
                     </div>
                     {l.notes && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>{l.notes}</div>}
+                    {pending && (
+                      <div className="text-[11px] mt-1" style={{ color: '#B45309' }}>
+                        {pending.requestedBy ? `${pending.requestedBy}님이 ` : ''}변경 신청함 ({(pending.requestedAt || '').slice(0, 10)}) — 승인권자 확인 대기중
+                      </div>
+                    )}
                     <div className="mt-2">
                       {l.fileId ? (
                         <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full text-[11.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
@@ -292,12 +325,36 @@ function LicenseSection({ product, productKey, onAction, refresh }) {
                       )}
                     </div>
                   </div>
-                  {canEdit && (
-                    <button onClick={() => del(l.id)} className="shrink-0 opacity-50 hover:opacity-100" title="삭제">
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                  <div className="shrink-0 flex items-center gap-2">
+                    {canRequestChange && !pending && editingId !== l.id && (
+                      <button onClick={() => startEdit(l)} className="opacity-50 hover:opacity-100" title="변경 신청">
+                        <Edit3 size={14} />
+                      </button>
+                    )}
+                    {canEdit && (
+                      <button onClick={() => del(l.id)} className="opacity-50 hover:opacity-100" title="삭제">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
+                {editingId === l.id && (
+                  <div className="mt-3 pt-3 space-y-3" style={{ borderTop: '1px solid var(--border-soft)' }}>
+                    <div className="text-[11.5px] font-medium" style={{ color: 'var(--ink-soft)' }}>허가증 변경 신청 — 저장 시 즉시 반영되지 않고, 승인권자 승인 후 반영됩니다.</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <SelectField label="시장" value={editForm.market} onChange={(v) => setEF('market', v)} options={MARKETS.map((m) => ({ value: m.id, label: m.label }))} />
+                      <Field label="허가(인증) 번호" value={editForm.licenseNo} onChange={(v) => setEF('licenseNo', v)} />
+                      <Field label="발급기관" value={editForm.issuer} onChange={(v) => setEF('issuer', v)} />
+                      <Field label="발급일" value={editForm.issueDate} onChange={(v) => setEF('issueDate', v)} type="date" />
+                      <Field label="유효기한" value={editForm.expiryDate} onChange={(v) => setEF('expiryDate', v)} type="date" />
+                    </div>
+                    <TextAreaField label="비고" value={editForm.notes} onChange={(v) => setEF('notes', v)} rows={2} />
+                    <div className="flex gap-2">
+                      <button onClick={() => submitChange(l)} className="btn-primary text-[12.5px]"><Save size={13} /> 변경 신청</button>
+                      <button onClick={cancelEdit} className="btn-ghost text-[12.5px]">취소</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

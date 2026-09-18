@@ -34,6 +34,8 @@ export const PERMISSIONS = {
   'onb.regulations.edit': LEVELS.MANAGER, // 다중 규제 변경
   'onb.roles.edit': LEVELS.MANAGER, // 역할 정의
   'onb.license.edit': LEVELS.MANAGER, // 제품별 허가증(인허가 문서) 관리
+  'onb.license.requestChange': LEVELS.INSPECTOR, // 허가증 변경 신청 (담당자)
+  'onb.license.approve': LEVELS.MANAGER, // 허가증 변경 신청 승인
   'onb.sop.edit': LEVELS.MANAGER, // 작업표준서(SOP) 본문 작성·발효
 
   // ===== EQP 영역 (설비 · 시험장비 · 교정) =====

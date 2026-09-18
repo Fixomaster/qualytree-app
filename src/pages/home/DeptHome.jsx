@@ -14,6 +14,7 @@ import { auth } from '../../lib/auth'
 import { deptAuth, DEPT_LIST } from '../../lib/deptAuth'
 import { menuPermissions } from '../../lib/menuPermissions'
 import { loadContext, computeAllCards, computeOverallScore } from '../../lib/gmpProgress'
+import { productDocs } from '../../lib/productDocsState'
 
 // ── localStorage 읽기 헬퍼 ──────────────────────────────────
 function lsRead(key, fallback = []) {
@@ -297,9 +298,9 @@ function getDeptKPIs(dept) {
     return days !== null && days > 0 && days <= 30
   }).length
 
-  // 인허가: 아직 허가번호가 없는(진행 중) 품목 수 / 등록된 허가변경 신청 누적 건수
+  // 인허가: 아직 허가번호가 없는(진행 중) 품목 수 / 허가증 변경 신청 중 승인 대기 건수
   const licenseInProgress = raProducts.filter(p => !p.licenseNo).length
-  const licenseChangesCount = raProducts.reduce((sum, p) => sum + ((Array.isArray(p.licenseChanges) ? p.licenseChanges : []).length), 0)
+  const licenseChangesCount = productDocs.getLicenseChangeRequests({ status: 'pending' }).length
 
   const BASE = [
     { label: '미결 NCR', value: openNcrs, icon: AlertTriangle, color: openNcrs > 0 ? '#EF4444' : '#10B981', link: '/quality' },
@@ -350,7 +351,7 @@ function getDeptKPIs(dept) {
     ],
     RA: [...BASE,
       { label: '허가 검토', value: licenseInProgress, icon: FileText, color: licenseInProgress > 0 ? '#8B5CF6' : '#6B7280', link: '/regulatory' },
-      { label: '변경 신고', value: licenseChangesCount, icon: AlertTriangle, color: licenseChangesCount > 0 ? '#F59E0B' : '#6B7280', link: '/regulatory' },
+      { label: '허가변경 승인대기', value: licenseChangesCount, icon: AlertTriangle, color: licenseChangesCount > 0 ? '#F59E0B' : '#6B7280', link: '/regulatory' },
     ],
     AUD: [
       { label: '미결 CAR', value: openCars, icon: Search, color: openCars > 0 ? '#EF4444' : '#10B981', link: '/audit' },

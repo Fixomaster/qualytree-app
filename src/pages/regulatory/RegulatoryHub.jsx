@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Shield, Plus, ChevronDown, ChevronRight, CheckCircle, Circle, AlertCircle, Clock, FileText, ExternalLink, Trash2, Pencil, X, BookOpen, Package } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { permissions, requirePermission } from '../../lib/permissions'
+import { productDocs } from '../../lib/productDocsState'
 import { useNavigate } from 'react-router-dom'
 
 // ── localStorage helpers ───────────────────────────────────────────────────
@@ -25,6 +27,8 @@ const STATUS_CFG = {
   rejected:   { label: '보완요구', color: '#DC2626', bg: '#FEE2E2' },
   expired:    { label: '만료임박', color: '#7C3AED', bg: '#EDE9FE' },
 }
+
+const FIELD_LABEL = { market: '시장', licenseNo: '허가번호', issuer: '발급기관', issueDate: '발급일', expiryDate: '유효기한', notes: '비고' }
 
 // ── 등급별 표준 체크리스트 ─────────────────────────────────────────────
 const DOCS_BY_CLASS = {
@@ -144,6 +148,23 @@ export default function RegulatoryHub() {
   const [filterClass, setFilterClass] = useState('all')
   const [filterStatus, setFilterStatus] = useState('all')
   const [expandedId, setExpandedId] = useState(null)
+  const canApproveLicenseChange = permissions.can('onb.license.approve')
+  const [pendingChanges, setPendingChanges] = useState(() => productDocs.getLicenseChangeRequests({ status: 'pending' }))
+  const refreshPending = () => setPendingChanges(productDocs.getLicenseChangeRequests({ status: 'pending' }))
+
+  const approveLicenseChange = (req) => {
+    if (!requirePermission('onb.license.approve')) return
+    const cur = auth.current ? auth.current() : null
+    productDocs.approveLicenseChange(req.id, (cur && cur.name) || '승인자')
+    refreshPending()
+  }
+  const rejectLicenseChange = (req) => {
+    if (!requirePermission('onb.license.approve')) return
+    const reason = window.prompt('반려 사유를 입력하세요 (선택)') || ''
+    const cur = auth.current ? auth.current() : null
+    productDocs.rejectLicenseChange(req.id, (cur && cur.name) || '승인자', reason)
+    refreshPending()
+  }
 
   useEffect(() => {
     const u = auth.current ? auth.current() : auth.getUser?.() || null
@@ -514,6 +535,47 @@ export default function RegulatoryHub() {
 
         {/* Guide panel */}
         {showGuide && <GuidePanel />}
+
+        {/* 허가증 변경 신청 승인 대기 */}
+        {canApproveLicenseChange && pendingChanges.length > 0 && (
+          <div style={{ border: '1px solid #FDE68A', background: '#FFFBEB', borderRadius: 12, padding: '16px 18px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <AlertCircle size={16} color="#D97706" />
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>허가증 변경 신청 승인 대기 ({pendingChanges.length}건)</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {pendingChanges.map(req => (
+                <div key={req.id} style={{ background: 'white', border: '1px solid #FDE68A', borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
+                        {req.previous.productName || '(제품명 미상)'} — {req.market} 허가증 {req.licenseNo || '(번호 미입력)'}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>
+                        {Object.keys(req.patch).map(k => (
+                          <div key={k}>{FIELD_LABEL[k] || k}: <s style={{ color: '#9CA3AF' }}>{req.previous[k] || '—'}</s> → <b>{req.patch[k] || '—'}</b></div>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>
+                        {req.requestedBy ? `${req.requestedBy}님 신청` : '신청'} · {(req.requestedAt || '').slice(0, 10)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => approveLicenseChange(req)}
+                        style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#059669', color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        승인
+                      </button>
+                      <button onClick={() => rejectLicenseChange(req)}
+                        style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #FCA5A5', background: 'white', color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        반려
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>

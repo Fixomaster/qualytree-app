@@ -12,6 +12,7 @@ function defaultState() {
     licenses: [],
     workInstructions: [],
     techDocs: [],
+    licenseChangeRequests: [],
   }
 }
 
@@ -129,6 +130,61 @@ export const productDocs = {
     return s.licenses
       .filter((l) => l.productKey === (productKey || 'main'))
       .sort((a, b) => (b.issueDate || '').localeCompare(a.issueDate || ''))
+  },
+
+  // ── 허가증 변경 신청 · 승인 (KGMP 허가 변경사항 발생 시 담당자 신청 → 매니저 승인 후 실제 반영) ──
+  requestLicenseChange(licenseId, patch, meta) {
+    const s = load()
+    const license = s.licenses.find((l) => l.id === licenseId)
+    if (!license) return null
+    const rec = {
+      id: uid(),
+      licenseId,
+      productKey: license.productKey,
+      market: license.market,
+      licenseNo: license.licenseNo,
+      previous: { ...license },
+      patch: { ...patch },
+      status: 'pending', // pending | approved | rejected
+      requestedBy: (meta && meta.requestedBy) || '',
+      requestedAt: new Date().toISOString(),
+      approvedBy: '',
+      approvedAt: '',
+      rejectReason: '',
+    }
+    s.licenseChangeRequests = [...(s.licenseChangeRequests || []), rec]
+    save(s)
+    return rec
+  },
+  approveLicenseChange(requestId, approverName) {
+    const s = load()
+    const req = (s.licenseChangeRequests || []).find((r) => r.id === requestId)
+    if (!req || req.status !== 'pending') return s
+    s.licenses = s.licenses.map((l) => (l.id === req.licenseId ? { ...l, ...req.patch } : l))
+    s.licenseChangeRequests = s.licenseChangeRequests.map((r) =>
+      r.id === requestId ? { ...r, status: 'approved', approvedBy: approverName, approvedAt: new Date().toISOString() } : r
+    )
+    save(s)
+    return s
+  },
+  rejectLicenseChange(requestId, approverName, reason) {
+    const s = load()
+    s.licenseChangeRequests = (s.licenseChangeRequests || []).map((r) =>
+      r.id === requestId ? { ...r, status: 'rejected', approvedBy: approverName, approvedAt: new Date().toISOString(), rejectReason: reason || '' } : r
+    )
+    save(s)
+    return s
+  },
+  getLicenseChangeRequests(filter) {
+    const s = load()
+    let list = s.licenseChangeRequests || []
+    if (filter && filter.status) list = list.filter((r) => r.status === filter.status)
+    if (filter && filter.productKey) list = list.filter((r) => r.productKey === filter.productKey)
+    return list.slice().sort((a, b) => (b.requestedAt || '').localeCompare(a.requestedAt || ''))
+  },
+  getPendingLicenseChangeRequest(licenseId) {
+    const s = load()
+    return (s.licenseChangeRequests || []).find((r) => r.licenseId === licenseId && r.status === 'pending') || null
   },
 
   // ── 작업표준서 (SOP) ──

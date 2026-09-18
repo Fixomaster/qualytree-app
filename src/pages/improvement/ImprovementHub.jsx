@@ -13,6 +13,7 @@ import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { capa, CAPA_STATUS_LABEL } from '../../lib/capaState'
 import { permissions } from '../../lib/permissions'
+import ApprovalWidget from '../../components/ApprovalWidget'
 
 const STORAGE_KEY = 'qualytree.improvements'
 
@@ -639,6 +640,7 @@ const CAPA_STAGE_ORDER = ['open', 'rca', 'corrective', 'preventive', 'verificati
 function CapaDetail({ capaRecord, onChanged }) {
   const canEdit = permissions.can('qms.capa.edit')
   const canApprove = permissions.can('qms.capa.approve')
+  const curUser = auth.current ? auth.current() : null
   const stageIdx = CAPA_STAGE_ORDER.indexOf(capaRecord.status)
 
   const [rca, setRca] = useState(capaRecord.rootCause || { method: '', cause: '', evidence: '' })
@@ -652,12 +654,12 @@ function CapaDetail({ capaRecord, onChanged }) {
     onChanged()
   }
 
-  const closeCapa = () => {
-    if (!canApprove) { alert('CAPA 승인·종결은 매니저(Level 3) 권한이 필요합니다.'); return }
-    const reason = prompt('종결 승인 사유 (효과성검증 결과 기준):', '효과성 검증 완료 — 종결 승인')
-    if (reason == null) return
-    capa.updateStage(capaRecord.id, {}, 'closed', { reason: reason.trim() || '종결' })
-    onChanged()
+  const verificationInsufficient = verification.result === '불충분 · 재조치 필요'
+  const onApprovalStatusChange = (status) => {
+    if (status === 'approved') {
+      capa.updateStage(capaRecord.id, {}, 'closed', { reason: '전자서명 승인 — 효과성 검증 완료' })
+      onChanged()
+    }
   }
 
   const status = CAPA_STATUS_LABEL[capaRecord.status]
@@ -722,17 +724,29 @@ function CapaDetail({ capaRecord, onChanged }) {
       </CapaStageCard>
 
       {/* 승인·종결 */}
-      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
+      <CapaStageCard title="⑤ 승인 · 종결" citation="ISO 13485 §8.5.2 (매니저 전자서명 승인)" active={stageIdx === 4} done={stageIdx === 5} locked={stageIdx < 4}>
         {stageIdx === 5 ? (
           <div className="text-[12.5px]" style={{ color: 'var(--moss)' }}>
             <CheckCircle2 size={14} className="inline mr-1" />
             {capaRecord.closure?.by} 승인 · {capaRecord.closure?.closedAt ? new Date(capaRecord.closure.closedAt).toLocaleString('ko-KR') : ''} — {capaRecord.closure?.reason}
           </div>
         ) : stageIdx === 4 ? (
-          canApprove ? (
-            <div className="flex justify-end"><button onClick={closeCapa} className="btn-primary" style={{ padding: '0.4rem 0.9rem', fontSize: 12.5 }}><CheckCircle2 size={13} /> 승인 및 종결</button></div>
+          verificationInsufficient ? (
+            <div className="text-[12.5px] rounded p-2.5" style={{ color: 'var(--rust)', background: 'var(--rust-soft)' }}>
+              효과성검증 결과가 "불충분 · 재조치 필요"로 기록되어 있어 종결할 수 없습니다. 검증 결과를 다시 확인하거나 시정·예방조치를 보완한 뒤 재검증하세요.
+            </div>
           ) : (
-            <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>효과성검증까지 완료되었습니다. 매니저(Level 3) 승인을 기다리는 중입니다.</div>
+            <ApprovalWidget
+              recordId={`capa:${capaRecord.id}`}
+              currentUser={{
+                email: curUser?.email,
+                name: curUser?.name,
+                level: curUser?.level,
+                isCompanyAdmin: (curUser?.level ?? 0) >= 3,
+                company_id: curUser?.company?.id,
+              }}
+              onStatusChange={onApprovalStatusChange}
+            />
           )
         ) : (
           <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>이전 단계를 먼저 완료하세요.</div>
