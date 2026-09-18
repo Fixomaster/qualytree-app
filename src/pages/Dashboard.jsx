@@ -4,6 +4,7 @@ import { Stamp, Factory, ChevronDown, ChevronRight, BadgeCheck } from 'lucide-re
 import { auth } from '../lib/auth';
 import { onboarding } from '../lib/onboardingState';
 import AppLayout from '../components/AppLayout';
+import GuideBanner from '../components/GuideBanner';
 import KgmpSectionList from '../components/KgmpSectionList';
 import { getKgmpStatus } from '../lib/kgmpProgress';
 import { gmpCertificates as foreignGmpCerts } from '../lib/foreignManufacturerState';
@@ -165,6 +166,8 @@ function PanelIso13485({ kgmp }) {
   );
 }
 
+
+
 export default function Dashboard() {
   const [tick, setTick] = useState(0);
 
@@ -211,6 +214,7 @@ export default function Dashboard() {
 return (
     <AppLayout user={auth.current()} title="GMP 대시보드" subtitle="KGMP 통합 현황 · 수입사 GMP 현황 · ISO 13485 현황 — 필요 문서를 확인하고 입력·수정·저장합니다">
       <div className="min-h-screen bg-slate-50 px-6 py-6">
+        <GuideBanner />
         {expiryAlerts.length > 0 && (
           <div className="mb-4 bg-amber-50 rounded-xl border border-amber-200 p-4">
             <div className="flex items-center gap-2 mb-2">

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Sparkles, X, Copy, Check } from 'lucide-react'
-import { supabase } from '../lib/supabase'
 
 const DOC_CONFIG = {
   ncr:  { label: '부적합보고서 (NCR)', fields: ['department','product','description','date'] },
@@ -23,23 +22,24 @@ export default function AIDraftButton({ docType, prefill = {} }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  const [meta, setMeta] = useState(null)
   const cfg = DOC_CONFIG[docType]
   if (!cfg) return null
 
   async function generate() {
     setError(''); setDraft(''); setLoading(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) throw new Error('로그인 필요')
-      const companyId = session.user?.user_metadata?.company_id || session.user?.id
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-draft`, {
+      // 서버 함수(/api/ai-draft)를 경유한다 — API 키는 서버 환경변수에만 있고
+      // 브라우저로 내려오지 않는다 (프로젝트 지침 §11.3 / §22).
+      const res = await fetch('/api/ai-draft', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ docType, context: ctx, companyId }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docType, fields: ctx }),
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'AI 오류')
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json.ok) throw new Error(json.message || json.error || 'AI 초안 생성에 실패했습니다.')
       setDraft(json.draft)
+      setMeta(json.meta || null)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }
@@ -100,6 +100,11 @@ export default function AIDraftButton({ docType, prefill = {} }) {
                 </div>
                 <textarea readOnly value={draft} rows={8}
                   style={{ width:'100%', padding:'12px', border:'1px solid #ddd', borderRadius:'8px', fontSize:'13px', resize:'vertical', boxSizing:'border-box', background:'#fafafa' }} />
+                {/* §22 AI 거버넌스 — AI 산출물 메타데이터 표시 + 인간 검토 의무 안내 */}
+                <div style={{ marginTop:'6px', fontSize:'11.5px', color:'#777', lineHeight:1.5 }}>
+                  AI 초안입니다 — 규정·사실 관계를 검토하고 승인해야 기록으로 유효합니다.
+                  {meta && <><br/>모델 {meta.model} · 생성 {new Date(meta.generatedAt).toLocaleString('ko-KR')}</>}
+                </div>
               </div>
             )}
           </div>

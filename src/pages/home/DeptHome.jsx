@@ -10,6 +10,7 @@ import {
   ArrowRight, Zap, Megaphone,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
+import GuideBanner from '../../components/GuideBanner'
 import { auth } from '../../lib/auth'
 import { deptAuth, DEPT_LIST } from '../../lib/deptAuth'
 import { menuPermissions } from '../../lib/menuPermissions'
@@ -579,6 +580,7 @@ export default function DeptHome() {
   return (
     <AppLayout user={user} title={`${deptInfo?.label || dept} 대시보드`} subtitle="내 할 일 · 알림 · KPI 요약">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto space-y-6">
+        <GuideBanner />
 
         {/* 인사 배너 */}
         <div

@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldCheck, ArrowLeft } from 'lucide-react'
+import { Search, Bell, ChevronDown, LogOut, User as UserIcon, UserCog, ShieldCheck, ArrowLeft, PlayCircle } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { LEVELS, LEVEL_LABEL } from '../lib/permissions'
@@ -92,6 +92,17 @@ export default function TopBar({ user, title, subtitle }) {
           >
             Ctrl+K
           </span>
+        </button>
+
+        {/* 사용 안내 (가이드 투어) */}
+        <button
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition whitespace-nowrap"
+          style={{ background: 'var(--leaf-soft)', color: 'var(--moss)', border: 'none', fontSize: 12.5, fontWeight: 600 }}
+          title="사용 안내 — 화면을 따라가는 안내 영상"
+          onClick={() => nav('/guides')}
+        >
+          <PlayCircle size={15} strokeWidth={1.9} />
+          <span className="hidden sm:inline">사용 안내</span>
         </button>
 
         {/* notifications */}

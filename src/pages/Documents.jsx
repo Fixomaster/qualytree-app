@@ -242,6 +242,7 @@ export default function Documents() {
 
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'manual')
+  const [aiBusy, setAiBusy] = useState(null)   // null | 문서 id | 'all' — AI 초안 생성 중
   const [openId, setOpenId] = useState(null)
 
   // 외부 페이지(KGMP 허브 등)에서 ?tab=procedures&openName=문서관리 로 특정 절차서를
@@ -394,16 +395,46 @@ export default function Documents() {
     } catch (e) { window.alert('업로드 처리 실패: ' + ((e && e.message) || e)) }
   }
 
+  // 템플릿 초안 (AI 미연결 시 폴백으로도 사용)
   const draftFor = (it) => (it.kind === 'manual' ? genManual(it.c, it.name, ctx) : genProc(it.name, ctx))
-  const genOne = (it) => {
-    if (docs[it.id]?.content && !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
-    setContent(it.id, draftFor(it)); setOpenId(it.id)
+
+  // 서버 함수(/api/ai-draft) 경유 실제 AI 초안 — API 키는 서버에만 있다 (§11.3)
+  const aiDraftFor = async (it) => {
+    const body = it.kind === 'manual'
+      ? { docType: 'qm', fields: { section: (it.c ? it.c + ' ' : '') + it.name, company: ctx?.companyName || ctx?.company || '', productType: ctx?.productType || '의료기기' } }
+      : { docType: 'sop', fields: { title: it.name, purpose: it.name + ' 절차의 목적', dept: ctx?.dept || '품질보증팀', iso: it.c || '' } }
+    const res = await fetch('/api/ai-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok || !json.ok || !json.draft) { const e = new Error(json.message || 'AI 초안 생성 실패'); e.code = json.error; throw e }
+    return json.draft
   }
-  const genAllEmpty = () => {
+
+  const genOne = async (it) => {
+    if (docs[it.id]?.content && !window.confirm('이미 작성된 내용이 있습니다. AI 초안으로 덮어쓸까요?')) return
+    setAiBusy(it.id); setOpenId(it.id)
+    try {
+      const text = await aiDraftFor(it)
+      setContent(it.id, text)
+    } catch (e) {
+      setContent(it.id, draftFor(it))
+      window.alert((e.message || 'AI 초안 생성 실패') + '\n\n표준 양식 초안을 대신 채웠습니다. 내용을 직접 보완해 주세요.')
+    } finally { setAiBusy(null) }
+  }
+
+  const genAllEmpty = async () => {
     const targets = items.filter((it) => !docs[it.id]?.content)
     if (targets.length === 0) { window.alert('비어있는 항목이 없습니다.'); return }
-    if (!window.confirm(`비어있는 ${targets.length}개 항목에 AI 기본 초안을 생성합니다. 진행할까요?`)) return
-    setDocs((d) => { const n = { ...d }; targets.forEach((it) => { const cur = n[it.id] || { status: 'draft', rev: 0, history: [] }; n[it.id] = { ...cur, content: draftFor(it), author: cur.author || me, updatedAt: Date.now() } }); return n })
+    if (!window.confirm(`비어있는 ${targets.length}개 항목에 AI 초안을 생성합니다. 문서 수에 따라 1~2분 걸릴 수 있습니다. 진행할까요?`)) return
+    setAiBusy('all')
+    let aiCount = 0, fallback = 0, firstError = ''
+    for (const it of targets) {
+      let text
+      try { text = await aiDraftFor(it); aiCount++ }
+      catch (e) { text = draftFor(it); fallback++; if (!firstError) firstError = e.message || '' }
+      setDocs((d) => { const cur = d[it.id] || { status: 'draft', rev: 0, history: [] }; return { ...d, [it.id]: { ...cur, content: text, author: cur.author || me, updatedAt: Date.now() } } })
+    }
+    setAiBusy(null)
+    window.alert(`완료 — AI 초안 ${aiCount}건` + (fallback ? ` / 표준 양식 초안 ${fallback}건\n${firstError}` : '') + '\n\n모든 초안은 검토·승인 후 발효됩니다.')
   }
 
   const badge = (r) => {
@@ -537,8 +568,9 @@ export default function Documents() {
                     <button onClick={translateAllNeeded} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-sky-50">
                       <Languages size={14} /> 영문 일괄 생성·갱신
                     </button>
-                    <button onClick={genAllEmpty} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700">
-                      <Sparkles size={14} /> 비어있는 항목 AI 초안 일괄 생성
+                    <button onClick={genAllEmpty} disabled={!!aiBusy} className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60">
+                      <Sparkles size={14} className={aiBusy === 'all' ? 'animate-pulse' : ''} />
+                      {aiBusy === 'all' ? 'AI 초안 생성 중…' : '비어있는 항목 AI 초안 일괄 생성'}
                     </button>
                   </div>
                 </div>
@@ -582,8 +614,9 @@ export default function Documents() {
                                   <Upload size={13} /> 기존 문서 업로드
                                   <input type="file" accept=".docx,.txt,.md,.text,text/plain" className="hidden" onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) onUpload(it, f); e.target.value = '' }} />
                                 </label>
-                                <button onClick={() => genOne(it)} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50">
-                                  <Sparkles size={13} /> AI 초안 생성
+                                <button onClick={() => genOne(it)} disabled={!!aiBusy} className="flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-lg border border-violet-300 text-violet-700 hover:bg-violet-50 disabled:opacity-60">
+                                  <Sparkles size={13} className={aiBusy === it.id ? 'animate-pulse' : ''} />
+                                  {aiBusy === it.id ? '생성 중…' : 'AI 초안 생성'}
                                 </button>
                               </div>
                             )}

@@ -3,7 +3,8 @@
 // POST { docType, fields } → { ok, draft, model }
 // 환경변수: ANTHROPIC_API_KEY (Vercel 대시보드에서 설정)
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
+import { callAnthropic, errorResponse } from './_anthropic.js'
+
 const MODEL = process.env.AI_DRAFT_MODEL || 'claude-haiku-4-5-20251001'
 
 const DOC_PROMPTS = {
@@ -94,6 +95,22 @@ const DOC_PROMPTS = {
 5. 합격/조건부합격/불합격 판정 및 근거
 6. 향후 관리 계획`,
 
+  ncr: (f) => `ISO 13485 §8.3 부적합 관리 전문가로서 부적합보고서(NCR) 초안을 한국어로 작성하세요.
+
+발견 부서: ${f.department || f.dept || '미기재'}
+제품/공정: ${f.product || '미기재'}
+부적합 내용: ${f.description || '미기재'}
+발견일: ${f.date || '미기재'}
+
+다음을 포함하세요:
+1. 부적합 요약 (사실만, 1-2문장)
+2. 발견 경위 및 해당 검사 단계
+3. 영향 범위 (같은 로트·이후 공정 포함 여부, 격리 필요성)
+4. 임시 조치(containment)
+5. 처리 방향 제안 (재작업 / 특별채택 / 폐기 중 근거와 함께)
+6. CAPA 발의 필요성 판단
+ISO 13485 조항 근거를 괄호로 함께 적으세요.`,
+
   qm: (f) => `ISO 13485 품질매뉴얼 전문가로서 품질매뉴얼 해당 섹션 초안을 작성하세요.
 
 ISO 조항: ${f.section}
@@ -109,11 +126,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ ok: false, error: 'ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' })
-  }
-
   const { docType, fields } = req.body || {}
   if (!docType || !DOC_PROMPTS[docType]) {
     return res.status(400).json({ ok: false, error: '지원하지 않는 문서 유형입니다.' })
@@ -122,29 +134,15 @@ export default async function handler(req, res) {
   const prompt = DOC_PROMPTS[docType](fields || {})
 
   try {
-    const response = await fetch(ANTHROPIC_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+    const r = await callAnthropic({ prompt, model: MODEL, maxTokens: 1500 })
+    return res.status(200).json({
+      ok: true,
+      draft: r.text,
+      model: r.model,
+      // §22 AI 거버넌스 — AI 산출물 메타데이터 (모델·생성일시·문서유형)
+      meta: { model: r.model, generatedAt: new Date().toISOString(), docType, usage: r.usage },
     })
-
-    if (!response.ok) {
-      const err = await response.text()
-      return res.status(502).json({ ok: false, error: 'Anthropic API 오류', message: err.slice(0, 200) })
-    }
-
-    const data = await response.json()
-    const draft = data.content?.[0]?.text || ''
-    return res.status(200).json({ ok: true, draft, model: data.model })
   } catch (e) {
-    return res.status(500).json({ ok: false, error: e.message })
+    return errorResponse(res, e)
   }
 }
