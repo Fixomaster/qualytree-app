@@ -9,7 +9,7 @@ import {
   Plus, Search, Trash2, X, Edit3, ChevronDown, ChevronUp,
   Thermometer, Droplets, Wind, Activity, AlertTriangle,
   CheckCircle2, XCircle, TrendingUp, BarChart2, MapPin,
-  Settings, Clock, ExternalLink, Eye,
+  Settings, Clock, ExternalLink, Eye, ShieldCheck,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -65,6 +65,21 @@ export default function WorkEnvHub() {
   const [zoneForm, setZoneForm] = useState(emptyZone())
   const [editZoneId, setEditZoneId] = useState(null)
   const [expanded, setExpanded]     = useState(null)
+  // KGMP 위생관리 상태
+  const HYG_LS = 'qualytree.hygiene_records'
+  const [hygieneRecs, setHygieneRecs] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.hygiene_records') || '[]') } catch { return [] } })
+  const saveHygiene = d => { setHygieneRecs(d); try { localStorage.setItem('qualytree.hygiene_records', JSON.stringify(d)) } catch {} }
+  const EMPTY_HYG = { hygType: '청소', location: '', inspDate: '', performer: '', result: '적합', notes: '' }
+  const [hygForm, setHygForm] = useState(EMPTY_HYG)
+  const [hygAdding, setHygAdding] = useState(false)
+  const hfld = (k, v) => setHygForm(f => ({ ...f, [k]: v }))
+  const saveHyg = () => {
+    if (!hygForm.inspDate || !hygForm.performer) return alert('날짜와 실시자는 필수입니다.')
+    saveHygiene([{ ...hygForm, id: Date.now().toString() }, ...hygieneRecs])
+    setHygForm(EMPTY_HYG); setHygAdding(false)
+  }
+  const delHyg = id => { if (window.confirm('삭제하시겠습니까?')) saveHygiene(hygieneRecs.filter(r => r.id !== id)) }
+
 
   const saveZones = d => { setZones(d); lsW(LS_ZONE, d); setLogs(getMergedEnvLogs()) }
   const goToRecord = () => nav('/cleanliness?tab=records')
@@ -106,6 +121,7 @@ export default function WorkEnvHub() {
     { key: 'zones',    label: '구역 관리',      icon: MapPin },
     { key: 'analysis', label: '현황 분석',      icon: BarChart2 },
     { key: 'trend', label: '추세 분석', icon: TrendingUp },
+    { key: 'hygiene', label: '위생관리', icon: ShieldCheck },
   ]
 
 
@@ -226,6 +242,69 @@ export default function WorkEnvHub() {
         {tab === 'analysis' && <EnvAnalysis logs={logs} zones={zones} />}
             {tab === 'trend' && <TrendTab logs={logs}/>}
 
+
+        {/* KGMP 위생관리 탭 */}
+        {tab === 'hygiene' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>KGMP 위생관리 기록</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>KGMP 위생관리기준서 §7 — 청소·방충방서·개인위생 기록</div>
+              </div>
+              <button onClick={() => setHygAdding(a => !a)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>{hygAdding ? '취소' : '+ 신규 등록'}</button>
+            </div>
+            {hygAdding && (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>점검 유형</div>
+                    <select value={hygForm.hygType} onChange={e => hfld('hygType', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, background: 'var(--bg)', color: 'var(--ink)' }}>
+                      {['청소','방충·방서','개인위생','방진복 점검'].map(t => <option key={t}>{t}</option>)}
+                    </select></div>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>구역/장소</div>
+                    <input value={hygForm.location} onChange={e => hfld('location', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>날짜 *</div>
+                    <input type="date" value={hygForm.inspDate} onChange={e => hfld('inspDate', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>실시자 *</div>
+                    <input value={hygForm.performer} onChange={e => hfld('performer', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>결과</div>
+                    <select value={hygForm.result} onChange={e => hfld('result', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, background: 'var(--bg)', color: 'var(--ink)' }}>
+                      <option>적합</option><option>부적합</option>
+                    </select></div>
+                  <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>비고</div>
+                    <input value={hygForm.notes} onChange={e => hfld('notes', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                </div>
+                <button onClick={saveHyg} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>저장</button>
+              </div>
+            )}
+            {hygieneRecs.length === 0
+              ? <div style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: 'var(--ink-faint)' }}>위생 기록이 없습니다.</div>
+              : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                  <thead><tr style={{ background: 'var(--bg-card)' }}>
+                    {['점검일','유형','구역','실시자','결과','비고',''].map(h => (
+                      <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--ink-mute)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>{hygieneRecs.map(row => (
+                    <tr key={row.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '8px 10px' }}>{row.inspDate}</td>
+                      <td style={{ padding: '8px 10px', fontWeight: 500 }}>{row.hygType}</td>
+                      <td style={{ padding: '8px 10px' }}>{row.location}</td>
+                      <td style={{ padding: '8px 10px' }}>{row.performer}</td>
+                      <td style={{ padding: '8px 10px' }}>
+                        <span style={{ padding: '2px 8px', borderRadius: 4, fontSize: 11.5, fontWeight: 600,
+                          background: row.result === '적합' ? '#D1FAE5' : '#FEE2E2',
+                          color: row.result === '적합' ? '#065F46' : '#991B1B' }}>{row.result}</span>
+                      </td>
+                      <td style={{ padding: '8px 10px', color: 'var(--ink-mute)', fontSize: 12 }}>{row.notes}</td>
+                      <td style={{ padding: '8px 10px' }}><button onClick={() => delHyg(row.id)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #EF4444', background: 'transparent', color: '#EF4444', fontSize: 11, cursor: 'pointer' }}>삭제</button></td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
+            }
+          </div>
+        )}
       </div>
 
       {showZoneForm && (
