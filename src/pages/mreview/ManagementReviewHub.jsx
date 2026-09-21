@@ -10,6 +10,7 @@ import {
   Paperclip,
   Download,
   X,
+  PenTool,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
@@ -203,6 +204,16 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
   const [decisions, setDecisions] = useState(review.decisions)
   const [actionForm, setActionForm] = useState({ description: '', owner: '', dueDate: '' })
   const setAF = (k, v) => setActionForm((f) => ({ ...f, [k]: v }))
+  const sigKey = 'qualytree.mr_sigs_' + review.id;
+  const [mrSigs, setMrSigs] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(sigKey) || '[]') } catch { return [] }
+  })
+  const [newSig, setNewSig] = useState({ name: '', role: '', date: new Date().toISOString().slice(0,10) })
+  const aiStatusKey = 'qualytree.mr_ai_status_' + review.id;
+  const [aiStatuses, setAiStatuses] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(aiStatusKey) || '{}') } catch { return {} }
+  })
+
   const k = review.snapshot.kpi
   const minutesFiles = review.minutesFiles || []
 
@@ -297,7 +308,7 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
         <div className="text-[13px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>실행 항목 ({review.actionItems.length})</div>
         <div className="space-y-1.5 mb-2">
           {review.actionItems.map((a) => (
-            <div key={a.id} className="p-2.5 rounded-lg text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{a.description} — 담당 {a.owner || '—'} · 기한 {a.dueDate || '—'}</div>
+            <div key={a.id} className="p-2.5 rounded-lg text-[12px] flex items-center justify-between gap-2" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{a.description} — 담당 {a.owner || '—'} · 기한 {a.dueDate || '—'}</div>
           ))}
           {review.actionItems.length === 0 && <div className="text-[12px] text-center py-2" style={{ color: 'var(--ink-faint)' }}>등록된 실행 항목이 없습니다.</div>}
         </div>
@@ -309,6 +320,28 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
           </div>
         )}
         {canEdit && <div className="flex justify-end mt-2"><button onClick={addAction} className="btn-ghost text-[12.5px]"><Plus size={13} /> 추가</button></div>}
+      </div>
+
+
+      <div className="card-base p-4">
+        <div className="text-[13px] font-semibold mb-2" style={{ color: 'var(--ink)' }}><PenTool size={14} className="inline mr-1.5" />서명란 (ISO 13485 §5.6)</div>
+        {mrSigs.length === 0 && <p className="text-[12px] py-1" style={{ color: 'var(--ink-mute)' }}>서명 기록이 없습니다.</p>}
+        <div className="space-y-1.5 mb-2">
+          {mrSigs.map(s => (
+            <div key={s.id} className="flex items-center justify-between p-2.5 rounded-lg text-[12px]" style={{ background: 'var(--bg-soft)' }}>
+              <span style={{ color: 'var(--ink)' }}>{s.name}{s.role ? ' (' + s.role + ')' : ''} · {s.date}</span>
+              {canEdit && <button onClick={() => removeMrSig(s.id)} style={{ background:'none',border:'none',cursor:'pointer',color:'#EF4444' }}><X size={12}/></button>}
+            </div>
+          ))}
+        </div>
+        {canEdit && (
+          <div className="flex gap-2 items-end">
+            <input value={newSig.name} onChange={e => setNewSig(s => ({ ...s, name: e.target.value }))} placeholder="성명" className="px-2 py-1.5 rounded-lg text-[12px]" style={{ background:'var(--bg)',border:'1px solid var(--line)',color:'var(--ink)',width:120 }} />
+            <input value={newSig.role} onChange={e => setNewSig(s => ({ ...s, role: e.target.value }))} placeholder="직위" className="px-2 py-1.5 rounded-lg text-[12px]" style={{ background:'var(--bg)',border:'1px solid var(--line)',color:'var(--ink)',width:100 }} />
+            <input type="date" value={newSig.date} onChange={e => setNewSig(s => ({ ...s, date: e.target.value }))} className="px-2 py-1.5 rounded-lg text-[12px]" style={{ background:'var(--bg)',border:'1px solid var(--line)',color:'var(--ink)' }} />
+            <button onClick={addMrSig} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold" style={{ background:'var(--moss)',color:'#fff',border:'none',cursor:'pointer' }}><PenTool size={11}/>서명</button>
+          </div>
+        )}
       </div>
 
       {review.status === REVIEW_STATUS.DRAFT ? (
