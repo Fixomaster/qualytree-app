@@ -158,13 +158,14 @@ export default function QualityManualHub() {
             <p style={{ color: 'var(--ink-faint)', margin: '3px 0 0', fontSize: 13 }}>ISO 13485 §4.2.2 — {doneCount}/{QM_SECTIONS.length}개 섹션 작성 완료</p>
           </div>
           {activeTab === 'view' && (
+            <>
                         <button onClick={handleBatchAIDraft} disabled={batchLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: batchLoading ? 'var(--line)' : '#EDE9FE', color: batchLoading ? 'var(--ink-faint)' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 8, cursor: batchLoading ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 600 }}>
               <Sparkles size={14} /> {batchLoading ? batchProgress.done + '/' + batchProgress.total + ' 생성 중...' : '전체 조항 AI 일괄생성'}
             </button>
             <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               <Printer size={14} /> PDF 출력
             </button>
-          )}
+          )} </>
         </div>
 
         <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--line)', marginBottom: 20 }}>
