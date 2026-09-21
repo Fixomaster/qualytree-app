@@ -8,7 +8,7 @@ import {
   AlertTriangle, CheckCircle2, Archive, BarChart2,
   ChevronRight, Calendar, Package, ShieldAlert,
   Wrench, TrendingUp, Users, GitBranch, RefreshCw,
-  Layers, Activity, BookOpen } from 'lucide-react'
+  Layers, Activity, BookOpen, Trash2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
@@ -212,10 +212,32 @@ export default function RecordMasterHub() {
     ok:      records.filter(r => r.retention?.level === 'ok').length,
   }), [records])
 
+  const [disposals, setDisposals] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.record_disposals') || '[]') } catch { return [] } })
+  const saveDisposals = v => { setDisposals(v); localStorage.setItem('qualytree.record_disposals', JSON.stringify(v)) }
+  const EMPTY_DISP = { recordName: '', recordType: '', retentionYears: '', reason: 'period_expired', requestedBy: '', requestedAt: new Date().toISOString().slice(0,10), status: 'requested', approvedBy: '', approvedAt: '', disposedAt: '', notes: '' }
+  const [dispForm, setDispForm] = useState({...EMPTY_DISP})
+  const [dispAdding, setDispAdding] = useState(false)
+  const saveDisp = () => {
+    if (!dispForm.recordName.trim()) { alert('기록명을 입력하세요.'); return }
+    const item = {...dispForm, id: dispForm.id || Date.now().toString()}
+    if (dispForm.id) saveDisposals(disposals.map(d => d.id === item.id ? item : d))
+    else saveDisposals([...disposals, item])
+    setDispAdding(false); setDispForm({...EMPTY_DISP})
+  }
+  const delDisp = id => { if (window.confirm('삭제하시겠습니까?')) saveDisposals(disposals.filter(d => d.id !== id)) }
+  const approveDisp = id => {
+    const u = auth.current()
+    saveDisposals(disposals.map(d => d.id === id ? {...d, status: 'approved', approvedBy: u?.name || '관리자', approvedAt: new Date().toISOString().slice(0,10)} : d))
+  }
+  const completeDisp = id => {
+    saveDisposals(disposals.map(d => d.id === id ? {...d, status: 'completed', disposedAt: new Date().toISOString().slice(0,10)} : d))
+  }
+
   const TABS = [
     { key: 'all',       label: '전체 기록',        icon: FileText },
     { key: 'retention', label: '보유기간 관리',     icon: Clock },
     { key: 'stats',     label: '모듈별 현황',       icon: BarChart2 },
+    { key: 'disposal',  label: '기록 파기', icon: Trash2 },
   ]
 
   return (
@@ -428,6 +450,71 @@ export default function RecordMasterHub() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {tab === 'disposal' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
+              <div className="text-[13px] font-bold mb-1" style={{ color: '#991B1B' }}>기록 파기 절차 (ISO 13485 §4.2.4/§4.2.5)</div>
+              <div className="text-[12px] leading-relaxed" style={{ color: '#7F1D1D' }}>불필요 기록은 파기 신청 → 관리자 승인 → 파기 완료의 3단계를 거쳐야 합니다. 파기 시 반드시 날짜, 방법, 승인자를 기록해야 합니다.</div>
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontSize:13, color:'var(--ink-soft)' }}>파기 신청 {disposals.length}건</span>
+              <button onClick={() => { setDispForm({...EMPTY_DISP}); setDispAdding(true) }} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, background:'var(--moss)', color:'#fff', border:'none', borderRadius:6, padding:'7px 14px', cursor:'pointer' }}><Trash2 size={14} /> 파기 신청</button>
+            </div>
+            {dispAdding && (
+              <div style={{ background:'var(--bg-soft)', border:'1px solid var(--line)', borderRadius:10, padding:20 }}>
+                <div style={{ fontWeight:700, fontSize:14, marginBottom:14 }}>기록 파기 신청서 (§4.2.4)</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>기록명 *</label><input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.recordName} onChange={e=>setDispForm(f=>({...f,recordName:e.target.value}))} /></div>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>기록 유형</label><input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.recordType} onChange={e=>setDispForm(f=>({...f,recordType:e.target.value}))} placeholder="예: 품질기획서" /></div>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>보관년한</label><input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.retentionYears} onChange={e=>setDispForm(f=>({...f,retentionYears:e.target.value}))} placeholder="예: 5년" /></div>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>파기 사유</label>
+                    <select style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.reason} onChange={e=>setDispForm(f=>({...f,reason:e.target.value}))}>
+                      <option value="period_expired">보관기한 만료</option><option value="superseded">개정대체</option><option value="not_required">해당없음</option><option value="other">기타</option>
+                    </select></div>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>신청일</label><input type="date" style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.requestedAt} onChange={e=>setDispForm(f=>({...f,requestedAt:e.target.value}))} /></div>
+                  <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>신청자</label><input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={dispForm.requestedBy} onChange={e=>setDispForm(f=>({...f,requestedBy:e.target.value}))} /></div>
+                </div>
+                <div style={{ marginBottom:12 }}><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>비고</label><textarea style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, minHeight:60 }} value={dispForm.notes} onChange={e=>setDispForm(f=>({...f,notes:e.target.value}))} /></div>
+                <div style={{ display:'flex', gap:10 }}>
+                  <button onClick={saveDisp} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, background:'var(--moss)', color:'#fff', border:'none', borderRadius:6, padding:'7px 16px', cursor:'pointer' }}><Archive size={14} /> 저장</button>
+                  <button onClick={() => setDispAdding(false)} style={{ fontSize:13, background:'none', border:'1px solid var(--line)', borderRadius:6, padding:'7px 14px', cursor:'pointer', color:'var(--ink-soft)' }}>취소</button>
+                </div>
+              </div>
+            )}
+            {disposals.length === 0 ? (
+              <div style={{ textAlign:'center', padding:40, color:'var(--ink-faint)', fontSize:14 }}>파기 신청 기록이 없습니다.</div>
+            ) : (
+              <div style={{ overflowX:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                  <thead><tr style={{ borderBottom:'2px solid var(--line)', background:'var(--bg-soft)' }}>
+                    {['신청일','기록명','유형','파기사유','신청자','상태','승인/완료',''].map(h=>(
+                      <th key={h} style={{ padding:'8px 12px', textAlign:'left', fontWeight:700, fontSize:12, color:'var(--ink-soft)' }}>{h}</th>
+                    ))}</tr></thead>
+                  <tbody>{disposals.map((d,i) => (
+                    <tr key={d.id} style={{ borderBottom:'1px solid var(--line)', background:i%2?'var(--bg-soft)':'var(--bg-card)' }}>
+                      <td style={{ padding:'8px 12px', color:'var(--ink-soft)', whiteSpace:'nowrap' }}>{d.requestedAt}</td>
+                      <td style={{ padding:'8px 12px', fontWeight:600 }}>{d.recordName}</td>
+                      <td style={{ padding:'8px 12px', color:'var(--ink-soft)' }}>{d.recordType}</td>
+                      <td style={{ padding:'8px 12px', color:'var(--ink-soft)' }}>{d.reason==='period_expired'?'보관기한만료':d.reason==='superseded'?'개정대체':d.reason==='not_required'?'해당없음':'기타'}</td>
+                      <td style={{ padding:'8px 12px', color:'var(--ink-soft)' }}>{d.requestedBy}</td>
+                      <td style={{ padding:'8px 12px' }}><span style={{ fontSize:11, fontWeight:700, borderRadius:4, padding:'2px 7px', background:d.status==='completed'?'#D1FAE5':d.status==='approved'?'#EFF6FF':'#FEF3C7', color:d.status==='completed'?'#065F46':d.status==='approved'?'#1D4ED8':'#92400E' }}>{d.status==='requested'?'신청':d.status==='approved'?'승인':'파기완료'}</span></td>
+                      <td style={{ padding:'8px 12px', fontSize:11, color:'var(--ink-soft)' }}>{d.approvedBy&&<div>승인:{d.approvedBy}({d.approvedAt})</div>}{d.disposedAt&&<div>파기:{d.disposedAt}</div>}</td>
+                      <td style={{ padding:'8px 12px' }}>
+                        <div style={{ display:'flex', gap:4 }}>
+                          {d.status==='requested'&&<button onClick={()=>approveDisp(d.id)} style={{ fontSize:11, padding:'3px 8px', borderRadius:4, border:'1px solid #BFDBFE', background:'#EFF6FF', cursor:'pointer', color:'#1D4ED8' }}>승인</button>}
+                          {d.status==='approved'&&<button onClick={()=>completeDisp(d.id)} style={{ fontSize:11, padding:'3px 8px', borderRadius:4, border:'1px solid #A7F3D0', background:'#D1FAE5', cursor:'pointer', color:'#065F46' }}>파기완료</button>}
+                          <button onClick={()=>{setDispForm({...d});setDispAdding(true)}} style={{ fontSize:11, padding:'3px 8px', borderRadius:4, border:'1px solid var(--line)', background:'none', cursor:'pointer', color:'var(--ink-soft)' }}>수정</button>
+                          <button onClick={()=>delDisp(d.id)} style={{ fontSize:11, padding:'3px 6px', borderRadius:4, border:'1px solid #FCA5A5', background:'none', cursor:'pointer', color:'#EF4444' }}><Trash2 size={11} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
