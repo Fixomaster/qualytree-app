@@ -10,6 +10,11 @@ const DOC_CONFIG = {
   change:    { label: '변경관리 (CCR)',               fields: ['type','target','reason'] },
   supplier:  { label: '공급업체 평가 (§7.4)',      fields: ['name','item','evalType'] },
   roledoc:   { label: '역할·직무기술서',        fields: ['company','productType','dept'] },
+  audit:        { label: '내부 감사 (§8.2.2)',        fields: ['scope','dept','clause'] },
+  calibration:  { label: '교정 관리 (§7.6)',             fields: ['equipment','method','result'] },
+  validation:   { label: '공정 유효성 확인 (§7.5.6)',   fields: ['process','validationType','criteria'] },
+  inspection:   { label: '검사 기록 (§8.2.3/8.2.4)',     fields: ['product','lot','result'] },
+  manufacturing:{ label: '배치기록서 (BPR)',             fields: ['product','lot','stage'] },
 }
 const FIELD_LABELS = {
   department: '발견/적용 부서', product: '제품/공정명',
@@ -20,6 +25,10 @@ const FIELD_LABELS = {
   type: '유형/분류', target: '변경 대상', reason: '변경 사유',
   name: '공급업체명', item: '공급 품목', evalType: '평가 유형',
   company: '회사명', productType: '제품 유형', dept: '부서',
+  scope: '감사 범위', clause: 'ISO 조항',
+  equipment: '장비명', method: '교정 방법', result: '결과',
+  process: '대상 공정', validationType: '유효성 확인 유형', criteria: '수용 기준',
+  lot: 'LOT 번호', stage: '공정 단계',
 }
 
 export default function AIDraftButton({ docType, prefill = {} }) {
