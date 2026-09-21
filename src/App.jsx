@@ -14,7 +14,7 @@ import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
 let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub, SuperAdminHub, AIDraftHub
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
-let QualityHub, ContainmentHub, DeviationHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
+let QualityHub, ContainmentHub, DeviationHub, ProcessDiagramHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
 
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
@@ -40,6 +40,7 @@ try { InspectionStages= React.lazy(() => import(/* @vite-ignore */ './pages/oper
 try { QualityHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/QualityHub')) } catch {}
 try { ContainmentHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/ContainmentHub')) } catch {}
 try { DeviationHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality/DeviationHub')) } catch {}
+try { ProcessDiagramHub = React.lazy(() => import(/* @vite-ignore */ './pages/process-diagram/ProcessDiagramHub')) } catch {}
 try { QualityTree = React.lazy(() => import(/* @vite-ignore */ './pages/tree/QualityTree')) } catch {}
 try { ProductsHub = React.lazy(() => import(/* @vite-ignore */ './pages/products/ProductsHub')) } catch {}
 try { RegulatoryHub = React.lazy(() => import(/* @vite-ignore */ './pages/regulatory/RegulatoryHub')) } catch {}
@@ -207,6 +208,7 @@ return (
 <Route path="/quality" element={<ProtectedRoute><LazyRoute Component={QualityHub} /></ProtectedRoute>} />
 <Route path="/containment" element={<ProtectedRoute><LazyRoute Component={ContainmentHub} /></ProtectedRoute>} />
 <Route path="/deviation" element={<ProtectedRoute><LazyRoute Component={DeviationHub} /></ProtectedRoute>} />
+<Route path="/process-diagram" element={<ProtectedRoute><LazyRoute Component={ProcessDiagramHub} /></ProtectedRoute>} />
 <Route path="/tree" element={<ProtectedRoute><LazyRoute Component={QualityTree} /></ProtectedRoute>} />
 <Route path="/products" element={<ProtectedRoute><LazyRoute Component={ProductsHub} /></ProtectedRoute>} />
 <Route path="/regulatory" element={<ProtectedRoute><LazyRoute Component={RegulatoryHub} /></ProtectedRoute>} />
