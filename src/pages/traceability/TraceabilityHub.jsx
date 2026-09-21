@@ -110,6 +110,21 @@ export default function TraceabilityHub() {
   }, [recallLot, records])
 
   const recallQty = recallHits.reduce((sum, r) => sum + (parseInt(r.qty) || 0), 0)
+  // 이식형 기기 상태 (§8.2.6)
+  const IMPL_LS = 'qualytree.implant_records'
+  const [implants, setImplants] = useState(() => { try { return JSON.parse(localStorage.getItem(IMPL_LS) || '[]') } catch { return [] } })
+  const saveImplants = d => { setImplants(d); try { localStorage.setItem(IMPL_LS, JSON.stringify(d)) } catch {} }
+  const EMPTY_IMP = { surgeonName: '', hospitalName: '', implantSite: '', implantDate: '', surgeryName: '', patientId: '', partNo: '', lotNo: '', notes: '' }
+  const [impForm, setImpForm] = useState(EMPTY_IMP)
+  const [impAdding, setImpAdding] = useState(false)
+  const ifld = (k, v) => setImpForm(f => ({ ...f, [k]: v }))
+  const saveImp = () => {
+    if (!impForm.surgeonName || !impForm.implantDate || !impForm.partNo) return alert('외과의 성명, 이식일, 부품번호는 필수입니다.')
+    saveImplants([{ ...impForm, id: Date.now().toString() }, ...implants])
+    setImpForm(EMPTY_IMP); setImpAdding(false)
+  }
+  const delImp = id => { if (window.confirm('삭제하시겠습니까?')) saveImplants(implants.filter(r => r.id !== id)) }
+
 
   // 필터링
   const filtered = useMemo(() => {
@@ -134,6 +149,7 @@ export default function TraceabilityHub() {
     { key: 'lot',    label: 'LOT 추적',        icon: Hash },
     { key: 'recall', label: '리콜 시뮬레이션', icon: RotateCcw },
     { key: 'udi',    label: 'UDI 발급 현황',   icon: Boxes },
+    { key: 'implant', label: '이식형 기기', icon: Users },
   ]
 
   // 개선과제 #30 — UDI 연동 강화. TraceabilityHub의 배포 이력에는 productId가 없고
@@ -266,6 +282,62 @@ export default function TraceabilityHub() {
             recallActive={recallActive}
             setRecallActive={setRecallActive}
           />
+        )}
+        {/* 이식형 기기 탭 (§8.2.6) */}
+        {tab === 'implant' && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>이식형 기기 이식 기록</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-mute)' }}>ISO 13485 §8.2.6 — 외과의 정보 및 이식 부위 기록 관리</div>
+              </div>
+              <button onClick={() => setImpAdding(a => !a)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: '#8B5CF6', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>{impAdding ? '취소' : '+ 신규 등록'}</button>
+            </div>
+            {impAdding && (
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>외과의 성명 *</div><input value={impForm.surgeonName} onChange={e => ifld('surgeonName', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>병원명</div><input value={impForm.hospitalName} onChange={e => ifld('hospitalName', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>이식일 *</div><input type="date" value={impForm.implantDate} onChange={e => ifld('implantDate', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>이식 부위</div><input value={impForm.implantSite} onChange={e => ifld('implantSite', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>수술명</div><input value={impForm.surgeryName} onChange={e => ifld('surgeryName', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>환자 식별</div><input value={impForm.patientId} onChange={e => ifld('patientId', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>부품번호 *</div><input value={impForm.partNo} onChange={e => ifld('partNo', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>LOT번호</div><input value={impForm.lotNo} onChange={e => ifld('lotNo', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+          <div><div style={{ fontSize: 11.5, color: 'var(--ink-mute)', marginBottom: 4 }}>비고</div><input value={impForm.notes} onChange={e => ifld('notes', e.target.value)} style={{ width: '100%', padding: '7px 10px', borderRadius: 7, border: '1px solid var(--line)', fontSize: 12.5, boxSizing: 'border-box', background: 'var(--bg)', color: 'var(--ink)' }} /></div>
+                </div>
+                <button onClick={saveImp} style={{ padding: '8px 18px', borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>저장</button>
+              </div>
+            )}
+            {implants.length === 0
+              ? <div style={{ textAlign: 'center', padding: '48px 0', fontSize: 13, color: 'var(--ink-faint)' }}>이식 기록이 없습니다.</div>
+              : <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                    <thead><tr style={{ background: 'var(--bg-card)' }}>
+                      {['이식일', '외과의', '병원', '이식 부위', '부품번호', 'LOT', '환자 식별', ''].map(h => (
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, color: 'var(--ink-mute)', borderBottom: '1px solid var(--line)', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>{implants.map(r => (
+                      <tr key={r.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        <td style={{ padding: '8px 10px' }}>{r.implantDate}</td>
+                        <td style={{ padding: '8px 10px', fontWeight: 500 }}>{r.surgeonName}</td>
+                        <td style={{ padding: '8px 10px' }}>{r.hospitalName}</td>
+                        <td style={{ padding: '8px 10px' }}>{r.implantSite}</td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{r.partNo}</td>
+                        <td style={{ padding: '8px 10px', fontFamily: 'monospace' }}>{r.lotNo}</td>
+                        <td style={{ padding: '8px 10px', color: 'var(--ink-mute)' }}>{r.patientId}</td>
+                        <td style={{ padding: '8px 10px' }}><button onClick={() => delImp(r.id)} style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid #EF4444', background: 'transparent', color: '#EF4444', fontSize: 11, cursor: 'pointer' }}>삭제</button></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+            }
+          </div>
         )}
 
       </div>
