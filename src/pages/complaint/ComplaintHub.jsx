@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
@@ -212,6 +213,9 @@ export default function ComplaintHub() {
         />
 
         {/* KPI */}
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="complaint" />
+        </div>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3 mb-6">
           {[
             { label: '총 접수',    count: stats.total,     color: '#6B7280' },
