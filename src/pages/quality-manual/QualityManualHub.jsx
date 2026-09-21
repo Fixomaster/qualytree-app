@@ -165,7 +165,7 @@ export default function QualityManualHub() {
             <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               <Printer size={14} /> PDF 출력
             </button>
-            </>>
+            </>
           )}
         </div>
 
