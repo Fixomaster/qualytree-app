@@ -10,6 +10,7 @@ import {Users2,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { loadOrgDepts } from '../../lib/orgDepts'
 import { supabase } from '../../lib/supabase'
@@ -196,6 +197,9 @@ export default function OrgResponsibilityHub() {
   return (
     <AppLayout user={user} title="조직 및 책임 관리" subtitle="ISO 13485 §5.5 — 책임·권한·경영대리인·내부 커뮤니케이션">
       <HubBanner title="조직 및 책임" subtitle="ISO 13485 §5.5 — 조직 구조·직책·권한·책임 정의" icon={Users2} color="#4F46E5" />
+      <div style={{display:'flex',justifyContent:'flex-end',margin:'8px 0 12px'}}>
+        <AIDraftButton docType="roledoc" />
+      </div>
       <div className="px-6 lg:px-8 py-6 max-w-[1800px] mx-auto">
 
         {/* 경영대리인 배너 (§5.5.2) */}
