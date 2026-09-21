@@ -35,6 +35,7 @@ const EMPTY_BATCH = {
   productName: '', lotNo: '', sterileMethod: STERILE_METHODS[0],
   actualTemp: '', actualTime: '', actualPressure: '', actualDose: '',
   bioburdenResult: '', salAchieved: '',
+  biType: '', biResult: 'negative', biReadDate: '',
   result: 'pass', notes: '',
 }
 
@@ -397,6 +398,24 @@ function BatchTab({ batches, setBatches, specs, canEdit }) {
               ℹ 이 제품은 밸리데이션 참조({selectedSpec.validationRef})가 등록되어 있어 바이오버든·SAL 결과는 밸리데이션 결과로 대체됩니다.
             </div>
           )}
+          <div style={{ background: 'var(--bg)', border: '1px solid #D1FAE5', borderRadius: 8, padding: 14, marginBottom: 14 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10, color: '#065F46' }}>BI(생물학적지표) 결과 (ISO 13485 §7.5.7)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <Field label="BI 균종">
+                <input style={inp} value={draft.biType} onChange={upd('biType')} placeholder="G. stearothermophilus" />
+              </Field>
+              <Field label="BI 판정 결과">
+                <select style={sel} value={draft.biResult} onChange={upd('biResult')}>
+                  <option value="negative">음성 (합격)</option>
+                  <option value="positive">양성 (불합격)</option>
+                  <option value="na">해당없음</option>
+                </select>
+              </Field>
+              <Field label="BI 판정일">
+                <input type="date" style={inp} value={draft.biReadDate} onChange={upd('biReadDate')} />
+              </Field>
+            </div>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, marginBottom: 14 }}>
             <Field label="합/불 판정" required>
               <select style={sel} value={draft.result} onChange={upd('result')}>
@@ -537,6 +556,9 @@ function BatchCertificate({ batch, specs, onClose }) {
       <Row label="실측 선량" value={batch.actualDose} />
       <Row label="바이오버든 결과" value={batch.bioburdenResult ? `${batch.bioburdenResult} CFU/개` : ''} />
       <Row label="달성 SAL" value={batch.salAchieved} />
+      <Row label="BI 균종" value={batch.biType} />
+      <Row label="BI 판정결과" value={batch.biResult === 'negative' ? '음성(합격)' : batch.biResult === 'positive' ? '양성(불합격)' : batch.biResult === 'na' ? '해당없음' : batch.biResult || '-'} />
+      <Row label="BI 판정일" value={batch.biReadDate} />
       <Row label="합/불 판정" value={BATCH_RESULTS.find(r => r.value === batch.result)?.label || batch.result} />
       <Row label="비고" value={batch.notes} />
       <div style={{ display: 'flex', gap: 10, paddingTop: 16 }}>
