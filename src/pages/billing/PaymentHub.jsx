@@ -158,7 +158,7 @@ export default function PaymentHub() {
           <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ink)', fontSize: 13 }}>결제 안내</div>
           결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 신용카드, 체크카드, 계좌이체를 지원합니다.
           구독은 자동 갱신되지 않으며, 결제 시마다 1개월 이용권이 발급됩니다.
-          환불 및 결제 문의: <a href="mailto:leesh@morehcompany.com" style={{ color: 'var(--moss)' }}>leesh@morehcompany.com</a>
+          환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>
       </div>
     </AppLayout>
