@@ -137,6 +137,20 @@ export default function ImportProductsHub() {
   })
 
   const modelCount = list.reduce((sum, r) => sum + ((r.models || []).length), 0)
+  const [activeTab, setActiveTab] = useState('products')
+  const [rets, setRets] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.import_returns') || '[]') } catch { return [] } })
+  const saveRets = v => { setRets(v); localStorage.setItem('qualytree.import_returns', JSON.stringify(v)) }
+  const EMPTY_RET = { productName: '', retDate: new Date().toISOString().slice(0,10), qty: '', reason: '', status: 'received', resolution: '', notes: '' }
+  const [retForm, setRetForm] = useState({...EMPTY_RET})
+  const [retAdding, setRetAdding] = useState(false)
+  const saveRet = () => {
+    if (!retForm.productName.trim()) { alert('반품품목명을 입력하세요.'); return }
+    const item = {...retForm, id: retForm.id || Date.now().toString()}
+    if (retForm.id) saveRets(rets.map(rx => rx.id === item.id ? item : rx))
+    else saveRets([...rets, item])
+    setRetAdding(false); setRetForm({...EMPTY_RET})
+  }
+  const delRet = id => { if (window.confirm('삭제하시겠습니까?')) saveRets(rets.filter(rx => rx.id !== id)) }
 
   return (
     <AppLayout user={user} title="품목 허가 현황" subtitle="수입 품목별 허가·신고·인증 현황 관리">
@@ -171,6 +185,17 @@ export default function ImportProductsHub() {
           </div>
 
           {/* 검색 + 제조소별 필터 + 추가 (#17) */}
+          <div style={{ display: 'flex', gap: 0, marginBottom: 16, borderBottom: '2px solid var(--line)' }}>
+            {[['제품목록','수입품목 관리'],['반품기록','반품 접수·처리']].map(([k,lbl]) => (
+              <button key={k} onClick={() => setActiveTab(k)} style={{
+                padding: '8px 20px', fontSize: 13, fontWeight: activeTab === k ? 700 : 400,
+                background: 'none', border: 'none', cursor: 'pointer', marginBottom: -2,
+                borderBottom: activeTab === k ? '2px solid var(--moss)' : 'none',
+                color: activeTab === k ? 'var(--moss)' : 'var(--ink-soft)',
+              }}>{lbl}</button>
+            ))}
+          </div>
+          {activeTab === '제품목록' && (<>
           <div className="flex items-center gap-3 mb-3 flex-wrap">
             <input
               className="input-base flex-1"
@@ -421,6 +446,76 @@ export default function ImportProductsHub() {
                   </div>
                 )
               })}
+            </div>
+          )}
+        </>)}
+          {activeTab === '반품기록' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <span style={{ fontSize: 13, color: 'var(--ink-soft)' }}>반품 기록 {rets.length}건</span>
+                <button onClick={() => { setRetForm({...EMPTY_RET}); setRetAdding(true) }} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, background:'var(--moss)', color:'#fff', border:'none', borderRadius:6, padding:'7px 14px', cursor:'pointer' }}><Plus size={14} /> 반품 접수</button>
+              </div>
+              {retAdding && (
+                <div style={{ background:'var(--bg-soft)', border:'1px solid var(--line)', borderRadius:10, padding:20, marginBottom:16 }}>
+                  <div style={{ fontWeight:700, fontSize:14, marginBottom:14 }}>반품 접수 정보 (KGMP 수입관리기준서)</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12 }}>
+                    <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>품목명 *</label>
+                      <input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={retForm.productName} onChange={e=>setRetForm(f=>({...f,productName:e.target.value}))} /></div>
+                    <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>반품일</label>
+                      <input type="date" style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={retForm.retDate} onChange={e=>setRetForm(f=>({...f,retDate:e.target.value}))} /></div>
+                    <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>수량</label>
+                      <input style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={retForm.qty} onChange={e=>setRetForm(f=>({...f,qty:e.target.value}))} /></div>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+                    <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>반품 사유</label>
+                      <textarea style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, minHeight:70 }} value={retForm.reason} onChange={e=>setRetForm(f=>({...f,reason:e.target.value}))} /></div>
+                    <div><label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>처리 결과</label>
+                      <textarea style={{ width:'100%', padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13, minHeight:70 }} value={retForm.resolution} onChange={e=>setRetForm(f=>({...f,resolution:e.target.value}))} /></div>
+                  </div>
+                  <div style={{ marginBottom:12 }}>
+                    <label style={{ fontSize:11, color:'var(--ink-soft)', display:'block', marginBottom:4 }}>처리 상태</label>
+                    <select style={{ padding:'7px 10px', border:'1px solid var(--line)', borderRadius:6, fontSize:13 }} value={retForm.status} onChange={e=>setRetForm(f=>({...f,status:e.target.value}))}>
+                      <option value="received">접수</option><option value="processing">처리중</option><option value="completed">완료</option><option value="rejected">반려</option>
+                    </select>
+                  </div>
+                  <div style={{ display:'flex', gap:10 }}>
+                    <button onClick={saveRet} style={{ display:'flex', alignItems:'center', gap:6, fontSize:13, fontWeight:600, background:'var(--moss)', color:'#fff', border:'none', borderRadius:6, padding:'7px 16px', cursor:'pointer' }}><BadgeCheck size={14} /> 저장</button>
+                    <button onClick={() => setRetAdding(false)} style={{ fontSize:13, background:'none', border:'1px solid var(--line)', borderRadius:6, padding:'7px 14px', cursor:'pointer', color:'var(--ink-soft)' }}>취소</button>
+                  </div>
+                </div>
+              )}
+              {rets.length === 0 ? (
+                <div style={{ textAlign:'center', padding:48, color:'var(--ink-faint)', fontSize:14 }}>반품 기록이 없습니다.</div>
+              ) : (
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                    <thead><tr style={{ borderBottom:'2px solid var(--line)', background:'var(--bg-soft)' }}>
+                      {['반품일','품목명','수량','반품사유','처리상태','처리결과',''].map(h => (
+                        <th key={h} style={{ padding:'8px 12px', textAlign:'left', fontWeight:700, fontSize:12, color:'var(--ink-soft)' }}>{h}</th>
+                      ))}</tr></thead>
+                    <tbody>
+                      {rets.map((rt,i) => (
+                        <tr key={rt.id} style={{ borderBottom:'1px solid var(--line)', background:i%2?'var(--bg-soft)':'var(--bg-card)' }}>
+                          <td style={{ padding:'8px 12px', color:'var(--ink-soft)' }}>{rt.retDate}</td>
+                          <td style={{ padding:'8px 12px', fontWeight:600 }}>{rt.productName}</td>
+                          <td style={{ padding:'8px 12px', color:'var(--ink-soft)' }}>{rt.qty}</td>
+                          <td style={{ padding:'8px 12px', color:'var(--ink-soft)', maxWidth:160 }}>{rt.reason}</td>
+                          <td style={{ padding:'8px 12px' }}>
+                            <span style={{ fontSize:11, fontWeight:700, borderRadius:4, padding:'2px 7px', background:rt.status==='completed'?'#D1FAE5':rt.status==='processing'?'#FEF3C7':rt.status==='rejected'?'#FEE2E2':'#EFF6FF', color:rt.status==='completed'?'#065F46':rt.status==='processing'?'#92400E':rt.status==='rejected'?'#DC2626':'#1D4ED8' }}>{rt.status==='received'?'접수':rt.status==='processing'?'처리중':rt.status==='completed'?'완료':'반려'}</span>
+                          </td>
+                          <td style={{ padding:'8px 12px', color:'var(--ink-soft)', maxWidth:160 }}>{rt.resolution}</td>
+                          <td style={{ padding:'8px 12px' }}>
+                            <div style={{ display:'flex', gap:6 }}>
+                              <button onClick={() => { setRetForm({...rt}); setRetAdding(true) }} style={{ fontSize:11, padding:'3px 8px', borderRadius:4, border:'1px solid var(--line)', background:'none', cursor:'pointer', color:'var(--ink-soft)' }}>수정</button>
+                              <button onClick={() => delRet(rt.id)} style={{ fontSize:11, padding:'3px 6px', borderRadius:4, border:'1px solid #FCA5A5', background:'none', cursor:'pointer', color:'#EF4444' }}><Trash2 size={11} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>
