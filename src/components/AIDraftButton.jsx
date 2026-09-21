@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Sparkles, X, Copy, Check } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 
 const DOC_CONFIG = {
   ncr:  { label: '부적합보고서 (NCR)', fields: ['department','product','description','date'] },
@@ -47,10 +48,16 @@ export default function AIDraftButton({ docType, prefill = {} }) {
     try {
       // 서버 함수(/api/ai-draft)를 경유한다 — API 키는 서버 환경변수에만 있고
       // 브라우저로 내려오지 않는다 (프로젝트 지침 §11.3 / §22).
+      // #210: Supabase에서 규격·고시 컨텍스트 로드 (없으면 무시)
+      let _example = '', _regulations = []
+      try {
+        const { data: _ctx } = await supabase.from('ai_contexts').select('example, regulations').eq('doc_type', docType).maybeSingle()
+        if (_ctx) { _example = _ctx.example || ''; _regulations = Array.isArray(_ctx.regulations) ? _ctx.regulations : [] }
+      } catch {}
       const res = await fetch('/api/ai-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docType, fields: ctx }),
+        body: JSON.stringify({ docType, fields: ctx, example: _example, regulations: _regulations }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || !json.ok) throw new Error(json.message || json.error || 'AI 초안 생성에 실패했습니다.')
