@@ -371,7 +371,7 @@ export default function OperatorConsole() {
         <div>
           <div style={styles.brand}>Qualytree · 운영자 콘솔</div>
           <div style={{ display:'flex', gap:6, marginTop:8 }}>
-            {[['requests','가입 신청'],['companies','회사 관리',['regulations','굳격·고시 관리']].map(([id,label])=>(
+            {[['requests','가입 신청'],['companies','회사 관리',['regulations','규격·고시 관리']].map(([id,label])=>(
               <button key={id} onClick={()=>setTab(id)} style={{ padding:'4px 14px', borderRadius:20, border:'1px solid', fontSize:12, fontWeight:500, cursor:'pointer', background:tab===id?'#1c1917':'transparent', color:tab===id?'#fff':'#78716c', borderColor:tab===id?'#1c1917':'#d6d3d1' }}>{label}</button>
             ))}
           </div>
