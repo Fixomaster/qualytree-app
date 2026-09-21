@@ -162,7 +162,6 @@ label: 'ê²½ìÂ·ì ëµ', icon: BarChart3,
 items: [
 { to: '/management-review', label: 'ê²½ìê²í ' },
 { to: '/quality-plan', label: 'íì§ê³í' },
-{ to: '/quality-objectives', label: '품질목표' },
 { to: '/management-commitment', label: 'ê²½ììì§Â·íì§ë°©ì¹¨Â·ëª©í' },
 ],
 },
