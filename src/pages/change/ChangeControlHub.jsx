@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { requirePermission } from '../../lib/permissions'
 import { getAllRecords, impactAssessments, IMPACT_RISK_LEVEL } from '../../lib/changeControl'
@@ -154,6 +155,9 @@ export default function ChangeControlHub() {
           workflow={['원천 화면에서 변경(자동기록)', '영향 평가', '승인/반려', '이행 완료']}
         />
 
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="change" />
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
             { label: '전체', count: ccrs.length, color: '#6B7280' },
