@@ -107,6 +107,7 @@ items: [
 { to: '/inspection', label: '공정·최종 검사' },
 { to: '/quality', label: 'NCR·부적합' },
 { to: '/containment', label: '격리관리' },
+{ to: '/deviation', label: '공정 일탈' },
 { to: '/improvement', label: 'CAPA·개선' },
 { to: '/change-control',label: '변경관리' },
 { to: '/audit', label: '내부감사' },
