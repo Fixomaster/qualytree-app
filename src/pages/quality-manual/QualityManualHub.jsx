@@ -51,6 +51,8 @@ export default function QualityManualHub() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [batchLoading, setBatchLoading] = useState(false)
+  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 })
   const [editText, setEditText] = useState('')
   const [companyName, setCompanyName] = useState('(주)귀사')
   const [expandedSections, setExpandedSections] = useState(new Set(['4','5','6','7','8']))
@@ -110,6 +112,32 @@ export default function QualityManualHub() {
     } catch (e) { alert('오류: ' + e.message) }
     setAiLoading(false)
   }
+  async function handleBatchAIDraft() {
+    const missing = QM_SECTIONS.filter(s => !sectionContents[s.id]?.content)
+    if (missing.length === 0) { alert('모든 조항이 이미 작성되어 있습니다.'); return }
+    if (!window.confirm('미작성 ' + missing.length + '개 조항을 AI로 일괄 생성하시겠습니까?')) return
+    setBatchLoading(true)
+    setBatchProgress({ done: 0, total: missing.length })
+    const { data: { user } } = await supabase.auth.getUser()
+    const now = new Date().toISOString()
+    let done = 0
+    for (const sec of missing) {
+      try {
+        const res = await fetch('/api/ai-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docType: 'qm', fields: { section: sec.clause + ' ' + sec.title, company: companyName, productType: '의료기기' } }) })
+        const data = await res.json()
+        if (data.ok && data.draft) {
+          const { data: ex } = await supabase.from('quality_manual_sections').select('id').eq('section_id', sec.id).single()
+          if (ex?.id) { await supabase.from('quality_manual_sections').update({ content: data.draft, updated_at: now, updated_by: user?.email }).eq('id', ex.id) }
+          else { await supabase.from('quality_manual_sections').insert({ section_id: sec.id, section_title: sec.title, content: data.draft, updated_at: now, updated_by: user?.email }) }
+        }
+      } catch (e) { /* skip */ }
+      done++
+      setBatchProgress({ done, total: missing.length })
+    }
+    setBatchLoading(false)
+    fetchAll()
+  }
 
   function toggleSection(id) {
     setExpandedSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -130,6 +158,9 @@ export default function QualityManualHub() {
             <p style={{ color: 'var(--ink-faint)', margin: '3px 0 0', fontSize: 13 }}>ISO 13485 §4.2.2 — {doneCount}/{QM_SECTIONS.length}개 섹션 작성 완료</p>
           </div>
           {activeTab === 'view' && (
+                        <button onClick={handleBatchAIDraft} disabled={batchLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: batchLoading ? 'var(--line)' : '#EDE9FE', color: batchLoading ? 'var(--ink-faint)' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 8, cursor: batchLoading ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 600 }}>
+              <Sparkles size={14} /> {batchLoading ? batchProgress.done + '/' + batchProgress.total + ' 생성 중...' : '전체 조항 AI 일괄생성'}
+            </button>
             <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               <Printer size={14} /> PDF 출력
             </button>
