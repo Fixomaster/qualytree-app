@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
-import { Building2, Save, RotateCcw, CheckCircle, AlertCircle } from 'lucide-react'
+import { Building2, Save, RotateCcw, CheckCircle, AlertCircle, Printer } from 'lucide-react'
 
 const ACCENT = '#0F766E'
 const LS_KEY = 'qualytree.company_master'
@@ -88,6 +88,37 @@ export default function CompanyMasterHub() {
     setTimeout(() => setSaved(false), 3000)
   }
 
+
+  function printQMRLetter() {
+    const cn = form.companyName || '(회사명)';
+    const ceo = form.ceoName || '대표이사';
+    const qmr = form.qmgr || '(미등록)';
+    const today = new Date().toLocaleDateString('ko-KR');
+    const html = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>QMR 발령서</title>' +
+      '<style>body{font-family:serif;padding:60px;max-width:700px;margin:auto}h1{text-align:center;font-size:24px;margin-bottom:40px}' +
+      '.field{display:flex;margin-bottom:16px;font-size:15px}.label{width:180px;font-weight:bold;color:#555}.value{flex:1;border-bottom:1px solid #333;padding-bottom:2px}' +
+      '.content{margin:40px 0;line-height:1.9;font-size:15px;text-align:justify}.sign{margin-top:60px;text-align:right;font-size:15px}' +
+      '.sig-line{display:inline-block;border-bottom:1.5px solid #000;width:200px;margin-left:20px}' +
+      '@media print{body{padding:40px}}</style></head><body>' +
+      '<h1>품질경영대리인(QMR) 발령서</h1>' +
+      '<div class="field"><span class="label">발 령 회 사</span><span class="value">' + cn + '</span></div>' +
+      '<div class="field"><span class="label">발 령 자</span><span class="value">' + ceo + ' (대표이사)</span></div>' +
+      '<div class="field"><span class="label">발 령 일</span><span class="value">' + today + '</span></div>' +
+      '<div class="field"><span class="label">피 발 령 자</span><span class="value">' + qmr + '</span></div>' +
+      '<div class="content">위 자를 ISO 13485 §5.5.2 및 의료기기 제조 및 품질관리기준(KGMP)에 의거하여 <strong>품질경영대리인(QMR, Quality Management Representative)</strong>으로 발령합니다.<br><br>' +
+      '【권한 및 의무】<br>' +
+      '1. 품질경영시스템(QMS)의 수립, 실행, 유지 및 지속적 개선을 책임진다.<br>' +
+      '2. QMS 프로세스의 이행 현황을 최고경영자에게 보고한다.<br>' +
+      '3. 조직 전반의 고객 요구사항 인식 제고를 책임진다.<br>' +
+      '4. 외부 인증기관 및 규제당국과의 대외 창구 역할을 수행한다.' +
+      '</div>' +
+      '<div class="sign">' + today + '<br><br>' + cn + '<br><br>' +
+      '대 표 이 사&nbsp;&nbsp;<span class="sig-line"></span></div>' +
+      '</body></html>';
+    const w = window.open('', '_blank', 'width=800,height=1000');
+    w.document.write(html); w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 600);
+  }
   function handleReset() {
     if (!confirm('모든 입력값을 초기화하시겠습니까?')) return
     setForm({})
@@ -114,6 +145,10 @@ export default function CompanyMasterHub() {
       </div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {lastSaved && <span style={{ fontSize: 12, color: '#9CA3AF' }}>마지막 저장: {lastSaved}</span>}
+
+        <button onClick={printQMRLetter} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 14px', background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: '#0F766E' }}>
+          <Printer size={14} /> QMR 발령서
+        </button>
         <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 14px', background: 'none', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: '#6B7280' }}>
           <RotateCcw size={14} /> 초기화
         </button>
