@@ -6,6 +6,7 @@ import { Plus, Save, Edit2, Trash2, FileText, BookOpen,
   Send, RotateCcw, Copy, Printer } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 
 const LS_KEY = 'qualytree.sop'
 const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]') } catch { return [] } }
@@ -380,7 +381,10 @@ pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;backg
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
               <span className="text-sm font-semibold text-gray-700">SOP 목록</span>
-              <button className="text-indigo-600 hover:text-indigo-800" onClick={()=>setShowForm(true)}><Plus size={16}/></button>
+              <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                <AIDraftButton docType="sop" />
+                <button className="text-indigo-600 hover:text-indigo-800" onClick={()=>setShowForm(true)}><Plus size={16}/></button>
+              </div>
             </div>
             <div className="px-3 py-2 border-b border-gray-100 space-y-1">
               <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none"
