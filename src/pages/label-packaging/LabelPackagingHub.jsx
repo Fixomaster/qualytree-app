@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Tag, Package, Link2, Plus, Trash2, Printer } from 'lucide-react'
+import { Tag, Package, Link2, Plus, Trash2, Printer, CheckCircle } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 
@@ -13,6 +13,7 @@ const LABEL_TABS = [
   { key:'label', label:'라벨 관리', icon: Tag },
   { key:'packaging', label:'포장재 관리', icon: Package },
   { key:'dmr', label:'DMR 연동', icon: Link2 },
+  { key:'approval', label:'승인 관리', icon: CheckCircle },
 ]
 
 const EMPTY_LABEL = { partNo:'', name:'', version:'', category:'', status:'draft', material:'', size:'', approvedBy:'', notes:'' }
@@ -229,6 +230,77 @@ export default function LabelPackagingHub() {
           </div>
         )}
 
+
+        {activeTab === 'approval' && (
+          <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              ISO 13485 §7.5.1 / KGMP — 라벨은 출하 전 품질책임자 승인 후 사용해야 합니다.
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">승인 대기 ({labels.filter(l => l.status === 'draft').length}건)</h3>
+              {labels.filter(l => l.status === 'draft').length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-300 rounded-lg p-6 text-center text-gray-400 text-sm">승인 대기 중인 라벨이 없습니다.</div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>{['파트번호','라벨명','버전','구분','승인'].map(h => <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600">{h}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {labels.filter(l => l.status === 'draft').map(lb => (
+                        <tr key={lb.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono text-gray-700">{lb.partNo}</td>
+                          <td className="px-3 py-2 font-medium">{lb.name}</td>
+                          <td className="px-3 py-2 text-gray-600">{lb.version}</td>
+                          <td className="px-3 py-2 text-gray-600">{lb.category}</td>
+                          <td className="px-3 py-2 flex gap-1">
+                            <button onClick={() => {
+                              const approver = prompt('승인자 이름:')
+                              if (!approver) return
+                              const next = labels.map(l => l.id === lb.id ? { ...l, status: 'approved', approvedBy: approver, approvedAt: new Date().toISOString().slice(0,10) } : l)
+                              setLabels(next); save(LS_LABELS, next)
+                            }} className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700">승인</button>
+                            <button onClick={() => {
+                              const reason = prompt('반려 사유:')
+                              if (!reason) return
+                              const next = labels.map(l => l.id === lb.id ? { ...l, status: 'rejected', notes: (l.notes ? l.notes + ' | ' : '') + '반려: ' + reason } : l)
+                              setLabels(next); save(LS_LABELS, next)
+                            }} className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-700">반려</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">승인 완료 ({labels.filter(l => l.status === 'approved').length}건)</h3>
+              {labels.filter(l => l.status === 'approved').length === 0 ? (
+                <div className="text-sm text-gray-400 text-center py-4">승인된 라벨이 없습니다.</div>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200">
+                      <tr>{['파트번호','라벨명','버전','승인자','승인일'].map(h => <th key={h} className="px-3 py-2.5 text-left text-xs font-semibold text-gray-600">{h}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {labels.filter(l => l.status === 'approved').map(lb => (
+                        <tr key={lb.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-mono">{lb.partNo}</td>
+                          <td className="px-3 py-2 font-medium">{lb.name}</td>
+                          <td className="px-3 py-2 text-gray-600">{lb.version}</td>
+                          <td className="px-3 py-2">{lb.approvedBy}</td>
+                          <td className="px-3 py-2 text-gray-600">{lb.approvedAt || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   )
