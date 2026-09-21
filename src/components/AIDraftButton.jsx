@@ -6,6 +6,10 @@ const DOC_CONFIG = {
   capa: { label: 'CAPA 시정조치',      fields: ['rootCause','assignee','dueDate'] },
   sop:  { label: '표준작업절차서 (SOP)', fields: ['processName','department','isoClause'] },
   risk: { label: '위험 분석 (ISO 14971)', fields: ['product','intendedUse','hazardArea'] },
+  complaint: { label: '고객불만 (ISO §8.2.1)', fields: ['type','product','description'] },
+  change:    { label: '변경관리 (CCR)',               fields: ['type','target','reason'] },
+  supplier:  { label: '공급업체 평가 (§7.4)',      fields: ['name','item','evalType'] },
+  roledoc:   { label: '역할·직무기술서',        fields: ['company','productType','dept'] },
 }
 const FIELD_LABELS = {
   department: '발견/적용 부서', product: '제품/공정명',
@@ -13,6 +17,9 @@ const FIELD_LABELS = {
   rootCause: '근본 원인', assignee: '담당자', dueDate: '완료 목표일',
   processName: '프로세스명', isoClause: '적용 ISO 조항',
   intendedUse: '사용 목적', hazardArea: '위험 분야',
+  type: '유형/분류', target: '변경 대상', reason: '변경 사유',
+  name: '공급업체명', item: '공급 품목', evalType: '평가 유형',
+  company: '회사명', productType: '제품 유형', dept: '부서',
 }
 
 export default function AIDraftButton({ docType, prefill = {} }) {
@@ -38,7 +45,11 @@ export default function AIDraftButton({ docType, prefill = {} }) {
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok || !json.ok) throw new Error(json.message || json.error || 'AI 초안 생성에 실패했습니다.')
-      setDraft(json.draft)
+      if (json.jobDescription) {
+        setDraft('《직무기술서》\n' + json.jobDescription + '\n\n《권한 · 재체》\n' + json.authorityResponsibility)
+      } else {
+        setDraft(json.draft)
+      }
       setMeta(json.meta || null)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
