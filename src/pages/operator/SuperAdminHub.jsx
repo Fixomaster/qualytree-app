@@ -6,7 +6,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import { loadPlans, priceFor } from '../../lib/plans'
-import RegStandardsTab from './RegStandardsTab'
 
 // 플랜 목록은 사이드바 "플랜·요금 관리"(lib/plans.js)와 동일한 단일 소스를 사용한다 —
 // 홈페이지 가입 결제 화면(2026-09 확정: 기본 월 300만원 + 추가 인증 월 100만원)과 일치.
@@ -147,7 +146,7 @@ export default function SuperAdminHub() {
         {tab === 1 && (
           <RegStandardsTab />
         )}
-        {!loading && tab === 2 && (
+        {!loading && tab === 1 && (
           <div>
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
               {PLANS.map(plan => {
@@ -163,7 +162,7 @@ export default function SuperAdminHub() {
             </div>
           </div>
         )}
-        {!loading && tab === 3 && (
+        {!loading && tab === 2 && (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ background: '#f5f5f5' }}>
@@ -191,7 +190,7 @@ export default function SuperAdminHub() {
             </tbody>
           </table>
         )}
-        {!loading && tab === 4 && (
+        {!loading && tab === 3 && (
           <div>
             <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '16px' }}>플랜 단가 (홈페이지 가입 결제 화면과 동일)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '16px' }}>
