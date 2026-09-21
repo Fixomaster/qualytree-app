@@ -93,6 +93,30 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   const [form, setForm] = useState(EMPTY_PCP)
   const [editId, setEditId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
+  // KGMP LOT번호 체계
+  const [lotCfg, setLotCfg] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.lot_config') || 'null') || {prefix:'',yearFmt:'YY',monthFmt:'MM',seqDigits:3,sep:'-'} } catch { return {prefix:'',yearFmt:'YY',monthFmt:'MM',seqDigits:3,sep:'-'} } })
+  const saveLotCfg = cfg => { setLotCfg(cfg); try { localStorage.setItem('qualytree.lot_config', JSON.stringify(cfg)) } catch {} }
+  const [lotLog, setLotLog] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.lot_log') || '[]') } catch { return [] } })
+  const genLot = () => {
+    const now = new Date()
+    const yy = String(now.getFullYear()).slice(lotCfg.yearFmt==='YY'?2:0)
+    const mm = String(now.getMonth()+1).padStart(2,'0')
+    const datePart = yy + (lotCfg.monthFmt!=='(none)'?mm:'')
+    const seq = String(lotLog.length+1).padStart(lotCfg.seqDigits||3,'0')
+    const lot = [lotCfg.prefix, datePart, seq].filter(Boolean).join(lotCfg.sep||'')
+    const entry = { id: Date.now().toString(), lot, createdAt: now.toISOString().slice(0,10) }
+    const next = [entry, ...lotLog]
+    setLotLog(next); try { localStorage.setItem('qualytree.lot_log', JSON.stringify(next)) } catch {}
+  }
+  const previewLot = () => {
+    const now = new Date()
+    const yy = String(now.getFullYear()).slice(lotCfg.yearFmt==='YY'?2:0)
+    const mm = String(now.getMonth()+1).padStart(2,'0')
+    const datePart = yy + (lotCfg.monthFmt!=='(none)'?mm:'')
+    const seq = String(lotLog.length+1).padStart(lotCfg.seqDigits||3,'0')
+    return [lotCfg.prefix, datePart, seq].filter(Boolean).join(lotCfg.sep||'')||'(미설정)'
+  }
+
 
   function save(list) { setPcps(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
 
@@ -167,6 +191,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
             { key: 'list',     label: `PCP 목록 (${scopedPcps.length})` },
             { key: 'detail',   label: selectedPcp ? `공정표: ${selectedPcp.productName}` : '공정 상세' },
             { key: 'analysis', label: '현황 분석' },
+            { key: 'lot', label: 'LOT 체계 설정' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -277,6 +302,57 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
 
         {/* ── 분석 탭 ── */}
         {tab === 'analysis' && <AnalysisView analysis={analysis} pcps={scopedPcps} />}
+
+        {/* KGMP LOT번호 체계 설정 */}
+        {tab === 'lot' && (
+          <div>
+            <div style={{fontSize:13.5,fontWeight:700,color:'var(--ink)',marginBottom:4}}>LOT번호 체계 설정</div>
+            <div style={{fontSize:12,color:'var(--ink-mute)',marginBottom:16}}>KGMP §7 — 제조번호(부번호) 체계 설정 및 발번 기록</div>
+            <div style={{background:'var(--bg-card)',border:'1px solid var(--line)',borderRadius:12,padding:20,marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>형식 설정</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:12,marginBottom:16}}>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>접두사</div>
+                  <input value={lotCfg.prefix} onChange={e=>saveLotCfg({...lotCfg,prefix:e.target.value})} placeholder="예: KT" style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,boxSizing:'border-box',background:'var(--bg)',color:'var(--ink)'}} /></div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>연도</div>
+                  <select value={lotCfg.yearFmt} onChange={e=>saveLotCfg({...lotCfg,yearFmt:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
+                    <option value="YY">YY</option><option value="YYYY">YYYY</option>
+                  </select></div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>월</div>
+                  <select value={lotCfg.monthFmt} onChange={e=>saveLotCfg({...lotCfg,monthFmt:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
+                    <option value="MM">MM 포함</option><option value="(none)">생략</option>
+                  </select></div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>일련번호 자릿수</div>
+                  <select value={lotCfg.seqDigits} onChange={e=>saveLotCfg({...lotCfg,seqDigits:Number(e.target.value)})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
+                    {[2,3,4,5].map(n=><option key={n} value={n}>{n}자리</option>)}
+                  </select></div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>구분자</div>
+                  <select value={lotCfg.sep} onChange={e=>saveLotCfg({...lotCfg,sep:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
+                    <option value="-">-</option><option value="">없음</option><option value="/">/</option>
+                  </select></div>
+              </div>
+              <div style={{display:'flex',alignItems:'center',gap:14}}>
+                <div style={{fontSize:12.5,color:'var(--ink-mute)'}}>미리보기:</div>
+                <div style={{fontFamily:'monospace',fontSize:15,fontWeight:700,color:'#059669',background:'#D1FAE5',padding:'4px 14px',borderRadius:6}}>{previewLot()}</div>
+                <button onClick={genLot} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'#2563EB',color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer'}}>LOT 번호 발번</button>
+              </div>
+            </div>
+            {lotLog.length>0 && (
+              <div style={{background:'var(--bg-card)',border:'1px solid var(--line)',borderRadius:12,padding:20}}>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>LOT 발번 이력</div>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
+                  <thead><tr><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>#</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>LOT번호</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>발번일</th></tr></thead>
+                  <tbody>{lotLog.map((row,i)=>(
+                    <tr key={row.id} style={{borderBottom:'1px solid var(--line)'}}>
+                      <td style={{padding:'7px 10px',color:'var(--ink-mute)'}}>{lotLog.length-i}</td>
+                      <td style={{padding:'7px 10px',fontFamily:'monospace',fontWeight:700,color:'#059669'}}>{row.lot}</td>
+                      <td style={{padding:'7px 10px',color:'var(--ink-mute)'}}>{row.createdAt}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
     </div>
   )
 
