@@ -14,7 +14,7 @@ import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
 let Dashboard, GMPSection, Onboarding
 let WorkOrderQueue, EBatchRecord, InspectionStages
 let QualityHub, ContainmentHub, DeviationHub, ProcessDiagramHub, QualityTree, ProductsHub, RegulatoryHub, Documents, PreviewHub
-
+let Login, Signup, JoinCompany, SignupSuccess, OperatorConsole, PlanAdmin, MemberAdmin, AdminPermissionsHub, SuperAdminHub
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
 let TermsOfService, RefundPolicy, PrivacyPolicy, PricingPublic
