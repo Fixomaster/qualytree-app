@@ -143,9 +143,6 @@ export default function SuperAdminHub() {
             </table>
           </>
         )}
-        {tab === 1 && (
-          <RegStandardsTab />
-        )}
         {!loading && tab === 1 && (
           <div>
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
