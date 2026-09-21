@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import {
   loadCriteria, saveCriteria, loadPolicy, savePolicy,
@@ -244,6 +245,9 @@ export default function SupplierHub() {
         </div>
 
         {/* KPI */}
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="supplier" />
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {[
             { label: '총 공급업체', count: stats.total,    color: '#6B7280' },
