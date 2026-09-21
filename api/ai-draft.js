@@ -228,12 +228,23 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' })
   }
 
-  const { docType, fields } = req.body || {}
+  const { docType, fields, example, regulations } = req.body || {}
   if (!docType || !DOC_PROMPTS[docType]) {
     return res.status(400).json({ ok: false, error: '지원하지 않는 문서 유형입니다.' })
   }
 
-  const prompt = DOC_PROMPTS[docType](fields || {})
+  let prompt = DOC_PROMPTS[docType](fields || {})
+  // #210 규격·고시 컨텍스트 주입 (슐퍼관리자 설정 시에만 적용)
+  if (example) {
+    prompt = '### 예시 문서 (이와 유사한 형식·수준으로 작성):\n' + example + '\n\n---\n\n' + prompt
+  }
+  if (Array.isArray(regulations) && regulations.length > 0) {
+    const regStr = regulations
+      .filter(reg => reg.content)
+      .map(reg => '[' + (reg.title || '규격') + ']\n' + reg.content)
+      .join('\n\n')
+    if (regStr) prompt += '\n\n---\n### 반드시 반영해야 할 규격·고시:\n' + regStr
+  }
 
   // 두 필드를 구조화해 받아야 하는 유형은 JSON 경로로 호출한다
   if (docType === 'roledoc' || docType === 'mdr') {
