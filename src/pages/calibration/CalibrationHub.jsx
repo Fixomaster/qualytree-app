@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 
 const LS_KEY = 'qualytree.calibrations'
@@ -174,6 +175,10 @@ export default function CalibrationHub() {
           ]}
           workflow={['장비 식별', '교정 주기 설정', '교정 실시', '성적서 발급', '기록 보관', '다음 교정 예약']}
         />
+
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="calibration" />
+        </div>
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">

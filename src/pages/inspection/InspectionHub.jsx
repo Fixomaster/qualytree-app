@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { onboarding } from '../../lib/onboardingState'
 import { INSP_TYPES, deriveInspectionStandards } from '../../lib/inspectionStandardConstants'
@@ -215,6 +216,10 @@ export default function InspectionHub() {
           color="#0EA5E9"
           workflow={['생산 완료', '최종검사 대기', '검사 진행', '합격/불합격/조건부 판정', '기록 보관', '출하 승인']}
         />
+
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="inspection" />
+        </div>
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">

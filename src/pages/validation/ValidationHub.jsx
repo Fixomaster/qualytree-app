@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { useSearchParams } from 'react-router-dom'
 
@@ -211,6 +212,10 @@ export default function ValidationHub({ embedded = false, role = 'production', p
             workflow={['검증 계획(품질)', '프로토콜 작성(품질)', 'IQ/OQ/PQ 실행(생산)', '결과 검토(품질)', '보고서 승인(품질)', '주기적 재검증(품질)']}
           />
         )}
+
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="validation" />
+        </div>
 
         {/* KPI */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">

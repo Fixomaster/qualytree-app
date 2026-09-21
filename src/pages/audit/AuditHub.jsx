@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { loadOrgDepts } from '../../lib/orgDepts'
 
@@ -160,6 +161,10 @@ export default function AuditHub() {
           ]}
           workflow={['감사 계획수립(체크리스트 선택)', '감사 시작(체크리스트 점검)', '부적합→CAR 자동발행', '시정조치 완료', '감사 종결']}
         />
+
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="audit" />
+        </div>
 
         {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { syncOrderStatusFromWo, syncWoCompletionEffects } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
@@ -755,6 +756,11 @@ function MfgHome({wo,proc,onNavigate}){
           quickActions={[{label:'작업지시 등록',icon:Plus,onClick:()=>onNavigate('wo'),primary:true}]}
           workflow={['계획 수립','작업지시 발행','자재 출고','공정 작업','공정검사','완제품 입고']}
         />
+
+        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
+          <AIDraftButton docType="manufacturing" />
+        </div>
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {summary.length===0?<EmptyCard/>:summary.map(s=>(
       <div key={s.label} className="rounded-xl p-4" style={{background:'var(--bg-card)',border:'1px solid var(--line)'}}>
