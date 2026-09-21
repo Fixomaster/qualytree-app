@@ -164,6 +164,7 @@ items: [
 { to: '/management-review', label: '경영검토' },
 { to: '/quality-plan', label: '품질계획' },
 { to: '/quality-objectives', label: '품질목표' },
+{ to: '/process-diagram', label: 'QMS 프로세스 다이어그램' },
 { to: '/management-commitment', label: '경영의지·품질방침·목표' },
 ],
 },
