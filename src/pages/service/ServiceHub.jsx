@@ -7,6 +7,7 @@ import {
   Package, Link2, ClipboardList, BarChart2, User,
   ChevronDown, ChevronUp, FileText, Tool,
   Headphones,
+  Printer,
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
@@ -57,6 +58,33 @@ const DEFAULT_INSTALL_CHECKS = [
 function genInstId() { return `INS-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function genSvcId()  { return `SVC-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function todayStr()  { return new Date().toISOString().slice(0, 10) }
+
+function printInstallCert(inst) {
+  const today = new Date().toLocaleDateString('ko-KR')
+  const cn = (function() { try { return JSON.parse(localStorage.getItem('qualytree.company_master') || '{}').companyName || '(주)퀄리트리' } catch { return '(주)퀄리트리' } })()
+  const html = '<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>설치 확인서</title>' +
+    '<style>body{font-family:serif;padding:60px;max-width:700px;margin:auto}h1{text-align:center;font-size:24px;margin-bottom:32px;letter-spacing:2px}' +
+    'table{width:100%;border-collapse:collapse;margin-bottom:24px}td,th{border:1px solid #333;padding:10px 14px;font-size:14px}th{background:#f5f5f5;width:180px;text-align:left}' +
+    '.cert{text-align:center;font-size:15px;line-height:2;margin:32px 0}.sign{text-align:right;margin-top:48px;font-size:14px}' +
+    '.sig-line{display:inline-block;border-bottom:1.5px solid #000;width:180px;margin-left:12px}@media print{body{padding:40px}}</style></head><body>' +
+    '<h1>설치 확인서</h1>' +
+    '<table><tr><th>확인서 번호</th><td>' + (inst.id || '') + '</td></tr>' +
+    '<tr><th>제품명</th><td>' + (inst.productName || '') + '</td></tr>' +
+    '<tr><th>제품 코드</th><td>' + (inst.productCode || '') + '</td></tr>' +
+    '<tr><th>일련번호 (S/N)</th><td>' + (inst.serialNo || '') + '</td></tr>' +
+    '<tr><th>고객사</th><td>' + (inst.customerName || '') + '</td></tr>' +
+    '<tr><th>설치 주소</th><td>' + (inst.installAddress || '') + '</td></tr>' +
+    '<tr><th>설치 완료일</th><td>' + (inst.installDate || '') + '</td></tr>' +
+    '<tr><th>담당 기술자</th><td>' + (inst.engineer || '') + '</td></tr>' +
+    '<tr><th>상태</th><td>' + (inst.status || '완료') + '</td></tr></table>' +
+    '<div class="cert">위 의료기기가 아래 기준에 따라 정상적으로 설치·시운전 완료되었음을 확인합니다.<br>설치는 ISO 13485 §7.5.3 및 제조사 설치 매뉴얼에 준하여 수행되었습니다.</div>' +
+    '<div class="sign">' + today + '<br><br>제 조 사&nbsp;&nbsp;' + cn + '<br><br>설치 담당자&nbsp;&nbsp;<span class="sig-line"></span><br><br>고 객 확 인&nbsp;&nbsp;<span class="sig-line"></span></div>' +
+    '</body></html>'
+  const w = window.open('', '_blank', 'width=820,height=1050')
+  w.document.write(html); w.document.close()
+  setTimeout(() => { w.focus(); w.print() }, 600)
+}
+
 function daysDiff(d) { return Math.ceil((new Date(d) - new Date()) / 86400000) }
 
 // 추적성관리(TraceabilityHub)의 배포이력에서 시리얼 번호로 제품·고객 정보를 조회한다.
@@ -414,6 +442,10 @@ export default function ServiceHub() {
                                 <button onClick={() => deleteInst(inst.id)}
                                   className="p-1.5 rounded-lg" style={{ background: '#FEE2E2', border: '1px solid #FECACA', cursor: 'pointer' }}>
                                   <Trash2 size={12} style={{ color: '#DC2626' }} />
+                                </button>
+                                <button onClick={() => printInstallCert(inst)}
+                                  className="p-1.5 rounded-lg" title="설치확인서 출력" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', cursor: 'pointer' }}>
+                                  <Printer size={12} style={{ color: '#2563EB' }} />
                                 </button>
                               </div>
                             )}
