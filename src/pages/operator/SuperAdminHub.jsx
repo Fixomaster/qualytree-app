@@ -16,7 +16,7 @@ function buildPlans() {
   }))
 }
 
-const TABS = ['회사 목록', '규격·고시 관리', '구독 관리', '결제 내역', '플랜 설정']
+const TABS = ['회사 목록', '구독 관리', '결제 내역', '플랜 설정']
 
 export default function SuperAdminHub() {
   const PLANS = useMemo(buildPlans, [])
