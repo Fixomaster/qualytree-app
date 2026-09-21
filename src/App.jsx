@@ -18,6 +18,11 @@ let QualityHub, ContainmentHub, QualityTree, ProductsHub, RegulatoryHub, Documen
 
 try { Login = React.lazy(() => import(/* @vite-ignore */ './pages/Login')) } catch {}
 try { Signup = React.lazy(() => import(/* @vite-ignore */ './pages/Signup')) } catch {}
+let TermsOfService, RefundPolicy, PrivacyPolicy, PricingPublic
+try { TermsOfService = React.lazy(() => import(/* @vite-ignore */ './pages/legal/TermsOfService')) } catch {}
+try { RefundPolicy = React.lazy(() => import(/* @vite-ignore */ './pages/legal/RefundPolicy')) } catch {}
+try { PrivacyPolicy = React.lazy(() => import(/* @vite-ignore */ './pages/legal/PrivacyPolicy')) } catch {}
+try { PricingPublic = React.lazy(() => import(/* @vite-ignore */ './pages/PricingPublic')) } catch {}
 try { JoinCompany = React.lazy(() => import(/* @vite-ignore */ './pages/JoinCompany')) } catch {}
 try { SignupSuccess = React.lazy(() => import(/* @vite-ignore */ './pages/SignupSuccess')) } catch {}
 try { OperatorConsole= React.lazy(() => import(/* @vite-ignore */ './pages/OperatorConsole')) } catch {}
@@ -283,6 +288,10 @@ return (
 <Route path="/backup-dr" element={<ProtectedRoute><LazyRoute Component={BackupDRHub} /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute><LazyRoute Component={PaymentHub} /></ProtectedRoute>} />
 <Route path="/billing/success" element={<ProtectedRoute><LazyRoute Component={PaymentSuccessHub} /></ProtectedRoute>} />
+<Route path="/terms" element={<LazyRoute Component={TermsOfService} />} />
+<Route path="/refund-policy" element={<LazyRoute Component={RefundPolicy} />} />
+<Route path="/privacy" element={<LazyRoute Component={PrivacyPolicy} />} />
+<Route path="/pricing" element={<LazyRoute Component={PricingPublic} />} />
 <Route path="*" element={<Navigate to="/home" replace />} />
 </Routes>
 </>
