@@ -1,6 +1,6 @@
 // src/pages/calibration/CalibrationHub.jsx
-// ISO 13485 §7.6 측정장치 교정 관리 허브
-import React, { useState, useMemo } from 'react'
+// ISO 13485 Â§7.6 ì¸¡ì ì¥ì¹ êµì  ê´ë¦¬ íë¸
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Edit3, Trash2, AlertTriangle,
   CheckCircle2, Clock, ChevronDown, ChevronUp,
@@ -10,13 +10,22 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 
 const LS_KEY = 'qualytree.calibrations'
+let _sbCidCal = null
 
 function lsRead() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
 }
-function lsWrite(data) { localStorage.setItem(LS_KEY, JSON.stringify(data)) }
+function lsWrite(data) {
+  localStorage.setItem(LS_KEY, JSON.stringify(data))
+  if (_sbCidCal) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidCal, data_type: 'localStorage_sync', data_key: LS_KEY, payload: data,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
+}
 
 function genId() {
   const y = new Date().getFullYear()
@@ -38,33 +47,33 @@ function daysUntil(dateStr) {
 
 function urgencyInfo(nextDate) {
   const days = daysUntil(nextDate)
-  if (days === null) return { color: '#6B7280', bg: '#F3F4F6', label: '미설정', level: 0 }
-  if (days < 0)   return { color: '#DC2626', bg: '#FEE2E2', label: `${Math.abs(days)}일 초과`, level: 3 }
+  if (days === null) return { color: '#6B7280', bg: '#F3F4F6', label: 'ë¯¸ì¤ì ', level: 0 }
+  if (days < 0)   return { color: '#DC2626', bg: '#FEE2E2', label: `${Math.abs(days)}ì¼ ì´ê³¼`, level: 3 }
   if (days <= 30) return { color: '#D97706', bg: '#FEF3C7', label: `D-${days}`, level: 2 }
   if (days <= 90) return { color: '#2563EB', bg: '#DBEAFE', label: `D-${days}`, level: 1 }
   return { color: '#059669', bg: '#D1FAE5', label: `D-${days}`, level: 0 }
 }
 
 const INTERVALS = [
-  { value: 3,  label: '3개월' },
-  { value: 6,  label: '6개월' },
-  { value: 12, label: '12개월 (연 1회)' },
-  { value: 24, label: '24개월 (2년마다)' },
-  { value: 36, label: '36개월 (3년마다)' },
+  { value: 3,  label: '3ê°ì' },
+  { value: 6,  label: '6ê°ì' },
+  { value: 12, label: '12ê°ì (ì° 1í)' },
+  { value: 24, label: '24ê°ì (2ëë§ë¤)' },
+  { value: 36, label: '36ê°ì (3ëë§ë¤)' },
 ]
 
 const CATEGORIES = [
-  '길이·치수', '무게·힘', '압력·진공', '온도·습도',
-  '전기·전자', '유량·속도', '광학·색채', '시간·주파수', '기타',
+  'ê¸¸ì´Â·ì¹ì', 'ë¬´ê²Â·í', 'ìë ¥Â·ì§ê³µ', 'ì¨ëÂ·ìµë',
+  'ì ê¸°Â·ì ì', 'ì ëÂ·ìë', 'ê´íÂ·ìì±', 'ìê°Â·ì£¼íì', 'ê¸°í',
 ]
 
-const LOCATIONS = ['생산라인 A', '생산라인 B', '품질검사실', '연구소', '창고', '사무실', '외부 (고객사)']
+const LOCATIONS = ['ìì°ë¼ì¸ A', 'ìì°ë¼ì¸ B', 'íì§ê²ì¬ì¤', 'ì°êµ¬ì', 'ì°½ê³ ', 'ì¬ë¬´ì¤', 'ì¸ë¶ (ê³ ê°ì¬)']
 
 const STATUS_OPTIONS = [
-  { value: 'active',    label: '사용 중',    color: '#059669', bg: '#D1FAE5' },
-  { value: 'expired',   label: '교정 만료',  color: '#DC2626', bg: '#FEE2E2' },
-  { value: 'calibrating', label: '교정 진행 중', color: '#D97706', bg: '#FEF3C7' },
-  { value: 'retired',   label: '폐기',       color: '#6B7280', bg: '#F3F4F6' },
+  { value: 'active',    label: 'ì¬ì© ì¤',    color: '#059669', bg: '#D1FAE5' },
+  { value: 'expired',   label: 'êµì  ë§ë£',  color: '#DC2626', bg: '#FEE2E2' },
+  { value: 'calibrating', label: 'êµì  ì§í ì¤', color: '#D97706', bg: '#FEF3C7' },
+  { value: 'retired',   label: 'íê¸°',       color: '#6B7280', bg: '#F3F4F6' },
 ]
 
 const emptyForm = () => ({
@@ -78,6 +87,20 @@ const emptyForm = () => ({
 
 export default function CalibrationHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCal = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setItems(row.payload)
+        }
+      })
+  }, [companyId])
   const [items, setItems] = useState(() => lsRead())
   const [tab, setTab] = useState('list')
   const [search, setSearch] = useState('')
@@ -103,7 +126,7 @@ export default function CalibrationHub() {
   }
 
   const submit = () => {
-    if (!form.name) return alert('장비명은 필수입니다.')
+    if (!form.name) return alert('ì¥ë¹ëªì íììëë¤.')
     const now = new Date().toISOString()
     if (editId) {
       save(items.map(i => i.id === editId ? { ...form, id: editId } : i))
@@ -115,7 +138,7 @@ export default function CalibrationHub() {
   }
 
   const remove = (id) => {
-    if (!confirm('삭제하시겠습니까?')) return
+    if (!confirm('ì­ì íìê² ìµëê¹?')) return
     save(items.filter(i => i.id !== id))
   }
 
@@ -155,39 +178,39 @@ export default function CalibrationHub() {
   }), [items])
 
   const TABS = [
-    { key: 'list',     label: '장비 목록', icon: List },
-    { key: 'schedule', label: '교정 일정', icon: Calendar },
-    { key: 'stats',    label: '현황 분석', icon: BarChart2 },
+    { key: 'list',     label: 'ì¥ë¹ ëª©ë¡', icon: List },
+    { key: 'schedule', label: 'êµì  ì¼ì ', icon: Calendar },
+    { key: 'stats',    label: 'íí© ë¶ì', icon: BarChart2 },
   ]
 
   return (
-    <AppLayout user={user} title="교정 관리" subtitle="ISO 13485 §7.6 · 측정장치 교정 주기 관리 · 교정 기록">
+    <AppLayout user={user} title="êµì  ê´ë¦¬" subtitle="ISO 13485 Â§7.6 Â· ì¸¡ì ì¥ì¹ êµì  ì£¼ê¸° ê´ë¦¬ Â· êµì  ê¸°ë¡">
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto">
 
-        {/* 배너 */}
+        {/* ë°°ë */}
         <HubBanner
-          title="교정 관리"
-          subtitle="ISO 13485 §7.6 · 측정장치 교정 주기 관리 · 교정 기록 유지"
+          title="êµì  ê´ë¦¬"
+          subtitle="ISO 13485 Â§7.6 Â· ì¸¡ì ì¥ì¹ êµì  ì£¼ê¸° ê´ë¦¬ Â· êµì  ê¸°ë¡ ì ì§"
           icon={Wrench}
           color="#0891B2"
           quickActions={[
-            { label: '장비 등록', icon: Plus, onClick: openNew, primary: true },
+            { label: 'ì¥ë¹ ë±ë¡', icon: Plus, onClick: openNew, primary: true },
           ]}
-          workflow={['장비 식별', '교정 주기 설정', '교정 실시', '성적서 발급', '기록 보관', '다음 교정 예약']}
+          workflow={['ì¥ë¹ ìë³', 'êµì  ì£¼ê¸° ì¤ì ', 'êµì  ì¤ì', 'ì±ì ì ë°ê¸', 'ê¸°ë¡ ë³´ê´', 'ë¤ì êµì  ìì½']}
         />
 
         <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'10px'}}>
           <AIDraftButton docType="calibration" />
         </div>
 
-        {/* KPI 카드 */}
+        {/* KPI ì¹´ë */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
-            { label: '총 측정장치', count: stats.total,   color: '#6B7280' },
-            { label: '교정 만료',   count: stats.overdue, color: '#DC2626' },
-            { label: '30일 이내',   count: stats.soon,    color: '#D97706' },
-            { label: '교정 양호',   count: stats.ok,      color: '#059669' },
-            { label: '폐기',        count: stats.retired, color: '#9CA3AF' },
+            { label: 'ì´ ì¸¡ì ì¥ì¹', count: stats.total,   color: '#6B7280' },
+            { label: 'êµì  ë§ë£',   count: stats.overdue, color: '#DC2626' },
+            { label: '30ì¼ ì´ë´',   count: stats.soon,    color: '#D97706' },
+            { label: 'êµì  ìí¸',   count: stats.ok,      color: '#059669' },
+            { label: 'íê¸°',        count: stats.retired, color: '#9CA3AF' },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
               <div className="text-[22px] font-bold" style={{ color: s.color }}>{s.count}</div>
@@ -196,28 +219,28 @@ export default function CalibrationHub() {
           ))}
         </div>
 
-        {/* 만료 긴급 알림 */}
+        {/* ë§ë£ ê¸´ê¸ ìë¦¼ */}
         {stats.overdue > 0 && (
           <div className="flex items-center gap-3 p-4 rounded-2xl mb-5" style={{ background: '#FEE2E2', border: '1px solid #FECACA' }}>
             <AlertTriangle size={18} style={{ color: '#DC2626', flexShrink: 0 }} />
             <div className="text-[13px] font-semibold" style={{ color: '#7F1D1D' }}>
-              교정 만료 장비 {stats.overdue}건 — 즉시 교정 필요!
+              êµì  ë§ë£ ì¥ë¹ {stats.overdue}ê±´ â ì¦ì êµì  íì!
             </div>
           </div>
         )}
 
-        {/* 개선과제 #29 — 교정 만료 예정(D-30 이내) 사전 알림. 만료 알림은 위에서 이미
-            처리하므로, 여기서는 '아직 만료되지 않았지만 30일 이내로 다가온' 것만 안내 */}
+        {/* ê°ì ê³¼ì  #29 â êµì  ë§ë£ ìì (D-30 ì´ë´) ì¬ì  ìë¦¼. ë§ë£ ìë¦¼ì ììì ì´ë¯¸
+            ì²ë¦¬íë¯ë¡, ì¬ê¸°ìë 'ìì§ ë§ë£ëì§ ììì§ë§ 30ì¼ ì´ë´ë¡ ë¤ê°ì¨' ê²ë§ ìë´ */}
         {stats.soon > 0 && (
           <div className="flex items-center gap-3 p-4 rounded-2xl mb-5" style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
             <Clock size={18} style={{ color: '#D97706', flexShrink: 0 }} />
             <div className="text-[13px] font-semibold" style={{ color: '#78350F' }}>
-              교정 만료 예정(30일 이내) 장비 {stats.soon}건 — 미리 교정 일정을 잡아주세요.
+              êµì  ë§ë£ ìì (30ì¼ ì´ë´) ì¥ë¹ {stats.soon}ê±´ â ë¯¸ë¦¬ êµì  ì¼ì ì ì¡ìì£¼ì¸ì.
             </div>
           </div>
         )}
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
           {TABS.map(t => (
             <button
@@ -236,7 +259,7 @@ export default function CalibrationHub() {
           ))}
         </div>
 
-        {/* ── 장비 목록 탭 ── */}
+        {/* ââ ì¥ë¹ ëª©ë¡ í­ ââ */}
         {tab === 'list' && (
           <>
             <div className="flex gap-3 mb-4 flex-wrap">
@@ -244,26 +267,26 @@ export default function CalibrationHub() {
                 <Search size={14} style={{ color: 'var(--ink-faint)' }} />
                 <input
                   value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="장비명 · 관리번호 · 시리얼 검색..."
+                  placeholder="ì¥ë¹ëª Â· ê´ë¦¬ë²í¸ Â· ìë¦¬ì¼ ê²ì..."
                   className="flex-1 text-[13px] outline-none"
                   style={{ background: 'none', border: 'none', color: 'var(--ink)' }}
                 />
               </div>
               <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                <option value="all">전체 유형</option>
+                <option value="all">ì ì²´ ì í</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <select value={urgFilter} onChange={e => setUrgFilter(e.target.value)} className="px-3 py-2 rounded-xl text-[13px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
-                <option value="all">전체 상태</option>
-                <option value="overdue">만료된 것만</option>
-                <option value="soon">30일 이내</option>
+                <option value="all">ì ì²´ ìí</option>
+                <option value="overdue">ë§ë£ë ê²ë§</option>
+                <option value="soon">30ì¼ ì´ë´</option>
               </select>
               <button
                 onClick={openNew}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}
               >
-                <Plus size={14} /> 장비 등록
+                <Plus size={14} /> ì¥ë¹ ë±ë¡
               </button>
             </div>
 
@@ -283,7 +306,7 @@ export default function CalibrationHub() {
                 ))}
                 {filtered.filter(i => i.status === 'retired').length > 0 && (
                   <div className="mt-4">
-                    <div className="text-[11px] font-semibold mb-2 px-1" style={{ color: 'var(--ink-faint)' }}>폐기 장비</div>
+                    <div className="text-[11px] font-semibold mb-2 px-1" style={{ color: 'var(--ink-faint)' }}>íê¸° ì¥ë¹</div>
                     {filtered.filter(i => i.status === 'retired').map(item => (
                       <CalItem key={item.id} item={item} expanded={expandedId === item.id} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} onEdit={() => openEdit(item)} onDelete={() => remove(item.id)} />
                     ))}
@@ -303,7 +326,7 @@ export default function CalibrationHub() {
   )
 }
 
-// ── 장비 행 ───────────────────────────────────────────────────
+// ââ ì¥ë¹ í âââââââââââââââââââââââââââââââââââââââââââââââââââ
 function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
   const urg = urgencyInfo(item.nextCalDate)
   const stInfo = STATUS_OPTIONS.find(s => s.value === item.status) || STATUS_OPTIONS[0]
@@ -313,7 +336,7 @@ function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
       <div className="flex items-center gap-3 px-4 py-3 cursor-pointer" onClick={onToggle} style={{ borderBottom: expanded ? '1px solid var(--line)' : 'none' }}>
         <div className="w-16 flex-shrink-0 text-center py-1.5 rounded-xl" style={{ background: urg.bg }}>
           <div className="text-[11px] font-bold" style={{ color: urg.color }}>{urg.label}</div>
-          <div className="text-[9px] mt-0.5" style={{ color: urg.color, opacity: 0.75 }}>교정일</div>
+          <div className="text-[9px] mt-0.5" style={{ color: urg.color, opacity: 0.75 }}>êµì ì¼</div>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -325,12 +348,12 @@ function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
           </div>
           <div className="text-[14px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{item.name}</div>
           <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>
-            {item.model && `${item.model} · `}{item.location || '-'} · 교정주기 {INTERVALS.find(i => i.value === item.interval)?.label || `${item.interval}개월`}
+            {item.model && `${item.model} Â· `}{item.location || '-'} Â· êµì ì£¼ê¸° {INTERVALS.find(i => i.value === item.interval)?.label || `${item.interval}ê°ì`}
           </div>
         </div>
 
         <div className="text-right flex-shrink-0 mr-2">
-          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>다음 교정일</div>
+          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>ë¤ì êµì ì¼</div>
           <div className="text-[13px] font-bold" style={{ color: urg.color }}>{item.nextCalDate || '-'}</div>
         </div>
 
@@ -348,14 +371,14 @@ function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
       {expanded && (
         <div className="px-4 py-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <SLabel>장비 정보</SLabel>
+            <SLabel>ì¥ë¹ ì ë³´</SLabel>
             <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
               {[
-                ['제조사', item.manufacturer],
-                ['모델명', item.model],
-                ['시리얼 번호', item.serial],
-                ['설치 위치', item.location],
-                ['관리 번호', item.assetId],
+                ['ì ì¡°ì¬', item.manufacturer],
+                ['ëª¨ë¸ëª', item.model],
+                ['ìë¦¬ì¼ ë²í¸', item.serial],
+                ['ì¤ì¹ ìì¹', item.location],
+                ['ê´ë¦¬ ë²í¸', item.assetId],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <td style={{ padding: '3px 8px 3px 0', color: 'var(--ink-faint)', whiteSpace: 'nowrap', width: 80 }}>{k}</td>
@@ -365,30 +388,30 @@ function CalItem({ item, expanded, onToggle, onEdit, onDelete }) {
             </table>
           </div>
           <div>
-            <SLabel>최근 교정 정보</SLabel>
+            <SLabel>ìµê·¼ êµì  ì ë³´</SLabel>
             <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
               {[
-                ['최종 교정일', item.lastCalDate],
-                ['다음 교정일', item.nextCalDate],
-                ['교정 기관', item.calBody],
-                ['성적서 번호', item.calCertNo],
-                ['교정 결과', item.calResult === 'pass' ? '✓ 합격' : '✗ 불합격'],
+                ['ìµì¢ êµì ì¼', item.lastCalDate],
+                ['ë¤ì êµì ì¼', item.nextCalDate],
+                ['êµì  ê¸°ê´', item.calBody],
+                ['ì±ì ì ë²í¸', item.calCertNo],
+                ['êµì  ê²°ê³¼', item.calResult === 'pass' ? 'â í©ê²©' : 'â ë¶í©ê²©'],
               ].map(([k, v]) => (
                 <tr key={k}>
                   <td style={{ padding: '3px 8px 3px 0', color: 'var(--ink-faint)', whiteSpace: 'nowrap', width: 85 }}>{k}</td>
-                  <td style={{ padding: '3px 0', color: 'var(--ink)', fontWeight: k === '교정 결과' ? 700 : 400 }}>{v || '-'}</td>
+                  <td style={{ padding: '3px 0', color: 'var(--ink)', fontWeight: k === 'êµì  ê²°ê³¼' ? 700 : 400 }}>{v || '-'}</td>
                 </tr>
               ))}
             </table>
           </div>
           {item.notes && (
             <div className="md:col-span-2">
-              <SLabel>비고</SLabel>
+              <SLabel>ë¹ê³ </SLabel>
               <div className="text-[12px] p-2 rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink)' }}>{item.notes}</div>
             </div>
           )}
           <div className="md:col-span-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-            등록: {item.createdBy} · {item.createdAt?.slice(0, 10) || '-'}
+            ë±ë¡: {item.createdBy} Â· {item.createdAt?.slice(0, 10) || '-'}
           </div>
         </div>
       )}
@@ -400,7 +423,7 @@ function SLabel({ children }) {
   return <div className="text-[11px] font-bold mb-2" style={{ color: 'var(--ink-faint)' }}>{children}</div>
 }
 
-// ── 교정 일정 타임라인 ────────────────────────────────────────
+// ââ êµì  ì¼ì  íìë¼ì¸ ââââââââââââââââââââââââââââââââââââââââ
 function ScheduleView({ items }) {
   const active = items.filter(i => i.status !== 'retired' && i.nextCalDate)
   const sorted = [...active].sort((a, b) => a.nextCalDate.localeCompare(b.nextCalDate))
@@ -416,7 +439,7 @@ function ScheduleView({ items }) {
     return (
       <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
         <Calendar size={40} strokeWidth={1.2} className="mx-auto mb-3 opacity-30" />
-        <div>장비를 등록하고 교정일을 입력하면 일정이 표시됩니다</div>
+        <div>ì¥ë¹ë¥¼ ë±ë¡íê³  êµì ì¼ì ìë ¥íë©´ ì¼ì ì´ íìë©ëë¤</div>
       </div>
     )
   }
@@ -425,15 +448,15 @@ function ScheduleView({ items }) {
     <div className="space-y-4">
       {Object.entries(byMonth).map(([month, monthItems]) => {
         const [y, m] = month.split('-')
-        const monthLabel = `${y}년 ${+m}월`
+        const monthLabel = `${y}ë ${+m}ì`
         return (
           <div key={month}>
             <div className="flex items-center gap-3 mb-2">
               <div className="text-[13px] font-bold px-3 py-1 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-                📅 {monthLabel}
+                ð {monthLabel}
               </div>
               <div className="h-px flex-1" style={{ background: 'var(--line)' }} />
-              <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{monthItems.length}건</div>
+              <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>{monthItems.length}ê±´</div>
             </div>
             <div className="space-y-2 ml-4">
               {monthItems.map(item => {
@@ -445,7 +468,7 @@ function ScheduleView({ items }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>{item.name}</div>
-                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{item.nextCalDate} · {item.calBody || '교정기관 미지정'}</div>
+                      <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{item.nextCalDate} Â· {item.calBody || 'êµì ê¸°ê´ ë¯¸ì§ì '}</div>
                     </div>
                     <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{item.location}</div>
                   </div>
@@ -459,7 +482,7 @@ function ScheduleView({ items }) {
   )
 }
 
-// ── 현황 분석 탭 ─────────────────────────────────────────────
+// ââ íí© ë¶ì í­ âââââââââââââââââââââââââââââââââââââââââââââ
 function StatsView({ items }) {
   const active = items.filter(i => i.status !== 'retired')
   const byCat = {}
@@ -468,7 +491,7 @@ function StatsView({ items }) {
 
   const byLoc = {}
   active.forEach(i => {
-    const loc = i.location || '미지정'
+    const loc = i.location || 'ë¯¸ì§ì '
     byLoc[loc] = (byLoc[loc] || 0) + 1
   })
 
@@ -478,7 +501,7 @@ function StatsView({ items }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>교정 준수율</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>êµì  ì¤ìì¨</div>
         <div className="flex items-center justify-center">
           <div className="relative w-36 h-36">
             <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
@@ -495,17 +518,17 @@ function StatsView({ items }) {
               <div className="text-[28px] font-bold" style={{ color: complianceRate >= 90 ? '#10B981' : complianceRate >= 70 ? '#F59E0B' : '#EF4444' }}>
                 {complianceRate}%
               </div>
-              <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>준수율</div>
+              <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>ì¤ìì¨</div>
             </div>
           </div>
         </div>
         <div className="mt-3 text-center text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-          {active.filter(i => daysUntil(i.nextCalDate) >= 0).length} / {active.length} 장비 교정 유효
+          {active.filter(i => daysUntil(i.nextCalDate) >= 0).length} / {active.length} ì¥ë¹ êµì  ì í¨
         </div>
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>유형별 장비 수</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ì íë³ ì¥ë¹ ì</div>
         <div className="space-y-2">
           {CATEGORIES.filter(c => byCat[c] > 0).map(c => (
             <div key={c} className="flex items-center gap-2">
@@ -517,21 +540,21 @@ function StatsView({ items }) {
             </div>
           ))}
           {Object.values(byCat).every(v => v === 0) && (
-            <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>장비를 등록하면 분포가 표시됩니다</div>
+            <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>ì¥ë¹ë¥¼ ë±ë¡íë©´ ë¶í¬ê° íìë©ëë¤</div>
           )}
         </div>
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>위치별 장비 현황</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ìì¹ë³ ì¥ë¹ íí©</div>
         {Object.keys(byLoc).length === 0 ? (
-          <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>등록된 장비 없음</div>
+          <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ì¥ë¹ ìì</div>
         ) : (
           <div className="space-y-2">
             {Object.entries(byLoc).sort((a, b) => b[1] - a[1]).map(([loc, cnt]) => (
               <div key={loc} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                 <span className="text-[12px]" style={{ color: 'var(--ink)' }}>{loc}</span>
-                <span className="text-[12px] font-bold px-2 py-0.5 rounded" style={{ background: '#0891B215', color: '#0891B2' }}>{cnt}대</span>
+                <span className="text-[12px] font-bold px-2 py-0.5 rounded" style={{ background: '#0891B215', color: '#0891B2' }}>{cnt}ë</span>
               </div>
             ))}
           </div>
@@ -539,12 +562,12 @@ function StatsView({ items }) {
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>이번 달 교정 예정</div>
+        <div className="text-[13px] font-bold mb-4" style={{ color: 'var(--ink)' }}>ì´ë² ë¬ êµì  ìì </div>
         {(() => {
           const thisMonth = new Date().toISOString().slice(0, 7)
           const thisMonthItems = active.filter(i => i.nextCalDate?.startsWith(thisMonth))
           return thisMonthItems.length === 0 ? (
-            <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>이번 달 교정 예정 없음</div>
+            <div className="text-[12px] text-center py-4" style={{ color: 'var(--ink-faint)' }}>ì´ë² ë¬ êµì  ìì  ìì</div>
           ) : (
             <div className="space-y-2">
               {thisMonthItems.map(i => {
@@ -564,52 +587,52 @@ function StatsView({ items }) {
   )
 }
 
-// ── 장비 등록/수정 폼 모달 ────────────────────────────────────
+// ââ ì¥ë¹ ë±ë¡/ìì  í¼ ëª¨ë¬ ââââââââââââââââââââââââââââââââââââ
 function CalForm({ form, fld, editId, onSubmit, onClose }) {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '32px 16px', overflowY: 'auto' }} onClick={onClose}>
       <div style={{ background: 'var(--bg-card)', borderRadius: 20, border: '1px solid var(--line)', width: '100%', maxWidth: 660, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', padding: 28 }} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-5">
-          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? '장비 정보 수정' : '측정장치 등록'}</div>
+          <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>{editId ? 'ì¥ë¹ ì ë³´ ìì ' : 'ì¸¡ì ì¥ì¹ ë±ë¡'}</div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}><X size={20} /></button>
         </div>
 
         <div className="space-y-4">
           <Row2>
-            <FField label="장비명 *">
-              <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="예: 버니어 캘리퍼스" className="w-full" style={IS} />
+            <FField label="ì¥ë¹ëª *">
+              <input value={form.name} onChange={e => fld('name', e.target.value)} placeholder="ì: ë²ëì´ ìºë¦¬í¼ì¤" className="w-full" style={IS} />
             </FField>
-            <FField label="관리 번호 (자산 번호)">
-              <input value={form.assetId} onChange={e => fld('assetId', e.target.value)} placeholder="예: EQP-001" className="w-full" style={IS} />
-            </FField>
-          </Row2>
-          <Row2>
-            <FField label="제조사">
-              <input value={form.manufacturer} onChange={e => fld('manufacturer', e.target.value)} placeholder="예: Mitutoyo" className="w-full" style={IS} />
-            </FField>
-            <FField label="모델명">
-              <input value={form.model} onChange={e => fld('model', e.target.value)} placeholder="예: 530-119" className="w-full" style={IS} />
+            <FField label="ê´ë¦¬ ë²í¸ (ìì° ë²í¸)">
+              <input value={form.assetId} onChange={e => fld('assetId', e.target.value)} placeholder="ì: EQP-001" className="w-full" style={IS} />
             </FField>
           </Row2>
           <Row2>
-            <FField label="시리얼 번호">
-              <input value={form.serial} onChange={e => fld('serial', e.target.value)} placeholder="시리얼 번호" className="w-full" style={IS} />
+            <FField label="ì ì¡°ì¬">
+              <input value={form.manufacturer} onChange={e => fld('manufacturer', e.target.value)} placeholder="ì: Mitutoyo" className="w-full" style={IS} />
             </FField>
-            <FField label="유형">
+            <FField label="ëª¨ë¸ëª">
+              <input value={form.model} onChange={e => fld('model', e.target.value)} placeholder="ì: 530-119" className="w-full" style={IS} />
+            </FField>
+          </Row2>
+          <Row2>
+            <FField label="ìë¦¬ì¼ ë²í¸">
+              <input value={form.serial} onChange={e => fld('serial', e.target.value)} placeholder="ìë¦¬ì¼ ë²í¸" className="w-full" style={IS} />
+            </FField>
+            <FField label="ì í">
               <select value={form.category} onChange={e => fld('category', e.target.value)} className="w-full" style={IS}>
-                <option value="">선택...</option>
+                <option value="">ì í...</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </FField>
           </Row2>
           <Row2>
-            <FField label="설치 위치">
+            <FField label="ì¤ì¹ ìì¹">
               <select value={form.location} onChange={e => fld('location', e.target.value)} className="w-full" style={IS}>
-                <option value="">선택...</option>
+                <option value="">ì í...</option>
                 {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
               </select>
             </FField>
-            <FField label="교정 주기">
+            <FField label="êµì  ì£¼ê¸°">
               <select value={form.interval} onChange={e => fld('interval', +e.target.value)} className="w-full" style={IS}>
                 {INTERVALS.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
               </select>
@@ -617,31 +640,31 @@ function CalForm({ form, fld, editId, onSubmit, onClose }) {
           </Row2>
 
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
-            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>최근 교정 정보</div>
+            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>ìµê·¼ êµì  ì ë³´</div>
             <Row2>
-              <FField label="최종 교정일 (입력 시 다음 교정일 자동 계산)">
+              <FField label="ìµì¢ êµì ì¼ (ìë ¥ ì ë¤ì êµì ì¼ ìë ê³ì°)">
                 <input type="date" value={form.lastCalDate} onChange={e => fld('lastCalDate', e.target.value)} className="w-full" style={IS} />
               </FField>
-              <FField label="다음 교정일 (자동 계산)">
+              <FField label="ë¤ì êµì ì¼ (ìë ê³ì°)">
                 <input type="date" value={form.nextCalDate} onChange={e => fld('nextCalDate', e.target.value)} className="w-full" style={{ ...IS, background: form.lastCalDate ? '#F0FDF4' : 'var(--bg-card)' }} />
               </FField>
             </Row2>
             <Row2>
-              <FField label="교정 기관">
-                <input value={form.calBody} onChange={e => fld('calBody', e.target.value)} placeholder="예: 한국교정연구원" className="w-full" style={IS} />
+              <FField label="êµì  ê¸°ê´">
+                <input value={form.calBody} onChange={e => fld('calBody', e.target.value)} placeholder="ì: íêµ­êµì ì°êµ¬ì" className="w-full" style={IS} />
               </FField>
-              <FField label="교정 성적서 번호">
-                <input value={form.calCertNo} onChange={e => fld('calCertNo', e.target.value)} placeholder="예: KCL-2026-00123" className="w-full" style={IS} />
+              <FField label="êµì  ì±ì ì ë²í¸">
+                <input value={form.calCertNo} onChange={e => fld('calCertNo', e.target.value)} placeholder="ì: KCL-2026-00123" className="w-full" style={IS} />
               </FField>
             </Row2>
             <Row2>
-              <FField label="교정 결과">
+              <FField label="êµì  ê²°ê³¼">
                 <select value={form.calResult} onChange={e => fld('calResult', e.target.value)} className="w-full" style={IS}>
-                  <option value="pass">✓ 합격</option>
-                  <option value="fail">✗ 불합격 (수리/폐기 필요)</option>
+                  <option value="pass">â í©ê²©</option>
+                  <option value="fail">â ë¶í©ê²© (ìë¦¬/íê¸° íì)</option>
                 </select>
               </FField>
-              <FField label="상태">
+              <FField label="ìí">
                 <select value={form.status} onChange={e => fld('status', e.target.value)} className="w-full" style={IS}>
                   {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
@@ -649,15 +672,15 @@ function CalForm({ form, fld, editId, onSubmit, onClose }) {
             </Row2>
           </div>
 
-          <FField label="비고">
-            <textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} placeholder="특이사항..." className="w-full" style={{ ...IS, resize: 'vertical' }} />
+          <FField label="ë¹ê³ ">
+            <textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} placeholder="í¹ì´ì¬í­..." className="w-full" style={{ ...IS, resize: 'vertical' }} />
           </FField>
         </div>
 
         <div className="flex gap-3 mt-6">
-          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>취소</button>
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>ì·¨ì</button>
           <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}>
-            {editId ? '수정 저장' : '장비 등록'}
+            {editId ? 'ìì  ì ì¥' : 'ì¥ë¹ ë±ë¡'}
           </button>
         </div>
       </div>
@@ -680,10 +703,10 @@ function EmptyState({ onAdd }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
       <Wrench size={48} strokeWidth={1} className="mx-auto mb-3 opacity-30" style={{ color: '#0891B2' }} />
-      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>등록된 측정장치 없음</div>
-      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>버니어 캘리퍼스, 마이크로미터, 온도계 등 교정이 필요한 장비를 등록하세요</div>
+      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>ë±ë¡ë ì¸¡ì ì¥ì¹ ìì</div>
+      <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>ë²ëì´ ìºë¦¬í¼ì¤, ë§ì´í¬ë¡ë¯¸í°, ì¨ëê³ ë± êµì ì´ íìí ì¥ë¹ë¥¼ ë±ë¡íì¸ì</div>
       <button onClick={onAdd} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#0891B2', color: 'white', border: 'none', cursor: 'pointer' }}>
-        <Plus size={15} /> 첫 번째 장비 등록
+        <Plus size={15} /> ì²« ë²ì§¸ ì¥ë¹ ë±ë¡
       </button>
     </div>
   )
