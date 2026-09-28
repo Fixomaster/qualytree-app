@@ -201,6 +201,15 @@ const isAdmin = cur?.isCompanyAdmin || (cur?.level ?? 0) >= 3
   const ob = useMemo(() => { try { return JSON.parse(localStorage.getItem('qualytree.onboarding') || '{}') } catch { return {} } }, [])
   const hasKGMP = ob.certs?.kgmp === true
   const hasImport = ob.certs?.kgmp_importer === true
+  // 수입GMP 전용 회사는 아코디언에서 CSV/안정성/시판후안전관리도 표시
+  const impOnlyMenus = (hasImport && !hasKGMP)
+    ? [
+        { to: '/post-market-safety', label: '시판후안전관리' },
+        { to: '/csv', label: 'CSV 유효성확인' },
+        { to: '/stability', label: '안정성 시험 관리' },
+      ]
+    : []
+  const impItems = [...IMP_ITEMS, ...impOnlyMenus]
   const allowedMenus = useMemo(() => {
     if (isAdmin) return null
     return menuPermissions.getDeptAllowedMenus(userDept)
@@ -213,12 +222,15 @@ const isAdmin = cur?.isCompanyAdmin || (cur?.level ?? 0) >= 3
           .filter(item => {
             if (item.to === '/oem-full') return oemMode === '전공정위탁'
             if (item.to === '/oem-partial') return oemMode === '일부공정위탁'
+            // 수입GMP 전용이면 품질·검사에서 이 메뉴 숨김 (수입GMP 아코디언으로 이동)
+            const importOnlyPaths = ['/csv', '/stability', '/post-market-safety']
+            if (importOnlyPaths.includes(item.to) && hasImport && !hasKGMP) return false
             return true
           })
           .filter(item => allowedMenus ? allowedMenus.includes(item.to) : true)
       }))
       .filter(d => d.items.length > 0),
-    [allowedMenus, oemMode]
+    [allowedMenus, oemMode, hasImport, hasKGMP]
   )
 
 const [open, setOpen] = useState(() => {
@@ -237,9 +249,9 @@ DOMAINS.some(d => d.items.some(item => loc.pathname.startsWith(item.to)))
 const mfgActive = visibleDomains.some(d => d.items.some(item => loc.pathname.startsWith(item.to)))
 
 const [impOpen, setImpOpen] = useState(() =>
-IMP_ITEMS.some(item => loc.pathname.startsWith(item.to))
+impItems.some(item => loc.pathname.startsWith(item.to))
 )
-const impActive = IMP_ITEMS.some(item => loc.pathname.startsWith(item.to))
+const impActive = impItems.some(item => loc.pathname.startsWith(item.to))
 
 return (
 <aside
@@ -431,7 +443,7 @@ flexShrink: 0,
 
 {impOpen && (
 <div className="ml-5 mt-0.5 mb-1">
-{IMP_ITEMS.map(item => (
+{impItems.map(item => (
 <NavLink
 key={item.to}
 to={item.to}
