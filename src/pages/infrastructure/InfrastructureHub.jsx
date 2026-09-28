@@ -1,6 +1,6 @@
 // src/pages/infrastructure/InfrastructureHub.jsx
 // ISO 13485 §6.3 — 인프라 관리 허브
-// 건물·시설 / IT·소프트웨어 / 유틸리티 / 지원서비스
+import React, { useState, useEffect } from 'react'
 import React, { useState, useMemo } from 'react'
 import {Building, 
   Plus, Save, Edit2, Trash2, CheckCircle2, Clock,
@@ -10,9 +10,11 @@ import {Building,
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.infrastructure'
+let _sbCidInfra = null
 
 const INFRA_CATEGORIES = {
   building:  { label: '건물·시설',     icon: Building2, color: '#7C3AED', bg: '#EDE9FE' },
@@ -61,6 +63,7 @@ const EMPTY_FORM = {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function InfrastructureHub() {
   const user = auth.current()
+  const companyId = user?.company_id
   const canEdit = user?.level >= 2
 
   const [items, setItems] = useState(() => {
@@ -76,8 +79,31 @@ export default function InfrastructureHub() {
   const [filterStatus, setFilterStatus] = useState('all')
   const [showMntForm, setShowMntForm] = useState(false)
   const [mntForm, setMntForm] = useState({ date: today(), performedBy: '', verdict: 'pass', notes: '', checkResults: [] })
+  useEffect(() => { _sbCidInfra = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.payload) {
+          setItems(data.payload)
+          localStorage.setItem(LS_KEY, JSON.stringify(data.payload))
+        }
+      })
+  }, [companyId])
 
-  function save(list) { setItems(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
+  function save(list) {
+    setItems(list)
+    localStorage.setItem(LS_KEY, JSON.stringify(list))
+    if (_sbCidInfra) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidInfra, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: list
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   function onCategoryChange(cat) {
     setForm(f => ({
