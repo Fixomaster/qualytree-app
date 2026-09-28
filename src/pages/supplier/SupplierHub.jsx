@@ -1,6 +1,6 @@
 // src/pages/supplier/SupplierHub.jsx
 // ISO 13485 §7.4.1 공급업체 관리 — ASL · 평가 · 수입검사(IQC)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Edit3, Trash2, Star, StarOff,
   ChevronDown, ChevronUp, X, CheckCircle2,
@@ -11,6 +11,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import {
   loadCriteria, saveCriteria, loadPolicy, savePolicy,
   newCriterion, newLevel, maxTotal, gradeFromPct, statusFromPct,
@@ -22,12 +23,23 @@ import { eid, ENTITY_TYPES } from '../../lib/entityRegistry'
 // ── localStorage ──────────────────────────────────────────────
 const LS_SUP  = 'qualytree.suppliers'
 const LS_EVAL = 'qualytree.supplier_evals'
+let _sbCidSup = null
 const LS_AUDIT = 'qualytree.supplier_audits'
 
 function lsR(key, fb = []) {
   try { const p = JSON.parse(localStorage.getItem(key) || 'null'); return Array.isArray(p) ? p : fb } catch { return fb }
 }
-function lsW(key, data) { localStorage.setItem(key, JSON.stringify(data)) }
+function lsW(key, data) {
+  localStorage.setItem(key, JSON.stringify(data))
+  if (_sbCidSup) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidSup,
+      data_type: 'localStorage_sync',
+      data_key: key,
+      payload: data,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
+}
 
 function genId(prefix) {
   return `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
@@ -75,6 +87,26 @@ function certArray(sup) {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function SupplierHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidSup = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    const SB_DT = 'localStorage_sync'
+    for (const key of [LS_SUP, LS_EVAL]) {
+      supabase.from('company_data')
+        .select('payload')
+        .eq('company_id', companyId)
+        .eq('data_type', SB_DT)
+        .eq('data_key', key)
+        .maybeSingle()
+        .then(({ data: row }) => {
+          if (row?.payload == null) return
+          localStorage.setItem(key, JSON.stringify(row.payload))
+          if (key === LS_SUP) setSuppliers(row.payload)
+          if (key === LS_EVAL) setEvals(row.payload)
+        })
+    }
+  }, [companyId])
   const [suppliers, setSuppliers] = useState(() => lsR(LS_SUP))
   const [evals,     setEvals]     = useState(() => lsR(LS_EVAL))
   const [criteria,  setCriteria]  = useState(() => loadCriteria())
