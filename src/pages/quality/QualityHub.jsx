@@ -1,20 +1,34 @@
-// src/pages/quality/QualityHub.jsx — ISO 13485 §8.3 NCR·부적합 관리
-import React, { useState, useMemo } from 'react'
+// src/pages/quality/QualityHub.jsx â ISO 13485 Â§8.3 NCRÂ·ë¶ì í© ê´ë¦¬
+import React, { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ShieldAlert, Plus, Search, X, ChevronDown, ChevronUp, Wrench, ClipboardCheck, Trash2 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { evaluateForCAPA, capa, CAPA_STATUS } from '../../lib/capaState'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 
 const LS_KEY = 'qualytree.ncrs'
 const CNT_KEY = 'qualytree.ncrCounter'
+let _sbCidQual = null
 
 function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
-function lsWrite(arr) { localStorage.setItem(LS_KEY, JSON.stringify(arr)) }
+function lsWrite(arr) {
+  localStorage.setItem(LS_KEY, JSON.stringify(arr))
+  if (_sbCidQual) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidQual, data_type: 'localStorage_sync', data_key: LS_KEY, payload: arr,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
+}
 function nextId() {
   const n = parseInt(localStorage.getItem(CNT_KEY) || '0', 10) + 1
   localStorage.setItem(CNT_KEY, String(n))
+  if (_sbCidQual) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidQual, data_type: 'localStorage_sync', data_key: CNT_KEY, payload: n,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
   return 'NCR-' + new Date().getFullYear() + '-' + String(n).padStart(4, '0')
 }
 
@@ -25,10 +39,10 @@ function getLinkedCapas(ncrId) {
   } catch { return [] }
 }
 
-const STATUS_LABEL = { open: '접수', investigating: '조사중', contained: '격리완료', corrected: '시정완료', closed: '종결' }
+const STATUS_LABEL = { open: 'ì ì', investigating: 'ì¡°ì¬ì¤', contained: 'ê²©ë¦¬ìë£', corrected: 'ìì ìë£', closed: 'ì¢ê²°' }
 const STATUS_COLOR = { open: '#DC2626', investigating: '#EAB308', contained: '#3B82F6', corrected: '#8B5CF6', closed: '#22C55E' }
-const SOURCE_TYPE_LABEL = { oos: '공정검사 OOS (자동 발의)', inspectionStage: '검사 단계 OOS (자동 발의)', iqc: '수입검사', manual: '수동 등록' }
-// ncr.raise()는 source를 객체({ type, woId, stageEid, templateId })로 저장하므로 문자열로 요약
+const SOURCE_TYPE_LABEL = { oos: 'ê³µì ê²ì¬ OOS (ìë ë°ì)', inspectionStage: 'ê²ì¬ ë¨ê³ OOS (ìë ë°ì)', iqc: 'ììê²ì¬', manual: 'ìë ë±ë¡' }
+// ncr.raise()ë sourceë¥¼ ê°ì²´({ type, woId, stageEid, templateId })ë¡ ì ì¥íë¯ë¡ ë¬¸ìì´ë¡ ìì½
 function sourceText(src) {
   if (src == null || src === '') return '-'
   if (typeof src === 'string') return src
@@ -37,38 +51,61 @@ function sourceText(src) {
   if (src.woId) parts.push(`WO ${src.woId}`)
   if (src.stageType) parts.push(String(src.stageType))
   if (src.stageEid) parts.push(String(src.stageEid).split(':').pop())
-  if (src.measurementValue !== undefined && src.measurementValue !== '') parts.push(`측정값 ${src.measurementValue}`)
-  return parts.filter(Boolean).join(' · ') || '-'
+  if (src.measurementValue !== undefined && src.measurementValue !== '') parts.push(`ì¸¡ì ê° ${src.measurementValue}`)
+  return parts.filter(Boolean).join(' Â· ') || '-'
 }
-// ncr.transition()은 containment를 객체({ quarantineId, quarantineCount, isolatedAt, isolatedBy })로 저장
+// ncr.transition()ì containmentë¥¼ ê°ì²´({ quarantineId, quarantineCount, isolatedAt, isolatedBy })ë¡ ì ì¥
 function containmentText(c) {
   if (c == null || c === '') return ''
   if (typeof c === 'string') return c
   if (typeof c !== 'object') return String(c)
   const parts = []
   if (c.description || c.note) parts.push(c.description || c.note)
-  if (c.quarantineCount != null) parts.push(`격리 ${c.quarantineCount}건`)
-  if (c.quarantineId) parts.push(`격리 ID ${c.quarantineId}`)
-  if (c.isolatedBy) parts.push(`격리자 ${c.isolatedBy}`)
+  if (c.quarantineCount != null) parts.push(`ê²©ë¦¬ ${c.quarantineCount}ê±´`)
+  if (c.quarantineId) parts.push(`ê²©ë¦¬ ID ${c.quarantineId}`)
+  if (c.isolatedBy) parts.push(`ê²©ë¦¬ì ${c.isolatedBy}`)
   if (c.isolatedAt) parts.push(String(c.isolatedAt).slice(0, 10))
-  return parts.join(' · ') || '격리 조치 완료'
+  return parts.join(' Â· ') || 'ê²©ë¦¬ ì¡°ì¹ ìë£'
 }
 const SEV_COLOR = { Critical: '#DC2626', Major: '#F97316', Minor: '#64748B' }
 const SEVERITIES = ['Critical', 'Major', 'Minor']
-const SOURCES = ['내부검사', '고객불만', '공급업체', '공정', '기타']
+const SOURCES = ['ë´ë¶ê²ì¬', 'ê³ ê°ë¶ë§', 'ê³µê¸ìì²´', 'ê³µì ', 'ê¸°í']
 
 export default function QualityHub() {
   const [ncrs, setNcrs] = useState(lsRead)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
   const [expanded, setExpanded] = useState(null)
-  const [form, setForm] = useState({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' })
+  const [form, setForm] = useState({ title: '', severity: 'Major', source: 'ë´ë¶ê²ì¬', description: '', detectedAt: '', detectedBy: '' })
 
   const [qTab, setQTab] = useState('ncr')
   function reload() { setNcrs(lsRead()) }
+  const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidQual = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+        .maybeSingle(),
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', CNT_KEY)
+        .maybeSingle(),
+    ]).then(([{ data: ncrRow }, { data: cntRow }]) => {
+      if (ncrRow?.payload != null) {
+        localStorage.setItem(LS_KEY, JSON.stringify(ncrRow.payload))
+        setNcrs(ncrRow.payload)
+      }
+      if (cntRow?.payload != null) {
+        localStorage.setItem(CNT_KEY, String(cntRow.payload))
+      }
+    })
+  }, [companyId])
+
 
   function save() {
-    if (!form.title.trim()) return alert('제목을 입력하세요')
+    if (!form.title.trim()) return alert('ì ëª©ì ìë ¥íì¸ì')
     const cur = auth.current()
     const all = lsRead()
     const newRecord = {
@@ -99,7 +136,7 @@ export default function QualityHub() {
   }
 
   function remove(id) {
-    if (!confirm('삭제하시겠습니까?')) return
+    if (!confirm('ì­ì íìê² ìµëê¹?')) return
     lsWrite(lsRead().filter(r => r.id !== id))
     reload()
   }
@@ -122,20 +159,20 @@ export default function QualityHub() {
 
   return (
     <AppLayout>
-      <HubBanner icon={ShieldAlert} title="NCR·부적합 관리" subtitle="ISO 13485 §8.3" color="#DC2626" />
+      <HubBanner icon={ShieldAlert} title="NCRÂ·ë¶ì í© ê´ë¦¬" subtitle="ISO 13485 Â§8.3" color="#DC2626" />
 
       {/* Tab Nav #181 */}
       <div style={{display:'flex',gap:8,marginBottom:16}}>
         {['ncr','rework','concession','disposal'].map(k=>(
           <button key={k} onClick={()=>setQTab(k)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,fontWeight:qTab===k?600:400,background:qTab===k?'var(--accent)':'var(--surface-2)',color:qTab===k?'#fff':'var(--ink)',border:'1px solid var(--border)',cursor:'pointer'}}>
-            {{ncr:'NCR 목록',rework:'재작업 기록',concession:'특채 승인',disposal:'폐기 기록'}[k]||k}
+            {{ncr:'NCR ëª©ë¡',rework:'ì¬ìì ê¸°ë¡',concession:'í¹ì± ì¹ì¸',disposal:'íê¸° ê¸°ë¡'}[k]||k}
           </button>
         ))}
       </div>
       {qTab === 'ncr' && (<>
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 10, marginBottom: 20 }}>
-        {[['전체', stats.total, 'var(--ink)'], ['조사중', stats.investigating, '#EAB308'], ['격리완료', stats.contained, '#3B82F6'], ['시정완료', stats.corrected, '#8B5CF6'], ['종결', stats.closed, '#22C55E']].map(([label, n, color]) => (
+        {[['ì ì²´', stats.total, 'var(--ink)'], ['ì¡°ì¬ì¤', stats.investigating, '#EAB308'], ['ê²©ë¦¬ìë£', stats.contained, '#3B82F6'], ['ìì ìë£', stats.corrected, '#8B5CF6'], ['ì¢ê²°', stats.closed, '#22C55E']].map(([label, n, color]) => (
           <div key={label} style={statCard}>
             <div style={{ fontSize: 22, fontWeight: 700, color }}>{n}</div>
             <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>{label}</div>
@@ -147,15 +184,15 @@ export default function QualityHub() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <div style={{ position: 'relative', flex: 1 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--ink-faint)' }} />
-          <input style={{ ...inp, paddingLeft: 30 }} placeholder="NCR ID 또는 제목 검색" value={search} onChange={e => setSearch(e.target.value)} />
+          <input style={{ ...inp, paddingLeft: 30 }} placeholder="NCR ID ëë ì ëª© ê²ì" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <button style={btn('#DC2626')} onClick={() => { setForm({ title: '', severity: 'Major', source: '내부검사', description: '', detectedAt: '', detectedBy: '' }); setModal(true) }}>
-          <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />부적합 등록
+        <button style={btn('#DC2626')} onClick={() => { setForm({ title: '', severity: 'Major', source: 'ë´ë¶ê²ì¬', description: '', detectedAt: '', detectedBy: '' }); setModal(true) }}>
+          <Plus size={14} style={{ marginRight: 4, verticalAlign: 'middle' }} />ë¶ì í© ë±ë¡
         </button>
       </div>
 
       {/* List */}
-      {filtered.length === 0 && <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: 40 }}>등록된 부적합이 없습니다</div>}
+      {filtered.length === 0 && <div style={{ textAlign: 'center', color: 'var(--ink-faint)', padding: 40 }}>ë±ë¡ë ë¶ì í©ì´ ììµëë¤</div>}
       {filtered.map(r => (
         <NcrCard key={r.id} r={r}
           expanded={expanded === r.id}
@@ -170,16 +207,16 @@ export default function QualityHub() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 28, width: 500, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 16 }}>부적합 신규 등록</h3>
+              <h3 style={{ margin: 0, fontSize: 16 }}>ë¶ì í© ì ê· ë±ë¡</h3>
               <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setModal(false)}><X size={18} /></button>
             </div>
             {[
-              ['제목', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="부적합 내용 요약" />],
-              ['심각도', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
-              ['발생출처', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
-              ['발견일', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
-              ['발견자', <input style={inp} value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} />],
-              ['상세내용', <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />],
+              ['ì ëª©', <input style={inp} value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="ë¶ì í© ë´ì© ìì½" />],
+              ['ì¬ê°ë', <select style={inp} value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>{SEVERITIES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['ë°ìì¶ì²', <select style={inp} value={form.source} onChange={e => setForm(f => ({ ...f, source: e.target.value }))}>{SOURCES.map(s => <option key={s}>{s}</option>)}</select>],
+              ['ë°ê²¬ì¼', <input type="date" style={inp} value={form.detectedAt} onChange={e => setForm(f => ({ ...f, detectedAt: e.target.value }))} />],
+              ['ë°ê²¬ì', <input style={inp} value={form.detectedBy} onChange={e => setForm(f => ({ ...f, detectedBy: e.target.value }))} />],
+              ['ìì¸ë´ì©', <textarea style={{ ...inp, minHeight: 80, resize: 'vertical' }} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />],
             ].map(([label, el]) => (
               <div key={label} style={{ marginBottom: 12 }}>
                 <label style={{ fontSize: 12, color: 'var(--ink-faint)', display: 'block', marginBottom: 4 }}>{label}</label>
@@ -187,8 +224,8 @@ export default function QualityHub() {
               </div>
             ))}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 20 }}>
-              <button style={btn('transparent', 'var(--ink)')} onClick={() => setModal(false)}>취소</button>
-              <button style={btn('#DC2626')} onClick={save}>등록</button>
+              <button style={btn('transparent', 'var(--ink)')} onClick={() => setModal(false)}>ì·¨ì</button>
+              <button style={btn('#DC2626')} onClick={save}>ë±ë¡</button>
             </div>
           </div>
         </div>
@@ -211,7 +248,7 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
   const capasDone = linkedCapas.length === 0 || linkedCapas.every(c => c.status === CAPA_STATUS.CLOSED)
 
   function doCorrect() {
-    if (!capasDone) return alert('연결된 CAPA가 아직 완료되지 않았습니다. CAPA·개선 메뉴에서 CAPA를 종결하세요.')
+    if (!capasDone) return alert('ì°ê²°ë CAPAê° ìì§ ìë£ëì§ ìììµëë¤. CAPAÂ·ê°ì  ë©ë´ìì CAPAë¥¼ ì¢ê²°íì¸ì.')
     onUpdate({ status: 'corrected', correctedAt: new Date().toISOString() })
   }
 
@@ -220,8 +257,8 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
       status: 'closed',
       closedAt: new Date().toISOString(),
       approvals: [{
-        role: '승인자',
-        name: curUser?.name || '미확인',
+        role: 'ì¹ì¸ì',
+        name: curUser?.name || 'ë¯¸íì¸',
         email: curUser?.email || '',
         level: curUser?.level || 0,
         note: approveNote,
@@ -250,108 +287,108 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
         <div style={{ borderTop: '1px solid var(--line)', padding: 16 }}>
           {/* Meta */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 14, fontSize: 13, color: 'var(--ink-faint)' }}>
-            <span>출처: {sourceText(r.source)}</span>
-            <span>발견일: {r.detectedAt || '-'}</span>
-            <span>발견자: {r.detectedBy || '-'}</span>
-            <span>등록자: {r.createdByName || '-'}</span>
+            <span>ì¶ì²: {sourceText(r.source)}</span>
+            <span>ë°ê²¬ì¼: {r.detectedAt || '-'}</span>
+            <span>ë°ê²¬ì: {r.detectedBy || '-'}</span>
+            <span>ë±ë¡ì: {r.createdByName || '-'}</span>
           </div>
           {r.description && (
             <div style={{ fontSize: 13, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, marginBottom: 14, lineHeight: 1.6 }}>{r.description}</div>
           )}
 
-          {/* Stage 1 — 격리 조치 메뉴로 이동 (open = 접수 직후, investigating = 조사 중) */}
+          {/* Stage 1 â ê²©ë¦¬ ì¡°ì¹ ë©ë´ë¡ ì´ë (open = ì ì ì§í, investigating = ì¡°ì¬ ì¤) */}
           {(r.status === 'open' || r.status === 'investigating') && (
             <div style={stageBox('#EAB308')}>
-              {stageTitle('#EAB308', '① 격리 조치')}
+              {stageTitle('#EAB308', 'â  ê²©ë¦¬ ì¡°ì¹')}
               <p style={{ fontSize: 13, color: 'var(--ink-faint)', margin: '0 0 12px', lineHeight: 1.6 }}>
-                격리 여부(격리 실시 / 격리 불필요)를 격리관리 메뉴에서 결정해주세요.
-                결정 완료 시 자동으로 다음 단계로 전환됩니다.
+                ê²©ë¦¬ ì¬ë¶(ê²©ë¦¬ ì¤ì / ê²©ë¦¬ ë¶íì)ë¥¼ ê²©ë¦¬ê´ë¦¬ ë©ë´ìì ê²°ì í´ì£¼ì¸ì.
+                ê²°ì  ìë£ ì ìëì¼ë¡ ë¤ì ë¨ê³ë¡ ì íë©ëë¤.
               </p>
-              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>격리관리 메뉴로 이동 →</Link>
+              <Link to={`/containment?ncrId=${r.id}`} style={linkBtn}>ê²©ë¦¬ê´ë¦¬ ë©ë´ë¡ ì´ë â</Link>
             </div>
           )}
 
-          {/* Stage 2 — CAPA 확인 후 시정완료 */}
+          {/* Stage 2 â CAPA íì¸ í ìì ìë£ */}
           {r.status === 'contained' && (
             <div style={stageBox('#3B82F6')}>
-              {stageTitle('#3B82F6', '② CAPA 진행 확인')}
+              {stageTitle('#3B82F6', 'â¡ CAPA ì§í íì¸')}
               {r.containmentSkipped
-                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리: 불필요 처리됨 ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
+                ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>ê²©ë¦¬: ë¶íì ì²ë¦¬ë¨ ({r.containmentAt ? r.containmentAt.slice(0,10) : ''})</div>
                 : r.containment
-                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>격리 조치: {containmentText(r.containment)}</div>
+                  ? <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>ê²©ë¦¬ ì¡°ì¹: {containmentText(r.containment)}</div>
                   : null}
               {linkedCapas.length > 0 ? (
                 <div style={{ marginBottom: 10 }}>
                   {linkedCapas.map(c => (
                     <div key={c.id} style={{ fontSize: 13, padding: '6px 10px', background: 'var(--bg)', borderRadius: 6, marginBottom: 4, display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{c.id} — {c.title}</span>
+                      <span>{c.id} â {c.title}</span>
                       <span style={{ fontWeight: 600, color: c.status === CAPA_STATUS.CLOSED ? '#22C55E' : '#F97316' }}>{c.status}</span>
                     </div>
                   ))}
                   {!capasDone && (
                     <div style={{ fontSize: 12, color: '#F97316', marginTop: 6 }}>
-                      CAPA 완료 후 자동으로 시정완료로 전환됩니다.
-                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPA·개선 메뉴 →</Link>
+                      CAPA ìë£ í ìëì¼ë¡ ìì ìë£ë¡ ì íë©ëë¤.
+                      <Link to="/improvement" style={{ marginLeft: 8, color: '#3B82F6', fontWeight: 600 }}>CAPAÂ·ê°ì  ë©ë´ â</Link>
                     </div>
                   )}
                 </div>
               ) : (
-                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>자동 생성 CAPA 없음 (Critical·반복 Major NCR이 아닌 경우 직접 시정완료 가능)</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginBottom: 10 }}>ìë ìì± CAPA ìì (CriticalÂ·ë°ë³µ Major NCRì´ ìë ê²½ì° ì§ì  ìì ìë£ ê°ë¥)</div>
               )}
               <button
                 style={btn(capasDone ? '#8B5CF6' : '#CBD5E1', capasDone ? '#fff' : '#94A3B8')}
                 onClick={doCorrect}
-              >시정완료로 전환</button>
+              >ìì ìë£ë¡ ì í</button>
             </div>
           )}
 
-          {/* Stage 3 — 역할 기반 승인 */}
+          {/* Stage 3 â ì­í  ê¸°ë° ì¹ì¸ */}
           {r.status === 'corrected' && (
             <div style={stageBox('#8B5CF6')}>
-              {stageTitle('#8B5CF6', '③ 검토·승인')}
+              {stageTitle('#8B5CF6', 'â¢ ê²í Â·ì¹ì¸')}
               {isApprover ? (
                 <>
                   <div style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 10 }}>
-                    승인자: <strong style={{ color: 'var(--ink)' }}>{curUser?.name}</strong> (Level {curUser?.level})
+                    ì¹ì¸ì: <strong style={{ color: 'var(--ink)' }}>{curUser?.name}</strong> (Level {curUser?.level})
                   </div>
                   <textarea
                     style={{ ...inp, minHeight: 60, resize: 'vertical', marginBottom: 10 }}
-                    placeholder="승인 의견 (선택)"
+                    placeholder="ì¹ì¸ ìê²¬ (ì í)"
                     value={approveNote}
                     onChange={e => setApproveNote(e.target.value)}
                   />
-                  <button style={btn('#22C55E')} onClick={doApprove}>승인하고 종결</button>
+                  <button style={btn('#22C55E')} onClick={doApprove}>ì¹ì¸íê³  ì¢ê²°</button>
                 </>
               ) : (
                 <div style={{ padding: '12px 14px', background: 'var(--bg)', borderRadius: 8, fontSize: 13 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>승인 대기 중</div>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>ì¹ì¸ ëê¸° ì¤</div>
                   <div style={{ color: 'var(--ink-faint)', lineHeight: 1.6 }}>
-                    Level 3 이상 관리자의 승인이 필요합니다.<br />
-                    관리자가 이 NCR을 열면 승인 버튼이 표시됩니다.
+                    Level 3 ì´ì ê´ë¦¬ìì ì¹ì¸ì´ íìí©ëë¤.<br />
+                    ê´ë¦¬ìê° ì´ NCRì ì´ë©´ ì¹ì¸ ë²í¼ì´ íìë©ëë¤.
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Stage 4 — 종결 */}
+          {/* Stage 4 â ì¢ê²° */}
           {r.status === 'closed' && (
             <div style={stageBox('#22C55E')}>
-              {stageTitle('#22C55E', '✓ 종결 완료')}
+              {stageTitle('#22C55E', 'â ì¢ê²° ìë£')}
               {r.approvals && r.approvals.map(a => (
                 <div key={a.role} style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 4 }}>
                   {a.role}: <strong style={{ color: 'var(--ink)' }}>{a.name}</strong>
-                  {a.note ? <span> — {a.note}</span> : null}
+                  {a.note ? <span> â {a.note}</span> : null}
                   <span> ({a.signedAt ? a.signedAt.slice(0, 10) : ''})</span>
                 </div>
               ))}
-              {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>종결일: {r.closedAt.slice(0, 10)}</div>}
+              {r.closedAt && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 6 }}>ì¢ê²°ì¼: {r.closedAt.slice(0, 10)}</div>}
             </div>
           )}
 
           {/* Delete */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-            <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, cursor: 'pointer' }} onClick={onRemove}>삭제</button>
+            <button style={{ background: 'none', border: 'none', color: '#DC2626', fontSize: 12, cursor: 'pointer' }} onClick={onRemove}>ì­ì </button>
           </div>
         </div>
       )}
@@ -360,13 +397,13 @@ function NcrCard({ r, expanded, onToggle, onUpdate, onRemove, btn, inp, onReload
 }
 
 
-// ── 재작업(Rework) 기록 탭 ─────────────────────────────────────
+// ââ ì¬ìì(Rework) ê¸°ë¡ í­ âââââââââââââââââââââââââââââââââââââ
 const REWORK_KEY = 'qualytree.rework_records'
 function ReworkTab({ ncrs = [] }) {
   const [records, setRecords] = React.useState([])
   const [showForm, setShowForm] = React.useState(false)
   const [editId, setEditId] = React.useState(null)
-  const EMPTY = { ncrId:'', reworkNo:'', productName:'', lotNo:'', reworkDate:'', operators:'', reworkDesc:'', result:'', inspResult:'합격', inspBy:'', status:'작성중', notes:'' }
+  const EMPTY = { ncrId:'', reworkNo:'', productName:'', lotNo:'', reworkDate:'', operators:'', reworkDesc:'', result:'', inspResult:'í©ê²©', inspBy:'', status:'ìì±ì¤', notes:'' }
   const [form, setForm] = React.useState(EMPTY)
 
   React.useEffect(()=>{ try { setRecords(JSON.parse(localStorage.getItem(REWORK_KEY)||'[]')) } catch {} },[])
@@ -378,16 +415,16 @@ function ReworkTab({ ncrs = [] }) {
     else persist([...records, {id:Date.now().toString(),...form}])
     setShowForm(false); setEditId(null); setForm(EMPTY)
   }
-  const del = id => { if(!window.confirm('삭제하시겠습니깊?')) return; persist(records.filter(r=>r.id!==id)) }
+  const del = id => { if(!window.confirm('ì­ì íìê² ìµëê¹?')) return; persist(records.filter(r=>r.id!==id)) }
 
   const inp = { width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:13 }
 
   return (
     <div style={{padding:'4px 0'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`재작업 기록 ${records.length}건`}</span>
+        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`ì¬ìì ê¸°ë¡ ${records.length}ê±´`}</span>
         <button onClick={()=>{setEditId(null);setForm({...EMPTY,reworkDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:600}}>
-          <Wrench size={14}/> 신규
+          <Wrench size={14}/> ì ê·
         </button>
       </div>
 
@@ -395,37 +432,37 @@ function ReworkTab({ ncrs = [] }) {
         <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:16}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>연결 NCR ID</div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì°ê²° NCR ID</div>
               <select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}>
-                <option value=''>-- 선택 --</option>
+                <option value=''>-- ì í --</option>
                 {ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 번호</div><input value={form.reworkNo} onChange={e=>setF('reworkNo',e.target.value)} style={inp} placeholder='RW-2026-001'/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>제품명</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>롟번호</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업일</div><input type='date' value={form.reworkDate} onChange={e=>setF('reworkDate',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>작업자</div><input value={form.operators} onChange={e=>setF('operators',e.target.value)} style={inp} placeholder='성명 복수 입력'/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 내용</div><textarea value={form.reworkDesc} onChange={e=>setF('reworkDesc',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>재작업 결과</div><textarea value={form.result} onChange={e=>setF('result',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ë²í¸</div><input value={form.reworkNo} onChange={e=>setF('reworkNo',e.target.value)} style={inp} placeholder='RW-2026-001'/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì íëª</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ë¡ë²í¸</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ììì¼</div><input type='date' value={form.reworkDate} onChange={e=>setF('reworkDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ììì</div><input value={form.operators} onChange={e=>setF('operators',e.target.value)} style={inp} placeholder='ì±ëª ë³µì ìë ¥'/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ë´ì©</div><textarea value={form.reworkDesc} onChange={e=>setF('reworkDesc',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¬ìì ê²°ê³¼</div><textarea value={form.result} onChange={e=>setF('result',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>검사 판정</div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ê²ì¬ íì </div>
               <select value={form.inspResult} onChange={e=>setF('inspResult',e.target.value)} style={inp}>
-                {['합격','불합격','보류'].map(o=><option key={o}>{o}</option>)}
+                {['í©ê²©','ë¶í©ê²©','ë³´ë¥'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>검사자</div><input value={form.inspBy} onChange={e=>setF('inspBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ê²ì¬ì</div><input value={form.inspBy} onChange={e=>setF('inspBy',e.target.value)} style={inp}/></div>
             <div>
-              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>상태</div>
+              <div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìí</div>
               <select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>
-                {['작성중','완료','승인'].map(o=><option key={o}>{o}</option>)}
+                {['ìì±ì¤','ìë£','ì¹ì¸'].map(o=><option key={o}>{o}</option>)}
               </select>
             </div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>특이사항</div><input value={form.notes} onChange={e=>setF('notes',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>í¹ì´ì¬í­</div><input value={form.notes} onChange={e=>setF('notes',e.target.value)} style={inp}/></div>
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>취소</button>
-            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>저장</button>
+            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>ì·¨ì</button>
+            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>ì ì¥</button>
           </div>
         </div>
       )}
@@ -433,14 +470,14 @@ function ReworkTab({ ncrs = [] }) {
       {records.length===0&&!showForm&&(
         <div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}>
           <Wrench size={32} style={{opacity:0.3,marginBottom:8}}/>
-          <p style={{fontSize:14}}>재작업 기록이 없습니다</p>
+          <p style={{fontSize:14}}>ì¬ìì ê¸°ë¡ì´ ììµëë¤</p>
         </div>
       )}
 
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {records.map(r=>{
-          const statusColor = r.status==='승인'?'#16A34A':r.status==='완료'?'#2563EB':'#6B7280'
-          const inspColor = r.inspResult==='합격'?'#16A34A':r.inspResult==='불합격'?'#DC2626':'#D97706'
+          const statusColor = r.status==='ì¹ì¸'?'#16A34A':r.status==='ìë£'?'#2563EB':'#6B7280'
+          const inspColor = r.inspResult==='í©ê²©'?'#16A34A':r.inspResult==='ë¶í©ê²©'?'#DC2626':'#D97706'
           return (
             <div key={r.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px'}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
@@ -450,12 +487,12 @@ function ReworkTab({ ncrs = [] }) {
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:inspColor+'22',color:inspColor,fontWeight:600}}>{r.inspResult}</span>
                     <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor+'22',color:statusColor,fontWeight:600}}>{r.status}</span>
                   </div>
-                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`· 롟: ${r.lotNo}`} · {r.reworkDate} · 작업자: {r.operators}</div>
-                  {r.reworkDesc&&<div style={{fontSize:12,marginTop:4,color:'var(--ink)'}}>{r.reworkDesc.slice(0,80)}{r.reworkDesc.length>80?'…':''}</div>}
+                  <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`Â· ë¡: ${r.lotNo}`} Â· {r.reworkDate} Â· ììì: {r.operators}</div>
+                  {r.reworkDesc&&<div style={{fontSize:12,marginTop:4,color:'var(--ink)'}}>{r.reworkDesc.slice(0,80)}{r.reworkDesc.length>80?'â¦':''}</div>}
                 </div>
                 <div style={{display:'flex',gap:4}}>
-                  <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,reworkNo:r.reworkNo,productName:r.productName,lotNo:r.lotNo,reworkDate:r.reworkDate,operators:r.operators,reworkDesc:r.reworkDesc,result:r.result,inspResult:r.inspResult,inspBy:r.inspBy,status:r.status,notes:r.notes});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
-                  <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>삭제</button>
+                  <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,reworkNo:r.reworkNo,productName:r.productName,lotNo:r.lotNo,reworkDate:r.reworkDate,operators:r.operators,reworkDesc:r.reworkDesc,result:r.result,inspResult:r.inspResult,inspBy:r.inspBy,status:r.status,notes:r.notes});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>í¸ì§</button>
+                  <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>ì­ì </button>
                 </div>
               </div>
             </div>
@@ -466,13 +503,13 @@ function ReworkTab({ ncrs = [] }) {
   )
 }
 
-// ── 특채(Concession) 승인 탭 ──────────────────────────────────
+// ââ í¹ì±(Concession) ì¹ì¸ í­ ââââââââââââââââââââââââââââââââââ
 const CONCESSION_KEY = 'qualytree.concession_records'
 function ConcessionTab({ ncrs = [] }) {
   const [records, setRecords] = React.useState([])
   const [showForm, setShowForm] = React.useState(false)
   const [editId, setEditId] = React.useState(null)
-  const EMPTY = { ncrId:'', concessionNo:'', productName:'', lotNo:'', qty:'', defectDesc:'', justification:'', conditions:'', requestedBy:'', approvedBy:'', approvedDate:'', status:'검토중' }
+  const EMPTY = { ncrId:'', concessionNo:'', productName:'', lotNo:'', qty:'', defectDesc:'', justification:'', conditions:'', requestedBy:'', approvedBy:'', approvedDate:'', status:'ê²í ì¤' }
   const [form, setForm] = React.useState(EMPTY)
 
   React.useEffect(()=>{ try { setRecords(JSON.parse(localStorage.getItem(CONCESSION_KEY)||'[]')) } catch {} },[])
@@ -484,41 +521,41 @@ function ConcessionTab({ ncrs = [] }) {
     else persist([...records, {id:Date.now().toString(),...form}])
     setShowForm(false); setEditId(null); setForm(EMPTY)
   }
-  const del = id => { if(!window.confirm('삭제?')) return; persist(records.filter(r=>r.id!==id)) }
+  const del = id => { if(!window.confirm('ì­ì ?')) return; persist(records.filter(r=>r.id!==id)) }
   const inp = { width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:13 }
 
-  const statusColor = s => s==='승인'?'#16A34A':s==='반려'?'#DC2626':'#D97706'
+  const statusColor = s => s==='ì¹ì¸'?'#16A34A':s==='ë°ë ¤'?'#DC2626':'#D97706'
 
   return (
     <div style={{padding:'4px 0'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`특채 기록 ${records.length}건`}</span>
+        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`í¹ì± ê¸°ë¡ ${records.length}ê±´`}</span>
         <button onClick={()=>{setEditId(null);setForm({...EMPTY,approvedDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:600}}>
-          <ClipboardCheck size={14}/> 신규
+          <ClipboardCheck size={14}/> ì ê·
         </button>
       </div>
       {showForm && (
         <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:16}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>연결 NCR ID</div><select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}><option value=''>-- 선택 --</option>{ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}</select></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>특채 번호</div><input value={form.concessionNo} onChange={e=>setF('concessionNo',e.target.value)} style={inp} placeholder='CON-2026-001'/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>제품명</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>롯번호 / 수량</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={{...inp,marginBottom:4}} placeholder='롯번호'/><input value={form.qty} onChange={e=>setF('qty',e.target.value)} style={inp} placeholder='수량(ea)'/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>부적합 내용</div><textarea value={form.defectDesc} onChange={e=>setF('defectDesc',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>특채 타당성 근거</div><textarea value={form.justification} onChange={e=>setF('justification',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>적용 조건 / 제한사항</div><textarea value={form.conditions} onChange={e=>setF('conditions',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>요청자</div><input value={form.requestedBy} onChange={e=>setF('requestedBy',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>승인자</div><input value={form.approvedBy} onChange={e=>setF('approvedBy',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>승인일</div><input type='date' value={form.approvedDate} onChange={e=>setF('approvedDate',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>상태</div><select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>{['검토중','승인','반려'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì°ê²° NCR ID</div><select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}><option value=''>-- ì í --</option>{ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>í¹ì± ë²í¸</div><input value={form.concessionNo} onChange={e=>setF('concessionNo',e.target.value)} style={inp} placeholder='CON-2026-001'/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì íëª</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ë¡¯ë²í¸ / ìë</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={{...inp,marginBottom:4}} placeholder='ë¡¯ë²í¸'/><input value={form.qty} onChange={e=>setF('qty',e.target.value)} style={inp} placeholder='ìë(ea)'/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ë¶ì í© ë´ì©</div><textarea value={form.defectDesc} onChange={e=>setF('defectDesc',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>í¹ì± íë¹ì± ê·¼ê±°</div><textarea value={form.justification} onChange={e=>setF('justification',e.target.value)} rows={3} style={{...inp,resize:'vertical'}}/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì ì© ì¡°ê±´ / ì íì¬í­</div><textarea value={form.conditions} onChange={e=>setF('conditions',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìì²­ì</div><input value={form.requestedBy} onChange={e=>setF('requestedBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¹ì¸ì</div><input value={form.approvedBy} onChange={e=>setF('approvedBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì¹ì¸ì¼</div><input type='date' value={form.approvedDate} onChange={e=>setF('approvedDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìí</div><select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>{['ê²í ì¤','ì¹ì¸','ë°ë ¤'].map(o=><option key={o}>{o}</option>)}</select></div>
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>취소</button>
-            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>저장</button>
+            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>ì·¨ì</button>
+            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>ì ì¥</button>
           </div>
         </div>
       )}
-      {records.length===0&&!showForm&&(<div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}><ClipboardCheck size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{fontSize:14}}>특채 기록이 없습니다</p></div>)}
+      {records.length===0&&!showForm&&(<div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}><ClipboardCheck size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{fontSize:14}}>í¹ì± ê¸°ë¡ì´ ììµëë¤</p></div>)}
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {records.map(r=>(
           <div key={r.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px'}}>
@@ -528,12 +565,12 @@ function ConcessionTab({ ncrs = [] }) {
                   <span style={{fontSize:14,fontWeight:600}}>{r.concessionNo}</span>
                   <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor(r.status)+'22',color:statusColor(r.status),fontWeight:600}}>{r.status}</span>
                 </div>
-                <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} · {r.approvedDate} · 승인: {r.approvedBy||'미정'}</div>
-                {r.justification&&<div style={{fontSize:12,marginTop:4}}>{r.justification.slice(0,80)}{r.justification.length>80?'…':''}</div>}
+                <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} Â· {r.approvedDate} Â· ì¹ì¸: {r.approvedBy||'ë¯¸ì '}</div>
+                {r.justification&&<div style={{fontSize:12,marginTop:4}}>{r.justification.slice(0,80)}{r.justification.length>80?'â¦':''}</div>}
               </div>
               <div style={{display:'flex',gap:4}}>
-                <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,concessionNo:r.concessionNo,productName:r.productName,lotNo:r.lotNo,qty:r.qty,defectDesc:r.defectDesc,justification:r.justification,conditions:r.conditions,requestedBy:r.requestedBy,approvedBy:r.approvedBy,approvedDate:r.approvedDate,status:r.status});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
-                <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>삭제</button>
+                <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,concessionNo:r.concessionNo,productName:r.productName,lotNo:r.lotNo,qty:r.qty,defectDesc:r.defectDesc,justification:r.justification,conditions:r.conditions,requestedBy:r.requestedBy,approvedBy:r.approvedBy,approvedDate:r.approvedDate,status:r.status});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>í¸ì§</button>
+                <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>ì­ì </button>
               </div>
             </div>
           </div>
@@ -543,13 +580,13 @@ function ConcessionTab({ ncrs = [] }) {
   )
 }
 
-// ── 불합격품 폐기 기록 탭 ──────────────────────────────────────
+// ââ ë¶í©ê²©í íê¸° ê¸°ë¡ í­ ââââââââââââââââââââââââââââââââââââââ
 const DISPOSAL_KEY = 'qualytree.disposal_records'
 function DisposalTab({ ncrs = [] }) {
   const [records, setRecords] = React.useState([])
   const [showForm, setShowForm] = React.useState(false)
   const [editId, setEditId] = React.useState(null)
-  const EMPTY = { ncrId:'', disposalNo:'', productName:'', lotNo:'', qty:'', defectReason:'', disposalMethod:'파쇄/분쇄', disposalDate:'', disposedBy:'', witnessedBy:'', status:'예정' }
+  const EMPTY = { ncrId:'', disposalNo:'', productName:'', lotNo:'', qty:'', defectReason:'', disposalMethod:'íì/ë¶ì', disposalDate:'', disposedBy:'', witnessedBy:'', status:'ìì ' }
   const [form, setForm] = React.useState(EMPTY)
 
   React.useEffect(()=>{ try { setRecords(JSON.parse(localStorage.getItem(DISPOSAL_KEY)||'[]')) } catch {} },[])
@@ -561,39 +598,39 @@ function DisposalTab({ ncrs = [] }) {
     else persist([...records, {id:Date.now().toString(),...form}])
     setShowForm(false); setEditId(null); setForm(EMPTY)
   }
-  const del = id => { if(!window.confirm('삭제?')) return; persist(records.filter(r=>r.id!==id)) }
+  const del = id => { if(!window.confirm('ì­ì ?')) return; persist(records.filter(r=>r.id!==id)) }
   const inp = { width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--ink)', fontSize:13 }
-  const statusColor = s => s==='완료'?'#16A34A':s==='진행중'?'#2563EB':'#6B7280'
+  const statusColor = s => s==='ìë£'?'#16A34A':s==='ì§íì¤'?'#2563EB':'#6B7280'
 
   return (
     <div style={{padding:'4px 0'}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
-        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`폐기 기록 ${records.length}건`}</span>
+        <span style={{fontSize:13,color:'var(--ink-faint)'}}>{`íê¸° ê¸°ë¡ ${records.length}ê±´`}</span>
         <button onClick={()=>{setEditId(null);setForm({...EMPTY,disposalDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:8,background:'#DC2626',color:'#fff',border:'none',cursor:'pointer',fontSize:13,fontWeight:600}}>
-          <Trash2 size={14}/> 신규
+          <Trash2 size={14}/> ì ê·
         </button>
       </div>
       {showForm && (
         <div style={{background:'var(--surface-2)',border:'1px solid var(--border)',borderRadius:12,padding:16,marginBottom:16}}>
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:10}}>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>연결 NCR ID</div><select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}><option value=''>-- 선택 --</option>{ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}</select></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>폐기 번호</div><input value={form.disposalNo} onChange={e=>setF('disposalNo',e.target.value)} style={inp} placeholder='DIS-2026-001'/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>제품명</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>롯번호 / 수량</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={{...inp,marginBottom:4}} placeholder='롯번호'/><input value={form.qty} onChange={e=>setF('qty',e.target.value)} style={inp} placeholder='수량(ea)'/></div>
-            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>폐기 사유</div><textarea value={form.defectReason} onChange={e=>setF('defectReason',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>폐기 방법</div><select value={form.disposalMethod} onChange={e=>setF('disposalMethod',e.target.value)} style={inp}>{['파쇄/분쇄','소각','매립','전문업체 위탁','기타'].map(o=><option key={o}>{o}</option>)}</select></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>폐기일</div><input type='date' value={form.disposalDate} onChange={e=>setF('disposalDate',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>처리자</div><input value={form.disposedBy} onChange={e=>setF('disposedBy',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>입회자</div><input value={form.witnessedBy} onChange={e=>setF('witnessedBy',e.target.value)} style={inp}/></div>
-            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>상태</div><select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>{['예정','진행중','완료'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì°ê²° NCR ID</div><select value={form.ncrId} onChange={e=>setF('ncrId',e.target.value)} style={inp}><option value=''>-- ì í --</option>{ncrs.map(n=><option key={n.id} value={n.id}>{n.id?.slice(-6)} {n.title}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>íê¸° ë²í¸</div><input value={form.disposalNo} onChange={e=>setF('disposalNo',e.target.value)} style={inp} placeholder='DIS-2026-001'/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì íëª</div><input value={form.productName} onChange={e=>setF('productName',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ë¡¯ë²í¸ / ìë</div><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} style={{...inp,marginBottom:4}} placeholder='ë¡¯ë²í¸'/><input value={form.qty} onChange={e=>setF('qty',e.target.value)} style={inp} placeholder='ìë(ea)'/></div>
+            <div style={{gridColumn:'span 2'}}><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>íê¸° ì¬ì </div><textarea value={form.defectReason} onChange={e=>setF('defectReason',e.target.value)} rows={2} style={{...inp,resize:'vertical'}}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>íê¸° ë°©ë²</div><select value={form.disposalMethod} onChange={e=>setF('disposalMethod',e.target.value)} style={inp}>{['íì/ë¶ì','ìê°','ë§¤ë¦½','ì ë¬¸ìì²´ ìí','ê¸°í'].map(o=><option key={o}>{o}</option>)}</select></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>íê¸°ì¼</div><input type='date' value={form.disposalDate} onChange={e=>setF('disposalDate',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ì²ë¦¬ì</div><input value={form.disposedBy} onChange={e=>setF('disposedBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìíì</div><input value={form.witnessedBy} onChange={e=>setF('witnessedBy',e.target.value)} style={inp}/></div>
+            <div><div style={{fontSize:12,color:'var(--ink-faint)',marginBottom:4}}>ìí</div><select value={form.status} onChange={e=>setF('status',e.target.value)} style={inp}>{['ìì ','ì§íì¤','ìë£'].map(o=><option key={o}>{o}</option>)}</select></div>
           </div>
           <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
-            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>취소</button>
-            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>저장</button>
+            <button onClick={()=>setShowForm(false)} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>ì·¨ì</button>
+            <button onClick={save} style={{padding:'6px 14px',borderRadius:8,fontSize:13,background:'var(--accent)',color:'#fff',border:'none',cursor:'pointer',fontWeight:600}}>ì ì¥</button>
           </div>
         </div>
       )}
-      {records.length===0&&!showForm&&(<div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}><Trash2 size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{fontSize:14}}>폐기 기록이 없습니다</p></div>)}
+      {records.length===0&&!showForm&&(<div style={{textAlign:'center',padding:'40px 0',color:'var(--ink-faint)'}}><Trash2 size={32} style={{opacity:0.3,marginBottom:8}}/><p style={{fontSize:14}}>íê¸° ê¸°ë¡ì´ ììµëë¤</p></div>)}
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {records.map(r=>(
           <div key={r.id} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'12px 14px',borderLeft:'3px solid #DC2626'}}>
@@ -604,11 +641,11 @@ function DisposalTab({ ncrs = [] }) {
                   <span style={{fontSize:11,padding:'2px 7px',borderRadius:99,background:statusColor(r.status)+'22',color:statusColor(r.status),fontWeight:600}}>{r.status}</span>
                   <span style={{fontSize:11,color:'var(--ink-faint)'}}>{r.disposalMethod}</span>
                 </div>
-                <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`· 롯: ${r.lotNo}`} · {r.disposalDate} · {r.disposedBy}</div>
+                <div style={{fontSize:12,color:'var(--ink-faint)'}}>{r.productName} {r.lotNo&&`Â· ë¡¯: ${r.lotNo}`} Â· {r.disposalDate} Â· {r.disposedBy}</div>
               </div>
               <div style={{display:'flex',gap:4}}>
-                <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,disposalNo:r.disposalNo,productName:r.productName,lotNo:r.lotNo,qty:r.qty,defectReason:r.defectReason,disposalMethod:r.disposalMethod,disposalDate:r.disposalDate,disposedBy:r.disposedBy,witnessedBy:r.witnessedBy,status:r.status});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>편집</button>
-                <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>삭제</button>
+                <button onClick={()=>{setEditId(r.id);setForm({ncrId:r.ncrId,disposalNo:r.disposalNo,productName:r.productName,lotNo:r.lotNo,qty:r.qty,defectReason:r.defectReason,disposalMethod:r.disposalMethod,disposalDate:r.disposalDate,disposedBy:r.disposedBy,witnessedBy:r.witnessedBy,status:r.status});setShowForm(true)}} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'var(--surface-2)',border:'1px solid var(--border)',cursor:'pointer'}}>í¸ì§</button>
+                <button onClick={()=>del(r.id)} style={{padding:'4px 8px',borderRadius:6,fontSize:12,background:'#FEE2E2',color:'#DC2626',border:'none',cursor:'pointer'}}>ì­ì </button>
               </div>
             </div>
           </div>
