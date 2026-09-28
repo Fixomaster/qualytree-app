@@ -1,13 +1,24 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Tag, Package, Link2, Plus, Trash2, Printer, CheckCircle } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 
 const LS_LABELS = 'qualytree.labels'
 const LS_PKG = 'qualytree.packaging_materials'
+let _sbCidLbl = null
 
 const load = k => { try { return JSON.parse(localStorage.getItem(k)||'[]') } catch { return [] } }
-const save = (k, v) => localStorage.setItem(k, JSON.stringify(v))
+const save = (k, v) => {
+  localStorage.setItem(k, JSON.stringify(v))
+  if (_sbCidLbl) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidLbl, data_type: 'localStorage_sync',
+      data_key: k, payload: v
+    }, { onConflict: 'company_id,data_type,data_key' })
+  }
+}
 
 const LABEL_TABS = [
   { key:'label', label:'라벨 관리', icon: Tag },
@@ -20,6 +31,8 @@ const EMPTY_LABEL = { partNo:'', name:'', version:'', category:'', status:'draft
 const EMPTY_PKG = { code:'', name:'', type:'', supplier:'', unit:'', status:'active', notes:'' }
 
 export default function LabelPackagingHub() {
+  const user = auth.current()
+  const companyId = user?.company_id
   const [activeTab, setActiveTab] = useState('label')
   const [labels, setLabels] = useState(() => load(LS_LABELS))
   const [pkgs, setPkgs] = useState(() => load(LS_PKG))
@@ -27,6 +40,33 @@ export default function LabelPackagingHub() {
   const [pkgForm, setPkgForm] = useState(EMPTY_PKG)
   const [showLabelForm, setShowLabelForm] = useState(false)
   const [showPkgForm, setShowPkgForm] = useState(false)
+  useEffect(() => { _sbCidLbl = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_LABELS)
+      .maybeSingle()
+      .then(({ data: d }) => {
+        if (d?.payload) {
+          setLabels(d.payload)
+          localStorage.setItem(LS_LABELS, JSON.stringify(d.payload))
+        }
+      })
+  }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_PKG)
+      .maybeSingle()
+      .then(({ data: d }) => {
+        if (d?.payload) {
+          setPkgs(d.payload)
+          localStorage.setItem(LS_PKG, JSON.stringify(d.payload))
+        }
+      })
+  }, [companyId])
 
   const saveLabels = arr => { save(LS_LABELS, arr); setLabels(arr) }
   const savePkgs = arr => { save(LS_PKG, arr); setPkgs(arr) }
