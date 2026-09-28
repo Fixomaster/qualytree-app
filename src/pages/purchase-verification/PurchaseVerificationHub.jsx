@@ -1,6 +1,6 @@
 // src/pages/purchase-verification/PurchaseVerificationHub.jsx
 // ISO 13485 §7.4.2 구매 정보 / §7.4.3 구매된 제품의 검증
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, FileText, CheckCircle2,
@@ -11,6 +11,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_PO  = 'qualytree.purchase_orders'
@@ -100,6 +101,7 @@ const DEFAULT_CHECK_ITEMS = {
 // ── 메인 ─────────────────────────────────────────────────────
 // ── 입고·출고 기록 패널 (KGMP 유지 기록) ────────────────────────
 const LS_INOUT = 'qualytree.receiving_shipping'
+let _sbCidPVH = null
 const EMPTY_INOUT = { type: 'in', date: '', itemName: '', qty: '', partner: '', note: '' }
 
 function ReceivingShippingPanel({ canEdit }) {
@@ -109,7 +111,18 @@ function ReceivingShippingPanel({ canEdit }) {
   const [form, setForm] = useState(EMPTY_INOUT)
   const [showForm, setShowForm] = useState(false)
 
-  function saveAll(list) { setRecords(list); localStorage.setItem(LS_INOUT, JSON.stringify(list)) }
+  function saveAll(list) {
+    setRecords(list)
+    localStorage.setItem(LS_INOUT, JSON.stringify(list))
+    if (_sbCidPVH) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidPVH,
+        data_type: 'localStorage_sync',
+        data_key: LS_INOUT,
+        payload: list,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
 
   function submit() {
     if (!form.itemName.trim()) return alert('품목명을 입력하세요.')
@@ -224,6 +237,31 @@ function ReceivingShippingPanel({ canEdit }) {
 
 export default function PurchaseVerificationHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidPVH = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    const SB_DT = 'localStorage_sync'
+    const keySetters = [
+      [LS_PO, setOrders],
+      [LS_IQC, setIqcs],
+      [LS_INOUT, setRecords],
+    ]
+    keySetters.forEach(([key, setter]) => {
+      supabase.from('company_data')
+        .select('payload')
+        .eq('company_id', companyId)
+        .eq('data_type', SB_DT)
+        .eq('data_key', key)
+        .maybeSingle()
+        .then(({ data: row }) => {
+          if (row?.payload != null) {
+            localStorage.setItem(key, JSON.stringify(row.payload))
+            setter(row.payload)
+          }
+        })
+    })
+  }, [companyId])
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
 
