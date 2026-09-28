@@ -1,6 +1,6 @@
 // src/pages/device-file/DeviceFileHub.jsx
-// ISO 13485 §4.2.3 — 의료기기 파일 (Device Master Record / Technical File)
-import React, { useState, useMemo } from 'react'
+// ISO 13485 Â§4.2.3 â ìë£ê¸°ê¸° íì¼ (Device Master Record / Technical File)
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Save, Edit2, Trash2, Package, FileText,
   CheckCircle2, AlertTriangle, Link2, Layers,
@@ -11,88 +11,91 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 
-// ── 상수 ─────────────────────────────────────────────────────
+// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const LS_KEY = 'qualytree.device_files'
+let _sbCidDf = null
 
-// §4.2.3 필수 항목 카테고리
+// Â§4.2.3 íì í­ëª© ì¹´íê³ ë¦¬
 const FILE_SECTIONS = [
-  { key: 'general',        label: '기기 일반 정보',    icon: Package,       clause: '§4.2.3(a)' },
-  { key: 'specs',          label: '사양 및 설계',       icon: Cpu,           clause: '§4.2.3(b)' },
-  { key: 'manufacturing',  label: '제조 절차',          icon: Layers,        clause: '§4.2.3(c)' },
-  { key: 'qms',            label: 'QMS 요구사항',       icon: ShieldCheck,   clause: '§4.2.3(d)' },
-  { key: 'risk',           label: '위험관리',           icon: AlertTriangle, clause: '§4.2.3(e)' },
-  { key: 'labeling',       label: '라벨·포장',          icon: Tag,           clause: '§4.2.3(f)' },
-  { key: 'regulatory',     label: '인허가',             icon: BookOpen,      clause: '§4.2.3(g)' },
-  { key: 'links',          label: '연결 문서',          icon: Link2,         clause: '참조' },
+  { key: 'general',        label: 'ê¸°ê¸° ì¼ë° ì ë³´',    icon: Package,       clause: 'Â§4.2.3(a)' },
+  { key: 'specs',          label: 'ì¬ì ë° ì¤ê³',       icon: Cpu,           clause: 'Â§4.2.3(b)' },
+  { key: 'manufacturing',  label: 'ì ì¡° ì ì°¨',          icon: Layers,        clause: 'Â§4.2.3(c)' },
+  { key: 'qms',            label: 'QMS ìêµ¬ì¬í­',       icon: ShieldCheck,   clause: 'Â§4.2.3(d)' },
+  { key: 'risk',           label: 'ìíê´ë¦¬',           icon: AlertTriangle, clause: 'Â§4.2.3(e)' },
+  { key: 'labeling',       label: 'ë¼ë²¨Â·í¬ì¥',          icon: Tag,           clause: 'Â§4.2.3(f)' },
+  { key: 'regulatory',     label: 'ì¸íê°',             icon: BookOpen,      clause: 'Â§4.2.3(g)' },
+  { key: 'links',          label: 'ì°ê²° ë¬¸ì',          icon: Link2,         clause: 'ì°¸ì¡°' },
 ]
 
-const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', '미분류']
-const STERILITY_OPTIONS = ['비멸균', '멸균 (EO)', '멸균 (감마선)', '멸균 (증기)', '멸균 (기타)']
+const DEVICE_CLASSES = ['Class I', 'Class II', 'Class IIa', 'Class IIb', 'Class III', 'ë¯¸ë¶ë¥']
+const STERILITY_OPTIONS = ['ë¹ë©¸ê· ', 'ë©¸ê·  (EO)', 'ë©¸ê·  (ê°ë§ì )', 'ë©¸ê·  (ì¦ê¸°)', 'ë©¸ê·  (ê¸°í)']
 const FILE_STATUSES = {
-  draft:    { label: '초안',   color: '#9CA3AF', bg: '#F3F4F6' },
-  review:   { label: '검토',   color: '#D97706', bg: '#FEF3C7' },
-  approved: { label: '승인',   color: '#059669', bg: '#D1FAE5' },
-  obsolete: { label: '폐기',   color: '#6B7280', bg: '#F3F4F6' },
+  draft:    { label: 'ì´ì',   color: '#9CA3AF', bg: '#F3F4F6' },
+  review:   { label: 'ê²í ',   color: '#D97706', bg: '#FEF3C7' },
+  approved: { label: 'ì¹ì¸',   color: '#059669', bg: '#D1FAE5' },
+  obsolete: { label: 'íê¸°',   color: '#6B7280', bg: '#F3F4F6' },
 }
 
 function genId() { return `DMR-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_FILE = {
-  // §4.2.3(a) 기기 일반 정보
+  // Â§4.2.3(a) ê¸°ê¸° ì¼ë° ì ë³´
   productKey: '', productName: '', productCode: '', modelNo: '', revision: 'Rev.0',
   deviceClass: 'Class II', intendedUse: '', indications: '',
   contraindications: '', patientPopulation: '',
-  sterility: '비멸균', singleUse: false, implantable: false, activeDevice: false,
+  sterility: 'ë¹ë©¸ê· ', singleUse: false, implantable: false, activeDevice: false,
   status: 'draft', preparedBy: '', reviewedBy: '', approvedBy: '',
   issueDate: today(), reviewDate: '',
 
-  // §4.2.3(b) 사양 및 설계
+  // Â§4.2.3(b) ì¬ì ë° ì¤ê³
   drawingNos: '', materialSpec: '', performanceSpec: '', safetySpec: '',
   biocompatibility: '', softwareVersion: '', softwareClass: '',
   linkedDhfId: '',
 
-  // §4.2.3(c) 제조 절차
+  // Â§4.2.3(c) ì ì¡° ì ì°¨
   mfgSiteAddress: '', mfgProcedures: '', processList: '',
   equipmentList: '', environmentReqs: '', packagingSpec: '',
   sterilizationSpec: '', shelfLife: '',
 
-  // §4.2.3(d) QMS 요구사항
+  // Â§4.2.3(d) QMS ìêµ¬ì¬í­
   applicableStandards: '', testMethods: '', acceptanceCriteria: '',
   inspectionReqs: '', recordsToMaintain: '',
   linkedChangeId: '', linkedValidationId: '',
 
-  // §4.2.3(e) 위험관리
+  // Â§4.2.3(e) ìíê´ë¦¬
   riskMgmtSummary: '', residualRiskAcceptable: false,
   usabilityStudy: '', linkedRiskId: '',
 
-  // §4.2.3(f) 라벨·포장
+  // Â§4.2.3(f) ë¼ë²¨Â·í¬ì¥
   labelContent: '', labelLanguages: '', labelingStandard: '',
   ifu: false, ifuContent: '', packagingMaterial: '',
   udiDI: '', udiFormatType: 'GS1-128',
 
-  // §4.2.3(g) 인허가
+  // Â§4.2.3(g) ì¸íê°
   regulatoryStatus: '', certNo: '', certBody: '', certExpiry: '',
   submissionType: '', submissionDate: '', approvalDate: '',
   marketedCountries: '', notifiedBodyNo: '',
   linkedRegulatoryId: '',
 
-  // 연결
+  // ì°ê²°
   linkedQpId: '', linkedDocControlIds: '',
   notes: '',
 
-  // 완성도 섹션 체크
+  // ìì±ë ì¹ì ì²´í¬
   sectionStatus: {}, // { sectionKey: 'complete'|'partial'|'' }
 }
 
-// ── 메인 ─────────────────────────────────────────────────────
+// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function DeviceFileHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
+  const companyId = user?.company_id
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
-  // #283,303: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 DMR만 노출한다.
+  // #283,303: ì íê³µì (ProductsHub)ì ìë² ëë  ëë í´ë¹ ì í(productKey)ì DMRë§ ë¸ì¶íë¤.
   const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [files, setFiles] = useState(() => {
@@ -105,6 +108,20 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
   const [activeSection, setActiveSection] = useState('general')
   const [filterStatus, setFilterStatus] = useState('all')
   const [tab, setTab] = useState('list')   // list | detail | analysis
+  useEffect(() => { _sbCidDf = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.payload) {
+          setFiles(data.payload)
+          localStorage.setItem(LS_KEY, JSON.stringify(data.payload))
+        }
+      })
+  }, [companyId])
 
   React.useEffect(() => {
     if (!scopeKey) return
@@ -113,10 +130,19 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
     else if (mine.length === 0) { setTab('list') }
   }, [scopeKey, files])
 
-  function save(list) { setFiles(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
+  function save(list) {
+    setFiles(list)
+    localStorage.setItem(LS_KEY, JSON.stringify(list))
+    if (_sbCidDf) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidDf, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: list
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   function submitFile() {
-    if (!form.productName.trim()) return alert('제품명을 입력하세요.')
+    if (!form.productName.trim()) return alert('ì íëªì ìë ¥íì¸ì.')
     const isEdit = !!editId
     const obj = isEdit
       ? files.map(f => f.id === editId ? { ...f, ...form } : f)
@@ -126,14 +152,14 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
   }
 
   function deleteFile(id) {
-    if (!confirm('의료기기 파일을 삭제하시겠습니까?')) return
+    if (!confirm('ìë£ê¸°ê¸° íì¼ì ì­ì íìê² ìµëê¹?')) return
     save(files.filter(f => f.id !== id))
     if (selectedId === id) { setSelectedId(null); setTab('list') }
   }
 
   const selectedFile = files.find(f => f.id === selectedId)
 
-  // 각 파일의 완성도 계산
+  // ê° íì¼ì ìì±ë ê³ì°
   function calcCompleteness(file) {
     const checks = {
       general:       !!(file.productName && file.intendedUse && file.deviceClass),
@@ -165,12 +191,12 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
   const body = (
     <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1600px] mx-auto'}>
 
-        {/* 탭 */}
+        {/* í­ */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `파일 목록 (${files.length})` },
-            { key: 'detail',   label: selectedFile ? `상세: ${selectedFile.productName}` : '상세 보기' },
-            { key: 'analysis', label: '현황 분석' },
+            { key: 'list',     label: `íì¼ ëª©ë¡ (${files.length})` },
+            { key: 'detail',   label: selectedFile ? `ìì¸: ${selectedFile.productName}` : 'ìì¸ ë³´ê¸°' },
+            { key: 'analysis', label: 'íí© ë¶ì' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -185,21 +211,21 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
           ))}
         </div>
 
-        {/* ── 목록 탭 ── */}
+        {/* ââ ëª©ë¡ í­ ââ */}
         {tab === 'list' && (
           <div>
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">전체 상태</option>
+                <option value="all">ì ì²´ ìí</option>
                 {Object.entries(FILE_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm({ ...EMPTY_FILE, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> 의료기기 파일 등록
+                  <Plus size={14} /> ìë£ê¸°ê¸° íì¼ ë±ë¡
                 </button>
               )}
             </div>
@@ -212,7 +238,7 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
 
             <div className="space-y-3">
               {filtered.length === 0 && (
-                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>등록된 의료기기 파일이 없습니다.</div>
+                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ìë£ê¸°ê¸° íì¼ì´ ììµëë¤.</div>
               )}
               {filtered.map(file => {
                 const comp = calcCompleteness(file)
@@ -229,13 +255,13 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
                           <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                           <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>{file.deviceClass}</span>
                           <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{file.revision}</span>
-                          {file.singleUse && <span className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>일회용</span>}
-                          {file.implantable && <span className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: '#EDE9FE', color: '#7C3AED' }}>이식형</span>}
+                          {file.singleUse && <span className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>ì¼íì©</span>}
+                          {file.implantable && <span className="text-[10.5px] px-1.5 py-0.5 rounded" style={{ background: '#EDE9FE', color: '#7C3AED' }}>ì´ìí</span>}
                         </div>
                         {file.intendedUse && (
                           <div className="text-[12.5px] line-clamp-1 mb-2" style={{ color: 'var(--ink-soft)' }}>{file.intendedUse}</div>
                         )}
-                        {/* 완성도 바 */}
+                        {/* ìì±ë ë° */}
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 rounded-full" style={{ background: 'var(--bg-soft)', maxWidth: 200 }}>
                             <div className="h-1.5 rounded-full transition-all"
@@ -275,10 +301,10 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
           </div>
         )}
 
-        {/* ── 상세 탭 ── */}
+        {/* ââ ìì¸ í­ ââ */}
         {tab === 'detail' && !selectedFile && (
           <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-            목록에서 의료기기 파일을 선택하세요.
+            ëª©ë¡ìì ìë£ê¸°ê¸° íì¼ì ì ííì¸ì.
           </div>
         )}
         {tab === 'detail' && selectedFile && (
@@ -288,7 +314,7 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
             calcCompleteness={calcCompleteness} />
         )}
 
-        {/* ── 분석 탭 ── */}
+        {/* ââ ë¶ì í­ ââ */}
         {tab === 'analysis' && <AnalysisView analysis={analysis} files={files} calcCompleteness={calcCompleteness} />}
     </div>
   )
@@ -296,20 +322,20 @@ export default function DeviceFileHub({ embedded = false, productKey: scopeProdu
   if (embedded) return body
 
   return (
-    <AppLayout user={user} title="의료기기 파일" subtitle="ISO 13485 §4.2.3 — Device Master Record / Technical File">
+    <AppLayout user={user} title="ìë£ê¸°ê¸° íì¼" subtitle="ISO 13485 Â§4.2.3 â Device Master Record / Technical File">
       {body}
     </AppLayout>
   )
 }
 
-// ── 상세 뷰 ─────────────────────────────────────────────────
+// ââ ìì¸ ë·° âââââââââââââââââââââââââââââââââââââââââââââââââ
 function DetailView({ file, canEdit, onEdit, activeSection, setActiveSection, calcCompleteness }) {
   const comp = calcCompleteness(file)
   const st = FILE_STATUSES[file.status] || FILE_STATUSES.draft
 
   return (
     <div className="flex gap-4 h-full">
-      {/* 섹션 사이드바 */}
+      {/* ì¹ì ì¬ì´ëë° */}
       <div className="shrink-0 w-48 space-y-1">
         {FILE_SECTIONS.map(s => {
           const Icon = s.icon
@@ -337,24 +363,24 @@ function DetailView({ file, canEdit, onEdit, activeSection, setActiveSection, ca
         })}
         <div className="pt-3 text-center">
           <div className="text-[20px] font-bold" style={{ color: comp.pct >= 80 ? '#059669' : '#D97706' }}>{comp.pct}%</div>
-          <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>파일 완성도</div>
+          <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>íì¼ ìì±ë</div>
         </div>
         {canEdit && (
           <button onClick={onEdit} className="w-full flex items-center justify-center gap-1 px-3 py-2 rounded-xl text-[12px] font-bold mt-2"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <Edit2 size={12} /> 편집
+            <Edit2 size={12} /> í¸ì§
           </button>
         )}
       </div>
 
-      {/* 섹션 컨텐츠 */}
+      {/* ì¹ì ì»¨íì¸  */}
       <div className="flex-1 min-w-0 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        {/* 헤더 */}
+        {/* í¤ë */}
         <div className="flex items-center gap-3 mb-4 pb-3" style={{ borderBottom: '1px solid var(--line)' }}>
           <div>
             <div className="font-bold text-[16px]" style={{ color: 'var(--ink)' }}>{file.productName}</div>
             <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
-              {file.productCode} · {file.deviceClass} · {file.revision}
+              {file.productCode} Â· {file.deviceClass} Â· {file.revision}
               <span className="ml-2 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: (FILE_STATUSES[file.status] || FILE_STATUSES.draft).bg, color: (FILE_STATUSES[file.status] || FILE_STATUSES.draft).color }}>
                 {(FILE_STATUSES[file.status] || FILE_STATUSES.draft).label}
               </span>
@@ -362,82 +388,82 @@ function DetailView({ file, canEdit, onEdit, activeSection, setActiveSection, ca
           </div>
         </div>
 
-        {/* 각 섹션 내용 */}
+        {/* ê° ì¹ì ë´ì© */}
         {activeSection === 'general' && (
-          <SectionContent title="§4.2.3(a) 기기 일반 정보" items={[
-            ['모델 번호', file.modelNo], ['기기 등급', file.deviceClass],
-            ['멸균 여부', file.sterility], ['승인자', file.approvedBy],
-            ['유효일', file.issueDate], ['검토 예정일', file.reviewDate],
-            ['일회용', file.singleUse ? '예' : '아니오'], ['이식형', file.implantable ? '예' : '아니오'],
-            ['능동형 기기', file.activeDevice ? '예' : '아니오'],
+          <SectionContent title="Â§4.2.3(a) ê¸°ê¸° ì¼ë° ì ë³´" items={[
+            ['ëª¨ë¸ ë²í¸', file.modelNo], ['ê¸°ê¸° ë±ê¸', file.deviceClass],
+            ['ë©¸ê·  ì¬ë¶', file.sterility], ['ì¹ì¸ì', file.approvedBy],
+            ['ì í¨ì¼', file.issueDate], ['ê²í  ìì ì¼', file.reviewDate],
+            ['ì¼íì©', file.singleUse ? 'ì' : 'ìëì¤'], ['ì´ìí', file.implantable ? 'ì' : 'ìëì¤'],
+            ['ë¥ëí ê¸°ê¸°', file.activeDevice ? 'ì' : 'ìëì¤'],
           ]} texts={[
-            ['사용 목적 (Intended Use)', file.intendedUse],
-            ['적응증', file.indications],
-            ['금기사항', file.contraindications],
-            ['대상 환자군', file.patientPopulation],
+            ['ì¬ì© ëª©ì  (Intended Use)', file.intendedUse],
+            ['ì ìì¦', file.indications],
+            ['ê¸ê¸°ì¬í­', file.contraindications],
+            ['ëì íìêµ°', file.patientPopulation],
           ]} />
         )}
         {activeSection === 'specs' && (
-          <SectionContent title="§4.2.3(b) 사양 및 설계" items={[
-            ['도면 번호', file.drawingNos], ['소프트웨어 버전', file.softwareVersion],
-            ['소프트웨어 등급', file.softwareClass], ['연결 DHF', file.linkedDhfId],
+          <SectionContent title="Â§4.2.3(b) ì¬ì ë° ì¤ê³" items={[
+            ['ëë©´ ë²í¸', file.drawingNos], ['ìíí¸ì¨ì´ ë²ì ', file.softwareVersion],
+            ['ìíí¸ì¨ì´ ë±ê¸', file.softwareClass], ['ì°ê²° DHF', file.linkedDhfId],
           ]} texts={[
-            ['재료 사양', file.materialSpec], ['성능 사양', file.performanceSpec],
-            ['안전 사양', file.safetySpec], ['생체적합성', file.biocompatibility],
+            ['ì¬ë£ ì¬ì', file.materialSpec], ['ì±ë¥ ì¬ì', file.performanceSpec],
+            ['ìì  ì¬ì', file.safetySpec], ['ìì²´ì í©ì±', file.biocompatibility],
           ]} />
         )}
         {activeSection === 'manufacturing' && (
-          <SectionContent title="§4.2.3(c) 제조 절차" items={[
-            ['제조 사업장', file.mfgSiteAddress], ['보관 수명', file.shelfLife],
+          <SectionContent title="Â§4.2.3(c) ì ì¡° ì ì°¨" items={[
+            ['ì ì¡° ì¬ìì¥', file.mfgSiteAddress], ['ë³´ê´ ìëª', file.shelfLife],
           ]} texts={[
-            ['제조 절차', file.mfgProcedures], ['공정 목록', file.processList],
-            ['설비 목록', file.equipmentList], ['환경 요구사항', file.environmentReqs],
-            ['포장 사양', file.packagingSpec], ['멸균 사양', file.sterilizationSpec],
+            ['ì ì¡° ì ì°¨', file.mfgProcedures], ['ê³µì  ëª©ë¡', file.processList],
+            ['ì¤ë¹ ëª©ë¡', file.equipmentList], ['íê²½ ìêµ¬ì¬í­', file.environmentReqs],
+            ['í¬ì¥ ì¬ì', file.packagingSpec], ['ë©¸ê·  ì¬ì', file.sterilizationSpec],
           ]} />
         )}
         {activeSection === 'qms' && (
-          <SectionContent title="§4.2.3(d) QMS 요구사항" items={[
-            ['연결 변경관리', file.linkedChangeId], ['연결 밸리데이션', file.linkedValidationId],
+          <SectionContent title="Â§4.2.3(d) QMS ìêµ¬ì¬í­" items={[
+            ['ì°ê²° ë³ê²½ê´ë¦¬', file.linkedChangeId], ['ì°ê²° ë°¸ë¦¬ë°ì´ì', file.linkedValidationId],
           ]} texts={[
-            ['적용 표준·규격', file.applicableStandards], ['시험 방법', file.testMethods],
-            ['합격 기준', file.acceptanceCriteria], ['검사 요구사항', file.inspectionReqs],
-            ['유지 기록 목록', file.recordsToMaintain],
+            ['ì ì© íì¤Â·ê·ê²©', file.applicableStandards], ['ìí ë°©ë²', file.testMethods],
+            ['í©ê²© ê¸°ì¤', file.acceptanceCriteria], ['ê²ì¬ ìêµ¬ì¬í­', file.inspectionReqs],
+            ['ì ì§ ê¸°ë¡ ëª©ë¡', file.recordsToMaintain],
           ]} />
         )}
         {activeSection === 'risk' && (
-          <SectionContent title="§4.2.3(e) 위험관리" items={[
-            ['연결 위험관리 ID', file.linkedRiskId], ['잔류위험 수용 가능', file.residualRiskAcceptable ? '예' : '아니오'],
+          <SectionContent title="Â§4.2.3(e) ìíê´ë¦¬" items={[
+            ['ì°ê²° ìíê´ë¦¬ ID', file.linkedRiskId], ['ìë¥ìí ìì© ê°ë¥', file.residualRiskAcceptable ? 'ì' : 'ìëì¤'],
           ]} texts={[
-            ['위험관리 요약', file.riskMgmtSummary], ['사용적합성 연구', file.usabilityStudy],
+            ['ìíê´ë¦¬ ìì½', file.riskMgmtSummary], ['ì¬ì©ì í©ì± ì°êµ¬', file.usabilityStudy],
           ]} />
         )}
         {activeSection === 'labeling' && (
-          <SectionContent title="§4.2.3(f) 라벨·포장" items={[
-            ['UDI-DI', file.udiDI], ['UDI 형식', file.udiFormatType],
-            ['표시 언어', file.labelLanguages], ['라벨 표준', file.labelingStandard],
-            ['사용설명서 (IFU)', file.ifu ? '포함' : '해당 없음'],
+          <SectionContent title="Â§4.2.3(f) ë¼ë²¨Â·í¬ì¥" items={[
+            ['UDI-DI', file.udiDI], ['UDI íì', file.udiFormatType],
+            ['íì ì¸ì´', file.labelLanguages], ['ë¼ë²¨ íì¤', file.labelingStandard],
+            ['ì¬ì©ì¤ëªì (IFU)', file.ifu ? 'í¬í¨' : 'í´ë¹ ìì'],
           ]} texts={[
-            ['라벨 표시 내용', file.labelContent], ['IFU 내용 요약', file.ifuContent],
-            ['포장 재료', file.packagingMaterial],
+            ['ë¼ë²¨ íì ë´ì©', file.labelContent], ['IFU ë´ì© ìì½', file.ifuContent],
+            ['í¬ì¥ ì¬ë£', file.packagingMaterial],
           ]} />
         )}
         {activeSection === 'regulatory' && (
-          <SectionContent title="§4.2.3(g) 인허가" items={[
-            ['인허가 상태', file.regulatoryStatus], ['인증 번호', file.certNo],
-            ['인증 기관', file.certBody], ['인증 만료일', file.certExpiry],
-            ['신청 유형', file.submissionType], ['신청일', file.submissionDate],
-            ['승인일', file.approvalDate], ['공인 기관 번호', file.notifiedBodyNo],
-            ['연결 인허가 ID', file.linkedRegulatoryId],
+          <SectionContent title="Â§4.2.3(g) ì¸íê°" items={[
+            ['ì¸íê° ìí', file.regulatoryStatus], ['ì¸ì¦ ë²í¸', file.certNo],
+            ['ì¸ì¦ ê¸°ê´', file.certBody], ['ì¸ì¦ ë§ë£ì¼', file.certExpiry],
+            ['ì ì²­ ì í', file.submissionType], ['ì ì²­ì¼', file.submissionDate],
+            ['ì¹ì¸ì¼', file.approvalDate], ['ê³µì¸ ê¸°ê´ ë²í¸', file.notifiedBodyNo],
+            ['ì°ê²° ì¸íê° ID', file.linkedRegulatoryId],
           ]} texts={[
-            ['판매 국가·지역', file.marketedCountries],
+            ['íë§¤ êµ­ê°Â·ì§ì­', file.marketedCountries],
           ]} />
         )}
         {activeSection === 'links' && (
-          <SectionContent title="연결 문서 참조" items={[
-            ['연결 품질 계획', file.linkedQpId],
+          <SectionContent title="ì°ê²° ë¬¸ì ì°¸ì¡°" items={[
+            ['ì°ê²° íì§ ê³í', file.linkedQpId],
           ]} texts={[
-            ['연결 문서 번호 목록', file.linkedDocControlIds],
-            ['비고', file.notes],
+            ['ì°ê²° ë¬¸ì ë²í¸ ëª©ë¡', file.linkedDocControlIds],
+            ['ë¹ê³ ', file.notes],
           ]} />
         )}
       </div>
@@ -445,7 +471,7 @@ function DetailView({ file, canEdit, onEdit, activeSection, setActiveSection, ca
   )
 }
 
-// ── 섹션 내용 렌더러 ─────────────────────────────────────────
+// ââ ì¹ì ë´ì© ë ëë¬ âââââââââââââââââââââââââââââââââââââââââ
 function SectionContent({ title, items = [], texts = [] }) {
   return (
     <div>
@@ -468,31 +494,31 @@ function SectionContent({ title, items = [], texts = [] }) {
       ))}
       {items.filter(([, v]) => v).length === 0 && texts.filter(([, v]) => v).length === 0 && (
         <div className="text-center py-10 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
-          이 섹션에 등록된 정보가 없습니다. 편집 버튼을 눌러 내용을 입력하세요.
+          ì´ ì¹ìì ë±ë¡ë ì ë³´ê° ììµëë¤. í¸ì§ ë²í¼ì ëë¬ ë´ì©ì ìë ¥íì¸ì.
         </div>
       )}
     </div>
   )
 }
 
-// ── 빠른 등록 폼 ─────────────────────────────────────────────
+// ââ ë¹ ë¥¸ ë±ë¡ í¼ âââââââââââââââââââââââââââââââââââââââââââââ
 function QuickCreateForm({ form, F, onSave, onCancel, isEdit }) {
   const [section, setSection] = useState('general')
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-1" style={{ color: 'var(--ink)' }}>{isEdit ? '의료기기 파일 수정' : '의료기기 파일 등록 (§4.2.3)'}</div>
-      <div className="text-[12px] mb-4" style={{ color: 'var(--ink-faint)' }}>기본 정보를 입력하고 저장 후 상세 탭에서 각 섹션을 완성하세요.</div>
+      <div className="text-[14px] font-bold mb-1" style={{ color: 'var(--ink)' }}>{isEdit ? 'ìë£ê¸°ê¸° íì¼ ìì ' : 'ìë£ê¸°ê¸° íì¼ ë±ë¡ (Â§4.2.3)'}</div>
+      <div className="text-[12px] mb-4" style={{ color: 'var(--ink-faint)' }}>ê¸°ë³¸ ì ë³´ë¥¼ ìë ¥íê³  ì ì¥ í ìì¸ í­ìì ê° ì¹ìì ìì±íì¸ì.</div>
 
-      {/* 섹션 탭 */}
+      {/* ì¹ì í­ */}
       <div className="flex flex-wrap gap-1 mb-4 p-1 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
         {[
-          { key: 'general', label: '기기 정보' },
-          { key: 'specs', label: '사양' },
-          { key: 'manufacturing', label: '제조' },
+          { key: 'general', label: 'ê¸°ê¸° ì ë³´' },
+          { key: 'specs', label: 'ì¬ì' },
+          { key: 'manufacturing', label: 'ì ì¡°' },
           { key: 'qms', label: 'QMS' },
-          { key: 'risk', label: '위험관리' },
-          { key: 'labeling', label: '라벨' },
-          { key: 'regulatory', label: '인허가' },
+          { key: 'risk', label: 'ìíê´ë¦¬' },
+          { key: 'labeling', label: 'ë¼ë²¨' },
+          { key: 'regulatory', label: 'ì¸íê°' },
         ].map(t => (
           <button key={t.key} onClick={() => setSection(t.key)}
             className="px-3 py-1 rounded-lg text-[12px] font-semibold"
@@ -504,21 +530,21 @@ function QuickCreateForm({ form, F, onSave, onCancel, isEdit }) {
 
       {section === 'general' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
-          <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
-          <Field label="모델 번호" value={form.modelNo} onChange={v => F('modelNo', v)} />
-          <Field label="개정 번호" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
-          <FieldSelect label="기기 등급" value={form.deviceClass} onChange={v => F('deviceClass', v)} options={DEVICE_CLASSES.map(c => ({ value: c, label: c }))} />
-          <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)} options={Object.entries(FILE_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-          <FieldSelect label="멸균 여부" value={form.sterility} onChange={v => F('sterility', v)} options={STERILITY_OPTIONS.map(s => ({ value: s, label: s }))} />
-          <Field label="승인자" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
-          <Field label="유효일" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
+          <Field label="ì íëª *" value={form.productName} onChange={v => F('productName', v)} />
+          <Field label="ì í ì½ë" value={form.productCode} onChange={v => F('productCode', v)} />
+          <Field label="ëª¨ë¸ ë²í¸" value={form.modelNo} onChange={v => F('modelNo', v)} />
+          <Field label="ê°ì  ë²í¸" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
+          <FieldSelect label="ê¸°ê¸° ë±ê¸" value={form.deviceClass} onChange={v => F('deviceClass', v)} options={DEVICE_CLASSES.map(c => ({ value: c, label: c }))} />
+          <FieldSelect label="ìí" value={form.status} onChange={v => F('status', v)} options={Object.entries(FILE_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
+          <FieldSelect label="ë©¸ê·  ì¬ë¶" value={form.sterility} onChange={v => F('sterility', v)} options={STERILITY_OPTIONS.map(s => ({ value: s, label: s }))} />
+          <Field label="ì¹ì¸ì" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
+          <Field label="ì í¨ì¼" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
           <div className="col-span-3">
-            <FieldArea label="사용 목적 (Intended Use) *" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2}
-              placeholder="본 기기는 [환자군]에서 [목적]을 위해 사용됩니다..." />
+            <FieldArea label="ì¬ì© ëª©ì  (Intended Use) *" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2}
+              placeholder="ë³¸ ê¸°ê¸°ë [íìêµ°]ìì [ëª©ì ]ì ìí´ ì¬ì©ë©ëë¤..." />
           </div>
           <div className="flex gap-4 col-span-3">
-            {[['singleUse','일회용'],['implantable','이식형'],['activeDevice','능동형 기기']].map(([key, label]) => (
+            {[['singleUse','ì¼íì©'],['implantable','ì´ìí'],['activeDevice','ë¥ëí ê¸°ê¸°']].map(([key, label]) => (
               <label key={key} className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink-soft)' }}>
                 <input type="checkbox" checked={!!form[key]} onChange={e => F(key, e.target.checked)} className="accent-green-500 w-4 h-4" />
                 {label}
@@ -529,77 +555,77 @@ function QuickCreateForm({ form, F, onSave, onCancel, isEdit }) {
       )}
       {section === 'specs' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="도면 번호" value={form.drawingNos} onChange={v => F('drawingNos', v)} />
-          <Field label="소프트웨어 버전" value={form.softwareVersion} onChange={v => F('softwareVersion', v)} />
-          <Field label="소프트웨어 등급 (IEC 62304)" value={form.softwareClass} onChange={v => F('softwareClass', v)} placeholder="Class A/B/C" />
-          <Field label="연결 DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
-          <FieldArea label="재료 사양" value={form.materialSpec} onChange={v => F('materialSpec', v)} rows={3} />
-          <FieldArea label="성능 사양" value={form.performanceSpec} onChange={v => F('performanceSpec', v)} rows={3} />
-          <FieldArea label="안전 사양" value={form.safetySpec} onChange={v => F('safetySpec', v)} rows={2} />
-          <FieldArea label="생체적합성 (ISO 10993)" value={form.biocompatibility} onChange={v => F('biocompatibility', v)} rows={2} />
+          <Field label="ëë©´ ë²í¸" value={form.drawingNos} onChange={v => F('drawingNos', v)} />
+          <Field label="ìíí¸ì¨ì´ ë²ì " value={form.softwareVersion} onChange={v => F('softwareVersion', v)} />
+          <Field label="ìíí¸ì¨ì´ ë±ê¸ (IEC 62304)" value={form.softwareClass} onChange={v => F('softwareClass', v)} placeholder="Class A/B/C" />
+          <Field label="ì°ê²° DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
+          <FieldArea label="ì¬ë£ ì¬ì" value={form.materialSpec} onChange={v => F('materialSpec', v)} rows={3} />
+          <FieldArea label="ì±ë¥ ì¬ì" value={form.performanceSpec} onChange={v => F('performanceSpec', v)} rows={3} />
+          <FieldArea label="ìì  ì¬ì" value={form.safetySpec} onChange={v => F('safetySpec', v)} rows={2} />
+          <FieldArea label="ìì²´ì í©ì± (ISO 10993)" value={form.biocompatibility} onChange={v => F('biocompatibility', v)} rows={2} />
         </div>
       )}
       {section === 'manufacturing' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="제조 사업장 주소" value={form.mfgSiteAddress} onChange={v => F('mfgSiteAddress', v)} />
-          <Field label="보관 수명" value={form.shelfLife} onChange={v => F('shelfLife', v)} placeholder="2년, 24개월..." />
-          <FieldArea label="제조 절차 목록" value={form.mfgProcedures} onChange={v => F('mfgProcedures', v)} rows={3} />
-          <FieldArea label="공정 목록" value={form.processList} onChange={v => F('processList', v)} rows={3} />
-          <FieldArea label="설비 목록" value={form.equipmentList} onChange={v => F('equipmentList', v)} rows={2} />
-          <FieldArea label="환경 요구사항" value={form.environmentReqs} onChange={v => F('environmentReqs', v)} rows={2} />
-          <FieldArea label="포장 사양" value={form.packagingSpec} onChange={v => F('packagingSpec', v)} rows={2} />
-          <FieldArea label="멸균 사양" value={form.sterilizationSpec} onChange={v => F('sterilizationSpec', v)} rows={2} />
+          <Field label="ì ì¡° ì¬ìì¥ ì£¼ì" value={form.mfgSiteAddress} onChange={v => F('mfgSiteAddress', v)} />
+          <Field label="ë³´ê´ ìëª" value={form.shelfLife} onChange={v => F('shelfLife', v)} placeholder="2ë, 24ê°ì..." />
+          <FieldArea label="ì ì¡° ì ì°¨ ëª©ë¡" value={form.mfgProcedures} onChange={v => F('mfgProcedures', v)} rows={3} />
+          <FieldArea label="ê³µì  ëª©ë¡" value={form.processList} onChange={v => F('processList', v)} rows={3} />
+          <FieldArea label="ì¤ë¹ ëª©ë¡" value={form.equipmentList} onChange={v => F('equipmentList', v)} rows={2} />
+          <FieldArea label="íê²½ ìêµ¬ì¬í­" value={form.environmentReqs} onChange={v => F('environmentReqs', v)} rows={2} />
+          <FieldArea label="í¬ì¥ ì¬ì" value={form.packagingSpec} onChange={v => F('packagingSpec', v)} rows={2} />
+          <FieldArea label="ë©¸ê·  ì¬ì" value={form.sterilizationSpec} onChange={v => F('sterilizationSpec', v)} rows={2} />
         </div>
       )}
       {section === 'qms' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="연결 변경관리 ID" value={form.linkedChangeId} onChange={v => F('linkedChangeId', v)} placeholder="CHG-xxxx" />
-          <Field label="연결 밸리데이션 ID" value={form.linkedValidationId} onChange={v => F('linkedValidationId', v)} placeholder="VAL-xxxx" />
-          <FieldArea label="적용 표준·규격" value={form.applicableStandards} onChange={v => F('applicableStandards', v)} rows={3} placeholder="ISO 13485, IEC 60601-1, ..." />
-          <FieldArea label="시험 방법" value={form.testMethods} onChange={v => F('testMethods', v)} rows={3} />
-          <FieldArea label="합격 기준" value={form.acceptanceCriteria} onChange={v => F('acceptanceCriteria', v)} rows={2} />
-          <FieldArea label="유지 기록 목록" value={form.recordsToMaintain} onChange={v => F('recordsToMaintain', v)} rows={2} />
+          <Field label="ì°ê²° ë³ê²½ê´ë¦¬ ID" value={form.linkedChangeId} onChange={v => F('linkedChangeId', v)} placeholder="CHG-xxxx" />
+          <Field label="ì°ê²° ë°¸ë¦¬ë°ì´ì ID" value={form.linkedValidationId} onChange={v => F('linkedValidationId', v)} placeholder="VAL-xxxx" />
+          <FieldArea label="ì ì© íì¤Â·ê·ê²©" value={form.applicableStandards} onChange={v => F('applicableStandards', v)} rows={3} placeholder="ISO 13485, IEC 60601-1, ..." />
+          <FieldArea label="ìí ë°©ë²" value={form.testMethods} onChange={v => F('testMethods', v)} rows={3} />
+          <FieldArea label="í©ê²© ê¸°ì¤" value={form.acceptanceCriteria} onChange={v => F('acceptanceCriteria', v)} rows={2} />
+          <FieldArea label="ì ì§ ê¸°ë¡ ëª©ë¡" value={form.recordsToMaintain} onChange={v => F('recordsToMaintain', v)} rows={2} />
         </div>
       )}
       {section === 'risk' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <Field label="연결 위험관리 ID" value={form.linkedRiskId} onChange={v => F('linkedRiskId', v)} placeholder="RISK-xxxx" />
+          <Field label="ì°ê²° ìíê´ë¦¬ ID" value={form.linkedRiskId} onChange={v => F('linkedRiskId', v)} placeholder="RISK-xxxx" />
           <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink-soft)' }}>
             <input type="checkbox" checked={!!form.residualRiskAcceptable} onChange={e => F('residualRiskAcceptable', e.target.checked)} className="accent-green-500 w-4 h-4" />
-            잔류위험 수용 가능 (ISO 14971)
+            ìë¥ìí ìì© ê°ë¥ (ISO 14971)
           </label>
-          <FieldArea label="위험관리 요약" value={form.riskMgmtSummary} onChange={v => F('riskMgmtSummary', v)} rows={4} />
-          <FieldArea label="사용적합성 연구 (IEC 62366)" value={form.usabilityStudy} onChange={v => F('usabilityStudy', v)} rows={4} />
+          <FieldArea label="ìíê´ë¦¬ ìì½" value={form.riskMgmtSummary} onChange={v => F('riskMgmtSummary', v)} rows={4} />
+          <FieldArea label="ì¬ì©ì í©ì± ì°êµ¬ (IEC 62366)" value={form.usabilityStudy} onChange={v => F('usabilityStudy', v)} rows={4} />
         </div>
       )}
       {section === 'labeling' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Field label="UDI-DI" value={form.udiDI} onChange={v => F('udiDI', v)} />
-          <FieldSelect label="UDI 형식" value={form.udiFormatType} onChange={v => F('udiFormatType', v)}
-            options={['GS1-128','GS1 DataMatrix','HIBC','기타'].map(o => ({ value: o, label: o }))} />
-          <Field label="표시 언어" value={form.labelLanguages} onChange={v => F('labelLanguages', v)} placeholder="한국어, 영어..." />
-          <Field label="라벨 표준" value={form.labelingStandard} onChange={v => F('labelingStandard', v)} placeholder="ISO 15223-1..." />
-          <FieldArea label="라벨 표시 내용" value={form.labelContent} onChange={v => F('labelContent', v)} rows={4} />
-          <FieldArea label="포장 재료" value={form.packagingMaterial} onChange={v => F('packagingMaterial', v)} rows={2} />
+          <FieldSelect label="UDI íì" value={form.udiFormatType} onChange={v => F('udiFormatType', v)}
+            options={['GS1-128','GS1 DataMatrix','HIBC','ê¸°í'].map(o => ({ value: o, label: o }))} />
+          <Field label="íì ì¸ì´" value={form.labelLanguages} onChange={v => F('labelLanguages', v)} placeholder="íêµ­ì´, ìì´..." />
+          <Field label="ë¼ë²¨ íì¤" value={form.labelingStandard} onChange={v => F('labelingStandard', v)} placeholder="ISO 15223-1..." />
+          <FieldArea label="ë¼ë²¨ íì ë´ì©" value={form.labelContent} onChange={v => F('labelContent', v)} rows={4} />
+          <FieldArea label="í¬ì¥ ì¬ë£" value={form.packagingMaterial} onChange={v => F('packagingMaterial', v)} rows={2} />
           <label className="flex items-center gap-2 col-span-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink-soft)' }}>
             <input type="checkbox" checked={!!form.ifu} onChange={e => F('ifu', e.target.checked)} className="accent-green-500 w-4 h-4" />
-            사용설명서 (IFU) 포함
+            ì¬ì©ì¤ëªì (IFU) í¬í¨
           </label>
-          {form.ifu && <FieldArea label="IFU 내용 요약" value={form.ifuContent} onChange={v => F('ifuContent', v)} rows={3} />}
+          {form.ifu && <FieldArea label="IFU ë´ì© ìì½" value={form.ifuContent} onChange={v => F('ifuContent', v)} rows={3} />}
         </div>
       )}
       {section === 'regulatory' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Field label="인허가 상태" value={form.regulatoryStatus} onChange={v => F('regulatoryStatus', v)} placeholder="허가완료, 신청중..." />
-          <Field label="인증 번호" value={form.certNo} onChange={v => F('certNo', v)} />
-          <Field label="인증 기관" value={form.certBody} onChange={v => F('certBody', v)} placeholder="식약처, CE, FDA..." />
-          <Field label="인증 만료일" type="date" value={form.certExpiry} onChange={v => F('certExpiry', v)} />
-          <Field label="신청일" type="date" value={form.submissionDate} onChange={v => F('submissionDate', v)} />
-          <Field label="승인일" type="date" value={form.approvalDate} onChange={v => F('approvalDate', v)} />
-          <Field label="연결 인허가 ID" value={form.linkedRegulatoryId} onChange={v => F('linkedRegulatoryId', v)} placeholder="REG-xxxx" />
-          <Field label="공인기관 번호" value={form.notifiedBodyNo} onChange={v => F('notifiedBodyNo', v)} />
+          <Field label="ì¸íê° ìí" value={form.regulatoryStatus} onChange={v => F('regulatoryStatus', v)} placeholder="íê°ìë£, ì ì²­ì¤..." />
+          <Field label="ì¸ì¦ ë²í¸" value={form.certNo} onChange={v => F('certNo', v)} />
+          <Field label="ì¸ì¦ ê¸°ê´" value={form.certBody} onChange={v => F('certBody', v)} placeholder="ìì½ì², CE, FDA..." />
+          <Field label="ì¸ì¦ ë§ë£ì¼" type="date" value={form.certExpiry} onChange={v => F('certExpiry', v)} />
+          <Field label="ì ì²­ì¼" type="date" value={form.submissionDate} onChange={v => F('submissionDate', v)} />
+          <Field label="ì¹ì¸ì¼" type="date" value={form.approvalDate} onChange={v => F('approvalDate', v)} />
+          <Field label="ì°ê²° ì¸íê° ID" value={form.linkedRegulatoryId} onChange={v => F('linkedRegulatoryId', v)} placeholder="REG-xxxx" />
+          <Field label="ê³µì¸ê¸°ê´ ë²í¸" value={form.notifiedBodyNo} onChange={v => F('notifiedBodyNo', v)} />
           <div className="col-span-3">
-            <FieldArea label="판매 국가·지역" value={form.marketedCountries} onChange={v => F('marketedCountries', v)} rows={2} placeholder="대한민국, EU, 미국..." />
+            <FieldArea label="íë§¤ êµ­ê°Â·ì§ì­" value={form.marketedCountries} onChange={v => F('marketedCountries', v)} rows={2} placeholder="ëíë¯¼êµ­, EU, ë¯¸êµ­..." />
           </div>
         </div>
       )}
@@ -607,25 +633,25 @@ function QuickCreateForm({ form, F, onSave, onCancel, isEdit }) {
       <div className="flex gap-2 mt-4">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> 저장
+          <Save size={13} /> ì ì¥
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
       </div>
     </div>
   )
 }
 
-// ── 분석 뷰 ──────────────────────────────────────────────────
+// ââ ë¶ì ë·° ââââââââââââââââââââââââââââââââââââââââââââââââââ
 function AnalysisView({ analysis, files, calcCompleteness }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: '총 의료기기 파일', value: files.length, color: '#2563EB', bg: '#DBEAFE' },
-          { label: '평균 완성도', value: `${analysis.avgPct}%`, color: analysis.avgPct >= 80 ? '#059669' : '#D97706', bg: analysis.avgPct >= 80 ? '#D1FAE5' : '#FEF3C7' },
-          { label: '승인 완료', value: analysis.byStatus.approved || 0, color: '#059669', bg: '#D1FAE5' },
-          { label: '미완성 파일', value: analysis.incomplete.length, color: analysis.incomplete.length > 0 ? '#DC2626' : '#059669', bg: analysis.incomplete.length > 0 ? '#FEE2E2' : '#D1FAE5' },
+          { label: 'ì´ ìë£ê¸°ê¸° íì¼', value: files.length, color: '#2563EB', bg: '#DBEAFE' },
+          { label: 'íê·  ìì±ë', value: `${analysis.avgPct}%`, color: analysis.avgPct >= 80 ? '#059669' : '#D97706', bg: analysis.avgPct >= 80 ? '#D1FAE5' : '#FEF3C7' },
+          { label: 'ì¹ì¸ ìë£', value: analysis.byStatus.approved || 0, color: '#059669', bg: '#D1FAE5' },
+          { label: 'ë¯¸ìì± íì¼', value: analysis.incomplete.length, color: analysis.incomplete.length > 0 ? '#DC2626' : '#059669', bg: analysis.incomplete.length > 0 ? '#FEE2E2' : '#D1FAE5' },
         ].map(c => (
           <div key={c.label} className="p-4 rounded-2xl text-center" style={{ background: c.bg, border: `1px solid ${c.color}30` }}>
             <div className="text-[26px] font-bold" style={{ color: c.color }}>{c.value}</div>
@@ -636,7 +662,7 @@ function AnalysisView({ analysis, files, calcCompleteness }) {
 
       {analysis.incomplete.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>⚠ 완성도 미흡 파일</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>â  ìì±ë ë¯¸í¡ íì¼</div>
           {analysis.incomplete.map(f => {
             const comp = calcCompleteness(f)
             return (
@@ -661,7 +687,7 @@ function AnalysisView({ analysis, files, calcCompleteness }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>상태별 분포</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ìíë³ ë¶í¬</div>
           {Object.entries(FILE_STATUSES).map(([k, v]) => (
             <div key={k} className="flex items-center gap-3 mb-2">
               <span className="text-[12px] w-20" style={{ color: 'var(--ink-soft)' }}>{v.label}</span>
@@ -673,7 +699,7 @@ function AnalysisView({ analysis, files, calcCompleteness }) {
           ))}
         </div>
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>기기 등급별 분포</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ê¸°ê¸° ë±ê¸ë³ ë¶í¬</div>
           {DEVICE_CLASSES.filter(c => (analysis.byClass[c] || 0) > 0).map(c => (
             <div key={c} className="flex items-center gap-3 mb-2">
               <span className="text-[12px] w-20" style={{ color: 'var(--ink-soft)' }}>{c}</span>
@@ -689,7 +715,7 @@ function AnalysisView({ analysis, files, calcCompleteness }) {
   )
 }
 
-// ── 공통 ─────────────────────────────────────────────────────
+// ââ ê³µíµ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function Field({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>
@@ -715,7 +741,7 @@ function FieldSelect({ label, value, onChange, options }) {
 function FieldArea({ label, value, onChange, rows = 3, placeholder }) {
   return (
     <div>
-      <HubBanner title="의료기기 파일 관리" subtitle="ISO 13485 §4.2.3 — 의료기기별 설계·제조·품질 통합 파일" icon={FolderOpen} color="#4F46E5" workflow={['파일 생성', '정보 등록', '검토·승인', '제조 연동', '유지관리']} />
+      <HubBanner title="ìë£ê¸°ê¸° íì¼ ê´ë¦¬" subtitle="ISO 13485 Â§4.2.3 â ìë£ê¸°ê¸°ë³ ì¤ê³Â·ì ì¡°Â·íì§ íµí© íì¼" icon={FolderOpen} color="#4F46E5" workflow={['íì¼ ìì±', 'ì ë³´ ë±ë¡', 'ê²í Â·ì¹ì¸', 'ì ì¡° ì°ë', 'ì ì§ê´ë¦¬']} />
       <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{label}</label>
       <textarea value={value || ''} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
         className="w-full px-3 py-1.5 rounded-xl text-[13px] resize-none"
