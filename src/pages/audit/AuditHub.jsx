@@ -6,7 +6,7 @@
 // 연동), "감사 시작" 클릭 시 그 체크리스트를 점검하는 팝업이 뜨며, 항목을 "부적합"으로 표시하면
 // 그 자리에서 바로 CAR(시정조치요청)을 발행한다(관련감사ID·관련요건은 자동 연결 — 수기 입력 없음).
 // 모든 CAR이 종결되어야 감사를 종결할 수 있도록 게이팅한다.
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Search, Plus, ChevronRight, CheckCircle2,
@@ -18,10 +18,12 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { loadOrgDepts } from '../../lib/orgDepts'
 
 const STORAGE_KEY = 'qualytree.audits'
 const CAR_KEY = 'qualytree.audit_cars'
+let _sbCidAud = null
 
 function composeAuditTitle(f) {
   const parts = [f.auditType || '정기', f.auditee, f.auditYear].filter(Boolean)
@@ -82,12 +84,22 @@ function loadAudits() {
 }
 function saveAudits(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  if (_sbCidAud) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidAud, data_type: 'localStorage_sync', data_key: STORAGE_KEY, payload: data,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
 }
 function loadCARs() {
   try { return JSON.parse(localStorage.getItem(CAR_KEY) || '[]') } catch { return [] }
 }
 function saveCARs(data) {
   localStorage.setItem(CAR_KEY, JSON.stringify(data))
+  if (_sbCidAud) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidAud, data_type: 'localStorage_sync', data_key: CAR_KEY, payload: data,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
 }
 function genId(prefix) {
   return `${prefix}-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`
@@ -95,6 +107,29 @@ function genId(prefix) {
 
 export default function AuditHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidAud = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', STORAGE_KEY)
+        .maybeSingle(),
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', CAR_KEY)
+        .maybeSingle(),
+    ]).then(([{ data: audRow }, { data: carRow }]) => {
+      if (audRow?.payload != null) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(audRow.payload))
+        setAudits(audRow.payload)
+      }
+      if (carRow?.payload != null) {
+        localStorage.setItem(CAR_KEY, JSON.stringify(carRow.payload))
+        setCARs(carRow.payload)
+      }
+    })
+  }, [companyId])
+
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'audits')
   const highlightCarId = searchParams.get('carId')
