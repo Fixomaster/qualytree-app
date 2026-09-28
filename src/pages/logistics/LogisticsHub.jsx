@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Truck,
@@ -14,6 +14,8 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
+let _sbCidLog = null
 import { permissions, requirePermission } from '../../lib/permissions'
 import { logs, adverseEvents, LOG_TYPE, AE_STATUS } from '../../lib/logisticsState'
 
@@ -342,8 +344,33 @@ function ReleaseTab() {
   const EMPTY = {lotNo:'',productName:'',qty:'',verdict:'합격',inspector:'',signerName:'',signerTitle:'',notes:''}
   const [form, setForm] = React.useState(EMPTY)
   const [showForm, setShowForm] = React.useState(false)
+  const user = auth.current()
+  const companyId = user?.company_id
+  useEffect(() => { _sbCidLog = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload')
+      .eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync')
+      .eq('data_key', LS)
+      .maybeSingle()
+      .then(({ data: sbData }) => {
+        if (sbData?.payload) {
+          setRecords(sbData.payload)
+        }
+      })
+  }, [companyId])
 
-  const save = arr => { localStorage.setItem(LS, JSON.stringify(arr)); setRecords(arr) }
+  const save = arr => {
+    localStorage.setItem(LS, JSON.stringify(arr))
+    if (_sbCidLog) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidLog, data_type: 'localStorage_sync',
+        data_key: LS, payload: arr
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
   const F = (k,v) => setForm(p=>({...p,[k]:v}))
 
   const handleSubmit = () => {
