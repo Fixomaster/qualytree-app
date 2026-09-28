@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Cog,
@@ -24,6 +24,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { syncOrderStatusFromWo, syncWoCompletionEffects } from '../../lib/woSync'
 import WorkOrderQueue from '../operations/WorkOrderQueue'
 import { operations } from '../../lib/operationsState'
@@ -34,7 +35,50 @@ import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { ncr as ncrLib, NCR_STATUS_LABEL, NCR_SEVERITY } from '../../lib/ncrState'
 
-/* ─── util ─── */
+const _SB_DATA_TYPE_MFG = 'localStorage_sync'
+function useLS(key, init) {
+  const companyId = auth.current()?.company?.id ?? null
+  const [v, setV] = React.useState(() => {
+    try {
+      const raw = localStorage.getItem(key)
+      if (raw != null) return JSON.parse(raw)
+      return init
+    } catch { return init }
+  })
+  const vRef = React.useRef(v)
+  React.useEffect(() => { vRef.current = v }, [v])
+  React.useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload')
+      .eq('company_id', companyId)
+      .eq('data_type', _SB_DATA_TYPE_MFG)
+      .eq('data_key', key)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(key, JSON.stringify(row.payload))
+          setV(row.payload)
+          vRef.current = row.payload
+        }
+      })
+  }, [key, companyId])
+  const set = (u) => {
+    const n = typeof u === 'function' ? u(vRef.current) : u
+    vRef.current = n
+    localStorage.setItem(key, JSON.stringify(n))
+    setV(n)
+    if (companyId) {
+      supabase.from('company_data').upsert({
+        company_id: companyId,
+        data_type: _SB_DATA_TYPE_MFG,
+        data_key: key,
+        payload: n,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
+  return [v, set]
+}
 function useLS(key,init){const[v,setV]=useState(()=>{try{const raw=localStorage.getItem(key);if(raw!=null)return JSON.parse(raw);localStorage.setItem(key,JSON.stringify(init));return init}catch{return init}});const set=(u)=>{const n=typeof u==='function'?u(v):u;localStorage.setItem(key,JSON.stringify(n));setV(n)};return[v,set]}
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
 function loadMaterialLotOptions(){try{const inv=JSON.parse(localStorage.getItem('qms_pur_inventory')||'[]');const set=new Set();inv.forEach(m=>{if(m.lot)set.add(m.lot);(m.receipts||[]).forEach(r=>{if(r.lot)set.add(r.lot)})});return[...set]}catch{return[]}}
