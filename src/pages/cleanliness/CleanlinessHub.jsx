@@ -1,6 +1,6 @@
 // src/pages/cleanliness/CleanlinessHub.jsx
 // ISO 13485 §7.5.2 — 청결 및 오염 관리
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, AlertTriangle,
@@ -10,6 +10,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { printCleanlinessCert } from '../../lib/pdfPrint'
 import { onboarding } from '../../lib/onboardingState'
 import { deriveCleanlinessSpecs } from '../../lib/cleanlinessSpecConstants'
@@ -18,6 +19,7 @@ import { getZones, paToMmH2O, mmH2OToPa } from '../../lib/envMonitoring'
 const LS_SPECS  = 'qualytree.cleanliness_specs'
 const LS_RECS   = 'qualytree.cleanliness_records'
 const LS_PLAN   = 'qualytree.cleanliness_plan'
+let _sbCidCln = null
 
 // §7.5.2 청결 요구사항 적용 조건
 const APPLIES_WHEN = {
@@ -136,6 +138,29 @@ const DEFAULT_PLAN = {
 
 export default function CleanlinessHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCln = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_RECS)
+        .maybeSingle(),
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_PLAN)
+        .maybeSingle(),
+    ]).then(([{ data: recsRow }, { data: planRow }]) => {
+      if (recsRow?.payload != null) {
+        localStorage.setItem(LS_RECS, JSON.stringify(recsRow.payload))
+        setRecords(recsRow.payload)
+      }
+      if (planRow?.payload != null) {
+        localStorage.setItem(LS_PLAN, JSON.stringify(planRow.payload))
+        setPlan(planRow.payload)
+      }
+    })
+  }, [companyId])
+
   const canEdit = user?.level >= 2
   const nav = useNavigate()
 
@@ -163,8 +188,22 @@ export default function CleanlinessHub() {
   const [expandedRec, setExpandedRec] = useState(null)
   const [valRow, setValRow] = useState(null)
 
-  function saveRecs(list)  { setRecords(list); localStorage.setItem(LS_RECS, JSON.stringify(list)) }
-  function savePlan(p)     { setPlan(p); localStorage.setItem(LS_PLAN, JSON.stringify(p)) }
+  function saveRecs(list) {
+    localStorage.setItem(LS_RECS, JSON.stringify(list))
+    if (_sbCidCln) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCln, data_type: 'localStorage_sync', data_key: LS_RECS, payload: list,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
+  function savePlan(p) {
+    localStorage.setItem(LS_PLAN, JSON.stringify(p))
+    if (_sbCidCln) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCln, data_type: 'localStorage_sync', data_key: LS_PLAN, payload: p,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
 
   function submitRecord() {
     if (!recForm.date) return alert('일자를 입력하세요.')
