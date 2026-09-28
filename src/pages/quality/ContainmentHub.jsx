@@ -1,17 +1,26 @@
 // src/pages/quality/ContainmentHub.jsx — 격리 조치 관리 (ISO 13485 §8.3)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { ShieldOff, ChevronDown, ChevronUp, CheckCircle2, Clock, ArrowLeft } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { permissions, requirePermission } from '../../lib/permissions'
 import { quarantine, QUARANTINE_STATUS, QUARANTINE_STATUS_LABEL } from '../../lib/quarantine'
 
 const NCR_KEY = 'qualytree.ncrs'
+let _sbCidCon = null
 
 function readNcrs() { try { return JSON.parse(localStorage.getItem(NCR_KEY) || '[]') } catch { return [] } }
-function saveNcrs(arr) { localStorage.setItem(NCR_KEY, JSON.stringify(arr)) }
+function saveNcrs(arr) {
+  localStorage.setItem(NCR_KEY, JSON.stringify(arr))
+  if (_sbCidCon) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidCon, data_type: 'localStorage_sync', data_key: NCR_KEY, payload: arr,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
+}
 
 const SEV_COLOR = { Critical: '#DC2626', Major: '#F97316', Minor: '#64748B' }
 
@@ -25,6 +34,22 @@ export default function ContainmentHub() {
   const canDispose = permissions.can('qms.quarantine.dispose')
   const canReworkApprove = permissions.can('qms.quarantine.reworkApprove')
   const [qItems, setQItems] = useState(() => quarantine.loadAll())
+  const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCon = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', NCR_KEY)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(NCR_KEY, JSON.stringify(row.payload))
+          setNcrs(row.payload)
+        }
+      })
+  }, [companyId])
+
 
   function reload() { setNcrs(readNcrs()); setQItems(quarantine.loadAll()) }
 
