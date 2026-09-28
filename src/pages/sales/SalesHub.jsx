@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   TrendingUp,
@@ -22,6 +22,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { readManufacturingWos, WO_STATUS_TO_ORDER_STATUS, createManufacturingWo } from '../../lib/woSync'
 import { fulfillOrderLineItems, deductFinStockForDelivery } from '../../lib/orderFulfillment'
 import { fileStore } from '../../lib/fileStore'
@@ -30,19 +31,47 @@ import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { udi } from '../../lib/udi'
 
 /* ─── util ─── */
+const _SB_DATA_TYPE = 'localStorage_sync'
 function useLS(key, init) {
+  const companyId = auth.current()?.company?.id ?? null
   const [v, setV] = useState(() => {
     try {
       const raw = localStorage.getItem(key)
       if (raw != null) return JSON.parse(raw)
-      localStorage.setItem(key, JSON.stringify(init))
       return init
     } catch { return init }
   })
+  const vRef = useRef(v)
+  useEffect(() => { vRef.current = v }, [v])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload')
+      .eq('company_id', companyId)
+      .eq('data_type', _SB_DATA_TYPE)
+      .eq('data_key', key)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(key, JSON.stringify(row.payload))
+          setV(row.payload)
+          vRef.current = row.payload
+        }
+      })
+  }, [key, companyId])
   const set = (u) => {
-    const n = typeof u === 'function' ? u(v) : u
+    const n = typeof u === 'function' ? u(vRef.current) : u
+    vRef.current = n
     localStorage.setItem(key, JSON.stringify(n))
     setV(n)
+    if (companyId) {
+      supabase.from('company_data').upsert({
+        company_id: companyId,
+        data_type: _SB_DATA_TYPE,
+        data_key: key,
+        payload: n,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
   }
   return [v, set]
 }
@@ -378,18 +407,41 @@ function CustomerContractsModal({ customer, onClose }) {
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({ contractNo: '', startDate: '', endDate: '', productItems: '', reviewDate: '', reviewer: '', status: '유효', notes: '' })
 
+  const companyIdForContracts = auth.current()?.company?.id ?? null
   useEffect(() => {
-    try {
-      const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
-      setContracts(all.filter(c => c.customerId === customer.id))
-    } catch {}
-  }, [customer.id])
+    if (companyIdForContracts) {
+      supabase.from('company_data')
+        .select('payload')
+        .eq('company_id', companyIdForContracts)
+        .eq('data_type', 'localStorage_sync')
+        .eq('data_key', STORE_KEY)
+        .maybeSingle()
+        .then(({ data: row }) => {
+          const all = row?.payload ?? JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+          setContracts(all.filter(c => c.customerId === customer.id))
+        })
+    } else {
+      try {
+        const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
+        setContracts(all.filter(c => c.customerId === customer.id))
+      } catch {}
+    }
+  }, [customer.id, companyIdForContracts])
 
   const persistAll = (list) => {
     try {
       const all = JSON.parse(localStorage.getItem(STORE_KEY) || '[]')
       const other = all.filter(c => c.customerId !== customer.id)
-      localStorage.setItem(STORE_KEY, JSON.stringify([...other, ...list]))
+      const merged = [...other, ...list]
+      localStorage.setItem(STORE_KEY, JSON.stringify(merged))
+      if (companyIdForContracts) {
+        supabase.from('company_data').upsert({
+          company_id: companyIdForContracts,
+          data_type: 'localStorage_sync',
+          data_key: STORE_KEY,
+          payload: merged,
+        }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+      }
     } catch {}
     setContracts(list)
   }
