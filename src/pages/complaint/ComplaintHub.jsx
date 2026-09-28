@@ -1,6 +1,6 @@
 // src/pages/complaint/ComplaintHub.jsx
 // ISO 13485 §8.2.1 고객불만 관리 — 접수 · 조사 · 규제보고 · 종결
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
@@ -12,6 +12,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { productModels } from '../../lib/productLifecycleState'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { companyDocs } from '../../lib/companyState'
@@ -44,8 +45,19 @@ function licensedProductNames() {
 }
 
 const LS_KEY = 'qualytree.complaints'
+let _sbCidCmp = null  // 현재 company_id (컴포넌트 마운트 시 설정)
 function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
-function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
+function lsW(d) {
+  localStorage.setItem(LS_KEY, JSON.stringify(d))
+  if (_sbCidCmp) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidCmp,
+      data_type: 'localStorage_sync',
+      data_key: LS_KEY,
+      payload: d,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
+}
 function genId() { return `CMP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 
 // ── 상수 ─────────────────────────────────────────────────────
@@ -119,8 +131,25 @@ const emptyForm = () => ({
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ComplaintHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
   const [searchParams] = useSearchParams()
   const [items, setItems] = useState(() => lsR())
+  useEffect(() => { _sbCidCmp = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload')
+      .eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync')
+      .eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setItems(row.payload)
+        }
+      })
+  }, [companyId])
   const [tab,   setTab]   = useState(() => searchParams.get('tab') || 'list')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
