@@ -1,8 +1,10 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 
 const STORAGE_KEY = 'qualytree.deviations'
+let _sbCidDev = null
 
 const STATUS_OPTIONS = ['발생', '조사중', '조치완료', '검증중', '종결']
 const SEVERITY_OPTIONS = ['경미', '보통', '중대']
@@ -16,6 +18,11 @@ function load() {
 }
 function save(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
+  if (_sbCidDev) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidDev, data_type: 'localStorage_sync', data_key: STORAGE_KEY, payload: list,
+    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+  }
 }
 
 const EMPTY = {
@@ -26,6 +33,21 @@ const EMPTY = {
 
 export default function DeviationHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidDev = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', STORAGE_KEY)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(row.payload))
+          setItems(row.payload)
+        }
+      })
+  }, [companyId])
+
   const [items, setItems] = useState(load)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState(null)
