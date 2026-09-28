@@ -1,7 +1,7 @@
 // src/pages/csv/CSVHub.jsx
 // 컴퓨터화 시스템 유효성확인 (Computer System Validation) 허브
 // 제조GMP 제4장: IQ/OQ/PQ 문서화 및 소프트웨어 유효성확인 기록 관리 (#133)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, CheckCircle2, AlertTriangle, Monitor, BarChart2, List, Clock
@@ -9,8 +9,10 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 
 const STORAGE_KEY = 'qualytree.csv'
+let _sbCidCsv = null
 
 const SYSTEM_TYPES = ['ERP/MES', '품질관리 소프트웨어', '측정/분석 장비 SW', '임상 소프트웨어', '문서관리 시스템', '데이터수집 시스템', '기타']
 const GMP_CATEGORIES = ['GxP 영향 있음', 'GxP 간접 영향', 'GxP 영향 없음']
@@ -62,11 +64,30 @@ export default function CSVHub() {
   const [showForm, setShowForm] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [formTab, setFormTab] = useState('basic')
-  const user = auth.getUser ? auth.getUser() : {}
+  const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCsv = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', STORAGE_KEY)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(row.payload))
+          setRecords(row.payload)
+        }
+      })
+  }, [companyId])
 
   function save(data) {
     setRecords(data)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    if (_sbCidCsv) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCsv, data_type: 'localStorage_sync',
+        data_key: STORAGE_KEY, payload: data
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
   }
 
   function openNew() {
