@@ -1,6 +1,6 @@
 // src/pages/customer-req/CustomerReqHub.jsx
 // ISO 13485 §7.2 — 고객 관련 프로세스 (요구사항 결정·검토·커뮤니케이션)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Plus, Save, Edit2, Trash2, FileText, Link2,
   CheckCircle2, Clock, AlertTriangle, MessageSquare,
@@ -11,6 +11,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { useSearchParams } from 'react-router-dom'
 import { onboarding, productKeyOf } from '../../lib/onboardingState'
 import { productModels } from '../../lib/productLifecycleState'
@@ -108,9 +109,28 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
   // #306: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 요구사항만 노출한다.
   const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
+  const companyId = user?.company?.id ?? null
   const [records, setRecords] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
   })
+  const recordsRef = useRef(records)
+  useEffect(() => { recordsRef.current = records }, [records])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload')
+      .eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync')
+      .eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setRecords(row.payload)
+          recordsRef.current = row.payload
+        }
+      })
+  }, [companyId])
 
   const [tab, setTab] = useState('list')        // list | detail | analysis
   const [selectedId, setSelectedId] = useState(null)
@@ -121,7 +141,18 @@ export default function CustomerReqHub({ embedded = false, productKey: scopeProd
   const [commForm, setCommForm] = useState({ date: today(), type: '이메일', summary: '', by: '' })
   const [showCommForm, setShowCommForm] = useState(false)
 
-  function save(list) { setRecords(list); localStorage.setItem(LS_KEY, JSON.stringify(list)) }
+  function save(list) {
+    setRecords(list)
+    localStorage.setItem(LS_KEY, JSON.stringify(list))
+    if (companyId) {
+      supabase.from('company_data').upsert({
+        company_id: companyId,
+        data_type: 'localStorage_sync',
+        data_key: LS_KEY,
+        payload: list,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
 
   function submitRecord() {
     if (!form.customerName.trim()) return alert('고객사명을 입력하세요.')
