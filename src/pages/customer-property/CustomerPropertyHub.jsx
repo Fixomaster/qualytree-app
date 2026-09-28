@@ -2,7 +2,7 @@
 // ISO 13485 §7.5.10 고객재산(Customer Property) 관리
 // 고객이 제공한 지급자재·부품, 금형·지그·전용공구, 수리·서비스 위탁 기기, 지적재산·기밀정보,
 // 개인정보 등을 식별·검증·보호하고, 손상·분실·사용부적합 시 고객에게 통보한 기록을 관리한다.
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Save, Edit2, Trash2, Handshake, PackageCheck, ShieldAlert,
   Archive, AlertTriangle, CheckCircle2, Search,
@@ -10,9 +10,11 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_ASSETS = 'qualytree.customer_property'
+let _sbCidCust = null
 
 function assetId() { return `CP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function todayStr() { return new Date().toISOString().slice(0, 10) }
@@ -47,6 +49,19 @@ const EMPTY_ASSET = {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function CustomerPropertyHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCust = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_ASSETS)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_ASSETS, JSON.stringify(row.payload))
+          setAssets(row.payload)
+        }
+      })
+  }, [companyId])
   const canEdit = user?.level >= 2
 
   const [assets, setAssets] = useState(() => {
@@ -59,7 +74,16 @@ export default function CustomerPropertyHub() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
 
-  function save(list) { setAssets(list); localStorage.setItem(LS_ASSETS, JSON.stringify(list)) }
+  function save(list) {
+    setAssets(list)
+    localStorage.setItem(LS_ASSETS, JSON.stringify(list))
+    if (_sbCidCust) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCust, data_type: 'localStorage_sync',
+        data_key: LS_ASSETS, payload: list
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   function submit() {
     if (!form.assetName.trim()) return alert('자산명을 입력하세요.')
