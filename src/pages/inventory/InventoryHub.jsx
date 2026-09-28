@@ -1,6 +1,6 @@
 // src/pages/inventory/InventoryHub.jsx
 // 재고·출고관리 — ISO 13485 §7.5.11 출하 전 점검 · 완제품 재고 조회 · 배포이력 · 현황분석
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Plus, X, Save, Edit2, Trash2, Package, ClipboardList,
@@ -9,12 +9,14 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { printPreservationCheckCert } from '../../lib/pdfPrint'
 import { onboarding } from '../../lib/onboardingState'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_LOTS   = 'qualytree.preservation_lots'    // 제품보존·취급에서 관리하는 LOT 재고 (읽기 전용 참조)
 const LS_CHECKS = 'qualytree.preservation_checks'  // 출하 전 점검 기록 (이 화면에서 관리)
+let _sbCidInv = null
 const LS_FIN    = 'qms_pur_fin'                    // 구매·자재 완제품재고 (읽기 전용 참조)
 
 const CHECK_VERDICTS = {
@@ -65,6 +67,7 @@ function salesCustomerNames() {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function InventoryHub() {
   const user = auth.current()
+  const companyId = user?.company_id
   const canEdit = user?.level >= 2
   const nav = useNavigate()
 
@@ -78,8 +81,31 @@ export default function InventoryHub() {
   const [chkForm, setChkForm] = useState(EMPTY_CHECK)
   const [editChkId, setEditChkId] = useState(null)
   const [certChk, setCertChk] = useState(null)
+  useEffect(() => { _sbCidInv = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_CHECKS)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.payload) {
+          setChecks(data.payload)
+          localStorage.setItem(LS_CHECKS, JSON.stringify(data.payload))
+        }
+      })
+  }, [companyId])
 
-  function saveChecks(l) { setChecks(l); localStorage.setItem(LS_CHECKS, JSON.stringify(l)) }
+  function saveChecks(l) {
+    setChecks(l)
+    localStorage.setItem(LS_CHECKS, JSON.stringify(l))
+    if (_sbCidInv) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidInv, data_type: 'localStorage_sync',
+        data_key: LS_CHECKS, payload: l
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   function submitChk() {
     if (!chkForm.lotId) return alert('점검할 LOT을 선택하세요.')
