@@ -9,7 +9,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 
 const STORAGE_KEY = 'qualytree.csv'
 let _sbCidCsv = null
@@ -86,7 +86,7 @@ export default function CSVHub() {
       supabase.from('company_data').upsert({
         company_id: _sbCidCsv, data_type: 'localStorage_sync',
         data_key: STORAGE_KEY, payload: data
-      }, { onConflict: 'company_id,data_type,data_key' })
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
     }
   }
 
