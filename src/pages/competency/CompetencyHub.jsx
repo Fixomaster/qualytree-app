@@ -1,6 +1,6 @@
 // src/pages/competency/CompetencyHub.jsx
 // ISO 13485 §6.2 인적자원 — 역량 관리 허브
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, X, Save, Edit2, Trash2, Users, Star, CheckCircle2,
   AlertTriangle, XCircle, BarChart2, BookOpen, Award,
@@ -10,11 +10,13 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
 import { loadOrgDepts } from '../../lib/orgDepts'
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_ROLES  = 'qualytree.comp_roles'
 const LS_EMP    = 'qualytree.comp_employees'
+let _sbCidCpt = null
 
 const COMP_LEVELS = [
   { value: 0, label: '미평가', color: '#9CA3AF', bg: '#F3F4F6' },
@@ -46,6 +48,29 @@ const EMPTY_EMP = {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function CompetencyHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidCpt = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_ROLES)
+        .maybeSingle(),
+      supabase.from('company_data').select('payload')
+        .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_EMP)
+        .maybeSingle(),
+    ]).then(([{ data: rolesRow }, { data: empRow }]) => {
+      if (rolesRow?.payload != null) {
+        localStorage.setItem(LS_ROLES, JSON.stringify(rolesRow.payload))
+        setRoles(rolesRow.payload)
+      }
+      if (empRow?.payload != null) {
+        localStorage.setItem(LS_EMP, JSON.stringify(empRow.payload))
+        setEmployees(empRow.payload)
+      }
+    })
+  }, [companyId])
+
   const canEdit = user?.level >= 2
 
   const [roles, setRoles] = useState(() => {
@@ -70,8 +95,22 @@ export default function CompetencyHub() {
   const [empCompDraft, setEmpCompDraft] = useState({ name: '', actualLevel: 0, evaluatedAt: todayStr(), evaluatedBy: '', effectiveness: '', notes: '' })
   const [filterDept, setFilterDept] = useState('all')
 
-  function saveRoles(list) { setRoles(list); localStorage.setItem(LS_ROLES, JSON.stringify(list)) }
-  function saveEmps(list)  { setEmployees(list); localStorage.setItem(LS_EMP, JSON.stringify(list)) }
+  function saveRoles(list) {
+    localStorage.setItem(LS_ROLES, JSON.stringify(list))
+    if (_sbCidCpt) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCpt, data_type: 'localStorage_sync', data_key: LS_ROLES, payload: list,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
+  function saveEmps(list) {
+    localStorage.setItem(LS_EMP, JSON.stringify(list))
+    if (_sbCidCpt) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidCpt, data_type: 'localStorage_sync', data_key: LS_EMP, payload: list,
+      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    }
+  }
 
   // ── 역할 CRUD ─────────────────────────────────────────────
   function submitRole() {
