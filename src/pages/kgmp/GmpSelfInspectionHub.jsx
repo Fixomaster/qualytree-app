@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList, ChevronDown, ChevronRight, ExternalLink,
@@ -7,8 +7,10 @@ import {
 } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 
 const LS_KEY = 'qualytree.gmp_self_inspection_v3'
+let _sbCidGmp = null
 
 // ── 공식 심사기준표 (2026-46호) ───────────────────────────────────────────
 const SECTIONS = [
@@ -356,6 +358,12 @@ function loadData() {
 }
 function saveData(d) {
   localStorage.setItem(LS_KEY, JSON.stringify(d))
+  if (_sbCidGmp) {
+    supabase.from('company_data').upsert({
+      company_id: _sbCidGmp, data_type: 'localStorage_sync',
+      data_key: LS_KEY, payload: d
+    }, { onConflict: 'company_id,data_type,data_key' })
+  }
 }
 
 // ── 섹션별 진행률 바 ─────────────────────────────────────────────────────
@@ -470,9 +478,25 @@ function ItemRow({ item, grade, note, onGrade, onNote, sectionColor }) {
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 export default function GmpSelfInspectionHub() {
   const navigate = useNavigate()
+  const user = auth.current()
+  const companyId = user?.company_id
   const [data, setData] = useState(loadData)
   const [activeSection, setActiveSection] = useState('s4')
   const [saved, setSaved] = useState(false)
+  useEffect(() => { _sbCidGmp = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data')
+      .select('payload').eq('company_id', companyId)
+      .eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle()
+      .then(({ data: sbData }) => {
+        if (sbData?.payload) {
+          setData(sbData.payload)
+          localStorage.setItem(LS_KEY, JSON.stringify(sbData.payload))
+        }
+      })
+  }, [companyId])
 
   const grades = data.grades || {}
   const notes  = data.notes  || {}
