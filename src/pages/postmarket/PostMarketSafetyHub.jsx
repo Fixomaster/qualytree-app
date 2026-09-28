@@ -1,65 +1,76 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { AlertTriangle, RotateCcw, Shield, Plus, Search, Edit3, Trash2, X, FileText } from 'lucide-react'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
+import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabase'
+let _sbCidPm = null
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
+// âââ Tabs âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const TABS = [
-  { key: 'adverse', label: '이상사례 보고', icon: AlertTriangle },
-  { key: 'recall',  label: '리콜/회수',   icon: RotateCcw },
-  { key: 'safety',  label: '안전성 조치',   icon: Shield },
-  { key: 'mdr',    label: 'MDR 보고서',    icon: FileText },
+  { key: 'adverse', label: 'ì´ìì¬ë¡ ë³´ê³ ', icon: AlertTriangle },
+  { key: 'recall',  label: 'ë¦¬ì½/íì',   icon: RotateCcw },
+  { key: 'safety',  label: 'ìì ì± ì¡°ì¹',   icon: Shield },
+  { key: 'mdr',    label: 'MDR ë³´ê³ ì',    icon: FileText },
 ]
 
-// ─── Adverse Events constants ────────────────────────────────────────────────
+// âââ Adverse Events constants ââââââââââââââââââââââââââââââââââââââââââââââââ
 const ADV_KEY      = 'qualytree.adverse_events'
-const ADV_EMPTY    = { id: '', reportDate: '', productName: '', lotNo: '', eventType: '', severity: '', description: '', reportTo: '', status: '접수' }
-const ADV_TYPES    = ['부작용', '오작동', '성능적하', '라粪띁오류', '기타'
+const ADV_EMPTY    = { id: '', reportDate: '', productName: '', lotNo: '', eventType: '', severity: '', description: '', reportTo: '', status: 'ì ì' }
+const ADV_TYPES    = ['ë¶ìì©', 'ì¤ìë', 'ì±ë¥ì í', 'ë¼ç²ªëì¤ë¥', 'ê¸°í'
 ]
-const ADV_SEVS     = ['경미', '중등도', '중증', '사망']
-const ADV_STATUSES = ['접수', '조사중', '완료', '보고완료']
-const ADV_REPORTS  = ['식품의약품안전처', '건강보험심사평가원', '해외규제기관', '기타']
+const ADV_SEVS     = ['ê²½ë¯¸', 'ì¤ë±ë', 'ì¤ì¦', 'ì¬ë§']
+const ADV_STATUSES = ['ì ì', 'ì¡°ì¬ì¤', 'ìë£', 'ë³´ê³ ìë£']
+const ADV_REPORTS  = ['ìíìì½íìì ì²', 'ê±´ê°ë³´íì¬ì¬íê°ì', 'í´ì¸ê·ì ê¸°ê´', 'ê¸°í']
 
-// ─── Recall constants ─────────────────────────────────────────────────────────
+// âââ Recall constants âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const REC_KEY      = 'qualytree.recall_records'
-const REC_EMPTY    = { id: '', noticeDate: '', productName: '', lotNo: '', quantity: '', recallReason: '', recallClass: 'Class II (중요)', action: '', status: '진행중' }
-const REC_CLASSES  = ['Class I (긴급)', 'Class II (중요)', 'Class III (일반)']
-const REC_STATUSES = ['계획수립', '진행중', '완료', '취소']
+const REC_EMPTY    = { id: '', noticeDate: '', productName: '', lotNo: '', quantity: '', recallReason: '', recallClass: 'Class II (ì¤ì)', action: '', status: 'ì§íì¤' }
+const REC_CLASSES  = ['Class I (ê¸´ê¸)', 'Class II (ì¤ì)', 'Class III (ì¼ë°)']
+const REC_STATUSES = ['ê³íìë¦½', 'ì§íì¤', 'ìë£', 'ì·¨ì']
 
-// ─── Safety Action constants ──────────────────────────────────────────────────
+// âââ Safety Action constants ââââââââââââââââââââââââââââââââââââââââââââââââââ
 const SAF_KEY      = 'qualytree.safety_actions'
-const SAF_EMPTY    = { id: '', issueDate: '', productName: '', lotNo: '', actionType: '', reason: '', measure: '', status: '계획' }
-const SAF_TYPES    = ['사용주의통보', '라벨변경', '사용제한', '수리/개선', '점검권고', '회수병행', '기타']
-const SAF_STATUSES = ['계획', '진행중', '완료']
+const SAF_EMPTY    = { id: '', issueDate: '', productName: '', lotNo: '', actionType: '', reason: '', measure: '', status: 'ê³í' }
+const SAF_TYPES    = ['ì¬ì©ì£¼ìíµë³´', 'ë¼ë²¨ë³ê²½', 'ì¬ì©ì í', 'ìë¦¬/ê°ì ', 'ì ê²ê¶ê³ ', 'íìë³í', 'ê¸°í']
+const SAF_STATUSES = ['ê³í', 'ì§íì¤', 'ìë£']
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// âââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const newId   = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 5)
 const lsRead  = (k) => { try { return JSON.parse(localStorage.getItem(k) || '[]') } catch { return [] } }
-const lsSave  = (k, d) => localStorage.setItem(k, JSON.stringify(d))
+const lsSave = (key, d) => {
+  localStorage.setItem(key, JSON.stringify(d))
+  if (_sbCidPm) {
+    supabase.from('company_data').upsert(
+      {company_id: _sbCidPm, data_type: 'localStorage_sync', data_key: key, payload: d},
+      {onConflict: 'company_id,data_type,data_key'}
+    )
+  }
+}
 
 const STATUS_COLOR = {
-  '접수':    'bg-blue-100 text-blue-700',
-  '조사중':  'bg-yellow-100 text-yellow-700',
-  '완료':    'bg-green-100 text-green-700',
-  '보고완료':'bg-purple-100 text-purple-700',
-  '계획수립':'bg-gray-100 text-gray-600',
-  '진행중':  'bg-orange-100 text-orange-700',
-  '취소':    'bg-red-100 text-red-600',
-  '계획':    'bg-gray-100 text-gray-600',
+  'ì ì':    'bg-blue-100 text-blue-700',
+  'ì¡°ì¬ì¤':  'bg-yellow-100 text-yellow-700',
+  'ìë£':    'bg-green-100 text-green-700',
+  'ë³´ê³ ìë£':'bg-purple-100 text-purple-700',
+  'ê³íìë¦½':'bg-gray-100 text-gray-600',
+  'ì§íì¤':  'bg-orange-100 text-orange-700',
+  'ì·¨ì':    'bg-red-100 text-red-600',
+  'ê³í':    'bg-gray-100 text-gray-600',
 }
 const SEV_COLOR = {
-  '경미': 'bg-green-100 text-green-700',
-  '중등도':'bg-yellow-100 text-yellow-700',
-  '중증': 'bg-orange-100 text-orange-700',
-  '사망': 'bg-red-100 text-red-700',
+  'ê²½ë¯¸': 'bg-green-100 text-green-700',
+  'ì¤ë±ë':'bg-yellow-100 text-yellow-700',
+  'ì¤ì¦': 'bg-orange-100 text-orange-700',
+  'ì¬ë§': 'bg-red-100 text-red-700',
 }
 const CLASS_COLOR = {
-  'Class I (긴급)':    'bg-red-100 text-red-700',
-  'Class II (중요)':   'bg-orange-100 text-orange-700',
-  'Class III (일반)':  'bg-yellow-100 text-yellow-700',
+  'Class I (ê¸´ê¸)':    'bg-red-100 text-red-700',
+  'Class II (ì¤ì)':   'bg-orange-100 text-orange-700',
+  'Class III (ì¼ë°)':  'bg-yellow-100 text-yellow-700',
 }
 
-// ─── Shared micro-components ──────────────────────────────────────────────────
+// âââ Shared micro-components ââââââââââââââââââââââââââââââââââââââââââââââââââ
 function Badge({ text, map }) {
   const cls = (map && map[text]) || 'bg-gray-100 text-gray-600'
   return <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{text}</span>
@@ -86,7 +97,7 @@ function FSel({ opts, ...p }) {
 }
 function FTA({ ...p }) { return <textarea {...p} rows={3} className={inputCls} /> }
 
-// ─── Stats row ────────────────────────────────────────────────────────────────
+// âââ Stats row ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function Stats({ rows }) {
   return (
     <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${rows.length}, 1fr)` }}>
@@ -100,7 +111,7 @@ function Stats({ rows }) {
   )
 }
 
-// ─── Search + Add toolbar ─────────────────────────────────────────────────────
+// âââ Search + Add toolbar âââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function Toolbar({ search, onSearch, placeholder, onAdd, label }) {
   return (
     <div className="flex gap-2">
@@ -123,16 +134,16 @@ function Toolbar({ search, onSearch, placeholder, onAdd, label }) {
   )
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
+// âââ Empty state ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function Empty({ searching, msg }) {
   return (
     <div className="text-center py-12 text-gray-400 text-sm bg-white rounded-xl border border-gray-100">
-      {searching ? '검색 결과가 없습니다.' : msg}
+      {searching ? 'ê²ì ê²°ê³¼ê° ììµëë¤.' : msg}
     </div>
   )
 }
 
-// ─── Form shell ───────────────────────────────────────────────────────────────
+// âââ Form shell âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function FormShell({ title, onClose, onSave, children }) {
   return (
     <div className="bg-white rounded-xl border border-red-100 p-4 shadow-sm">
@@ -142,23 +153,33 @@ function FormShell({ title, onClose, onSave, children }) {
       </div>
       {children}
       <div className="flex justify-end gap-2 mt-4">
-        <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">취소</button>
-        <button onClick={onSave} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">저장</button>
+        <button onClick={onClose} className="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">ì·¨ì</button>
+        <button onClick={onSave} className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700">ì ì¥</button>
       </div>
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — 이상사례 보고
-// ═══════════════════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// TAB 1 â ì´ìì¬ë¡ ë³´ê³ 
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function AdverseTab() {
+  const user = auth.current()
+  const companyId = user?.company_id
   const [items, setItems] = useState(() => lsRead(ADV_KEY))
   const [form, setForm] = useState({ ...ADV_EMPTY })
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [expandId, setExpandId] = useState(null)
+  useEffect(() => { _sbCidPm = companyId || null }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync')
+      .eq('data_key', ADV_KEY).maybeSingle()
+      .then(({ data: sbData }) => { if (sbData?.payload) setItems(sbData.payload) })
+  }, [companyId])
 
   const persist = d => { setItems(d); lsSave(ADV_KEY, d) }
 
@@ -179,39 +200,39 @@ function AdverseTab() {
     persist(next); close()
   }
 
-  const del = id => { if (window.confirm('삭제하시겠습니까?')) persist(items.filter(i => i.id !== id)) }
+  const del = id => { if (window.confirm('ì­ì íìê² ìµëê¹?')) persist(items.filter(i => i.id !== id)) }
 
   const f = v => e => setForm({ ...form, [v]: e.target.value })
 
   return (
     <div className="space-y-4">
       <Stats rows={[
-        ['전체', items.length, 'text-gray-700'],
-        ['처리중', items.filter(i => ['접수','조사중'].includes(i.status)).length, 'text-orange-600'],
-        ['보고완료', items.filter(i => i.status === '보고완료').length, 'text-green-600'],
+        ['ì ì²´', items.length, 'text-gray-700'],
+        ['ì²ë¦¬ì¤', items.filter(i => ['ì ì','ì¡°ì¬ì¤'].includes(i.status)).length, 'text-orange-600'],
+        ['ë³´ê³ ìë£', items.filter(i => i.status === 'ë³´ê³ ìë£').length, 'text-green-600'],
       ]} />
-      <Toolbar search={search} onSearch={setSearch} placeholder="제품명, 사례유형, 처리상태..." onAdd={openNew} label="신규 등록" />
+      <Toolbar search={search} onSearch={setSearch} placeholder="ì íëª, ì¬ë¡ì í, ì²ë¦¬ìí..." onAdd={openNew} label="ì ê· ë±ë¡" />
 
       {showForm && (
-        <FormShell title={editId ? '이상사례 수정' : '이상사례 신규 등록'} onClose={close} onSave={submit}>
+        <FormShell title={editId ? 'ì´ìì¬ë¡ ìì ' : 'ì´ìì¬ë¡ ì ê· ë±ë¡'} onClose={close} onSave={submit}>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <FRow label="보고일자 *"><FInput type="date" value={form.reportDate} onChange={f('reportDate')} /></FRow>
-            <FRow label="제품명 *"><FInput value={form.productName} onChange={f('productName')} placeholder="제품명" /></FRow>
-            <FRow label="LOT/일련번호"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
-            <FRow label="사례 유형"><FSel opts={ADV_TYPES} value={form.eventType} onChange={f('eventType')} /></FRow>
-            <FRow label="중증도"><FSel opts={ADV_SEVS} value={form.severity} onChange={f('severity')} /></FRow>
-            <FRow label="보고 기관"><FSel opts={ADV_REPORTS} value={form.reportTo} onChange={f('reportTo')} /></FRow>
-            <FRow label="처리 상태"><FSel opts={ADV_STATUSES} value={form.status} onChange={f('status')} /></FRow>
+            <FRow label="ë³´ê³ ì¼ì *"><FInput type="date" value={form.reportDate} onChange={f('reportDate')} /></FRow>
+            <FRow label="ì íëª *"><FInput value={form.productName} onChange={f('productName')} placeholder="ì íëª" /></FRow>
+            <FRow label="LOT/ì¼ë ¨ë²í¸"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
+            <FRow label="ì¬ë¡ ì í"><FSel opts={ADV_TYPES} value={form.eventType} onChange={f('eventType')} /></FRow>
+            <FRow label="ì¤ì¦ë"><FSel opts={ADV_SEVS} value={form.severity} onChange={f('severity')} /></FRow>
+            <FRow label="ë³´ê³  ê¸°ê´"><FSel opts={ADV_REPORTS} value={form.reportTo} onChange={f('reportTo')} /></FRow>
+            <FRow label="ì²ë¦¬ ìí"><FSel opts={ADV_STATUSES} value={form.status} onChange={f('status')} /></FRow>
           </div>
-          <FRow label="사례 내용">
-            <FTA value={form.description} onChange={f('description')} placeholder="이상사례 상세 내용" />
+          <FRow label="ì¬ë¡ ë´ì©">
+            <FTA value={form.description} onChange={f('description')} placeholder="ì´ìì¬ë¡ ìì¸ ë´ì©" />
           </FRow>
         </FormShell>
       )}
 
       <div className="space-y-2">
         {filtered.length === 0
-          ? <Empty searching={!!search} msg="등록된 이상사례가 없습니다." />
+          ? <Empty searching={!!search} msg="ë±ë¡ë ì´ìì¬ë¡ê° ììµëë¤." />
           : filtered.map(item => (
             <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50" onClick={() => setExpandId(expandId === item.id ? null : item.id)}>
@@ -226,10 +247,10 @@ function AdverseTab() {
               {expandId === item.id && (
                 <div className="border-t border-gray-50 px-4 pb-3 pt-2 grid grid-cols-2 gap-2 text-xs text-gray-600">
                   <div><span className="text-gray-400">LOT No.: </span>{item.lotNo || '-'}</div>
-                  <div><span className="text-gray-400">사례유형: </span>{item.eventType || '-'}</div>
-                  <div><span className="text-gray-400">보고기관: </span>{item.reportTo || '-'}</div>
-                  <div><span className="text-gray-400">중증도: </span>{item.severity || '-'}</div>
-                  {item.description && <div className="col-span-2"><span className="text-gray-400">내용: </span>{item.description}</div>}
+                  <div><span className="text-gray-400">ì¬ë¡ì í: </span>{item.eventType || '-'}</div>
+                  <div><span className="text-gray-400">ë³´ê³ ê¸°ê´: </span>{item.reportTo || '-'}</div>
+                  <div><span className="text-gray-400">ì¤ì¦ë: </span>{item.severity || '-'}</div>
+                  {item.description && <div className="col-span-2"><span className="text-gray-400">ë´ì©: </span>{item.description}</div>}
                 </div>
               )}
             </div>
@@ -239,16 +260,26 @@ function AdverseTab() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 2 — 리콜/회수
-// ═══════════════════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// TAB 2 â ë¦¬ì½/íì
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function RecallTab() {
+  const user = auth.current()
+  const companyId = user?.company_id
   const [items, setItems] = useState(() => lsRead(REC_KEY))
   const [form, setForm] = useState({ ...REC_EMPTY })
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [expandId, setExpandId] = useState(null)
+  useEffect(() => { _sbCidPm = companyId || null }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync')
+      .eq('data_key', REC_KEY).maybeSingle()
+      .then(({ data: sbData }) => { if (sbData?.payload) setItems(sbData.payload) })
+  }, [companyId])
 
   const persist = d => { setItems(d); lsSave(REC_KEY, d) }
 
@@ -269,35 +300,35 @@ function RecallTab() {
     persist(next); close()
   }
 
-  const del = id => { if (window.confirm('삭제하시겠습니까?')) persist(items.filter(i => i.id !== id)) }
+  const del = id => { if (window.confirm('ì­ì íìê² ìµëê¹?')) persist(items.filter(i => i.id !== id)) }
 
   const f = v => e => setForm({ ...form, [v]: e.target.value })
 
   return (
     <div className="space-y-4">
       <Stats rows={[
-        ['전체', items.length, 'text-gray-700'],
-        ['진행중', items.filter(i => ['계획수립','진행중'].includes(i.status)).length, 'text-orange-600'],
-        ['완료', items.filter(i => i.status === '완료').length, 'text-green-600'],
+        ['ì ì²´', items.length, 'text-gray-700'],
+        ['ì§íì¤', items.filter(i => ['ê³íìë¦½','ì§íì¤'].includes(i.status)).length, 'text-orange-600'],
+        ['ìë£', items.filter(i => i.status === 'ìë£').length, 'text-green-600'],
       ]} />
-      <Toolbar search={search} onSearch={setSearch} placeholder="제품명, 회수사유, 처리상태..." onAdd={openNew} label="신규 등록" />
+      <Toolbar search={search} onSearch={setSearch} placeholder="ì íëª, íìì¬ì , ì²ë¦¬ìí..." onAdd={openNew} label="ì ê· ë±ë¡" />
 
       {showForm && (
-        <FormShell title={editId ? '리콜/회수 수정' : '리콜/회수 신규 등록'} onClose={close} onSave={submit}>
+        <FormShell title={editId ? 'ë¦¬ì½/íì ìì ' : 'ë¦¬ì½/íì ì ê· ë±ë¡'} onClose={close} onSave={submit}>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <FRow label="통보/공지일 *"><FInput type="date" value={form.noticeDate} onChange={f('noticeDate')} /></FRow>
-            <FRow label="제품명 *"><FInput value={form.productName} onChange={f('productName')} placeholder="제품명" /></FRow>
-            <FRow label="LOT/일련번호"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
-            <FRow label="회수 수량"><FInput value={form.quantity} onChange={f('quantity')} placeholder="수량 및 단위" /></FRow>
-            <FRow label="회수 등급"><FSel opts={REC_CLASSES} value={form.recallClass} onChange={f('recallClass')} /></FRow>
-            <FRow label="처리 상태"><FSel opts={REC_STATUSES} value={form.status} onChange={f('status')} /></FRow>
+            <FRow label="íµë³´/ê³µì§ì¼ *"><FInput type="date" value={form.noticeDate} onChange={f('noticeDate')} /></FRow>
+            <FRow label="ì íëª *"><FInput value={form.productName} onChange={f('productName')} placeholder="ì íëª" /></FRow>
+            <FRow label="LOT/ì¼ë ¨ë²í¸"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
+            <FRow label="íì ìë"><FInput value={form.quantity} onChange={f('quantity')} placeholder="ìë ë° ë¨ì" /></FRow>
+            <FRow label="íì ë±ê¸"><FSel opts={REC_CLASSES} value={form.recallClass} onChange={f('recallClass')} /></FRow>
+            <FRow label="ì²ë¦¬ ìí"><FSel opts={REC_STATUSES} value={form.status} onChange={f('status')} /></FRow>
           </div>
-          <FRow label="회수 사유">
-            <FTA value={form.recallReason} onChange={f('recallReason')} placeholder="회수 사유" />
+          <FRow label="íì ì¬ì ">
+            <FTA value={form.recallReason} onChange={f('recallReason')} placeholder="íì ì¬ì " />
           </FRow>
           <div className="mt-3">
-            <FRow label="조치 내용">
-              <FTA value={form.action} onChange={f('action')} placeholder="취해진 또는 취할 조치 내용" />
+            <FRow label="ì¡°ì¹ ë´ì©">
+              <FTA value={form.action} onChange={f('action')} placeholder="ì·¨í´ì§ ëë ì·¨í  ì¡°ì¹ ë´ì©" />
             </FRow>
           </div>
         </FormShell>
@@ -305,7 +336,7 @@ function RecallTab() {
 
       <div className="space-y-2">
         {filtered.length === 0
-          ? <Empty searching={!!search} msg="등록된 리콜/회수 이력이 없습니다." />
+          ? <Empty searching={!!search} msg="ë±ë¡ë ë¦¬ì½/íì ì´ë ¥ì´ ììµëë¤." />
           : filtered.map(item => (
             <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50" onClick={() => setExpandId(expandId === item.id ? null : item.id)}>
@@ -321,10 +352,10 @@ function RecallTab() {
                 <div className="border-t border-gray-50 px-4 pb-3 pt-2 space-y-1.5 text-xs text-gray-600">
                   <div className="grid grid-cols-2 gap-2">
                     <div><span className="text-gray-400">LOT No.: </span>{item.lotNo || '-'}</div>
-                    <div><span className="text-gray-400">회수수량: </span>{item.quantity || '-'}</div>
+                    <div><span className="text-gray-400">íììë: </span>{item.quantity || '-'}</div>
                   </div>
-                  {item.recallReason && <div><span className="text-gray-400">회수사유: </span>{item.recallReason}</div>}
-                  {item.action && <div><span className="text-gray-400">조치내용: </span>{item.action}</div>}
+                  {item.recallReason && <div><span className="text-gray-400">íìì¬ì : </span>{item.recallReason}</div>}
+                  {item.action && <div><span className="text-gray-400">ì¡°ì¹ë´ì©: </span>{item.action}</div>}
                 </div>
               )}
             </div>
@@ -334,16 +365,26 @@ function RecallTab() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// TAB 3 — 안전성 조치
-// ═══════════════════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// TAB 3 â ìì ì± ì¡°ì¹
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 function SafetyTab() {
+  const user = auth.current()
+  const companyId = user?.company_id
   const [items, setItems] = useState(() => lsRead(SAF_KEY))
   const [form, setForm] = useState({ ...SAF_EMPTY })
   const [editId, setEditId] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [expandId, setExpandId] = useState(null)
+  useEffect(() => { _sbCidPm = companyId || null }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync')
+      .eq('data_key', SAF_KEY).maybeSingle()
+      .then(({ data: sbData }) => { if (sbData?.payload) setItems(sbData.payload) })
+  }, [companyId])
 
   const persist = d => { setItems(d); lsSave(SAF_KEY, d) }
 
@@ -364,34 +405,34 @@ function SafetyTab() {
     persist(next); close()
   }
 
-  const del = id => { if (window.confirm('삭제하시겠습니까?')) persist(items.filter(i => i.id !== id)) }
+  const del = id => { if (window.confirm('ì­ì íìê² ìµëê¹?')) persist(items.filter(i => i.id !== id)) }
 
   const f = v => e => setForm({ ...form, [v]: e.target.value })
 
   return (
     <div className="space-y-4">
       <Stats rows={[
-        ['전체', items.length, 'text-gray-700'],
-        ['진행중', items.filter(i => ['계획','진행중'].includes(i.status)).length, 'text-orange-600'],
-        ['완료', items.filter(i => i.status === '완료').length, 'text-green-600'],
+        ['ì ì²´', items.length, 'text-gray-700'],
+        ['ì§íì¤', items.filter(i => ['ê³í','ì§íì¤'].includes(i.status)).length, 'text-orange-600'],
+        ['ìë£', items.filter(i => i.status === 'ìë£').length, 'text-green-600'],
       ]} />
-      <Toolbar search={search} onSearch={setSearch} placeholder="제품명, 조치유형, 처리상태..." onAdd={openNew} label="신규 등록" />
+      <Toolbar search={search} onSearch={setSearch} placeholder="ì íëª, ì¡°ì¹ì í, ì²ë¦¬ìí..." onAdd={openNew} label="ì ê· ë±ë¡" />
 
       {showForm && (
-        <FormShell title={editId ? '안전성 조치 수정' : '안전성 조치 신규 등록'} onClose={close} onSave={submit}>
+        <FormShell title={editId ? 'ìì ì± ì¡°ì¹ ìì ' : 'ìì ì± ì¡°ì¹ ì ê· ë±ë¡'} onClose={close} onSave={submit}>
           <div className="grid grid-cols-2 gap-3 mb-3">
-            <FRow label="조치 발령일 *"><FInput type="date" value={form.issueDate} onChange={f('issueDate')} /></FRow>
-            <FRow label="제품명 *"><FInput value={form.productName} onChange={f('productName')} placeholder="제품명" /></FRow>
-            <FRow label="LOT/일련번호"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
-            <FRow label="조치 유형"><FSel opts={SAF_TYPES} value={form.actionType} onChange={f('actionType')} /></FRow>
-            <FRow label="이행 상태"><FSel opts={SAF_STATUSES} value={form.status} onChange={f('status')} /></FRow>
+            <FRow label="ì¡°ì¹ ë°ë ¹ì¼ *"><FInput type="date" value={form.issueDate} onChange={f('issueDate')} /></FRow>
+            <FRow label="ì íëª *"><FInput value={form.productName} onChange={f('productName')} placeholder="ì íëª" /></FRow>
+            <FRow label="LOT/ì¼ë ¨ë²í¸"><FInput value={form.lotNo} onChange={f('lotNo')} placeholder="LOT No." /></FRow>
+            <FRow label="ì¡°ì¹ ì í"><FSel opts={SAF_TYPES} value={form.actionType} onChange={f('actionType')} /></FRow>
+            <FRow label="ì´í ìí"><FSel opts={SAF_STATUSES} value={form.status} onChange={f('status')} /></FRow>
           </div>
-          <FRow label="발동 사유">
-            <FTA value={form.reason} onChange={f('reason')} placeholder="안전성 조치 발동 사유" />
+          <FRow label="ë°ë ì¬ì ">
+            <FTA value={form.reason} onChange={f('reason')} placeholder="ìì ì± ì¡°ì¹ ë°ë ì¬ì " />
           </FRow>
           <div className="mt-3">
-            <FRow label="세부 조치 내용">
-              <FTA value={form.measure} onChange={f('measure')} placeholder="구체적인 조치 내용" />
+            <FRow label="ì¸ë¶ ì¡°ì¹ ë´ì©">
+              <FTA value={form.measure} onChange={f('measure')} placeholder="êµ¬ì²´ì ì¸ ì¡°ì¹ ë´ì©" />
             </FRow>
           </div>
         </FormShell>
@@ -399,7 +440,7 @@ function SafetyTab() {
 
       <div className="space-y-2">
         {filtered.length === 0
-          ? <Empty searching={!!search} msg="등록된 안전성 조치 이력이 없습니다." />
+          ? <Empty searching={!!search} msg="ë±ë¡ë ìì ì± ì¡°ì¹ ì´ë ¥ì´ ììµëë¤." />
           : filtered.map(item => (
             <div key={item.id} className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50" onClick={() => setExpandId(expandId === item.id ? null : item.id)}>
@@ -416,8 +457,8 @@ function SafetyTab() {
               {expandId === item.id && (
                 <div className="border-t border-gray-50 px-4 pb-3 pt-2 space-y-1.5 text-xs text-gray-600">
                   <div><span className="text-gray-400">LOT No.: </span>{item.lotNo || '-'}</div>
-                  {item.reason && <div><span className="text-gray-400">발동사유: </span>{item.reason}</div>}
-                  {item.measure && <div><span className="text-gray-400">조치내용: </span>{item.measure}</div>}
+                  {item.reason && <div><span className="text-gray-400">ë°ëì¬ì : </span>{item.reason}</div>}
+                  {item.measure && <div><span className="text-gray-400">ì¡°ì¹ë´ì©: </span>{item.measure}</div>}
                 </div>
               )}
             </div>
@@ -427,15 +468,15 @@ function SafetyTab() {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 // MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════════
+// âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 export default function PostMarketSafetyHub() {
   const [activeTab, setActiveTab] = useState('adverse')
 
   return (
     <AppLayout>
-      <HubBanner icon={AlertTriangle} title="시판후안전관리" subtitle="이상사례 보고 · 리콜/회수 · 안전성 조치 통합 관리" color="#dc2626" />
+      <HubBanner icon={AlertTriangle} title="ìííìì ê´ë¦¬" subtitle="ì´ìì¬ë¡ ë³´ê³  Â· ë¦¬ì½/íì Â· ìì ì± ì¡°ì¹ íµí© ê´ë¦¬" color="#dc2626" />
       <div className="max-w-4xl mx-auto px-4 pb-10">
 
         {/* Tab navigation */}
@@ -470,36 +511,46 @@ export default function PostMarketSafetyHub() {
 }
 
 
-// ── MDR 보고서 탭 ────────────────────────────────────────────
+// ââ MDR ë³´ê³ ì í­ ââââââââââââââââââââââââââââââââââââââââââââ
 const MDR_KEY = 'qualytree.mdr_reports'
 function MdrTab() {
+  const user = auth.current()
+  const companyId = user?.company_id
   const [reports, setReports] = React.useState([])
   const [showForm, setShowForm] = React.useState(false)
   const [editId, setEditId] = React.useState(null)
-  const EMPTY = { reportNo:'', reportType:'15일보고', productName:'', incidentDate:'', reportDate:'', patientInfo:'', eventDescription:'', deviceProblem:'', patientOutcome:'', cause:'', corrective:'', status:'작성중' }
+  const EMPTY = { reportNo:'', reportType:'15ì¼ë³´ê³ ', productName:'', incidentDate:'', reportDate:'', patientInfo:'', eventDescription:'', deviceProblem:'', patientOutcome:'', cause:'', corrective:'', status:'ìì±ì¤' }
   const [form, setForm] = React.useState(EMPTY)
+  useEffect(() => { _sbCidPm = companyId || null }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync')
+      .eq('data_key', MDR_KEY).maybeSingle()
+      .then(({ data: sbData }) => { if (sbData?.payload) setReports(sbData.payload) })
+  }, [companyId])
 
   React.useEffect(() => {
     try { setReports(JSON.parse(localStorage.getItem(MDR_KEY)||'[]')) } catch {}
   }, [])
 
-  const persist = (list) => { try { localStorage.setItem(MDR_KEY, JSON.stringify(list)) } catch {}; setReports(list) }
+  const persist = (list) => { try { lsSave(MDR_KEY, list) } catch {}; setReports(list) }
 
   const fillTemplate = () => {
     const today = new Date().toISOString().slice(0,10)
     setForm({
       reportNo: 'MDR-' + Date.now().toString().slice(-6),
-      reportType: '15일보고',
+      reportType: '15ì¼ë³´ê³ ',
       productName: '',
       incidentDate: today,
       reportDate: today,
-      patientInfo: '환자 식별번호: ___  나이: ___  성별: ___  사용 목적: ___',
-      eventDescription: '[이상사례 발생일]: ___\n[발생 장소]: ___\n[사고 경위]: 환자에게 기기를 사용 중 ___이 발생하였음.\n[기기 상태]: 사고 당시 기기의 상태는 ___ 이었으며, 시리얼번호 ___ 로 확인됨.',
-      deviceProblem: '□ 기기 고장  □ 라벨 오류  □ 사용자 오류  □ 기기 성능 저하  □ 기타: ___',
-      patientOutcome: '□ 사망  □ 중대한 부상  □ 입원  □ 생명 위협  □ 후유증  □ 의료 처치 필요  □ 무해',
-      cause: '[임시 원인 분석]:\n제조 공정: ___\n설계 결함: ___\n사용자 오류: ___\n환경 요인: ___',
-      corrective: '[즉각 조치]:\n1. 해당 로트 격리 조치\n2. 의료기관 통보\n3. 원인 조사 착수\n\n[예방 조치]:\n1. CAPA 등록 예정\n2. 제조 공정 검토 예정',
-      status: '작성중'
+      patientInfo: 'íì ìë³ë²í¸: ___  ëì´: ___  ì±ë³: ___  ì¬ì© ëª©ì : ___',
+      eventDescription: '[ì´ìì¬ë¡ ë°ìì¼]: ___\n[ë°ì ì¥ì]: ___\n[ì¬ê³  ê²½ì]: íììê² ê¸°ê¸°ë¥¼ ì¬ì© ì¤ ___ì´ ë°ìíìì.\n[ê¸°ê¸° ìí]: ì¬ê³  ë¹ì ê¸°ê¸°ì ìíë ___ ì´ìì¼ë©°, ìë¦¬ì¼ë²í¸ ___ ë¡ íì¸ë¨.',
+      deviceProblem: 'â¡ ê¸°ê¸° ê³ ì¥  â¡ ë¼ë²¨ ì¤ë¥  â¡ ì¬ì©ì ì¤ë¥  â¡ ê¸°ê¸° ì±ë¥ ì í  â¡ ê¸°í: ___',
+      patientOutcome: 'â¡ ì¬ë§  â¡ ì¤ëí ë¶ì  â¡ ìì  â¡ ìëª ìí  â¡ íì ì¦  â¡ ìë£ ì²ì¹ íì  â¡ ë¬´í´',
+      cause: '[ìì ìì¸ ë¶ì]:\nì ì¡° ê³µì : ___\nì¤ê³ ê²°í¨: ___\nì¬ì©ì ì¤ë¥: ___\níê²½ ìì¸: ___',
+      corrective: '[ì¦ê° ì¡°ì¹]:\n1. í´ë¹ ë¡í¸ ê²©ë¦¬ ì¡°ì¹\n2. ìë£ê¸°ê´ íµë³´\n3. ìì¸ ì¡°ì¬ ì°©ì\n\n[ìë°© ì¡°ì¹]:\n1. CAPA ë±ë¡ ìì \n2. ì ì¡° ê³µì  ê²í  ìì ',
+      status: 'ìì±ì¤'
     })
     setEditId(null)
     setShowForm(true)
@@ -507,7 +558,7 @@ function MdrTab() {
 
   const handlePrint = (r) => {
     const esc = (s) => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>')
-    const html = `<!DOCTYPE html><html><head><title>MDR-${r.reportNo}</title><style>body{font-family:serif;margin:30px;font-size:12px}h1{font-size:16px;text-align:center;border-bottom:2px solid #000;padding-bottom:6px}table{width:100%;border-collapse:collapse}td{border:1px solid #000;padding:5px;vertical-align:top}.lb{background:#f0f0f0;width:20%;font-weight:bold}</style></head><body><h1>의료기기 이상사례 보고서 (MDR)</h1><table><tr><td class=lb>보고번호</td><td>${esc(r.reportNo)}</td><td class=lb>보고유형</td><td>${esc(r.reportType)}</td></tr><tr><td class=lb>제품명</td><td>${esc(r.productName)}</td><td class=lb>보고일</td><td>${esc(r.reportDate)}</td></tr><tr><td class=lb>사고발생일</td><td>${esc(r.incidentDate)}</td><td class=lb>상태</td><td>${esc(r.status)}</td></tr><tr><td class=lb>환자정보</td><td colspan=3>${esc(r.patientInfo)}</td></tr><tr><td class=lb>사고개요</td><td colspan=3>${esc(r.eventDescription)}</td></tr><tr><td class=lb>기기결함</td><td colspan=3>${esc(r.deviceProblem)}</td></tr><tr><td class=lb>환자결과</td><td colspan=3>${esc(r.patientOutcome)}</td></tr><tr><td class=lb>원인분석</td><td colspan=3>${esc(r.cause)}</td></tr><tr><td class=lb>시정조치</td><td colspan=3>${esc(r.corrective)}</td></tr></table></body></html>`
+    const html = `<!DOCTYPE html><html><head><title>MDR-${r.reportNo}</title><style>body{font-family:serif;margin:30px;font-size:12px}h1{font-size:16px;text-align:center;border-bottom:2px solid #000;padding-bottom:6px}table{width:100%;border-collapse:collapse}td{border:1px solid #000;padding:5px;vertical-align:top}.lb{background:#f0f0f0;width:20%;font-weight:bold}</style></head><body><h1>ìë£ê¸°ê¸° ì´ìì¬ë¡ ë³´ê³ ì (MDR)</h1><table><tr><td class=lb>ë³´ê³ ë²í¸</td><td>${esc(r.reportNo)}</td><td class=lb>ë³´ê³ ì í</td><td>${esc(r.reportType)}</td></tr><tr><td class=lb>ì íëª</td><td>${esc(r.productName)}</td><td class=lb>ë³´ê³ ì¼</td><td>${esc(r.reportDate)}</td></tr><tr><td class=lb>ì¬ê³ ë°ìì¼</td><td>${esc(r.incidentDate)}</td><td class=lb>ìí</td><td>${esc(r.status)}</td></tr><tr><td class=lb>íìì ë³´</td><td colspan=3>${esc(r.patientInfo)}</td></tr><tr><td class=lb>ì¬ê³ ê°ì</td><td colspan=3>${esc(r.eventDescription)}</td></tr><tr><td class=lb>ê¸°ê¸°ê²°í¨</td><td colspan=3>${esc(r.deviceProblem)}</td></tr><tr><td class=lb>íìê²°ê³¼</td><td colspan=3>${esc(r.patientOutcome)}</td></tr><tr><td class=lb>ìì¸ë¶ì</td><td colspan=3>${esc(r.cause)}</td></tr><tr><td class=lb>ìì ì¡°ì¹</td><td colspan=3>${esc(r.corrective)}</td></tr></table></body></html>`
     const w = window.open('','_blank'); w.document.write(html); w.document.close(); w.print()
   }
 
@@ -517,17 +568,17 @@ function MdrTab() {
     else { persist([...reports, {id:Date.now().toString(),...form}]) }
     setShowForm(false)
   }
-  const del = (id) => { if(!window.confirm('삭제하시겠습니까?')) return; persist(reports.filter(r=>r.id!==id)) }
+  const del = (id) => { if(!window.confirm('ì­ì íìê² ìµëê¹?')) return; persist(reports.filter(r=>r.id!==id)) }
   const setF = (k,v) => setForm(f=>({...f,[k]:v}))
 
   const [aiLoading, setAiLoading] = React.useState(false)
-  // AI 초안 — 제품명과 사고 개요가 있으면 경위·원인·조치·보고기한 분류를 AI가 채운다.
+  // AI ì´ì â ì íëªê³¼ ì¬ê³  ê°ìê° ìì¼ë©´ ê²½ìÂ·ìì¸Â·ì¡°ì¹Â·ë³´ê³ ê¸°í ë¶ë¥ë¥¼ AIê° ì±ì´ë¤.
   const aiDraft = async () => {
     if (!showForm) { setForm({ ...EMPTY, reportNo: 'MDR-' + Date.now().toString().slice(-6), reportDate: new Date().toISOString().slice(0,10) }); setShowForm(true) }
     const productName = (form.productName || '').trim()
     const summary = (form.eventDescription || '').trim()
     if (!productName || !summary) {
-      window.alert('AI 초안을 만들려면 먼저 제품명과 사고 개요(이상사례 내용)를 간단히 입력해 주세요.\n\n예: 제품명 "척추 고정용 스크류", 개요 "삽입 중 스크류 헤드가 파단됨"')
+      window.alert('AI ì´ìì ë§ë¤ë ¤ë©´ ë¨¼ì  ì íëªê³¼ ì¬ê³  ê°ì(ì´ìì¬ë¡ ë´ì©)ë¥¼ ê°ë¨í ìë ¥í´ ì£¼ì¸ì.\n\nì: ì íëª "ì²ì¶ ê³ ì ì© ì¤í¬ë¥", ê°ì "ì½ì ì¤ ì¤í¬ë¥ í¤ëê° íë¨ë¨"')
       return
     }
     setAiLoading(true)
@@ -537,7 +588,7 @@ function MdrTab() {
         body: JSON.stringify({ docType: 'mdr', fields: { productName, summary, incidentDate: form.incidentDate, outcome: form.patientOutcome } }),
       })
       const j = await res.json().catch(() => ({}))
-      if (!res.ok || !j.ok) throw new Error(j.message || 'AI 초안 생성에 실패했습니다.')
+      if (!res.ok || !j.ok) throw new Error(j.message || 'AI ì´ì ìì±ì ì¤í¨íìµëë¤.')
       setForm((f) => ({
         ...f,
         eventDescription: j.eventDescription || f.eventDescription,
@@ -545,50 +596,50 @@ function MdrTab() {
         corrective: j.corrective || f.corrective,
         reportType: j.reportType || f.reportType,
       }))
-      if (j.reportTypeReason) window.alert('보고 기한 분류: ' + (j.reportType || '') + '\n근거: ' + j.reportTypeReason + '\n\nAI 초안입니다 — 검토·수정 후 저장하세요.')
+      if (j.reportTypeReason) window.alert('ë³´ê³  ê¸°í ë¶ë¥: ' + (j.reportType || '') + '\nê·¼ê±°: ' + j.reportTypeReason + '\n\nAI ì´ììëë¤ â ê²í Â·ìì  í ì ì¥íì¸ì.')
     } catch (e) {
-      window.alert((e && e.message) || 'AI 초안 생성에 실패했습니다.')
+      window.alert((e && e.message) || 'AI ì´ì ìì±ì ì¤í¨íìµëë¤.')
     } finally { setAiLoading(false) }
   }
 
   return (
     <div className="space-y-4">
       <div className="flex gap-2 items-center justify-between">
-        <span className="text-[13px]" style={{color:'var(--ink-faint)'}}>MDR 보고서 {reports.length}건</span>
+        <span className="text-[13px]" style={{color:'var(--ink-faint)'}}>MDR ë³´ê³ ì {reports.length}ê±´</span>
         <div className="flex gap-2">
-          <button onClick={fillTemplate} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--surface-2)',color:'var(--ink)',border:'1px solid var(--border)'}}>양식 채우기</button>
-          <button onClick={aiDraft} disabled={aiLoading} className="px-3 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-60" style={{background:'#7c3aed',color:'#fff'}}>{aiLoading ? 'AI 초안 생성 중…' : 'AI 초안 생성'}</button>
-          <button onClick={()=>{setEditId(null);setForm({...EMPTY,reportDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}><Plus size={14}/> 신규</button>
+          <button onClick={fillTemplate} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--surface-2)',color:'var(--ink)',border:'1px solid var(--border)'}}>ìì ì±ì°ê¸°</button>
+          <button onClick={aiDraft} disabled={aiLoading} className="px-3 py-1.5 rounded-lg text-[13px] font-medium disabled:opacity-60" style={{background:'#7c3aed',color:'#fff'}}>{aiLoading ? 'AI ì´ì ìì± ì¤â¦' : 'AI ì´ì ìì±'}</button>
+          <button onClick={()=>{setEditId(null);setForm({...EMPTY,reportDate:new Date().toISOString().slice(0,10)});setShowForm(true)}} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}><Plus size={14}/> ì ê·</button>
         </div>
       </div>
 
       {showForm && (
         <div className="rounded-xl border p-4 space-y-3" style={{borderColor:'var(--border)',background:'var(--surface-2)'}}>
           <div className="grid grid-cols-2 gap-3">
-            <FInput label="보고번호" value={form.reportNo} onChange={e=>setF('reportNo',e.target.value)} />
-            <FSel label="보고유형" value={form.reportType} onChange={e=>setF('reportType',e.target.value)} options={['15일보고','30일보고','보완보고']} />
-            <FInput label="제품명" value={form.productName} onChange={e=>setF('productName',e.target.value)} />
-            <FSel label="상태" value={form.status} onChange={e=>setF('status',e.target.value)} options={['작성중','검토중','제출완료']} />
-            <FInput label="사고발생일" type="date" value={form.incidentDate} onChange={e=>setF('incidentDate',e.target.value)} />
-            <FInput label="보고일" type="date" value={form.reportDate} onChange={e=>setF('reportDate',e.target.value)} />
-            <div className="col-span-2"><FTA label="환자정보" value={form.patientInfo} onChange={e=>setF('patientInfo',e.target.value)} rows={2} /></div>
-            <div className="col-span-2"><FTA label="사고개요" value={form.eventDescription} onChange={e=>setF('eventDescription',e.target.value)} rows={4} /></div>
-            <div className="col-span-2"><FTA label="기기결함" value={form.deviceProblem} onChange={e=>setF('deviceProblem',e.target.value)} rows={2} /></div>
-            <div className="col-span-2"><FTA label="환자결과" value={form.patientOutcome} onChange={e=>setF('patientOutcome',e.target.value)} rows={2} /></div>
-            <div className="col-span-2"><FTA label="원인분석" value={form.cause} onChange={e=>setF('cause',e.target.value)} rows={3} /></div>
-            <div className="col-span-2"><FTA label="시정조치" value={form.corrective} onChange={e=>setF('corrective',e.target.value)} rows={3} /></div>
+            <FInput label="ë³´ê³ ë²í¸" value={form.reportNo} onChange={e=>setF('reportNo',e.target.value)} />
+            <FSel label="ë³´ê³ ì í" value={form.reportType} onChange={e=>setF('reportType',e.target.value)} options={['15ì¼ë³´ê³ ','30ì¼ë³´ê³ ','ë³´ìë³´ê³ ']} />
+            <FInput label="ì íëª" value={form.productName} onChange={e=>setF('productName',e.target.value)} />
+            <FSel label="ìí" value={form.status} onChange={e=>setF('status',e.target.value)} options={['ìì±ì¤','ê²í ì¤','ì ì¶ìë£']} />
+            <FInput label="ì¬ê³ ë°ìì¼" type="date" value={form.incidentDate} onChange={e=>setF('incidentDate',e.target.value)} />
+            <FInput label="ë³´ê³ ì¼" type="date" value={form.reportDate} onChange={e=>setF('reportDate',e.target.value)} />
+            <div className="col-span-2"><FTA label="íìì ë³´" value={form.patientInfo} onChange={e=>setF('patientInfo',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="ì¬ê³ ê°ì" value={form.eventDescription} onChange={e=>setF('eventDescription',e.target.value)} rows={4} /></div>
+            <div className="col-span-2"><FTA label="ê¸°ê¸°ê²°í¨" value={form.deviceProblem} onChange={e=>setF('deviceProblem',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="íìê²°ê³¼" value={form.patientOutcome} onChange={e=>setF('patientOutcome',e.target.value)} rows={2} /></div>
+            <div className="col-span-2"><FTA label="ìì¸ë¶ì" value={form.cause} onChange={e=>setF('cause',e.target.value)} rows={3} /></div>
+            <div className="col-span-2"><FTA label="ìì ì¡°ì¹" value={form.corrective} onChange={e=>setF('corrective',e.target.value)} rows={3} /></div>
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>취소</button>
-            <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}>저장</button>
+            <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>ì·¨ì</button>
+            <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{background:'var(--accent)',color:'#fff'}}>ì ì¥</button>
           </div>
         </div>
       )}
 
       {reports.length===0&&!showForm&&(
         <div className="text-center py-8" style={{color:'var(--ink-faint)'}}>
-          <p className="text-[14px]">MDR 보고서가 없습니다</p>
-          <p className="text-[12px] mt-1">제품명과 사고 개요를 입력하고 ‘AI 초안 생성’을 누르면 경위·원인·조치·보고기한이 채워집니다</p>
+          <p className="text-[14px]">MDR ë³´ê³ ìê° ììµëë¤</p>
+          <p className="text-[12px] mt-1">ì íëªê³¼ ì¬ê³  ê°ìë¥¼ ìë ¥íê³  âAI ì´ì ìì±âì ëë¥´ë©´ ê²½ìÂ·ìì¸Â·ì¡°ì¹Â·ë³´ê³ ê¸°íì´ ì±ìì§ëë¤</p>
         </div>
       )}
 
@@ -599,13 +650,13 @@ function MdrTab() {
               <div>
                 <div className="flex items-center gap-2">
                   <p className="text-[14px] font-semibold">{r.reportNo}</p>
-                  <Badge label={r.reportType} color={r.reportType==='15일보고'?'red':'orange'} />
-                  <Badge label={r.status} color={r.status==='제출완료'?'green':r.status==='검토중'?'blue':'gray'} />
+                  <Badge label={r.reportType} color={r.reportType==='15ì¼ë³´ê³ '?'red':'orange'} />
+                  <Badge label={r.status} color={r.status==='ì ì¶ìë£'?'green':r.status==='ê²í ì¤'?'blue':'gray'} />
                 </div>
-                <p className="text-[12px] mt-0.5" style={{color:'var(--ink-faint)'}}>{r.productName} · 사고: {r.incidentDate} · 보고: {r.reportDate}</p>
+                <p className="text-[12px] mt-0.5" style={{color:'var(--ink-faint)'}}>{r.productName} Â· ì¬ê³ : {r.incidentDate} Â· ë³´ê³ : {r.reportDate}</p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={()=>handlePrint(r)} className="px-2 py-1 rounded text-[12px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>출력</button>
+                <button onClick={()=>handlePrint(r)} className="px-2 py-1 rounded text-[12px]" style={{background:'var(--surface-2)',border:'1px solid var(--border)'}}>ì¶ë ¥</button>
                 <button onClick={()=>{setEditId(r.id);setForm({reportNo:r.reportNo,reportType:r.reportType,productName:r.productName,incidentDate:r.incidentDate,reportDate:r.reportDate,patientInfo:r.patientInfo,eventDescription:r.eventDescription,deviceProblem:r.deviceProblem,patientOutcome:r.patientOutcome,cause:r.cause,corrective:r.corrective,status:r.status});setShowForm(true)}} className="p-1 rounded" style={{color:'var(--ink-faint)'}}><Edit3 size={14}/></button>
                 <button onClick={()=>del(r.id)} className="p-1 rounded" style={{color:'var(--danger)'}}><Trash2 size={14}/></button>
               </div>
