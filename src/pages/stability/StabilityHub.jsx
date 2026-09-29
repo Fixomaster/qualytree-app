@@ -1,6 +1,6 @@
 // src/pages/stability/StabilityHub.jsx
 // 안정성 시험 관리 허브 — 제조GMP 제8장: 유효기간 설정을 위한 안정성 시험 계획·실시·기록 (#134)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Edit3, Trash2, ChevronDown, ChevronUp,
   X, CheckCircle2, AlertTriangle, Thermometer, BarChart2, List, Clock
@@ -8,6 +8,9 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
+
+let _sbCidStab = null
 
 const STORAGE_KEY = 'qualytree.stability'
 
@@ -58,10 +61,30 @@ export default function StabilityHub() {
   const [showForm, setShowForm] = useState(false)
   const [expanded, setExpanded] = useState(null)
   const [formSection, setFormSection] = useState('basic')
-  const user = auth.getUser ? auth.getUser() : {}
+  const user = auth.current ? auth.current() : (auth.getUser ? auth.getUser() : {})
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidStab = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', STORAGE_KEY)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(row.payload))
+          setRecords(row.payload)
+        }
+      })
+  }, [companyId])
 
   function save(data) {
-    setRecords(data); localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    setRecords(data)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    if (_sbCidStab) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidStab, data_type: 'localStorage_sync',
+        data_key: STORAGE_KEY, payload: data
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
   }
 
   function openNew() {
