@@ -1,5 +1,5 @@
 // src/pages/quality-policy/QualityPolicyHub.jsx
-// ISO 13485 Â§5.1 ê²½ììì§ / Â§5.3 íì§ë°©ì¹¨ â ê²½ìì ìëª + ê²í  ì´ë ¥ ì¶ê°
+// ISO 13485 ÃÂ§5.1 ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ¬Â§Â / ÃÂ§5.3 Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ Ã¢ÂÂ ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂªÂ + ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥ Ã¬Â¶ÂÃªÂ°Â
 import React, { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Edit2, Save, X, Award, Target, ShieldCheck, PenTool, History } from 'lucide-react'
@@ -7,8 +7,8 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
-let _sbCidQpy = null
 import { QualityObjectivesPanel } from '../quality-objectives/QualityObjectivesHub'
+let _sbCidQpy = null
 
 const LS_KEY_POLICY = 'qualytree.quality_policy'
 const LS_KEY_SIGS = 'qualytree.qp_signatures'
@@ -17,10 +17,10 @@ const LS_KEY_HISTORY = 'qualytree.qp_review_history'
 const DEFAULT_POLICY = { statement: '', revision: '', effectiveDate: '' }
 
 const TABS = [
-  { key: 'policy', label: 'íì§ë°©ì¹¨', icon: Award },
-  { key: 'objectives', label: 'íì§ëª©í', icon: Target },
-  { key: 'signature', label: 'ê²½ìì ìëª', icon: PenTool },
-  { key: 'history', label: 'ê²í  ì´ë ¥', icon: History },
+  { key: 'policy', label: 'Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨', icon: Award },
+  { key: 'objectives', label: 'Ã­ÂÂÃ¬Â§ÂÃ«ÂªÂ©Ã­ÂÂ', icon: Target },
+  { key: 'signature', label: 'ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂªÂ', icon: PenTool },
+  { key: 'history', label: 'ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥', icon: History },
 ]
 
 export default function QualityPolicyHub() {
@@ -105,7 +105,7 @@ export default function QualityPolicyHub() {
 
   return (
     <AppLayout>
-      <HubBanner title="ê²½ììì§ Â· íì§ë°©ì¹¨" subtitle="ISO 13485 Â§5.1 / Â§5.3 â íì§ë°©ì¹¨ ì ì¸, ê²½ìì ìëª ë° ê²í  ì´ë ¥ ê´ë¦¬" icon="ð" />
+      <HubBanner title="ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ¬Â§Â ÃÂ· Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨" subtitle="ISO 13485 ÃÂ§5.1 / ÃÂ§5.3 Ã¢ÂÂ Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ Ã¬ÂÂ Ã¬ÂÂ¸, ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂªÂ Ã«Â°Â ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥ ÃªÂ´ÂÃ«Â¦Â¬" icon="Ã°ÂÂÂ" />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
@@ -122,44 +122,44 @@ export default function QualityPolicyHub() {
           <div className="max-w-[900px]">
             <div className="flex justify-end mb-4">
               {canEdit && !editing && (
-                <button onClick={startEdit} style={btnPrimary}><Edit2 size={13} /> í¸ì§</button>
+                <button onClick={startEdit} style={btnPrimary}><Edit2 size={13} /> Ã­ÂÂ¸Ã¬Â§Â</button>
               )}
               {editing && (
                 <div className="flex gap-2">
-                  <button onClick={savePolicy} style={btnPrimary}><Save size={13} /> ì ì¥</button>
-                  <button onClick={cancelEdit} style={btnSoft}><X size={13} /> ì·¨ì</button>
+                  <button onClick={savePolicy} style={btnPrimary}><Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥</button>
+                  <button onClick={cancelEdit} style={btnSoft}><X size={13} /> Ã¬Â·Â¨Ã¬ÂÂ</button>
                 </div>
               )}
             </div>
             <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid #2563EB30' }}>
               <div className="flex items-center gap-2 mb-4">
                 <span style={{ color: '#2563EB' }}><Award size={15} /></span>
-                <span className="font-bold text-[14px]" style={{ color: '#2563EB' }}>íì§ë°©ì¹¨ ì ì¸ë¬¸</span>
+                <span className="font-bold text-[14px]" style={{ color: '#2563EB' }}>Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ Ã¬ÂÂ Ã¬ÂÂ¸Ã«Â¬Â¸</span>
               </div>
               {editing ? (
                 <textarea value={draft.statement || ''} onChange={e => setDraft(d => ({ ...d, statement: e.target.value }))}
-                  rows={6} placeholder="íì§ë°©ì¹¨ì ìë ¥íì¸ì"
+                  rows={6} placeholder="Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ"
                   style={{ ...inputStyle, resize: 'none' }} />
               ) : (
                 policy.statement
                   ? <p className="text-[13.5px] whitespace-pre-line" style={{ color: 'var(--ink)' }}>{policy.statement}</p>
-                  : <p className="text-[13px] italic" style={{ color: 'var(--ink-soft)' }}>íì§ë°©ì¹¨ì ìë ¥íì¸ì.</p>
+                  : <p className="text-[13px] italic" style={{ color: 'var(--ink-soft)' }}>Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</p>
               )}
             </div>
             {editing && (
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ê°ì ë²í¸</label>
+                  <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ÃªÂ°ÂÃ¬Â ÂÃ«Â²ÂÃ­ÂÂ¸</label>
                   <input value={draft.revision || ''} onChange={e => setDraft(d => ({ ...d, revision: e.target.value }))} style={inputStyle} />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ìíì¼</label>
+                  <label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ¼</label>
                   <input type="date" value={draft.effectiveDate || ''} onChange={e => setDraft(d => ({ ...d, effectiveDate: e.target.value }))} style={inputStyle} />
                 </div>
               </div>
             )}
             <div className="mt-4 p-4 rounded-2xl text-[12.5px]" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#1E40AF' }}>
-              ISO 13485 Â§5.3: ìµê³ ê²½ììë íì§ë°©ì¹¨ì´ ì¡°ì§ì ëª©ì ì ì í©íê³ , QMS ìêµ¬ì¬í­ ì¤ì ë° í¨ê³¼ì± ì ì§ ìì§ë¥¼ í¬í¨íë©°, ì¸¡ì ê°ë¥í íì§ëª©í ìë¦½ì íì ì ê³µíê³ , ì ë¬Â·ì´í´ëë©° ì£¼ê¸°ì ì¼ë¡ ê²í ë¨ì ë³´ì¥í´ì¼ í©ëë¤.
+              ISO 13485 ÃÂ§5.3: Ã¬ÂµÂÃªÂ³Â ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ«ÂÂ Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ´ Ã¬Â¡Â°Ã¬Â§ÂÃ¬ÂÂ Ã«ÂªÂ©Ã¬Â ÂÃ¬ÂÂ Ã¬Â ÂÃ­ÂÂ©Ã­ÂÂÃªÂ³Â , QMS Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã¬Â¤ÂÃ¬ÂÂ Ã«Â°Â Ã­ÂÂ¨ÃªÂ³Â¼Ã¬ÂÂ± Ã¬ÂÂ Ã¬Â§Â Ã¬ÂÂÃ¬Â§ÂÃ«Â¥Â¼ Ã­ÂÂ¬Ã­ÂÂ¨Ã­ÂÂÃ«Â©Â°, Ã¬Â¸Â¡Ã¬Â ÂÃªÂ°ÂÃ«ÂÂ¥Ã­ÂÂ Ã­ÂÂÃ¬Â§ÂÃ«ÂªÂ©Ã­ÂÂ Ã¬ÂÂÃ«Â¦Â½Ã¬ÂÂ Ã­ÂÂÃ¬ÂÂ Ã¬Â ÂÃªÂ³ÂµÃ­ÂÂÃªÂ³Â , Ã¬Â ÂÃ«ÂÂ¬ÃÂ·Ã¬ÂÂ´Ã­ÂÂ´Ã«ÂÂÃ«Â©Â° Ã¬Â£Â¼ÃªÂ¸Â°Ã¬Â ÂÃ¬ÂÂ¼Ã«Â¡Â ÃªÂ²ÂÃ­ÂÂ Ã«ÂÂ¨Ã¬ÂÂ Ã«Â³Â´Ã¬ÂÂ¥Ã­ÂÂ´Ã¬ÂÂ¼ Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
             </div>
           </div>
         )}
@@ -169,22 +169,22 @@ export default function QualityPolicyHub() {
         {tab === 'signature' && (
           <div className="max-w-[900px]">
             <div className="p-4 rounded-2xl text-[12.5px] mb-5" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#166534' }}>
-              ISO 13485 Â§5.1: ìµê³ ê²½ììë QMSì ê°ë°Â·ì¤íÂ·í¨ê³¼ì± ì ì§ì ëí ìì§ì ì¦ê±°ë¥¼ ì ê³µí´ì¼ í©ëë¤. ê²½ìì ì ììëªì ì´ ìì§ì ê³µì ê¸°ë¡ìëë¤.
+              ISO 13485 ÃÂ§5.1: Ã¬ÂµÂÃªÂ³Â ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ«ÂÂ QMSÃ¬ÂÂ ÃªÂ°ÂÃ«Â°ÂÃÂ·Ã¬ÂÂ¤Ã­ÂÂÃÂ·Ã­ÂÂ¨ÃªÂ³Â¼Ã¬ÂÂ± Ã¬ÂÂ Ã¬Â§ÂÃ¬ÂÂ Ã«ÂÂÃ­ÂÂ Ã¬ÂÂÃ¬Â§ÂÃ¬ÂÂ Ã¬Â¦ÂÃªÂ±Â°Ã«Â¥Â¼ Ã¬Â ÂÃªÂ³ÂµÃ­ÂÂ´Ã¬ÂÂ¼ Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤. ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂ Ã¬Â ÂÃ¬ÂÂÃ¬ÂÂÃ«ÂªÂÃ¬ÂÂ Ã¬ÂÂ´ Ã¬ÂÂÃ¬Â§ÂÃ¬ÂÂ ÃªÂ³ÂµÃ¬ÂÂ ÃªÂ¸Â°Ã«Â¡ÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.
             </div>
             {canEdit && (
               <div className="p-4 rounded-2xl mb-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-                <h3 className="font-bold text-[13px] mb-3">ìëª ì¶ê°</h3>
+                <h3 className="font-bold text-[13px] mb-3">Ã¬ÂÂÃ«ÂªÂ Ã¬Â¶ÂÃªÂ°Â</h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì±ëª *</label><input value={newSig.name} onChange={e => setNewSig(s => ({ ...s, name: e.target.value }))} placeholder="íê¸¸ë" style={inputStyle} /></div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì§ì</label><input value={newSig.position} onChange={e => setNewSig(s => ({ ...s, position: e.target.value }))} placeholder="ëíì´ì¬" style={inputStyle} /></div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ìëªì¼ *</label><input type="date" value={newSig.date} onChange={e => setNewSig(s => ({ ...s, date: e.target.value }))} style={inputStyle} /></div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ë¹ê³ </label><input value={newSig.comment} onChange={e => setNewSig(s => ({ ...s, comment: e.target.value }))} placeholder="ìµì´ ìëª" style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂ±Ã«ÂªÂ *</label><input value={newSig.name} onChange={e => setNewSig(s => ({ ...s, name: e.target.value }))} placeholder="Ã­ÂÂÃªÂ¸Â¸Ã«ÂÂ" style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬Â§ÂÃ¬ÂÂ</label><input value={newSig.position} onChange={e => setNewSig(s => ({ ...s, position: e.target.value }))} placeholder="Ã«ÂÂÃ­ÂÂÃ¬ÂÂ´Ã¬ÂÂ¬" style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ«ÂªÂÃ¬ÂÂ¼ *</label><input type="date" value={newSig.date} onChange={e => setNewSig(s => ({ ...s, date: e.target.value }))} style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã«Â¹ÂÃªÂ³Â </label><input value={newSig.comment} onChange={e => setNewSig(s => ({ ...s, comment: e.target.value }))} placeholder="Ã¬ÂµÂÃ¬Â´Â Ã¬ÂÂÃ«ÂªÂ" style={inputStyle} /></div>
                 </div>
-                <button onClick={addSignature} style={btnPrimary}><PenTool size={13} /> ìëª ë±ë¡</button>
+                <button onClick={addSignature} style={btnPrimary}><PenTool size={13} /> Ã¬ÂÂÃ«ÂªÂ Ã«ÂÂ±Ã«Â¡Â</button>
               </div>
             )}
             {signatures.length === 0 ? (
-              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-soft)' }}>ë±ë¡ë ìëªì´ ììµëë¤.</p>
+              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-soft)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬ÂÂÃ«ÂªÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</p>
             ) : (
               <div className="space-y-3">
                 {signatures.map(s => (
@@ -194,9 +194,9 @@ export default function QualityPolicyHub() {
                         <ShieldCheck size={14} color="#16a34a" />
                         <span className="font-bold text-[13px]">{s.name}</span>
                         {s.position && <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>({s.position})</span>}
-                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: '#DCFCE7', color: '#166534' }}>ìëª ìë£</span>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: '#DCFCE7', color: '#166534' }}>Ã¬ÂÂÃ«ÂªÂ Ã¬ÂÂÃ«Â£Â</span>
                       </div>
-                      <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>ìëªì¼: {s.date}{s.comment ? ' Â· ' + s.comment : ''}</div>
+                      <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ«ÂªÂÃ¬ÂÂ¼: {s.date}{s.comment ? ' ÃÂ· ' + s.comment : ''}</div>
                     </div>
                     {canEdit && <button onClick={() => removeSig(s.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444' }}><X size={14} /></button>}
                   </div>
@@ -209,34 +209,34 @@ export default function QualityPolicyHub() {
         {tab === 'history' && (
           <div className="max-w-[900px]">
             <div className="p-4 rounded-2xl text-[12.5px] mb-5" style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
-              ISO 13485 Â§5.3: íì§ë°©ì¹¨ì ì§ìì  ì ì ì±ì ìí´ ì£¼ê¸°ì ì¼ë¡ ê²í ëì´ì¼ í©ëë¤. ê²í  ì´ë ¥ì ê¸°ë¡íì¸ì.
+              ISO 13485 ÃÂ§5.3: Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ Ã¬Â§ÂÃ¬ÂÂÃ¬Â Â Ã¬Â ÂÃ¬Â ÂÃ¬ÂÂ±Ã¬ÂÂ Ã¬ÂÂÃ­ÂÂ´ Ã¬Â£Â¼ÃªÂ¸Â°Ã¬Â ÂÃ¬ÂÂ¼Ã«Â¡Â ÃªÂ²ÂÃ­ÂÂ Ã«ÂÂÃ¬ÂÂ´Ã¬ÂÂ¼ Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤. ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ ÃªÂ¸Â°Ã«Â¡ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.
             </div>
             {canEdit && (
               <div className="p-4 rounded-2xl mb-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-                <h3 className="font-bold text-[13px] mb-3">ê²í  ì´ë ¥ ì¶ê°</h3>
+                <h3 className="font-bold text-[13px] mb-3">ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥ Ã¬Â¶ÂÃªÂ°Â</h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ê²í ì¼ *</label><input type="date" value={newReview.date} onChange={e => setNewReview(r => ({ ...r, date: e.target.value }))} style={inputStyle} /></div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ê²í ì *</label><input value={newReview.reviewer} onChange={e => setNewReview(r => ({ ...r, reviewer: e.target.value }))} placeholder="íê¸¸ë ëíì´ì¬" style={inputStyle} /></div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ê²í  ê²°ê³¼</label>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ¼ *</label><input type="date" value={newReview.date} onChange={e => setNewReview(r => ({ ...r, date: e.target.value }))} style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ *</label><input value={newReview.reviewer} onChange={e => setNewReview(r => ({ ...r, reviewer: e.target.value }))} placeholder="Ã­ÂÂÃªÂ¸Â¸Ã«ÂÂ Ã«ÂÂÃ­ÂÂÃ¬ÂÂ´Ã¬ÂÂ¬" style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ÃªÂ²ÂÃ­ÂÂ  ÃªÂ²Â°ÃªÂ³Â¼</label>
                     <select value={newReview.result} onChange={e => setNewReview(r => ({ ...r, result: e.target.value }))} style={inputStyle}>
-                      <option value="">ì í</option>
-                      <option value="ì ì ">ì ì  (ì ì§)</option>
-                      <option value="ë³´ìíì">ë³´ì íì</option>
-                      <option value="ê°ì ">ê°ì  íì</option>
+                      <option value="">Ã¬ÂÂ Ã­ÂÂ</option>
+                      <option value="Ã¬Â ÂÃ¬Â Â">Ã¬Â ÂÃ¬Â Â (Ã¬ÂÂ Ã¬Â§Â)</option>
+                      <option value="Ã«Â³Â´Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ">Ã«Â³Â´Ã¬ÂÂ Ã­ÂÂÃ¬ÂÂ</option>
+                      <option value="ÃªÂ°ÂÃ¬Â Â">ÃªÂ°ÂÃ¬Â Â Ã­ÂÂÃ¬ÂÂ</option>
                     </select>
                   </div>
-                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>íì ì¡°ì¹</label><input value={newReview.action} onChange={e => setNewReview(r => ({ ...r, action: e.target.value }))} placeholder="íí ì ì§ ëë ê°ì  ë´ì©" style={inputStyle} /></div>
+                  <div><label className="block text-[12px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã­ÂÂÃ¬ÂÂ Ã¬Â¡Â°Ã¬Â¹Â</label><input value={newReview.action} onChange={e => setNewReview(r => ({ ...r, action: e.target.value }))} placeholder="Ã­ÂÂÃ­ÂÂ Ã¬ÂÂ Ã¬Â§Â Ã«ÂÂÃ«ÂÂ ÃªÂ°ÂÃ¬Â Â Ã«ÂÂ´Ã¬ÂÂ©" style={inputStyle} /></div>
                 </div>
-                <button onClick={addReview} style={btnPrimary}><History size={13} /> ì´ë ¥ ë±ë¡</button>
+                <button onClick={addReview} style={btnPrimary}><History size={13} /> Ã¬ÂÂ´Ã«Â Â¥ Ã«ÂÂ±Ã«Â¡Â</button>
               </div>
             )}
             {reviewHistory.length === 0 ? (
-              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-soft)' }}>ê²í  ì´ë ¥ì´ ììµëë¤.</p>
+              <p className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-soft)' }}>ÃªÂ²ÂÃ­ÂÂ  Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</p>
             ) : (
               <table className="w-full text-[12.5px] border-collapse">
                 <thead>
                   <tr style={{ background: 'var(--bg-soft)' }}>
-                    {['ê²í ì¼','ê²í ì','ê²°ê³¼','íì ì¡°ì¹',''].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)' }}>{h}</th>)}
+                    {['ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ¼','ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ','ÃªÂ²Â°ÃªÂ³Â¼','Ã­ÂÂÃ¬ÂÂ Ã¬Â¡Â°Ã¬Â¹Â',''].map(h => <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)', borderBottom: '1px solid var(--line)' }}>{h}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -246,7 +246,7 @@ export default function QualityPolicyHub() {
                       <td className="px-3 py-2">{rv.reviewer}</td>
                       <td className="px-3 py-2">
                         <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                          style={{ background: rv.result === 'ì ì ' ? '#DCFCE7' : rv.result === 'ë³´ìíì' ? '#FEF3C7' : '#FEE2E2', color: rv.result === 'ì ì ' ? '#166534' : rv.result === 'ë³´ìíì' ? '#92400E' : '#991B1B' }}>
+                          style={{ background: rv.result === 'Ã¬Â ÂÃ¬Â Â' ? '#DCFCE7' : rv.result === 'Ã«Â³Â´Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ' ? '#FEF3C7' : '#FEE2E2', color: rv.result === 'Ã¬Â ÂÃ¬Â Â' ? '#166534' : rv.result === 'Ã«Â³Â´Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ' ? '#92400E' : '#991B1B' }}>
                           {rv.result || '-'}
                         </span>
                       </td>
