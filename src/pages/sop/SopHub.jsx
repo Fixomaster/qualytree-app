@@ -9,6 +9,10 @@ import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
+import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
+
+let _sbCidSop = null
 
 let _sbCidSop = null
 
