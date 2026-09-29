@@ -2,27 +2,27 @@ import React, { useState, useEffect } from 'react'
 import AppLayout from '../../components/AppLayout'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
-let _sbCidOemP = null
 import { Share2, Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+let _sbCidOemP = null
 
 const ACCENT = '#D97706'
 const ACCENT_SOFT = '#FFFBEB'
 const LS_KEY = 'qualytree.oem_partial'
 
 const PROC_STATUS_MAP = {
-  active: { label: 'ì§í', color: '#2563EB', bg: '#EFF6FF' },
-  suspended: { label: 'ì¼ìì¤ë¨', color: '#D97706', bg: '#FFFBEB' },
-  ended: { label: 'ì¢ë£', color: '#6B7280', bg: '#F3F4F6' },
+  active: { label: 'Ã¬Â§ÂÃ­ÂÂ', color: '#2563EB', bg: '#EFF6FF' },
+  suspended: { label: 'Ã¬ÂÂ¼Ã¬ÂÂÃ¬Â¤ÂÃ«ÂÂ¨', color: '#D97706', bg: '#FFFBEB' },
+  ended: { label: 'Ã¬Â¢ÂÃ«Â£Â', color: '#6B7280', bg: '#F3F4F6' },
 }
 const CONTRACT_STATUS_MAP = {
-  valid: { label: 'ì í¨', color: '#16A34A', bg: '#F0FDF4' },
-  expiring: { label: 'ë§ë£ìë°', color: '#D97706', bg: '#FFFBEB' },
-  expired: { label: 'ë§ë£', color: '#DC2626', bg: '#FEF2F2' },
+  valid: { label: 'Ã¬ÂÂ Ã­ÂÂ¨', color: '#16A34A', bg: '#F0FDF4' },
+  expiring: { label: 'Ã«Â§ÂÃ«Â£ÂÃ¬ÂÂÃ«Â°Â', color: '#D97706', bg: '#FFFBEB' },
+  expired: { label: 'Ã«Â§ÂÃ«Â£Â', color: '#DC2626', bg: '#FEF2F2' },
 }
 const AUDIT_MAP = {
-  scheduled: { label: 'ìì ', color: '#2563EB', bg: '#EFF6FF' },
-  done: { label: 'ìë£', color: '#16A34A', bg: '#F0FDF4' },
-  overdue: { label: 'ì§ì°', color: '#DC2626', bg: '#FEF2F2' },
+  scheduled: { label: 'Ã¬ÂÂÃ¬Â Â', color: '#2563EB', bg: '#EFF6FF' },
+  done: { label: 'Ã¬ÂÂÃ«Â£Â', color: '#16A34A', bg: '#F0FDF4' },
+  overdue: { label: 'Ã¬Â§ÂÃ¬ÂÂ°', color: '#DC2626', bg: '#FEF2F2' },
 }
 
 function load() {
@@ -77,8 +77,8 @@ function Modal({ title, onClose, onSave, children }) {
       </div>
       {children}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
-        <Btn variant="ghost" onClick={onClose}>ì·¨ì</Btn>
-        <Btn onClick={onSave}>ì ì¥</Btn>
+        <Btn variant="ghost" onClick={onClose}>Ã¬Â·Â¨Ã¬ÂÂ</Btn>
+        <Btn onClick={onSave}>Ã¬Â ÂÃ¬ÂÂ¥</Btn>
       </div>
     </div>
   </div>
@@ -100,14 +100,14 @@ function ProcessTab({ data, onChange }) {
     onChange({ ...data, processes: next })
     setModal(null)
   }
-  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, processes: procs.filter(p => p.id !== id) }) }
+  function del(id) { if (confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) onChange({ ...data, processes: procs.filter(p => p.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="ê³µì  ìííí©" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
-    {procs.length === 0 ? <Empty label="ë±ë¡ë ìí ê³µì ì´ ììµëë¤" /> :
+  return <SectionBox title="ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ­ÂÂÃ­ÂÂÃ­ÂÂ©" action={<Btn onClick={openAdd}><Plus size={14} /> Ã¬Â¶ÂÃªÂ°Â</Btn>}>
+    {procs.length === 0 ? <Empty label="Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬ÂÂÃ­ÂÂ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['ê³µì ëª', 'ìíìì²´', 'ìíë²ì', 'ë¹ì¨(%)', 'ì í', 'ììì¼', 'ìí', ''].map(h =>
+          {['ÃªÂ³ÂµÃ¬Â ÂÃ«ÂªÂ', 'Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´', 'Ã¬ÂÂÃ­ÂÂÃ«Â²ÂÃ¬ÂÂ', 'Ã«Â¹ÂÃ¬ÂÂ¨(%)', 'Ã¬ÂÂ Ã­ÂÂ', 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼', 'Ã¬ÂÂÃ­ÂÂ', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{procs.map(p => <tr key={p.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -125,17 +125,17 @@ function ProcessTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? 'ê³µì  ì¶ê°' : 'ê³µì  ìì '} onClose={() => setModal(null)} onSave={save}>
-      <Field label="ê³µì ëª"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíë²ì"><input value={form.scope} onChange={e => f('scope', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíë¹ì¨(%)"><input type="number" value={form.ratio} onChange={e => f('ratio', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíì í"><input value={form.type} onChange={e => f('type', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ììì¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="active">ì§í</option><option value="suspended">ì¼ìì¤ë¨</option><option value="ended">ì¢ë£</option>
+    {modal && <Modal title={modal === 'add' ? 'ÃªÂ³ÂµÃ¬Â Â Ã¬Â¶ÂÃªÂ°Â' : 'ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ¬Â Â'} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ÃªÂ³ÂµÃ¬Â ÂÃ«ÂªÂ"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ«Â²ÂÃ¬ÂÂ"><input value={form.scope} onChange={e => f('scope', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ«Â¹ÂÃ¬ÂÂ¨(%)"><input type="number" value={form.ratio} onChange={e => f('ratio', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ Ã­ÂÂ"><input value={form.type} onChange={e => f('type', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂ"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="active">Ã¬Â§ÂÃ­ÂÂ</option><option value="suspended">Ã¬ÂÂ¼Ã¬ÂÂÃ¬Â¤ÂÃ«ÂÂ¨</option><option value="ended">Ã¬Â¢ÂÃ«Â£Â</option>
       </select></Field>
-      <Field label="ë¹ê³ "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã«Â¹ÂÃªÂ³Â "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -166,14 +166,14 @@ function ContractTab({ data, onChange }) {
     onChange({ ...data, contracts: next })
     setModal(null)
   }
-  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, contracts: contracts.filter(c => c.id !== id) }) }
+  function del(id) { if (confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) onChange({ ...data, contracts: contracts.filter(c => c.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="ê³ì½ì ê´ë¦¬" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
-    {contracts.length === 0 ? <Empty label="ë±ë¡ë ê³ì½ìê° ììµëë¤" /> :
+  return <SectionBox title="ÃªÂ³ÂÃ¬ÂÂ½Ã¬ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" action={<Btn onClick={openAdd}><Plus size={14} /> Ã¬Â¶ÂÃªÂ°Â</Btn>}>
+    {contracts.length === 0 ? <Empty label="Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ ÃªÂ³ÂÃ¬ÂÂ½Ã¬ÂÂÃªÂ°Â Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['ê³ì½ëª', 'ìíìì²´', 'ììì¼', 'ì¢ë£ì¼', 'ìí', 'ë¹ê³ ', ''].map(h =>
+          {['ÃªÂ³ÂÃ¬ÂÂ½Ã«ÂªÂ', 'Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´', 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼', 'Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼', 'Ã¬ÂÂÃ­ÂÂ', 'Ã«Â¹ÂÃªÂ³Â ', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{contracts.map(c => <tr key={c.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -190,12 +190,12 @@ function ContractTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? 'ê³ì½ ì¶ê°' : 'ê³ì½ ìì '} onClose={() => setModal(null)} onSave={save}>
-      <Field label="ê³ì½ëª"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ììì¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ì¢ë£ì¼"><input type="date" value={form.endDate} onChange={e => f('endDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ë¹ê³ "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+    {modal && <Modal title={modal === 'add' ? 'ÃªÂ³ÂÃ¬ÂÂ½ Ã¬Â¶ÂÃªÂ°Â' : 'ÃªÂ³ÂÃ¬ÂÂ½ Ã¬ÂÂÃ¬Â Â'} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ÃªÂ³ÂÃ¬ÂÂ½Ã«ÂªÂ"><input value={form.name} onChange={e => f('name', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼"><input type="date" value={form.startDate} onChange={e => f('startDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼"><input type="date" value={form.endDate} onChange={e => f('endDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã«Â¹ÂÃªÂ³Â "><textarea value={form.note} onChange={e => f('note', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -223,14 +223,14 @@ function AuditTab({ data, onChange }) {
     onChange({ ...data, audits: next })
     setModal(null)
   }
-  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, audits: audits.filter(a => a.id !== id) }) }
+  function del(id) { if (confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) onChange({ ...data, audits: audits.filter(a => a.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="ê°ì¬ ì¼ì " action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
-    {audits.length === 0 ? <Empty label="ë±ë¡ë ê°ì¬ ì¼ì ì´ ììµëë¤" /> :
+  return <SectionBox title="ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬ÂÂ¼Ã¬Â Â" action={<Btn onClick={openAdd}><Plus size={14} /> Ã¬Â¶ÂÃªÂ°Â</Btn>}>
+    {audits.length === 0 ? <Empty label="Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬ÂÂ¼Ã¬Â ÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['ê°ì¬ëª', 'ìíìì²´', 'ê°ì¬ì¼', 'ìí', 'ì£¼ìë°ê²¬', ''].map(h =>
+          {['ÃªÂ°ÂÃ¬ÂÂ¬Ã«ÂªÂ', 'Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´', 'ÃªÂ°ÂÃ¬ÂÂ¬Ã¬ÂÂ¼', 'Ã¬ÂÂÃ­ÂÂ', 'Ã¬Â£Â¼Ã¬ÂÂÃ«Â°ÂÃªÂ²Â¬', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{audits.map(a => { const st = getAuditStatus(a); return <tr key={a.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -246,14 +246,14 @@ function AuditTab({ data, onChange }) {
         </tr>})}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? 'ê°ì¬ ì¶ê°' : 'ê°ì¬ ìì '} onClose={() => setModal(null)} onSave={save}>
-      <Field label="ê°ì¬ëª"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ê°ì¬ì¼"><input type="date" value={form.date} onChange={e => f('date', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="scheduled">ìì </option><option value="done">ìë£</option>
+    {modal && <Modal title={modal === 'add' ? 'ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬Â¶ÂÃªÂ°Â' : 'ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬ÂÂÃ¬Â Â'} onClose={() => setModal(null)} onSave={save}>
+      <Field label="ÃªÂ°ÂÃ¬ÂÂ¬Ã«ÂªÂ"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="ÃªÂ°ÂÃ¬ÂÂ¬Ã¬ÂÂ¼"><input type="date" value={form.date} onChange={e => f('date', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂ"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="scheduled">Ã¬ÂÂÃ¬Â Â</option><option value="done">Ã¬ÂÂÃ«Â£Â</option>
       </select></Field>
-      <Field label="ì£¼ìë°ê²¬ì¬í­"><textarea value={form.findings} onChange={e => f('findings', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬Â£Â¼Ã¬ÂÂÃ«Â°ÂÃªÂ²Â¬Ã¬ÂÂ¬Ã­ÂÂ­"><textarea value={form.findings} onChange={e => f('findings', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
     </Modal>}
   </SectionBox>
 }
@@ -274,14 +274,14 @@ function QualityAgreementTab({ data, onChange }) {
     onChange({ ...data, qualityAgreements: next })
     setModal(null)
   }
-  function del(id) { if (confirm('ì­ì íìê² ìµëê¹?')) onChange({ ...data, qualityAgreements: qas.filter(q => q.id !== id) }) }
+  function del(id) { if (confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) onChange({ ...data, qualityAgreements: qas.filter(q => q.id !== id) }) }
   const f = (k, v) => setForm(prev => ({ ...prev, [k]: v }))
 
-  return <SectionBox title="íì§ íì½" action={<Btn onClick={openAdd}><Plus size={14} /> ì¶ê°</Btn>}>
-    {qas.length === 0 ? <Empty label="ë±ë¡ë íì§ íì½ì´ ììµëë¤" /> :
+  return <SectionBox title="Ã­ÂÂÃ¬Â§Â Ã­ÂÂÃ¬ÂÂ½" action={<Btn onClick={openAdd}><Plus size={14} /> Ã¬Â¶ÂÃªÂ°Â</Btn>}>
+    {qas.length === 0 ? <Empty label="Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã­ÂÂÃ¬Â§Â Ã­ÂÂÃ¬ÂÂ½Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤" /> :
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead><tr style={{ borderBottom: '2px solid #E5E7EB' }}>
-          {['íì½ëª', 'ìíìì²´', 'ì²´ê²°ì¼', 'íì½ë²ì', 'ìí', ''].map(h =>
+          {['Ã­ÂÂÃ¬ÂÂ½Ã«ÂªÂ', 'Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´', 'Ã¬Â²Â´ÃªÂ²Â°Ã¬ÂÂ¼', 'Ã­ÂÂÃ¬ÂÂ½Ã«Â²ÂÃ¬ÂÂ', 'Ã¬ÂÂÃ­ÂÂ', ''].map(h =>
             <th key={h} style={{ padding: '8px 6px', textAlign: 'left', color: '#6B7280', fontWeight: 600 }}>{h}</th>)}
         </tr></thead>
         <tbody>{qas.map(q => <tr key={q.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
@@ -297,33 +297,33 @@ function QualityAgreementTab({ data, onChange }) {
         </tr>)}</tbody>
       </table>
     }
-    {modal && <Modal title={modal === 'add' ? 'íì½ ì¶ê°' : 'íì½ ìì '} onClose={() => setModal(null)} onSave={save}>
-      <Field label="íì½ëª"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìíìì²´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ì²´ê²°ì¼"><input type="date" value={form.signDate} onChange={e => f('signDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="íì½ë²ì"><textarea value={form.scope} onChange={e => f('scope', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
-      <Field label="ìí"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
-        <option value="valid">ì í¨</option><option value="expiring">ë§ë£ìë°</option><option value="expired">ë§ë£</option>
+    {modal && <Modal title={modal === 'add' ? 'Ã­ÂÂÃ¬ÂÂ½ Ã¬Â¶ÂÃªÂ°Â' : 'Ã­ÂÂÃ¬ÂÂ½ Ã¬ÂÂÃ¬Â Â'} onClose={() => setModal(null)} onSave={save}>
+      <Field label="Ã­ÂÂÃ¬ÂÂ½Ã«ÂªÂ"><input value={form.title} onChange={e => f('title', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´"><input value={form.contractor} onChange={e => f('contractor', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬Â²Â´ÃªÂ²Â°Ã¬ÂÂ¼"><input type="date" value={form.signDate} onChange={e => f('signDate', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã­ÂÂÃ¬ÂÂ½Ã«Â²ÂÃ¬ÂÂ"><textarea value={form.scope} onChange={e => f('scope', e.target.value)} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }} /></Field>
+      <Field label="Ã¬ÂÂÃ­ÂÂ"><select value={form.status} onChange={e => f('status', e.target.value)} style={{ width: '100%', padding: '8px 10px', border: '1px solid #E5E7EB', borderRadius: 8, fontSize: 13 }}>
+        <option value="valid">Ã¬ÂÂ Ã­ÂÂ¨</option><option value="expiring">Ã«Â§ÂÃ«Â£ÂÃ¬ÂÂÃ«Â°Â</option><option value="expired">Ã«Â§ÂÃ«Â£Â</option>
       </select></Field>
     </Modal>}
   </SectionBox>
 }
 
-const TABS = ['ê°ì', 'ê³µì  ìííí©', 'ê³ì½ì', 'íì§ íì½', 'ê°ì¬ ì¼ì ', 'ê³µì  ì¤ì ']
+const TABS = ['ÃªÂ°ÂÃ¬ÂÂ', 'ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ­ÂÂÃ­ÂÂÃ­ÂÂ©', 'ÃªÂ³ÂÃ¬ÂÂ½Ã¬ÂÂ', 'Ã­ÂÂÃ¬Â§Â Ã­ÂÂÃ¬ÂÂ½', 'ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬ÂÂ¼Ã¬Â Â', 'ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂ¤Ã¬Â Â']
 
 function SetupTab({ data, onChange }) {
   const LS_KEY_SETUP = 'qualytree.oem_partial_setup'
   const user = auth.current()
   const companyId = user?.company_id
   const DEFAULT_PROCS = [
-    { id: 1, name: 'ììì¬ ìê³  ê²ì¬', type: 'self', contractor: '' },
-    { id: 2, name: 'ê°ê³µÂ·ì±í', type: 'self', contractor: '' },
-    { id: 3, name: 'ì¡°ë¦½', type: 'self', contractor: '' },
-    { id: 4, name: 'ì¸ì²', type: 'self', contractor: '' },
-    { id: 5, name: 'ë©¸ê· ', type: 'self', contractor: '' },
-    { id: 6, name: 'ê³µì  ê²ì¬', type: 'self', contractor: '' },
-    { id: 7, name: 'ìµì¢ ê²ì¬', type: 'self', contractor: '' },
-    { id: 8, name: 'í¬ì¥Â·ë¼ë²¨ë§', type: 'self', contractor: '' },
+    { id: 1, name: 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃªÂ³Â  ÃªÂ²ÂÃ¬ÂÂ¬', type: 'self', contractor: '' },
+    { id: 2, name: 'ÃªÂ°ÂÃªÂ³ÂµÃÂ·Ã¬ÂÂ±Ã­ÂÂ', type: 'self', contractor: '' },
+    { id: 3, name: 'Ã¬Â¡Â°Ã«Â¦Â½', type: 'self', contractor: '' },
+    { id: 4, name: 'Ã¬ÂÂ¸Ã¬Â²Â', type: 'self', contractor: '' },
+    { id: 5, name: 'Ã«Â©Â¸ÃªÂ·Â ', type: 'self', contractor: '' },
+    { id: 6, name: 'ÃªÂ³ÂµÃ¬Â Â ÃªÂ²ÂÃ¬ÂÂ¬', type: 'self', contractor: '' },
+    { id: 7, name: 'Ã¬ÂµÂÃ¬Â¢Â ÃªÂ²ÂÃ¬ÂÂ¬', type: 'self', contractor: '' },
+    { id: 8, name: 'Ã­ÂÂ¬Ã¬ÂÂ¥ÃÂ·Ã«ÂÂ¼Ã«Â²Â¨Ã«Â§Â', type: 'self', contractor: '' },
   ]
   const [procs, setProcs] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_SETUP) || 'null') || DEFAULT_PROCS } catch { return DEFAULT_PROCS }
@@ -366,7 +366,7 @@ function SetupTab({ data, onChange }) {
   return (
     <div style={{ padding: '4px 0 48px' }}>
       <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 20 }}>
-        ê° ê³µì ë³ ìì²´ìì° / ìí ì¬ë¶ë¥¼ ì¤ì íì¸ì. ìí ì í ì ìíìì²´ëªì ìë ¥í  ì ììµëë¤.
+        ÃªÂ°Â ÃªÂ³ÂµÃ¬Â ÂÃ«Â³Â Ã¬ÂÂÃ¬Â²Â´Ã¬ÂÂÃ¬ÂÂ° / Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂ¬Ã«Â¶ÂÃ«Â¥Â¼ Ã¬ÂÂ¤Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ. Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´Ã«ÂªÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         {procs.map(p => (
@@ -374,25 +374,25 @@ function SetupTab({ data, onChange }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: p.type === 'outsource' ? 10 : 0 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{p.name}</span>
               <button onClick={() => toggle(p.id)} style={{ padding: '4px 12px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
-                {p.type === 'outsource' ? 'ìí' : 'ìì²´'}
+                {p.type === 'outsource' ? 'Ã¬ÂÂÃ­ÂÂ' : 'Ã¬ÂÂÃ¬Â²Â´'}
               </button>
             </div>
             {p.type === 'outsource' && (
-              <input value={p.contractor} onChange={e => setContractor(p.id, e.target.value)} placeholder="ìíìì²´ëª" style={{ width: '100%', border: '1px solid #FECACA', borderRadius: 6, padding: '6px 10px', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
+              <input value={p.contractor} onChange={e => setContractor(p.id, e.target.value)} placeholder="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬Â²Â´Ã«ÂªÂ" style={{ width: '100%', border: '1px solid #FECACA', borderRadius: 6, padding: '6px 10px', fontSize: 12, boxSizing: 'border-box', outline: 'none' }} />
             )}
           </div>
         ))}
       </div>
       <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
-        <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>ì ì¥</button>
-        {saved && <span style={{ color: '#16A34A', fontSize: 13 }}>â ì ì¥ëììµëë¤</span>}
+        <button onClick={save} style={{ padding: '8px 22px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Ã¬Â ÂÃ¬ÂÂ¥</button>
+        {saved && <span style={{ color: '#16A34A', fontSize: 13 }}>Ã¢ÂÂ Ã¬Â ÂÃ¬ÂÂ¥Ã«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤</span>}
       </div>
       <div style={{ marginTop: 28, borderTop: '1px solid #E5E7EB', paddingTop: 20 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 12 }}>ê³µì  ìí íí© ìì½</p>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', marginBottom: 12 }}>ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃ­ÂÂ© Ã¬ÂÂÃ¬ÂÂ½</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {procs.map(p => (
             <span key={p.id} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: p.type === 'outsource' ? outColor : selfColor, color: p.type === 'outsource' ? outText : selfText }}>
-              {p.name} Â· {p.type === 'outsource' ? (p.contractor || 'ìí') : 'ìì²´'}
+              {p.name} ÃÂ· {p.type === 'outsource' ? (p.contractor || 'Ã¬ÂÂÃ­ÂÂ') : 'Ã¬ÂÂÃ¬Â²Â´'}
             </span>
           ))}
         </div>
@@ -430,19 +430,19 @@ export default function OemPartialHub() {
   const audits = data.audits || []
 
   return (
-    <AppLayout user={user} title="OEM ì¼ë¶ìí">
+    <AppLayout user={user} title="OEM Ã¬ÂÂ¼Ã«Â¶ÂÃ¬ÂÂÃ­ÂÂ">
       <div style={{ padding: '28px 32px', fontFamily: 'inherit' }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
       <Share2 size={24} color={ACCENT} />
       <div>
-        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>OEM ì¼ë¶ê³µì ìí ê´ë¦¬</h1>
-        <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>ì¼ë¶ê³µì  ìí ê³ì½, íì§íì½ ë° ê°ì¬ íí© ê´ë¦¬</p>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>OEM Ã¬ÂÂ¼Ã«Â¶ÂÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬</h1>
+        <p style={{ fontSize: 13, color: '#6B7280', margin: 0 }}>Ã¬ÂÂ¼Ã«Â¶ÂÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ­ÂÂ ÃªÂ³ÂÃ¬ÂÂ½, Ã­ÂÂÃ¬Â§ÂÃ­ÂÂÃ¬ÂÂ½ Ã«Â°Â ÃªÂ°ÂÃ¬ÂÂ¬ Ã­ÂÂÃ­ÂÂ© ÃªÂ´ÂÃ«Â¦Â¬</p>
       </div>
     </div>
 
     {expiringContracts.length > 0 && <div style={{ background: '#FFFBEB', border: '1px solid #F59E0B', borderRadius: 10, padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
       <AlertTriangle size={16} color="#D97706" />
-      <span style={{ fontSize: 13, color: '#92400E' }}>ë§ë£ìë°Â·ë§ë£ ê³ì½ {expiringContracts.length}ê±´ â ê³ì½ ê°±ì ì ê²í íì¸ì</span>
+      <span style={{ fontSize: 13, color: '#92400E' }}>Ã«Â§ÂÃ«Â£ÂÃ¬ÂÂÃ«Â°ÂÃÂ·Ã«Â§ÂÃ«Â£Â ÃªÂ³ÂÃ¬ÂÂ½ {expiringContracts.length}ÃªÂ±Â´ Ã¢ÂÂ ÃªÂ³ÂÃ¬ÂÂ½ ÃªÂ°Â±Ã¬ÂÂ Ã¬ÂÂ ÃªÂ²ÂÃ­ÂÂ Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ</span>
     </div>}
 
     <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid #E5E7EB', marginBottom: 24 }}>
@@ -451,11 +451,11 @@ export default function OemPartialHub() {
 
     {tab === 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16 }}>
       {[
-        { label: 'ìí ê³µì  ì', value: procs.length, color: ACCENT },
-        { label: 'íì± ê³µì ', value: procs.filter(p => p.status === 'active').length, color: '#16A34A' },
-        { label: 'ê³ì½ì ì', value: contracts.length, color: '#2563EB' },
-        { label: 'ë§ë£ìë° ê³ì½', value: expiringContracts.length, color: '#DC2626' },
-        { label: 'ê°ì¬ ì¼ì ', value: audits.length, color: '#7C3AED' },
+        { label: 'Ã¬ÂÂÃ­ÂÂ ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂ', value: procs.length, color: ACCENT },
+        { label: 'Ã­ÂÂÃ¬ÂÂ± ÃªÂ³ÂµÃ¬Â Â', value: procs.filter(p => p.status === 'active').length, color: '#16A34A' },
+        { label: 'ÃªÂ³ÂÃ¬ÂÂ½Ã¬ÂÂ Ã¬ÂÂ', value: contracts.length, color: '#2563EB' },
+        { label: 'Ã«Â§ÂÃ«Â£ÂÃ¬ÂÂÃ«Â°Â ÃªÂ³ÂÃ¬ÂÂ½', value: expiringContracts.length, color: '#DC2626' },
+        { label: 'ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬ÂÂ¼Ã¬Â Â', value: audits.length, color: '#7C3AED' },
       ].map(s => <div key={s.label} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: 20, textAlign: 'center' }}>
         <div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div>
         <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{s.label}</div>
