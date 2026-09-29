@@ -1,5 +1,5 @@
 // src/pages/quality-objectives/QualityObjectivesHub.jsx
-// ISO 13485 Â§5.4.1 íì§ ëª©í / Â§5.4.2 QMS ê¸°í
+// ISO 13485 ÃÂ§5.4.1 Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ / ÃÂ§5.4.2 QMS ÃªÂ¸Â°Ã­ÂÂ
 import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -12,61 +12,61 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
-let _sbCidQo = null
 import { LS_KEY, OBJ_STATUSES, calcRate, autoStatus, LINKED_KPI_OPTIONS, computeLinkedActual } from '../../lib/qualityObjectivesState'
 import { buildSnapshot } from '../../lib/managementReviewState'
+let _sbCidQo = null
 
-// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 const LS_KEY_POLICY = 'qualytree.quality_policy'
 
-const PERIODS = ['ìê°', 'ë¶ê¸°', 'ë°ê¸°', 'ì°ê°']
+const PERIODS = ['Ã¬ÂÂÃªÂ°Â', 'Ã«Â¶ÂÃªÂ¸Â°', 'Ã«Â°ÂÃªÂ¸Â°', 'Ã¬ÂÂ°ÃªÂ°Â']
 const YEARS = ['2023', '2024', '2025', '2026', '2027']
 
 const DEPT_LIST = [
-  'ì ì¬', 'íì§ë¶(QUA)', 'ìì°ë¶(MFG)', 'ììë¶(SAL)',
-  'êµ¬ë§¤ë¶(PUR)', 'ì¤ë¹ë¶(EQP)', 'ê°ë°ë¶(DEV)', 'ê²½ìê²í (MR)',
-  'êµì¡íë ¨(TRN)', 'ì¸íê°(RA)', 'ë´ë¶ê°ì¬(AUD)',
+  'Ã¬Â ÂÃ¬ÂÂ¬', 'Ã­ÂÂÃ¬Â§ÂÃ«Â¶Â(QUA)', 'Ã¬ÂÂÃ¬ÂÂ°Ã«Â¶Â(MFG)', 'Ã¬ÂÂÃ¬ÂÂÃ«Â¶Â(SAL)',
+  'ÃªÂµÂ¬Ã«Â§Â¤Ã«Â¶Â(PUR)', 'Ã¬ÂÂ¤Ã«Â¹ÂÃ«Â¶Â(EQP)', 'ÃªÂ°ÂÃ«Â°ÂÃ«Â¶Â(DEV)', 'ÃªÂ²Â½Ã¬ÂÂÃªÂ²ÂÃ­ÂÂ (MR)',
+  'ÃªÂµÂÃ¬ÂÂ¡Ã­ÂÂÃ«Â Â¨(TRN)', 'Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â(RA)', 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ°ÂÃ¬ÂÂ¬(AUD)',
 ]
 
 const KPI_UNIT_PRESETS = [
-  '%', 'ppm', 'ê±´', 'ì¼', 'ìê°', 'ì ', 'ê°', 'ëª', 'í', 'ê¸°í',
+  '%', 'ppm', 'ÃªÂ±Â´', 'Ã¬ÂÂ¼', 'Ã¬ÂÂÃªÂ°Â', 'Ã¬Â Â', 'ÃªÂ°Â', 'Ã«ÂªÂ', 'Ã­ÂÂ', 'ÃªÂ¸Â°Ã­ÂÂ',
 ]
 
 const CATEGORIES = [
-  'ì í íì§', 'ê³ ê° ë§ì¡±', 'ê³µì  í¨ì¨', 'ê³µê¸ìì²´ ê´ë¦¬', 'ì¸ì  ìì',
-  'ë²ê· ì¤ì', 'ì§ìì  ê°ì ', 'ìí ê´ë¦¬', 'ê¸°í',
+  'Ã¬Â ÂÃ­ÂÂ Ã­ÂÂÃ¬Â§Â', 'ÃªÂ³Â ÃªÂ°Â Ã«Â§ÂÃ¬Â¡Â±', 'ÃªÂ³ÂµÃ¬Â Â Ã­ÂÂ¨Ã¬ÂÂ¨', 'ÃªÂ³ÂµÃªÂ¸ÂÃ¬ÂÂÃ¬Â²Â´ ÃªÂ´ÂÃ«Â¦Â¬', 'Ã¬ÂÂ¸Ã¬Â Â Ã¬ÂÂÃ¬ÂÂ',
+  'Ã«Â²ÂÃªÂ·Â Ã¬Â¤ÂÃ¬ÂÂ', 'Ã¬Â§ÂÃ¬ÂÂÃ¬Â Â ÃªÂ°ÂÃ¬ÂÂ ', 'Ã¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬', 'ÃªÂ¸Â°Ã­ÂÂ',
 ]
 
 function genId() { return `QO-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_FORM = {
-  title: '', category: 'ì í íì§', dept: 'íì§ë¶(QUA)',
-  period: 'ì°ê°', year: String(new Date().getFullYear()),
+  title: '', category: 'Ã¬Â ÂÃ­ÂÂ Ã­ÂÂÃ¬Â§Â', dept: 'Ã­ÂÂÃ¬Â§ÂÃ«Â¶Â(QUA)',
+  period: 'Ã¬ÂÂ°ÃªÂ°Â', year: String(new Date().getFullYear()),
   startDate: today(), endDate: '',
   kpiName: '', unit: '%', direction: 'higher',
   baselineValue: '', targetValue: '', actualValue: '',
   status: 'not_started', autoCalc: true,
   linkedKpiId: '',
-  linkedKpi: 'other',   // #364: ì°ë KPI ì í â 'other'ê° ìëë©´ ì¤ì ê°ì ì¤ì  ë°ì´í°ìì ìëì¼ë¡ ë¶ë¬ì´
+  linkedKpi: 'other',   // #364: Ã¬ÂÂ°Ã«ÂÂ KPI Ã¬ÂÂ Ã­ÂÂ Ã¢ÂÂ 'other'ÃªÂ°Â Ã¬ÂÂÃ«ÂÂÃ«Â©Â´ Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ´
   description: '', actions: '',
   notes: '',
   actuals: [],   // monthly/quarterly actuals [{date, value, note}]
 }
 
-// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂ Ã«Â©ÂÃ¬ÂÂ¸ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 export default function QualityObjectivesHub() {
   const user = auth.current()
   return (
-    <AppLayout user={user} title="íì§ ëª©í ê´ë¦¬" subtitle="ISO 13485 Â§5.4.1 íì§ ëª©í / Â§5.4.2 QMS ê¸°í">
-      <HubBanner title="íì§ ëª©í ê´ë¦¬" subtitle="ISO 13485 Â§5.4 â íì§ ëª©í ì¤ì Â·ëª¨ëí°ë§Â·ë¬ì± íê°" icon={Target} color="#059669" workflow={['ëª©í ì¤ì ', 'KPI ë°°ë¶', 'ì¤ì  ëª¨ëí°ë§', 'ë¬ì±ë íê°', 'ì°¨ê¸° ëª©í ìë¦½']} />
+    <AppLayout user={user} title="Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 13485 ÃÂ§5.4.1 Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ / ÃÂ§5.4.2 QMS ÃªÂ¸Â°Ã­ÂÂ">
+      <HubBanner title="Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 13485 ÃÂ§5.4 Ã¢ÂÂ Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â ÂÃÂ·Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§ÂÃÂ·Ã«ÂÂ¬Ã¬ÂÂ± Ã­ÂÂÃªÂ°Â" icon={Target} color="#059669" workflow={['Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â Â', 'KPI Ã«Â°Â°Ã«Â¶Â', 'Ã¬ÂÂ¤Ã¬Â Â Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â', 'Ã«ÂÂ¬Ã¬ÂÂ±Ã«ÂÂ Ã­ÂÂÃªÂ°Â', 'Ã¬Â°Â¨ÃªÂ¸Â° Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂÃ«Â¦Â½']} />
       <QualityObjectivesPanel />
     </AppLayout>
   )
 }
 
-// #360: íì§ë°©ì¹¨ê³¼ ë©ë´ íµí© â QualityPolicyHub(ê²½ììì§Â·íì§ë°©ì¹¨) í­ ìììë ë ëë§ëëë¡
-// AppLayout ìì´ ë´ì©ë§ export. /quality-objectives ë¼ì°í¸(ë¥ë§í¬ íìí¸í)ë ì ëí¼ê° ë´ë¹.
+// #360: Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ÃªÂ³Â¼ Ã«Â©ÂÃ«ÂÂ´ Ã­ÂÂµÃ­ÂÂ© Ã¢ÂÂ QualityPolicyHub(ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃÂ·Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨) Ã­ÂÂ­ Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂ Ã«Â ÂÃ«ÂÂÃ«Â§ÂÃ«ÂÂÃ«ÂÂÃ«Â¡Â
+// AppLayout Ã¬ÂÂÃ¬ÂÂ´ Ã«ÂÂ´Ã¬ÂÂ©Ã«Â§Â export. /quality-objectives Ã«ÂÂ¼Ã¬ÂÂ°Ã­ÂÂ¸(Ã«ÂÂ¥Ã«Â§ÂÃ­ÂÂ¬ Ã­ÂÂÃ¬ÂÂÃ­ÂÂ¸Ã­ÂÂ)Ã«ÂÂ Ã¬ÂÂ Ã«ÂÂÃ­ÂÂ¼ÃªÂ°Â Ã«ÂÂ´Ã«ÂÂ¹.
 export function QualityObjectivesPanel() {
   const canEdit = auth.current()?.level >= 2
   const companyId = user?.company_id
@@ -101,8 +101,8 @@ export function QualityObjectivesPanel() {
   }, [companyId])
 
   function submitObj() {
-    if (!form.title.trim()) return alert('ëª©íëªì ìë ¥íì¸ì.')
-    if (!form.targetValue) return alert('ëª©íê°ì ìë ¥íì¸ì.')
+    if (!form.title.trim()) return alert('Ã«ÂªÂ©Ã­ÂÂÃ«ÂªÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+    if (!form.targetValue) return alert('Ã«ÂªÂ©Ã­ÂÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
     const computed = { ...form }
     if (form.autoCalc) computed.status = autoStatus(computed)
     const next = editId
@@ -113,13 +113,13 @@ export function QualityObjectivesPanel() {
   }
 
   function deleteObj(id) {
-    if (!confirm('íì§ ëª©íë¥¼ ì­ì íìê² ìµëê¹?')) return
+    if (!confirm('Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂÃ«Â¥Â¼ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) return
     save(objectives.filter(o => o.id !== id))
     if (selectedId === id) { setSelectedId(null); setTab('list') }
   }
 
   function addActual(objId) {
-    if (!actualForm.value) return alert('ì¤ì ê°ì ìë ¥íì¸ì.')
+    if (!actualForm.value) return alert('Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
     const entry = { ...actualForm, id: Date.now() }
     const next = objectives.map(o => {
       if (o.id !== objId) return o
@@ -144,7 +144,7 @@ export function QualityObjectivesPanel() {
     return true
   }), [objectives, filterDept, filterYear, filterStatus])
 
-  // ë¶ì
+  // Ã«Â¶ÂÃ¬ÂÂ
   const analysis = useMemo(() => {
     const yr = objectives.filter(o => o.year === filterYear)
     const byStatus = {}
@@ -164,11 +164,11 @@ export function QualityObjectivesPanel() {
   return (
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* í­ */}
+        {/* Ã­ÂÂ­ */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `ëª©í ëª©ë¡ (${objectives.length})` },
-            { key: 'analysis', label: 'ë¬ì± íí©' },
+            { key: 'list',     label: `Ã«ÂªÂ©Ã­ÂÂ Ã«ÂªÂ©Ã«Â¡Â (${objectives.length})` },
+            { key: 'analysis', label: 'Ã«ÂÂ¬Ã¬ÂÂ± Ã­ÂÂÃ­ÂÂ©' },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -183,34 +183,34 @@ export function QualityObjectivesPanel() {
           ))}
         </div>
 
-        {/* ââ ëª©ë¡ í­ ââ */}
+        {/* Ã¢ÂÂÃ¢ÂÂ Ã«ÂªÂ©Ã«Â¡Â Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
         {tab === 'list' && (
           <div>
-            {/* íí° */}
+            {/* Ã­ÂÂÃ­ÂÂ° */}
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ì°ë</option>
-                {YEARS.map(y => <option key={y} value={y}>{y}ë</option>)}
+                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂ°Ã«ÂÂ</option>
+                {YEARS.map(y => <option key={y} value={y}>{y}Ã«ÂÂ</option>)}
               </select>
               <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ë¶ì</option>
+                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã«Â¶ÂÃ¬ÂÂ</option>
                 {DEPT_LIST.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ìí</option>
+                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂÃ­ÂÂ</option>
                 {Object.entries(OBJ_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> íì§ ëª©í ë±ë¡
+                  <Plus size={14} /> Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ±Ã«Â¡Â
                 </button>
               )}
             </div>
@@ -221,14 +221,14 @@ export function QualityObjectivesPanel() {
                 isEdit={!!editId} />
             )}
 
-            {/* ê²½ë³´ */}
+            {/* ÃªÂ²Â½Ã«Â³Â´ */}
             {(analysis.missed.length > 0 || analysis.atRisk.length > 0) && tab === 'list' && (
               <div className="mb-4 space-y-2">
                 {analysis.missed.length > 0 && (
                   <div className="p-3 rounded-xl text-[12.5px] flex items-center gap-2 flex-wrap"
                     style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#991B1B' }}>
                     <AlertTriangle size={14} />
-                    ë¯¸ë¬ì± ëª©í {analysis.missed.length}ê±´:
+                    Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ± Ã«ÂªÂ©Ã­ÂÂ {analysis.missed.length}ÃªÂ±Â´:
                     {analysis.missed.slice(0, 3).map(o => (
                       <span key={o.id} className="font-bold cursor-pointer underline" onClick={() => { setSelectedId(o.id); setTab('detail') }}>{o.title}</span>
                     ))}
@@ -238,7 +238,7 @@ export function QualityObjectivesPanel() {
                   <div className="p-3 rounded-xl text-[12.5px] flex items-center gap-2 flex-wrap"
                     style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
                     <AlertTriangle size={14} />
-                    ìí ëª©í {analysis.atRisk.length}ê±´:
+                    Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ {analysis.atRisk.length}ÃªÂ±Â´:
                     {analysis.atRisk.slice(0, 3).map(o => (
                       <span key={o.id} className="font-bold cursor-pointer underline" onClick={() => { setSelectedId(o.id); setTab('detail') }}>{o.title}</span>
                     ))}
@@ -250,7 +250,7 @@ export function QualityObjectivesPanel() {
             {filtered.length === 0 ? (
               <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
                 <Target size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                <div className="text-[14px]">ë±ë¡ë íì§ ëª©íê° ììµëë¤.</div>
+                <div className="text-[14px]">Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -268,18 +268,18 @@ export function QualityObjectivesPanel() {
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{obj.id}</span>
                             <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
-                            <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{obj.dept} Â· {obj.year}ë Â· {obj.period}</span>
+                            <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{obj.dept} ÃÂ· {obj.year}Ã«ÂÂ ÃÂ· {obj.period}</span>
                           </div>
                           <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{obj.title}</div>
-                          <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{obj.kpiName} Â· {obj.category}</div>
+                          <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{obj.kpiName} ÃÂ· {obj.category}</div>
                         </div>
 
-                        {/* KPI ìì¹ */}
+                        {/* KPI Ã¬ÂÂÃ¬Â¹Â */}
                         <div className="text-right shrink-0">
                           <div className="flex items-center gap-2 justify-end mb-1">
-                            <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>ëª©í: <strong style={{ color: 'var(--ink)' }}>{obj.targetValue}{obj.unit}</strong></span>
+                            <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>Ã«ÂªÂ©Ã­ÂÂ: <strong style={{ color: 'var(--ink)' }}>{obj.targetValue}{obj.unit}</strong></span>
                             {obj.actualValue && (
-                              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>ì¤ì : <strong style={{ color: sm.color }}>{obj.actualValue}{obj.unit}</strong></span>
+                              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â: <strong style={{ color: sm.color }}>{obj.actualValue}{obj.unit}</strong></span>
                             )}
                           </div>
                           {rate !== null && (
@@ -295,7 +295,7 @@ export function QualityObjectivesPanel() {
                         </div>
                       </div>
 
-                      {/* ì§íë° */}
+                      {/* Ã¬Â§ÂÃ­ÂÂÃ«Â°Â */}
                       {rate !== null && (
                         <div className="mt-2">
                           <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -324,7 +324,7 @@ export function QualityObjectivesPanel() {
           </div>
         )}
 
-        {/* ââ ìì¸ í­ ââ */}
+        {/* Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ¸ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
         {tab === 'detail' && selected && (
           <DetailView
             obj={selected} canEdit={canEdit}
@@ -334,7 +334,7 @@ export function QualityObjectivesPanel() {
           />
         )}
 
-        {/* ââ ë¶ì í­ ââ */}
+        {/* Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} filterYear={filterYear}
             objectives={objectives} setSelectedId={setSelectedId} setTab={setTab}
@@ -344,7 +344,7 @@ export function QualityObjectivesPanel() {
   )
 }
 
-// ââ ìì¸ ë·° ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ¸ Ã«Â·Â° Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualForm, setActualForm, addActual, autoStatus, calcRate }) {
   const effStatus = obj.autoCalc ? autoStatus(obj) : (obj.status || 'not_started')
   const sm = OBJ_STATUSES[effStatus] || OBJ_STATUSES.not_started
@@ -352,26 +352,26 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
 
   return (
     <div className="space-y-4">
-      {/* í¤ë */}
+      {/* Ã­ÂÂ¤Ã«ÂÂ */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-[12px] font-mono" style={{ color: 'var(--ink-faint)' }}>{obj.id}</span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
-              {obj.autoCalc && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>ìë ì°ì </span>}
+              {obj.autoCalc && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂ°Ã¬Â Â</span>}
             </div>
             <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{obj.title}</div>
-            <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{obj.dept} Â· {obj.category} Â· {obj.year}ë {obj.period}</div>
+            <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{obj.dept} ÃÂ· {obj.category} ÃÂ· {obj.year}Ã«ÂÂ {obj.period}</div>
           </div>
 
-          {/* ëí KPI ìì¹ */}
+          {/* Ã«ÂÂÃ­ÂÂ KPI Ã¬ÂÂÃ¬Â¹Â */}
           <div className="text-center p-4 rounded-2xl" style={{ background: sm.bg, minWidth: 120 }}>
             <div className="text-[11px] mb-1" style={{ color: sm.color }}>{obj.kpiName || 'KPI'}</div>
             {rate !== null ? (
               <>
                 <div className="text-[28px] font-black" style={{ color: sm.color }}>{rate}%</div>
-                <div className="text-[11px]" style={{ color: sm.color }}>ë¬ì±ë¥ </div>
+                <div className="text-[11px]" style={{ color: sm.color }}>Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </div>
               </>
             ) : (
               <div className="text-[20px] font-bold" style={{ color: sm.color }}>-</div>
@@ -379,15 +379,15 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           </div>
         </div>
 
-        {/* ë©í ê·¸ë¦¬ë */}
+        {/* Ã«Â©ÂÃ­ÂÂ ÃªÂ·Â¸Ã«Â¦Â¬Ã«ÂÂ */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           {[
-            { label: 'ê¸°ì¤ê° (Baseline)', value: obj.baselineValue ? `${obj.baselineValue}${obj.unit}` : '-' },
-            { label: 'ëª©íê°', value: `${obj.targetValue}${obj.unit}` },
-            { label: 'ìµê·¼ ì¤ì ', value: obj.actualValue ? `${obj.actualValue}${obj.unit}` : '-' },
-            { label: 'ë°©í¥', value: obj.direction === 'lower' ? 'â ë®ììë¡ ì¢ì' : 'â ëììë¡ ì¢ì' },
-            { label: 'ììì¼', value: obj.startDate || '-' },
-            { label: 'ì¢ë£ì¼', value: obj.endDate || '-' },
+            { label: 'ÃªÂ¸Â°Ã¬Â¤ÂÃªÂ°Â (Baseline)', value: obj.baselineValue ? `${obj.baselineValue}${obj.unit}` : '-' },
+            { label: 'Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â', value: `${obj.targetValue}${obj.unit}` },
+            { label: 'Ã¬ÂµÂÃªÂ·Â¼ Ã¬ÂÂ¤Ã¬Â Â', value: obj.actualValue ? `${obj.actualValue}${obj.unit}` : '-' },
+            { label: 'Ã«Â°Â©Ã­ÂÂ¥', value: obj.direction === 'lower' ? 'Ã¢ÂÂ Ã«ÂÂ®Ã¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' : 'Ã¢ÂÂ Ã«ÂÂÃ¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' },
+            { label: 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼', value: obj.startDate || '-' },
+            { label: 'Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼', value: obj.endDate || '-' },
           ].map(({ label, value }) => (
             <div key={label} className="p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
               <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
@@ -396,11 +396,11 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           ))}
         </div>
 
-        {/* ì§íë° */}
+        {/* Ã¬Â§ÂÃ­ÂÂÃ«Â°Â */}
         {rate !== null && (
           <div className="mb-3">
             <div className="flex justify-between text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>
-              <span>ë¬ì±ë¥ </span>
+              <span>Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </span>
               <span className="font-bold" style={{ color: sm.color }}>{rate}%</span>
             </div>
             <div className="h-3 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -409,7 +409,7 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           </div>
         )}
 
-        {/* ë§í¬ */}
+        {/* Ã«Â§ÂÃ­ÂÂ¬ */}
         {obj.linkedKpiId && (
           <div className="flex gap-2 flex-wrap mb-2">
             <LinkChip label={`KPI: ${obj.linkedKpiId}`} color="#2563EB" />
@@ -418,12 +418,12 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
 
         {obj.description && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ëª©í ì¤ëª: </span>{obj.description}
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã«ÂªÂ: </span>{obj.description}
           </div>
         )}
         {obj.actions && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: '#EFF6FF', color: '#1E40AF' }}>
-            <span className="font-bold">ë¬ì± ë°©ì: </span>{obj.actions}
+            <span className="font-bold">Ã«ÂÂ¬Ã¬ÂÂ± Ã«Â°Â©Ã¬ÂÂ: </span>{obj.actions}
           </div>
         )}
 
@@ -431,31 +431,31 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           <button onClick={() => setShowActualForm(!showActualForm)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold mt-3"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <RefreshCw size={13} /> ì¤ì  ìë ¥
+            <RefreshCw size={13} /> Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥
           </button>
         )}
       </div>
 
-      {/* ì¤ì  ìë ¥ í¼ */}
+      {/* Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥ Ã­ÂÂ¼ */}
       {showActualForm && canEdit && (
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ì¤ì  ìë ¥</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì¸¡ì ì¼</label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬Â¸Â¡Ã¬Â ÂÃ¬ÂÂ¼</label>
               <input type="date" value={actualForm.date} onChange={e => setActualForm(f => ({ ...f, date: e.target.value }))}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
             </div>
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ì¤ì ê° ({obj.unit}) *</label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â ({obj.unit}) *</label>
               <input type="number" value={actualForm.value} onChange={e => setActualForm(f => ({ ...f, value: e.target.value }))}
-                placeholder={`ëª©í: ${obj.targetValue}${obj.unit}`}
+                placeholder={`Ã«ÂªÂ©Ã­ÂÂ: ${obj.targetValue}${obj.unit}`}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
             </div>
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>ë¹ê³ </label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã«Â¹ÂÃªÂ³Â </label>
               <input type="text" value={actualForm.note} onChange={e => setActualForm(f => ({ ...f, note: e.target.value }))}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
@@ -465,25 +465,25 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
             <button onClick={() => addActual(obj.id)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
               style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              <Save size={13} /> ì ì¥
+              <Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥
             </button>
             <button onClick={() => setShowActualForm(false)}
               className="px-4 py-2 rounded-xl text-[13px]"
-              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
           </div>
         </div>
       )}
 
-      {/* ì¤ì  ì´ë ¥ */}
+      {/* Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥ */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ì¤ì  ì´ë ¥ ({(obj.actuals || []).length}ê±´)</div>
+        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥ ({(obj.actuals || []).length}ÃªÂ±Â´)</div>
         {(obj.actuals || []).length === 0 ? (
-          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ì¤ì  ì´ë ¥ì´ ììµëë¤.</div>
+          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
         ) : (
           <table className="w-full text-[12.5px]">
             <thead>
               <tr style={{ background: 'var(--bg-soft)' }}>
-                {['ì¸¡ì ì¼', 'ì¤ì ê°', 'ë¬ì±ë¥ ', 'ë¹ê³ '].map(h => (
+                {['Ã¬Â¸Â¡Ã¬Â ÂÃ¬ÂÂ¼', 'Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â', 'Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â ', 'Ã«Â¹ÂÃªÂ³Â '].map(h => (
                   <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
@@ -513,27 +513,27 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
   )
 }
 
-// ââ ë¶ì í­ ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab, autoStatus, calcRate }) {
   const yr = objectives.filter(o => o.year === filterYear)
 
   return (
     <div className="space-y-5">
-      {/* ì ì²´ ë¬ì±ë¥  */}
+      {/* Ã¬Â ÂÃ¬Â²Â´ Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â  */}
       {analysis.total > 0 && (
         <div className="p-6 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] mb-1" style={{ color: 'var(--ink-faint)' }}>{filterYear}ë ì ì²´ ëª©í ë¬ì±ë¥ </div>
+          <div className="text-[13px] mb-1" style={{ color: 'var(--ink-faint)' }}>{filterYear}Ã«ÂÂ Ã¬Â ÂÃ¬Â²Â´ Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </div>
           <div className="text-[48px] font-black" style={{ color: analysis.achieveRate >= 80 ? '#059669' : analysis.achieveRate >= 60 ? '#D97706' : '#DC2626' }}>
             {analysis.achieveRate}%
           </div>
-          <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{analysis.achieved}/{analysis.total}ê° ëª©í ë¬ì±</div>
+          <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{analysis.achieved}/{analysis.total}ÃªÂ°Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ¬Ã¬ÂÂ±</div>
           <div className="h-3 rounded-full mt-3" style={{ background: 'var(--bg-soft)' }}>
             <div className="h-3 rounded-full" style={{ width: `${analysis.achieveRate}%`, background: analysis.achieveRate >= 80 ? '#059669' : analysis.achieveRate >= 60 ? '#D97706' : '#DC2626' }} />
           </div>
         </div>
       )}
 
-      {/* ìíë³ */}
+      {/* Ã¬ÂÂÃ­ÂÂÃ«Â³Â */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {Object.entries(OBJ_STATUSES).map(([k, v]) => (
           <div key={k} className="p-4 rounded-2xl text-center" style={{ background: v.bg, border: `1px solid ${v.color}40` }}>
@@ -543,13 +543,13 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
         ))}
       </div>
 
-      {/* ë¯¸ë¬ì±Â·ìí ëª©í */}
+      {/* Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ±ÃÂ·Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ */}
       {[
-        { list: analysis.missed, title: 'ë¯¸ë¬ì± ëª©í', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-        { list: analysis.atRisk, title: 'ìí ëª©í', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+        { list: analysis.missed, title: 'Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ± Ã«ÂªÂ©Ã­ÂÂ', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+        { list: analysis.atRisk, title: 'Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
       ].map(({ list, title, color, bg, border }) => list.length > 0 && (
         <div key={title} className="p-5 rounded-2xl" style={{ background: bg, border: `1px solid ${border}` }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color }}>{title} ({list.length}ê±´)</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color }}>{title} ({list.length}ÃªÂ±Â´)</div>
           <div className="space-y-2">
             {list.map(obj => {
               const rate = calcRate(obj)
@@ -559,11 +559,11 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
                   onClick={() => { setSelectedId(obj.id); setTab('detail') }}>
                   <div>
                     <div className="text-[12px] font-bold" style={{ color }}>{obj.title}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.dept} Â· ëª©í: {obj.targetValue}{obj.unit}</div>
+                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.dept} ÃÂ· Ã«ÂªÂ©Ã­ÂÂ: {obj.targetValue}{obj.unit}</div>
                   </div>
                   <div className="text-right">
                     {rate !== null && <div className="text-[13px] font-bold" style={{ color }}>{rate}%</div>}
-                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.actualValue ? `ì¤ì : ${obj.actualValue}${obj.unit}` : 'ì¤ì  ë¯¸ìë ¥'}</div>
+                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.actualValue ? `Ã¬ÂÂ¤Ã¬Â Â: ${obj.actualValue}${obj.unit}` : 'Ã¬ÂÂ¤Ã¬Â Â Ã«Â¯Â¸Ã¬ÂÂÃ«Â Â¥'}</div>
                   </div>
                 </div>
               )
@@ -572,10 +572,10 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
         </div>
       ))}
 
-      {/* ë¶ìë³ ëª©í ì */}
+      {/* Ã«Â¶ÂÃ¬ÂÂÃ«Â³Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ */}
       {Object.keys(analysis.byDept).length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>ë¶ìë³ íì§ ëª©í ì</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã«Â¶ÂÃ¬ÂÂÃ«Â³Â Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ</div>
           {Object.entries(analysis.byDept).sort(([, a], [, b]) => b - a).map(([dept, cnt]) => (
             <div key={dept} className="flex items-center gap-3 mb-2">
               <span className="text-[12px] w-32 shrink-0" style={{ color: 'var(--ink-soft)' }}>{dept}</span>
@@ -591,7 +591,7 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
   )
 }
 
-// ââ í¼ âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// Ã¢ÂÂÃ¢ÂÂ Ã­ÂÂ¼ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
 function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const navigate = useNavigate()
@@ -601,8 +601,8 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const kpiSnapshot = useMemo(() => { try { return buildSnapshot().kpi } catch { return null } }, [])
   const isLinked = form.linkedKpi && form.linkedKpi !== 'other'
 
-  // #364: ì°ë KPI ì í ì KPIëªÂ·ë¨ìÂ·ë°©í¥ì ìë ì§ì íê³  ì¤ì ê°ì ì¤ì  ë°ì´í°ìì ë¶ë¬ì¨ë¤.
-  // 'ê¸°í'ë¥¼ ì ííë©´ ê¸°ì¡´ê³¼ ëì¼íê² ì ë¶ ì§ì  ìë ¥.
+  // #364: Ã¬ÂÂ°Ã«ÂÂ KPI Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ KPIÃ«ÂªÂÃÂ·Ã«ÂÂ¨Ã¬ÂÂÃÂ·Ã«Â°Â©Ã­ÂÂ¥Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂ Ã¬Â§ÂÃ¬Â ÂÃ­ÂÂÃªÂ³Â  Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã¬ÂÂÃ¬ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¨Ã«ÂÂ¤.
+  // 'ÃªÂ¸Â°Ã­ÂÂ'Ã«Â¥Â¼ Ã¬ÂÂ Ã­ÂÂÃ­ÂÂÃ«Â©Â´ ÃªÂ¸Â°Ã¬Â¡Â´ÃªÂ³Â¼ Ã«ÂÂÃ¬ÂÂ¼Ã­ÂÂÃªÂ²Â Ã¬Â ÂÃ«Â¶Â Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ«Â Â¥.
   function onLinkedKpiChange(id) {
     F('linkedKpi', id)
     if (id === 'other') return
@@ -623,79 +623,79 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   }
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'íì§ ëª©í ìì ' : 'íì§ ëª©í ë±ë¡'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂÃ¬Â Â' : 'Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ±Ã«Â¡Â'}</div>
 
-      {/* íì§ ë°©ì¹¨ ì°¸ê³  */}
+      {/* Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ Ã¬Â°Â¸ÃªÂ³Â  */}
       <div className="mb-4 p-4 rounded-2xl" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: '#1E40AF' }}>
-            <Award size={13} /> íì§ ë°©ì¹¨ (Â§5.3) â ì°¸ê³ íì¬ ìì±íì¸ì
+            <Award size={13} /> Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ (ÃÂ§5.3) Ã¢ÂÂ Ã¬Â°Â¸ÃªÂ³Â Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ
           </div>
           <button onClick={() => navigate('/management-commitment')}
             className="flex items-center gap-1 text-[11.5px] font-semibold"
             style={{ background: 'none', border: 'none', color: '#1E40AF', cursor: 'pointer' }}>
-            ë°©ì¹¨ íì´ì§ë¡ ì´ë <ExternalLink size={11} />
+            Ã«Â°Â©Ã¬Â¹Â¨ Ã­ÂÂÃ¬ÂÂ´Ã¬Â§ÂÃ«Â¡Â Ã¬ÂÂ´Ã«ÂÂ <ExternalLink size={11} />
           </button>
         </div>
         {policy.statement
           ? <p className="text-[12.5px] whitespace-pre-line" style={{ color: '#1E40AF' }}>{policy.statement}</p>
-          : <p className="text-[12px]" style={{ color: '#1E40AF' }}>ìì§ íì§ ë°©ì¹¨ì´ ìì±ëì§ ìììµëë¤. ê²½ì ìì§Â·íì§ ë°©ì¹¨ ë©ë´ìì ë¨¼ì  ìì±íì¸ì.</p>}
+          : <p className="text-[12px]" style={{ color: '#1E40AF' }}>Ã¬ÂÂÃ¬Â§Â Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂ±Ã«ÂÂÃ¬Â§Â Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. ÃªÂ²Â½Ã¬ÂÂ Ã¬ÂÂÃ¬Â§ÂÃÂ·Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ Ã«Â©ÂÃ«ÂÂ´Ã¬ÂÂÃ¬ÂÂ Ã«Â¨Â¼Ã¬Â Â Ã¬ÂÂÃ¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="ëª©íëª *" value={form.title} onChange={v => F('title', v)} />
-        <FieldSelect label="ì¹´íê³ ë¦¬" value={form.category} onChange={v => F('category', v)}
+        <Field label="Ã«ÂªÂ©Ã­ÂÂÃ«ÂªÂ *" value={form.title} onChange={v => F('title', v)} />
+        <FieldSelect label="Ã¬Â¹Â´Ã­ÂÂÃªÂ³Â Ã«Â¦Â¬" value={form.category} onChange={v => F('category', v)}
           options={CATEGORIES.map(c => ({ value: c, label: c }))} />
-        <FieldSelect label="ë¶ì" value={form.dept} onChange={v => F('dept', v)}
+        <FieldSelect label="Ã«Â¶ÂÃ¬ÂÂ" value={form.dept} onChange={v => F('dept', v)}
           options={DEPT_LIST.map(d => ({ value: d, label: d }))} />
-        <FieldSelect label="ì°ë" value={form.year} onChange={v => F('year', v)}
-          options={YEARS.map(y => ({ value: y, label: `${y}ë` }))} />
-        <FieldSelect label="ì£¼ê¸°" value={form.period} onChange={v => F('period', v)}
+        <FieldSelect label="Ã¬ÂÂ°Ã«ÂÂ" value={form.year} onChange={v => F('year', v)}
+          options={YEARS.map(y => ({ value: y, label: `${y}Ã«ÂÂ` }))} />
+        <FieldSelect label="Ã¬Â£Â¼ÃªÂ¸Â°" value={form.period} onChange={v => F('period', v)}
           options={PERIODS.map(p => ({ value: p, label: p }))} />
-        <FieldSelect label="ì°ë KPI" value={form.linkedKpi || 'other'} onChange={onLinkedKpiChange}
+        <FieldSelect label="Ã¬ÂÂ°Ã«ÂÂ KPI" value={form.linkedKpi || 'other'} onChange={onLinkedKpiChange}
           options={LINKED_KPI_OPTIONS.map(o => ({ value: o.id, label: o.label }))} />
-        <Field label="KPI ëªì¹­" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="ê²ì¬ í©ê²©ë¥ " disabled={isLinked} />
-        <FieldSelect label="ë¨ì" value={form.unit} onChange={v => F('unit', v)}
+        <Field label="KPI Ã«ÂªÂÃ¬Â¹Â­" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ©ÃªÂ²Â©Ã«Â¥Â " disabled={isLinked} />
+        <FieldSelect label="Ã«ÂÂ¨Ã¬ÂÂ" value={form.unit} onChange={v => F('unit', v)}
           options={KPI_UNIT_PRESETS.map(u => ({ value: u, label: u }))} disabled={isLinked} />
-        <FieldSelect label="ë°©í¥" value={form.direction} onChange={v => F('direction', v)}
-          options={[{ value: 'higher', label: 'â ëììë¡ ì¢ì' }, { value: 'lower', label: 'â ë®ììë¡ ì¢ì' }]} disabled={isLinked} />
-        <Field label="ê¸°ì¤ê° (Baseline)" value={form.baselineValue} onChange={v => F('baselineValue', v)} type="number" />
-        <Field label="ëª©íê° *" value={form.targetValue} onChange={v => F('targetValue', v)} type="number" />
+        <FieldSelect label="Ã«Â°Â©Ã­ÂÂ¥" value={form.direction} onChange={v => F('direction', v)}
+          options={[{ value: 'higher', label: 'Ã¢ÂÂ Ã«ÂÂÃ¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' }, { value: 'lower', label: 'Ã¢ÂÂ Ã«ÂÂ®Ã¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' }]} disabled={isLinked} />
+        <Field label="ÃªÂ¸Â°Ã¬Â¤ÂÃªÂ°Â (Baseline)" value={form.baselineValue} onChange={v => F('baselineValue', v)} type="number" />
+        <Field label="Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â *" value={form.targetValue} onChange={v => F('targetValue', v)} type="number" />
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>íì¬ ì¤ì ê°</label>
-            {isLinked && <button type="button" onClick={refreshLinkedActual} className="text-[10.5px] font-semibold" style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>ì¤ì  ìë ë¶ë¬ì¤ê¸°</button>}
+            <label className="block text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â</label>
+            {isLinked && <button type="button" onClick={refreshLinkedActual} className="text-[10.5px] font-semibold" style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¤ÃªÂ¸Â°</button>}
           </div>
           <input type="number" value={form.actualValue || ''} onChange={e => F('actualValue', e.target.value)}
             className="w-full px-3 py-1.5 rounded-xl text-[13px]"
             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
-          {isLinked && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>ì¤ì  ë°ì´í°(ê²½ìê²í  KPI ìëì§ê³)ìì ë¶ë¬ì¨ ê°ìëë¤. íì ì ìì  ê°ë¥í©ëë¤.</div>}
+          {isLinked && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°(ÃªÂ²Â½Ã¬ÂÂÃªÂ²ÂÃ­ÂÂ  KPI Ã¬ÂÂÃ«ÂÂÃ¬Â§ÂÃªÂ³Â)Ã¬ÂÂÃ¬ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¨ ÃªÂ°ÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤. Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ Ã¬ÂÂÃ¬Â Â ÃªÂ°ÂÃ«ÂÂ¥Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.</div>}
         </div>
         <div className="flex items-center gap-3 pt-5">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.autoCalc !== false}
               onChange={e => F('autoCalc', e.target.checked)} className="accent-green-500" />
-            <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>ìí ìë ì°ì </span>
+            <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂ°Ã¬Â Â</span>
           </label>
         </div>
         {!form.autoCalc && (
-          <FieldSelect label="ìí" value={form.status} onChange={v => F('status', v)}
+          <FieldSelect label="Ã¬ÂÂÃ­ÂÂ" value={form.status} onChange={v => F('status', v)}
             options={Object.entries(OBJ_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         )}
-        <Field label="ììì¼" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
-        <Field label="ì¢ë£ì¼" type="date" value={form.endDate} onChange={v => F('endDate', v)} />
+        <Field label="Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
+        <Field label="Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼" type="date" value={form.endDate} onChange={v => F('endDate', v)} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <FieldArea label="ëª©í ì¤ëª" value={form.description} onChange={v => F('description', v)} rows={2} />
-        <FieldArea label="ë¬ì± ë°©ì" value={form.actions} onChange={v => F('actions', v)} rows={2} />
+        <FieldArea label="Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã«ÂªÂ" value={form.description} onChange={v => F('description', v)} rows={2} />
+        <FieldArea label="Ã«ÂÂ¬Ã¬ÂÂ± Ã«Â°Â©Ã¬ÂÂ" value={form.actions} onChange={v => F('actions', v)} rows={2} />
       </div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> ì ì¥
+          <Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
       </div>
     </div>
   )
