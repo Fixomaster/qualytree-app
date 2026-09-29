@@ -33,6 +33,8 @@ const EQUIP_CATS  = ['생산설비', '측정·검사장비', '시험장비', 'IT
 const OUTSOURCE_TYPES = ['제조공정', '시험·검사', '컨설팅', '교육·훈련', '인증·인허가', 'IT·유지보수', '기타']
 const OUTSOURCE_STATUS = ['활성', '만료임박', '검토중', '종료']
 
+let _sbCidRPlan = null
+
 // ── 공통 UI 헬퍼 ──────────────────────────────────────────
 const TABS = [
   { id: 'summary',  label: '요약',        icon: BarChart3 },
