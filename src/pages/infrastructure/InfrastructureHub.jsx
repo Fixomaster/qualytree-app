@@ -1,7 +1,6 @@
 // src/pages/infrastructure/InfrastructureHub.jsx
 // ISO 13485 §6.3 — 인프라 관리 허브
-import React, { useState, useEffect } from 'react'
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {Building, 
   Plus, Save, Edit2, Trash2, CheckCircle2, Clock,
   AlertTriangle, FileText, Wrench, Building2,
