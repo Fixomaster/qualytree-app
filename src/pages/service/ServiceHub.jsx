@@ -1,6 +1,6 @@
 // src/pages/service/ServiceHub.jsx
 // ISO 13485 §7.5.3 설치 활동 / §7.5.4 서비스 활동
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, X, Save, Edit2, Trash2, Wrench, MapPin,
   CheckCircle2, Clock, AlertTriangle, XCircle,
@@ -13,6 +13,9 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { onboarding } from '../../lib/onboardingState'
+import { supabase } from '../../lib/supabaseClient'
+
+let _sbCidSvc = null
 
 // ── 상수 ─────────────────────────────────────────────────────
 const LS_INST = 'qualytree.installations'
@@ -142,6 +145,18 @@ const EMPTY_SVC = {
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ServiceHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidSvc = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',LS_INST).maybeSingle(),
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',LS_SVC).maybeSingle(),
+    ]).then(([ri,rs]) => {
+      if (ri?.data?.payload != null) { localStorage.setItem(LS_INST, JSON.stringify(ri.data.payload)); setInstallations(ri.data.payload) }
+      if (rs?.data?.payload != null) { localStorage.setItem(LS_SVC,  JSON.stringify(rs.data.payload)); setServices(rs.data.payload) }
+    })
+  }, [companyId])
   const canEdit = user?.level >= 2
 
   const [installations, setInstallations] = useState(() => {
@@ -168,8 +183,16 @@ export default function ServiceHub() {
   const [search, setSearch]             = useState('')
   const [deviceSearch, setDeviceSearch] = useState('')
 
-  function saveInst(list) { setInstallations(list); localStorage.setItem(LS_INST, JSON.stringify(list)) }
-  function saveSvc(list)  { setServices(list);       localStorage.setItem(LS_SVC,  JSON.stringify(list)) }
+  function saveInst(list) {
+    setInstallations(list)
+    localStorage.setItem(LS_INST, JSON.stringify(list))
+    if (_sbCidSvc) supabase.from('company_data').upsert({ company_id: _sbCidSvc, data_type: 'localStorage_sync', data_key: LS_INST, payload: list }, { onConflict: 'company_id,data_type,data_key' })
+  }
+  function saveSvc(list) {
+    setServices(list)
+    localStorage.setItem(LS_SVC, JSON.stringify(list))
+    if (_sbCidSvc) supabase.from('company_data').upsert({ company_id: _sbCidSvc, data_type: 'localStorage_sync', data_key: LS_SVC, payload: list }, { onConflict: 'company_id,data_type,data_key' })
+  }
 
   // ── 설치 CRUD ─────────────────────────────────────────────
   function submitInst() {
