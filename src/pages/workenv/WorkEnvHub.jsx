@@ -3,7 +3,7 @@
 // 실측 기록 입력은 생산제조 > 청결·오염 관리(/cleanliness)에서 이루어지며, 이 화면은 그 기록을
 // 구역 허용범위 기준으로 이탈 판정·분석해 보여주는 품질 열람 화면이다. (구역 자체의 허용범위 설정은
 // 품질에서 계속 관리한다.)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Plus, Search, Trash2, X, Edit3, ChevronDown, ChevronUp,
@@ -14,7 +14,10 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { getMergedEnvLogs, CLEAN_CLASS_PARTICLE_LIMIT, paToMmH2O, mmH2OToPa } from '../../lib/envMonitoring'
+
+let _sbCidWenv = null
 
 // ── localStorage (구역 정의만 이 화면에서 직접 쓴다) ────────────
 const LS_ZONE = 'qualytree.env_zones'
@@ -50,6 +53,18 @@ const emptyZone = () => ({
 // ── 메인 ─────────────────────────────────────────────────────
 export default function WorkEnvHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidWenv = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',LS_ZONE).maybeSingle(),
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',LS_MANUAL).maybeSingle(),
+    ]).then(([rz,rm]) => {
+      if (rz?.data?.payload != null) { lsW(LS_ZONE, rz.data.payload); setZones(rz.data.payload) }
+      if (rm?.data?.payload != null) { lsW(LS_MANUAL, rm.data.payload) }
+    })
+  }, [companyId])
   const nav = useNavigate()
   const [searchParams] = useSearchParams()
   const initialTab = ['logs','zones','analysis'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'logs'
@@ -81,7 +96,10 @@ export default function WorkEnvHub() {
   const delHyg = id => { if (window.confirm('삭제하시겠습니까?')) saveHygiene(hygieneRecs.filter(r => r.id !== id)) }
 
 
-  const saveZones = d => { setZones(d); lsW(LS_ZONE, d); setLogs(getMergedEnvLogs()) }
+  const saveZones = d => {
+    setZones(d); lsW(LS_ZONE, d); setLogs(getMergedEnvLogs())
+    if (_sbCidWenv) supabase.from('company_data').upsert({ company_id: _sbCidWenv, data_type: 'localStorage_sync', data_key: LS_ZONE, payload: d }, { onConflict: 'company_id,data_type,data_key' })
+  }
   const goToRecord = () => nav('/cleanliness?tab=records')
 
   const openNewZone = ()  => { setZoneForm(emptyZone()); setEditZoneId(null); setShowZoneForm(true) }
@@ -129,7 +147,9 @@ export default function WorkEnvHub() {
     if (!form.temp && !form.humidity) return
     const entry = { ...form, zoneId: form.zone, id: Date.now().toString(), measuredAt: new Date().toISOString(), deviations: [] }
     const ex = JSON.parse(localStorage.getItem(LS_MANUAL) || '[]')
-    localStorage.setItem(LS_MANUAL, JSON.stringify([entry, ...ex]))
+    const newManualLogs = [entry, ...ex]
+    localStorage.setItem(LS_MANUAL, JSON.stringify(newManualLogs))
+    if (_sbCidWenv) supabase.from('company_data').upsert({ company_id: _sbCidWenv, data_type: 'localStorage_sync', data_key: LS_MANUAL, payload: newManualLogs }, { onConflict: 'company_id,data_type,data_key' })
     setLogs(prev => [entry, ...prev])
     setForm({zone:'',temp:'',humidity:'',particle:'',pressure:'',memo:''})
     setShowForm(false)
