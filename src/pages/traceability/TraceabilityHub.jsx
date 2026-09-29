@@ -10,12 +10,15 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { buildChainRows, searchChainRows, pivotChainRows, sortChainRows, SORTS } from '../../lib/traceability'
 import { printRecallNotice } from '../../lib/pdfPrint'
 import { downloadRecallCustomerListPdf } from '../../lib/recallPdf'
 import { udi } from '../../lib/udi'
 
 // ── localStorage ──────────────────────────────────────────────
+let _sbCidTrace = null
+
 const LS_KEY = 'qualytree.distributions'
 function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
 function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
@@ -53,6 +56,19 @@ const emptyRecall = () => ({
 // ── 메인 ─────────────────────────────────────────────────────
 export default function TraceabilityHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidTrace = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setRecords(row.payload)
+        }
+      })
+  }, [companyId])
   const [records, setRecords] = useState(() => lsR())
   const [tab, setTab]         = useState('dist')
   const [search, setSearch]   = useState('')
@@ -66,7 +82,16 @@ export default function TraceabilityHub() {
   const [recallForm, setRecallForm]   = useState(emptyRecall())
   const [recallActive, setRecallActive] = useState(false)
 
-  const save = d => { setRecords(d); lsW(d) }
+  const save = d => {
+    setRecords(d)
+    lsW(d)
+    if (_sbCidTrace) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidTrace, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: d
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   const openNew  = () => { setForm(emptyForm()); setEditId(null); setShowForm(true) }
   const openEdit = r  => { setForm({ ...r }); setEditId(r.id); setShowForm(true) }
