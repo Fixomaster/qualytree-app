@@ -1,6 +1,6 @@
 // src/pages/validation/ValidationHub.jsx
 // ISO 13485 §7.5.6 공정 유효성 확인 — VMP · IQ/OQ/PQ · 재밸리데이션 관리
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Search, Trash2, X, Edit3, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, AlertTriangle, FlaskConical,
@@ -11,9 +11,12 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 
 // ── localStorage ──────────────────────────────────────────────
+let _sbCidVal = null
+
 const LS_KEY = 'qualytree.validations'
 function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] } }
 function lsW(d) { localStorage.setItem(LS_KEY, JSON.stringify(d)) }
@@ -92,6 +95,19 @@ const emptyForm = () => ({
 // ── 메인 ─────────────────────────────────────────────────────
 export default function ValidationHub({ embedded = false, role = 'production', productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidVal = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setRecords(row.payload)
+        }
+      })
+  }, [companyId])
   const canRequest = role === 'quality'
   const [searchParams] = useSearchParams()
   // #211(ValidationHub): 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 밸리데이션만 노출한다.
@@ -107,7 +123,16 @@ export default function ValidationHub({ embedded = false, role = 'production', p
   const [expanded, setExpanded] = useState(null)
   const [activePhase, setActivePhase] = useState({})   // id → 'iq'|'oq'|'pq'
 
-  const save = d => { setRecords(d); lsW(d) }
+  const save = d => {
+    setRecords(d)
+    lsW(d)
+    if (_sbCidVal) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidVal, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: d
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   const openNew  = () => { setForm({ ...emptyForm(), productKey: scopeKey || '' }); setEditId(null); setShowForm(true) }
   const openEdit = r  => { setForm({ ...r }); setEditId(r.id); setShowForm(true) }
