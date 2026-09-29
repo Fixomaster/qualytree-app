@@ -1,7 +1,7 @@
 // src/pages/record-master/RecordMasterHub.jsx
 // 중앙 기록 대장 — ISO 13485 §4.2.4 품질기록 통합 뷰
 // 모든 허브의 localStorage 데이터를 집계해 단일 기록 목록으로 제공
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FileText, Search, Filter, ExternalLink, Clock,
@@ -12,6 +12,9 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
+
+let _sbCidRec = null
 
 // ── 모듈 정의 ─────────────────────────────────────────────────
 // retention: ISO 13485 §4.2.4 보유기간 (년)
@@ -172,6 +175,19 @@ function aggregateRecords() {
 export default function RecordMasterHub() {
   const nav = useNavigate()
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidRec = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key','qualytree.record_disposals')
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem('qualytree.record_disposals', JSON.stringify(row.payload))
+          setDisposals(row.payload)
+        }
+      })
+  }, [companyId])
 
   const [tab, setTab] = useState('all')
   const [search, setSearch] = useState('')
@@ -213,7 +229,11 @@ export default function RecordMasterHub() {
   }), [records])
 
   const [disposals, setDisposals] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.record_disposals') || '[]') } catch { return [] } })
-  const saveDisposals = v => { setDisposals(v); localStorage.setItem('qualytree.record_disposals', JSON.stringify(v)) }
+  const saveDisposals = v => {
+    setDisposals(v)
+    localStorage.setItem('qualytree.record_disposals', JSON.stringify(v))
+    if (_sbCidRec) supabase.from('company_data').upsert({ company_id: _sbCidRec, data_type: 'localStorage_sync', data_key: 'qualytree.record_disposals', payload: v }, { onConflict: 'company_id,data_type,data_key' })
+  }
   const EMPTY_DISP = { recordName: '', recordType: '', retentionYears: '', reason: 'period_expired', requestedBy: '', requestedAt: new Date().toISOString().slice(0,10), status: 'requested', approvedBy: '', approvedAt: '', disposedAt: '', notes: '' }
   const [dispForm, setDispForm] = useState({...EMPTY_DISP})
   const [dispAdding, setDispAdding] = useState(false)
