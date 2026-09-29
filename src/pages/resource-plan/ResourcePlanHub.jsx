@@ -1,7 +1,7 @@
 // src/pages/resource-plan/ResourcePlanHub.jsx
 // 자원 계획 허브 — ISO 13485 §6.1 자원 제공 (Provision of Resources)
 // localStorage 기반 (추후 Supabase 마이그레이션 예정)
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users, Cpu, Wallet, Globe, Plus, Edit2, Trash2, X,
@@ -11,6 +11,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { DEPT_LIST } from '../../lib/deptAuth'
+import { supabase } from '../../lib/supabaseClient'
 
 // ── localStorage 헬퍼 ──────────────────────────────────────
 const NS = {
@@ -715,6 +716,22 @@ function EmptyState({ icon: Icon, msg, onAdd }) {
 // ── 메인 컴포넌트 ──────────────────────────────────────────
 export default function ResourcePlanHub() {
   const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidRPlan = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    const keys = Object.values(NS)
+    Promise.all(keys.map(k => supabase.from('company_data').select('payload').eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', k).maybeSingle())).then(([ppl, eq, bud, out]) => {
+      if (ppl?.data?.payload != null) { localStorage.setItem(NS.people, JSON.stringify(ppl.data.payload)); setPeople(ppl.data.payload) }
+      if (eq?.data?.payload != null)  { localStorage.setItem(NS.equip, JSON.stringify(eq.data.payload)); setEquip(eq.data.payload) }
+      if (bud?.data?.payload != null) { localStorage.setItem(NS.budget, JSON.stringify(bud.data.payload)); setBudget(bud.data.payload) }
+      if (out?.data?.payload != null) { localStorage.setItem(NS.outsource, JSON.stringify(out.data.payload)); setOutsource(out.data.payload) }
+    })
+  }, [companyId])
+  useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.people, payload: people }, { onConflict: 'company_id,data_type,data_key' }) }, [people])
+  useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.equip, payload: equip }, { onConflict: 'company_id,data_type,data_key' }) }, [equip])
+  useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.budget, payload: budget }, { onConflict: 'company_id,data_type,data_key' }) }, [budget])
+  useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.outsource, payload: outsource }, { onConflict: 'company_id,data_type,data_key' }) }, [outsource])
   const [tab, setTab] = useState('summary')
   const [people,    setPeople]    = useState(() => ls(NS.people))
   const [equip,     setEquip]     = useState(() => ls(NS.equip))
