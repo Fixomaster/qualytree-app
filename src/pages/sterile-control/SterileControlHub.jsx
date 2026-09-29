@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { auth } from '../../lib/auth'
 import { onboarding } from '../../lib/onboardingState'
+import { supabase } from '../../lib/supabaseClient'
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import {
@@ -21,6 +22,8 @@ import { printSterileBatchCert, printSterilizationProcedure } from '../../lib/pd
 // 멸균 방법 사양(STERILE_METHODS 등)은 제품·공정 화면에서 입력되어
 // 제품 레코드 자체가 SSoT가 되므로, 여기서는 별도 저장소 없이
 // sterileSpecConstants.js를 통해 파생(derive)한다.
+let _sbCidStab = null
+
 const BATCHES_KEY = 'qualytree.sterile_batches'
 const POLICY_KEY  = 'qualytree.sterile_policy'
 
@@ -934,6 +937,20 @@ function AnalysisTab({ specs, batches, compl }) {
 // ══════════════════════════════════════════════════════
 export default function SterileControlHub() {
   const user    = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidStab = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    Promise.all([
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',BATCHES_KEY).maybeSingle(),
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',POLICY_KEY).maybeSingle(),
+      supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type','localStorage_sync').eq('data_key',REVAL_KEY).maybeSingle(),
+    ]).then(([rb,rp,rr]) => {
+      if (rb?.data?.payload != null) { lsSet(BATCHES_KEY, rb.data.payload); setBatchesRaw(rb.data.payload) }
+      if (rp?.data?.payload != null) { lsSet(POLICY_KEY,  rp.data.payload); setPolicyRaw(rp.data.payload) }
+      if (rr?.data?.payload != null) { try { localStorage.setItem(REVAL_KEY, JSON.stringify(rr.data.payload)) } catch {} }
+    })
+  }, [companyId])
   const canEdit = (user?.level || 0) >= 2
   const nav = useNavigate()
 
@@ -943,8 +960,14 @@ export default function SterileControlHub() {
   const [policy,   setPolicyRaw]  = useState(() => lsGet(POLICY_KEY,  DEFAULT_POLICY))
   const [tab,      setTab]        = useState('specs')
 
-  const setBatches = v => { setBatchesRaw(v); lsSet(BATCHES_KEY, v) }
-  const setPolicy  = v => { setPolicyRaw(v);  lsSet(POLICY_KEY,  v) }
+  const setBatches = v => {
+    setBatchesRaw(v); lsSet(BATCHES_KEY, v)
+    if (_sbCidStab) supabase.from('company_data').upsert({ company_id: _sbCidStab, data_type: 'localStorage_sync', data_key: BATCHES_KEY, payload: v }, { onConflict: 'company_id,data_type,data_key' })
+  }
+  const setPolicy = v => {
+    setPolicyRaw(v); lsSet(POLICY_KEY, v)
+    if (_sbCidStab) supabase.from('company_data').upsert({ company_id: _sbCidStab, data_type: 'localStorage_sync', data_key: POLICY_KEY, payload: v }, { onConflict: 'company_id,data_type,data_key' })
+  }
 
   const goToProduct = (productId) => nav('/products?tab=product&productId=' + encodeURIComponent(productId) + '&detailTab=info')
   const goToProducts = () => nav('/products?tab=product')
@@ -1030,6 +1053,7 @@ function RevalidationTab({ batches, specs }) {
   const persist = (list) => {
     try { localStorage.setItem(REVAL_KEY, JSON.stringify(list)) } catch {}
     setItems(list)
+    if (_sbCidStab) supabase.from('company_data').upsert({ company_id: _sbCidStab, data_type: 'localStorage_sync', data_key: REVAL_KEY, payload: list }, { onConflict: 'company_id,data_type,data_key' })
   }
 
   const calcNext = (last, days) => {
