@@ -1,6 +1,6 @@
 // src/pages/risk/RiskHub.jsx
 // ISO 14971 위험관리 허브 — FMEA 위험 등록부 · 위험 매트릭스 · 저감 조치
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   AlertTriangle, Plus, Trash2, Search, ShieldAlert,
   ChevronDown, ChevronUp, CheckCircle2, Info,
@@ -9,6 +9,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -80,6 +81,8 @@ const emptyForm = () => ({
   createdBy: '', createdAt: '',
 })
 
+let _sbCidRisk = null
+
 // ── 메인 컴포넌트 ─────────────────────────────────────────────
 export default function RiskHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
@@ -96,7 +99,16 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
   const [catFilter, setCatFilter] = useState('all')
   const [showAiModal, setShowAiModal] = useState(false)
 
-  const save = (data) => { setRisks(data); lsWrite(data) }
+  const save = (data) => {
+    setRisks(data)
+    lsWrite(data)
+    if (_sbCidRisk) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidRisk, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: data
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }
 
   const openNew = () => {
     setForm({ ...emptyForm(), productKey: scopeKey || '' })
