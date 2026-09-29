@@ -15,9 +15,9 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
-let _sbCidLog = null
 import { permissions, requirePermission } from '../../lib/permissions'
 import { logs, adverseEvents, LOG_TYPE, AE_STATUS } from '../../lib/logisticsState'
+let _sbCidLog = null
 
 const LOG_TYPE_LIST = Object.values(LOG_TYPE)
 const LOG_ICON = {
@@ -41,39 +41,39 @@ export default function LogisticsHub() {
   const openAe = allAe.filter((a) => a.status !== AE_STATUS.CLOSED)
 
   return (
-    <AppLayout user={user} title="입출고·유통관리" subtitle="수입검사 / 입고 / 출고 / 유통기록 · 이상사례 보고">
-      <HubBanner icon={Truck} title="물류 관리" subtitle="물류·재고 관리" color="#EA580C" />
+    <AppLayout user={user} title="ìì¶ê³ Â·ì íµê´ë¦¬" subtitle="ììê²ì¬ / ìê³  / ì¶ê³  / ì íµê¸°ë¡ Â· ì´ìì¬ë¡ ë³´ê³ ">
+      <HubBanner icon={Truck} title="ë¬¼ë¥ ê´ë¦¬" subtitle="ë¬¼ë¥Â·ì¬ê³  ê´ë¦¬" color="#EA580C" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {toast && (
           <div
             className="fixed top-20 right-6 z-50 px-4 py-2.5 rounded-lg text-[13px] flex items-center gap-2 fade-in"
             style={{ background: 'var(--moss)', color: 'var(--bg)', boxShadow: '0 6px 20px rgba(15,26,20,0.18)', fontWeight: 500 }}
           >
-            ✓ {toast}
+            â {toast}
           </div>
         )}
 
         <div className="mb-5">
           <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
-            LOG · IMPORT / DISTRIBUTION RECORDS
+            LOG Â· IMPORT / DISTRIBUTION RECORDS
           </span>
           <div className="font-display text-[26px] mt-1" style={{ color: 'var(--ink)', fontWeight: 500 }}>
-            입출고·유통관리
+            ìì¶ê³ Â·ì íµê´ë¦¬
           </div>
           <div className="text-[12.5px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>
-            KGMP 수입 후 유지관리 — 수입검사·입고·출고·유통기록과 이상사례 보고 기록을 관리합니다.
+            KGMP ìì í ì ì§ê´ë¦¬ â ììê²ì¬Â·ìê³ Â·ì¶ê³ Â·ì íµê¸°ë¡ê³¼ ì´ìì¬ë¡ ë³´ê³  ê¸°ë¡ì ê´ë¦¬í©ëë¤.
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
-          <StatCard label="전체 기록" value={allLogs.length} hint="수입검사·입고·출고·유통 합계" icon={PackageCheck} />
-          <StatCard label="이상사례 보고" value={allAe.length} hint="누적 등록 건수" icon={AlertOctagon} />
-          <StatCard label="조사중·미종결" value={openAe.length} hint="조사중 + 보고완료" icon={AlertOctagon} tone={openAe.length > 0 ? 'amber' : undefined} />
+          <StatCard label="ì ì²´ ê¸°ë¡" value={allLogs.length} hint="ììê²ì¬Â·ìê³ Â·ì¶ê³ Â·ì íµ í©ê³" icon={PackageCheck} />
+          <StatCard label="ì´ìì¬ë¡ ë³´ê³ " value={allAe.length} hint="ëì  ë±ë¡ ê±´ì" icon={AlertOctagon} />
+          <StatCard label="ì¡°ì¬ì¤Â·ë¯¸ì¢ê²°" value={openAe.length} hint="ì¡°ì¬ì¤ + ë³´ê³ ìë£" icon={AlertOctagon} tone={openAe.length > 0 ? 'amber' : undefined} />
         </div>
 
         <div className="flex gap-1 mb-5 overflow-x-auto" style={{ borderBottom: '1px solid var(--line)' }}>
-          <TabButton active={tab === 'logs'} onClick={() => setTab('logs')} icon={Truck} label="수입검사·입고·출고·유통기록" en="LOGS" count={allLogs.length} />
-          <TabButton active={tab === 'ae'} onClick={() => setTab('ae')} icon={AlertOctagon} label="이상사례 보고" en="ADVERSE EVENTS" count={allAe.length} />
+          <TabButton active={tab === 'logs'} onClick={() => setTab('logs')} icon={Truck} label="ììê²ì¬Â·ìê³ Â·ì¶ê³ Â·ì íµê¸°ë¡" en="LOGS" count={allLogs.length} />
+          <TabButton active={tab === 'ae'} onClick={() => setTab('ae')} icon={AlertOctagon} label="ì´ìì¬ë¡ ë³´ê³ " en="ADVERSE EVENTS" count={allAe.length} />
         <TabButton active={tab==='release'} onClick={()=>setTab('release')} icon={ClipboardCheck} label={[52636,54616,32,49849,51064,183,54032,51221].map(c=>String.fromCodePoint(c)).join('')} en="RELEASE APPROVAL" />
         </div>
 
@@ -86,7 +86,7 @@ export default function LogisticsHub() {
 }
 
 /* ================================================================
-   수입검사·입고·출고·유통기록
+   ììê²ì¬Â·ìê³ Â·ì¶ê³ Â·ì íµê¸°ë¡
    ================================================================ */
 const EMPTY_LOG = { type: LOG_TYPE.IMPORT_INSPECTION, date: '', productName: '', lotNo: '', qty: '', partner: '', result: '', notes: '' }
 
@@ -105,16 +105,16 @@ function LogsTab({ onAction, refresh }) {
     setList(logs.getAll())
     setForm(EMPTY_LOG)
     setAdding(false)
-    onAction('기록이 등록되었습니다.')
+    onAction('ê¸°ë¡ì´ ë±ë¡ëììµëë¤.')
     refresh()
   }
 
   const del = (id) => {
     if (!requirePermission('logistics.edit')) return
-    if (!window.confirm('이 기록을 삭제할까요?')) return
+    if (!window.confirm('ì´ ê¸°ë¡ì ì­ì í ê¹ì?')) return
     logs.delete(id)
     setList(logs.getAll())
-    onAction('기록이 삭제되었습니다.')
+    onAction('ê¸°ë¡ì´ ì­ì ëììµëë¤.')
     refresh()
   }
 
@@ -123,7 +123,7 @@ function LogsTab({ onAction, refresh }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
-        <FilterChip active={filter === 'ALL'} onClick={() => setFilter('ALL')} label="전체" count={list.length} />
+        <FilterChip active={filter === 'ALL'} onClick={() => setFilter('ALL')} label="ì ì²´" count={list.length} />
         {LOG_TYPE_LIST.map((t) => (
           <FilterChip key={t} active={filter === t} onClick={() => setFilter(t)} label={t} count={list.filter((l) => l.type === t).length} />
         ))}
@@ -131,30 +131,30 @@ function LogsTab({ onAction, refresh }) {
 
       {canEdit && !adding && (
         <button onClick={() => setAdding(true)} className="btn-ghost text-[12px]">
-          <Plus size={12} /> 기록 추가
+          <Plus size={12} /> ê¸°ë¡ ì¶ê°
         </button>
       )}
 
       {adding && (
         <div className="card-base p-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
-            <SelectField label="구분" value={form.type} onChange={(v) => setF('type', v)} options={LOG_TYPE_LIST} />
-            <Field label="일자" value={form.date} onChange={(v) => setF('date', v)} type="date" />
-            <Field label="제품명" value={form.productName} onChange={(v) => setF('productName', v)} placeholder="제품명" />
-            <Field label="LOT No." value={form.lotNo} onChange={(v) => setF('lotNo', v)} placeholder="예: L2026-0713" />
-            <Field label="수량" value={form.qty} onChange={(v) => setF('qty', v)} placeholder="예: 50" />
-            <Field label="거래처(공급자/고객)" value={form.partner} onChange={(v) => setF('partner', v)} placeholder="공급자 또는 고객사명" />
-            <Field label="결과/상태" value={form.result} onChange={(v) => setF('result', v)} placeholder="예: 적합, 완료" />
+            <SelectField label="êµ¬ë¶" value={form.type} onChange={(v) => setF('type', v)} options={LOG_TYPE_LIST} />
+            <Field label="ì¼ì" value={form.date} onChange={(v) => setF('date', v)} type="date" />
+            <Field label="ì íëª" value={form.productName} onChange={(v) => setF('productName', v)} placeholder="ì íëª" />
+            <Field label="LOT No." value={form.lotNo} onChange={(v) => setF('lotNo', v)} placeholder="ì: L2026-0713" />
+            <Field label="ìë" value={form.qty} onChange={(v) => setF('qty', v)} placeholder="ì: 50" />
+            <Field label="ê±°ëì²(ê³µê¸ì/ê³ ê°)" value={form.partner} onChange={(v) => setF('partner', v)} placeholder="ê³µê¸ì ëë ê³ ê°ì¬ëª" />
+            <Field label="ê²°ê³¼/ìí" value={form.result} onChange={(v) => setF('result', v)} placeholder="ì: ì í©, ìë£" />
           </div>
-          <TextAreaField label="비고" value={form.notes} onChange={(v) => setF('notes', v)} placeholder="선택 입력" />
+          <TextAreaField label="ë¹ê³ " value={form.notes} onChange={(v) => setF('notes', v)} placeholder="ì í ìë ¥" />
           <div className="flex gap-2">
-            <button onClick={save} className="btn-primary text-[12.5px]"><Save size={13} /> 저장</button>
-            <button onClick={() => { setAdding(false); setForm(EMPTY_LOG) }} className="btn-ghost text-[12.5px]">취소</button>
+            <button onClick={save} className="btn-primary text-[12.5px]"><Save size={13} /> ì ì¥</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_LOG) }} className="btn-ghost text-[12.5px]">ì·¨ì</button>
           </div>
         </div>
       )}
 
-      {shown.length === 0 && !adding && <EmptyState icon={Truck} text="등록된 기록이 없습니다." />}
+      {shown.length === 0 && !adding && <EmptyState icon={Truck} text="ë±ë¡ë ê¸°ë¡ì´ ììµëë¤." />}
 
       {shown.length > 0 && (
         <div className="space-y-2">
@@ -170,17 +170,17 @@ function LogsTab({ onAction, refresh }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge text={l.type} tone="slate" />
-                        <span className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{l.productName || '(제품명 미입력)'}</span>
+                        <span className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{l.productName || '(ì íëª ë¯¸ìë ¥)'}</span>
                       </div>
                       <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-mute)' }}>
-                        {l.date || '일자 미입력'} · LOT {l.lotNo || '—'} · 수량 {l.qty || '—'} · {l.partner || '거래처 미입력'}
+                        {l.date || 'ì¼ì ë¯¸ìë ¥'} Â· LOT {l.lotNo || 'â'} Â· ìë {l.qty || 'â'} Â· {l.partner || 'ê±°ëì² ë¯¸ìë ¥'}
                       </div>
-                      {l.result && <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-soft)' }}>결과: {l.result}</div>}
+                      {l.result && <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--ink-soft)' }}>ê²°ê³¼: {l.result}</div>}
                       {l.notes && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>{l.notes}</div>}
                     </div>
                   </div>
                   {canEdit && (
-                    <button onClick={() => del(l.id)} className="shrink-0 opacity-50 hover:opacity-100" title="삭제">
+                    <button onClick={() => del(l.id)} className="shrink-0 opacity-50 hover:opacity-100" title="ì­ì ">
                       <Trash2 size={14} />
                     </button>
                   )}
@@ -195,7 +195,7 @@ function LogsTab({ onAction, refresh }) {
 }
 
 /* ================================================================
-   이상사례 보고
+   ì´ìì¬ë¡ ë³´ê³ 
    ================================================================ */
 const EMPTY_AE = { date: '', productName: '', lotNo: '', description: '', severity: '', reporter: '', status: AE_STATUS.OPEN, actionTaken: '', reportedTo: '', reportedDate: '' }
 
@@ -213,16 +213,16 @@ function AeTab({ onAction, refresh }) {
     setList(adverseEvents.getAll())
     setForm(EMPTY_AE)
     setAdding(false)
-    onAction('이상사례가 등록되었습니다.')
+    onAction('ì´ìì¬ë¡ê° ë±ë¡ëììµëë¤.')
     refresh()
   }
 
   const del = (id) => {
     if (!requirePermission('logistics.edit')) return
-    if (!window.confirm('이 이상사례 기록을 삭제할까요?')) return
+    if (!window.confirm('ì´ ì´ìì¬ë¡ ê¸°ë¡ì ì­ì í ê¹ì?')) return
     adverseEvents.delete(id)
     setList(adverseEvents.getAll())
-    onAction('이상사례 기록이 삭제되었습니다.')
+    onAction('ì´ìì¬ë¡ ê¸°ë¡ì´ ì­ì ëììµëë¤.')
     refresh()
   }
 
@@ -237,34 +237,34 @@ function AeTab({ onAction, refresh }) {
     <div className="space-y-3">
       {canEdit && !adding && (
         <button onClick={() => setAdding(true)} className="btn-ghost text-[12px]">
-          <Plus size={12} /> 이상사례 등록
+          <Plus size={12} /> ì´ìì¬ë¡ ë±ë¡
         </button>
       )}
 
       {adding && (
         <div className="card-base p-4 space-y-3">
           <div className="grid grid-cols-3 gap-3">
-            <Field label="발생일" value={form.date} onChange={(v) => setF('date', v)} type="date" />
-            <Field label="제품명" value={form.productName} onChange={(v) => setF('productName', v)} placeholder="제품명" />
-            <Field label="LOT No." value={form.lotNo} onChange={(v) => setF('lotNo', v)} placeholder="예: L2026-0713" />
-            <Field label="심각도" value={form.severity} onChange={(v) => setF('severity', v)} placeholder="예: 경미/중대" />
-            <Field label="보고자" value={form.reporter} onChange={(v) => setF('reporter', v)} placeholder="보고자명" />
-            <SelectField label="상태" value={form.status} onChange={(v) => setF('status', v)} options={Object.values(AE_STATUS)} />
+            <Field label="ë°ìì¼" value={form.date} onChange={(v) => setF('date', v)} type="date" />
+            <Field label="ì íëª" value={form.productName} onChange={(v) => setF('productName', v)} placeholder="ì íëª" />
+            <Field label="LOT No." value={form.lotNo} onChange={(v) => setF('lotNo', v)} placeholder="ì: L2026-0713" />
+            <Field label="ì¬ê°ë" value={form.severity} onChange={(v) => setF('severity', v)} placeholder="ì: ê²½ë¯¸/ì¤ë" />
+            <Field label="ë³´ê³ ì" value={form.reporter} onChange={(v) => setF('reporter', v)} placeholder="ë³´ê³ ìëª" />
+            <SelectField label="ìí" value={form.status} onChange={(v) => setF('status', v)} options={Object.values(AE_STATUS)} />
           </div>
-          <TextAreaField label="사례 내용" value={form.description} onChange={(v) => setF('description', v)} placeholder="발생 경위 및 증상을 입력하세요" />
-          <TextAreaField label="조치 내용" value={form.actionTaken} onChange={(v) => setF('actionTaken', v)} placeholder="선택 입력" />
+          <TextAreaField label="ì¬ë¡ ë´ì©" value={form.description} onChange={(v) => setF('description', v)} placeholder="ë°ì ê²½ì ë° ì¦ìì ìë ¥íì¸ì" />
+          <TextAreaField label="ì¡°ì¹ ë´ì©" value={form.actionTaken} onChange={(v) => setF('actionTaken', v)} placeholder="ì í ìë ¥" />
           <div className="grid grid-cols-2 gap-3">
-            <Field label="보고처(규제기관 등)" value={form.reportedTo} onChange={(v) => setF('reportedTo', v)} placeholder="예: 식품의약품안전처" />
-            <Field label="보고일" value={form.reportedDate} onChange={(v) => setF('reportedDate', v)} type="date" />
+            <Field label="ë³´ê³ ì²(ê·ì ê¸°ê´ ë±)" value={form.reportedTo} onChange={(v) => setF('reportedTo', v)} placeholder="ì: ìíìì½íìì ì²" />
+            <Field label="ë³´ê³ ì¼" value={form.reportedDate} onChange={(v) => setF('reportedDate', v)} type="date" />
           </div>
           <div className="flex gap-2">
-            <button onClick={save} className="btn-primary text-[12.5px]"><Save size={13} /> 저장</button>
-            <button onClick={() => { setAdding(false); setForm(EMPTY_AE) }} className="btn-ghost text-[12.5px]">취소</button>
+            <button onClick={save} className="btn-primary text-[12.5px]"><Save size={13} /> ì ì¥</button>
+            <button onClick={() => { setAdding(false); setForm(EMPTY_AE) }} className="btn-ghost text-[12.5px]">ì·¨ì</button>
           </div>
         </div>
       )}
 
-      {list.length === 0 && !adding && <EmptyState icon={AlertOctagon} text="등록된 이상사례가 없습니다." />}
+      {list.length === 0 && !adding && <EmptyState icon={AlertOctagon} text="ë±ë¡ë ì´ìì¬ë¡ê° ììµëë¤." />}
 
       {list.length > 0 && (
         <div className="space-y-2">
@@ -276,12 +276,12 @@ function AeTab({ onAction, refresh }) {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge text={a.status} tone={tone} />
-                      <span className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{a.productName || '(제품명 미입력)'}</span>
-                      <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{a.date || '발생일 미입력'}</span>
+                      <span className="text-[13.5px] font-medium" style={{ color: 'var(--ink)' }}>{a.productName || '(ì íëª ë¯¸ìë ¥)'}</span>
+                      <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{a.date || 'ë°ìì¼ ë¯¸ìë ¥'}</span>
                     </div>
                     <div className="text-[12px] mt-1" style={{ color: 'var(--ink-soft)' }}>{a.description}</div>
-                    {a.actionTaken && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>조치: {a.actionTaken}</div>}
-                    {a.reportedTo && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>보고처: {a.reportedTo} ({a.reportedDate || '—'})</div>}
+                    {a.actionTaken && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>ì¡°ì¹: {a.actionTaken}</div>}
+                    {a.reportedTo && <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>ë³´ê³ ì²: {a.reportedTo} ({a.reportedDate || 'â'})</div>}
                     {canEdit && (
                       <div className="flex gap-1.5 mt-2">
                         {Object.values(AE_STATUS).map((st) => (
@@ -302,7 +302,7 @@ function AeTab({ onAction, refresh }) {
                     )}
                   </div>
                   {canEdit && (
-                    <button onClick={() => del(a.id)} className="shrink-0 opacity-50 hover:opacity-100" title="삭제">
+                    <button onClick={() => del(a.id)} className="shrink-0 opacity-50 hover:opacity-100" title="ì­ì ">
                       <Trash2 size={14} />
                     </button>
                   )}
@@ -317,7 +317,7 @@ function AeTab({ onAction, refresh }) {
 }
 
 /* ================================================================
-   공통 UI
+   ê³µíµ UI
    ================================================================ */
 function StatCard({ label, value, hint, icon: Icon, tone }) {
   return (
@@ -341,7 +341,7 @@ function ReleaseTab() {
   const LS = 'qualytree.release_approvals'
   const load = () => { try { return JSON.parse(localStorage.getItem(LS)||'[]') } catch { return [] } }
   const [records, setRecords] = React.useState(load)
-  const EMPTY = {lotNo:'',productName:'',qty:'',verdict:'합격',inspector:'',signerName:'',signerTitle:'',notes:''}
+  const EMPTY = {lotNo:'',productName:'',qty:'',verdict:'í©ê²©',inspector:'',signerName:'',signerTitle:'',notes:''}
   const [form, setForm] = React.useState(EMPTY)
   const [showForm, setShowForm] = React.useState(false)
   const user = auth.current()
@@ -374,25 +374,25 @@ function ReleaseTab() {
   const F = (k,v) => setForm(p=>({...p,[k]:v}))
 
   const handleSubmit = () => {
-    if (!form.lotNo || !form.productName) return alert('로트번호와 제품명은 필수입니다')
+    if (!form.lotNo || !form.productName) return alert('ë¡í¸ë²í¸ì ì íëªì íììëë¤')
     save([{id:Date.now(),...form,signedAt:new Date().toISOString()},...records])
     setForm(EMPTY); setShowForm(false)
   }
 
   const handleDelete = id => {
-    if (!confirm('삭제하시겠습니까?')) return
+    if (!confirm('ì­ì íìê² ìµëê¹?')) return
     save(records.filter(r=>r.id!==id))
   }
 
   const handlePrint = rec => {
-    const vcls = rec.verdict==='합격'?'green':rec.verdict==='불합격'?'red':'orange'
-    const html = '<'+'!DOCTYPE html><html><head><meta charset="utf-8"><title>출하판정표<\/title><style>body{font-family:sans-serif;margin:40px}h2{text-align:center}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:8px}th{background:#f0f0f0;width:140px}.v{font-weight:bold;color:'+vcls+'}.sig{margin-top:40px;text-align:right}<\/style><\/head><body><h2>출하 판정표<\/h2><table><tr><th>Lot No.<\/th><td>'+rec.lotNo+'<\/td><th>제품명<\/th><td>'+rec.productName+'<\/td><\/tr><tr><th>수량<\/th><td>'+(rec.qty||'-')+'<\/td><th>판정일<\/th><td>'+(rec.signedAt?new Date(rec.signedAt).toLocaleDateString('ko-KR'):'-')+'<\/td><\/tr><tr><th>검사자<\/th><td>'+(rec.inspector||'-')+'<\/td><th>판정결과<\/th><td class="v">'+rec.verdict+'<\/td><\/tr><tr><th>비고<\/th><td colspan="3">'+(rec.notes||'-')+'<\/td><\/tr><\/table><div class="sig"><p>서명자: '+(rec.signerName||'-')+' ('+(rec.signerTitle||'-')+')<\/p><p>전자서명 일시: '+(rec.signedAt?new Date(rec.signedAt).toLocaleString('ko-KR'):'-')+'<\/p><\/div><script>window.print();<\/sc'+'ript><\/body><\/html>'
+    const vcls = rec.verdict==='í©ê²©'?'green':rec.verdict==='ë¶í©ê²©'?'red':'orange'
+    const html = '<'+'!DOCTYPE html><html><head><meta charset="utf-8"><title>ì¶ííì í<\/title><style>body{font-family:sans-serif;margin:40px}h2{text-align:center}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:8px}th{background:#f0f0f0;width:140px}.v{font-weight:bold;color:'+vcls+'}.sig{margin-top:40px;text-align:right}<\/style><\/head><body><h2>ì¶í íì í<\/h2><table><tr><th>Lot No.<\/th><td>'+rec.lotNo+'<\/td><th>ì íëª<\/th><td>'+rec.productName+'<\/td><\/tr><tr><th>ìë<\/th><td>'+(rec.qty||'-')+'<\/td><th>íì ì¼<\/th><td>'+(rec.signedAt?new Date(rec.signedAt).toLocaleDateString('ko-KR'):'-')+'<\/td><\/tr><tr><th>ê²ì¬ì<\/th><td>'+(rec.inspector||'-')+'<\/td><th>íì ê²°ê³¼<\/th><td class="v">'+rec.verdict+'<\/td><\/tr><tr><th>ë¹ê³ <\/th><td colspan="3">'+(rec.notes||'-')+'<\/td><\/tr><\/table><div class="sig"><p>ìëªì: '+(rec.signerName||'-')+' ('+(rec.signerTitle||'-')+')<\/p><p>ì ììëª ì¼ì: '+(rec.signedAt?new Date(rec.signedAt).toLocaleString('ko-KR'):'-')+'<\/p><\/div><script>window.print();<\/sc'+'ript><\/body><\/html>'
     const w = window.open('','_blank','width=820,height=700')
-    if (!w) { alert('팝업이 차단되었습니다'); return }
+    if (!w) { alert('íìì´ ì°¨ë¨ëììµëë¤'); return }
     w.document.write(html); w.document.close()
   }
 
-  const vc = v => v==='합격'?'text-green-600':v==='불합격'?'text-red-600':'text-yellow-600'
+  const vc = v => v==='í©ê²©'?'text-green-600':v==='ë¶í©ê²©'?'text-red-600':'text-yellow-600'
 
   return (
     <div className="p-4 space-y-4">
