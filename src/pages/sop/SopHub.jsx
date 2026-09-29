@@ -7,6 +7,10 @@ import { Plus, Save, Edit2, Trash2, FileText, BookOpen,
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
+import { auth } from '../../lib/auth'
+import { supabase } from '../../lib/supabaseClient'
+
+let _sbCidSop = null
 
 const LS_KEY = 'qualytree.sop'
 const lsRead = () => { try { return JSON.parse(localStorage.getItem(LS_KEY)||'[]') } catch { return [] } }
@@ -74,6 +78,20 @@ function Field({ label, value, onChange, editing, type='text', rows=2 }) {
 }
 
 export default function SopHub() {
+  const user = auth.current()
+  const companyId = user?.company?.id ?? null
+  useEffect(() => { _sbCidSop = companyId }, [companyId])
+  useEffect(() => {
+    if (!companyId) return
+    supabase.from('company_data').select('payload')
+      .eq('company_id', companyId).eq('data_type', 'localStorage_sync').eq('data_key', LS_KEY)
+      .maybeSingle().then(({ data: row }) => {
+        if (row?.payload != null) {
+          localStorage.setItem(LS_KEY, JSON.stringify(row.payload))
+          setSops(row.payload)
+        }
+      })
+  }, [companyId])
   const [sops, setSops] = useState(lsRead)
   const [selectedId, setSelectedId] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -85,7 +103,15 @@ export default function SopHub() {
   const [newTitle, setNewTitle] = useState('')
   const [newCat, setNewCat] = useState('quality')
 
-  useEffect(() => { lsWrite(sops) }, [sops])
+  useEffect(() => {
+    lsWrite(sops)
+    if (_sbCidSop) {
+      supabase.from('company_data').upsert({
+        company_id: _sbCidSop, data_type: 'localStorage_sync',
+        data_key: LS_KEY, payload: sops
+      }, { onConflict: 'company_id,data_type,data_key' })
+    }
+  }, [sops])
 
   const selected = sops.find(s => s.id === selectedId) || null
 
