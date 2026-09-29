@@ -10,6 +10,7 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 
 // ── localStorage ──────────────────────────────────────────────
@@ -80,6 +81,8 @@ const emptyForm = () => ({
   verified: false, verifiedAt: '', notes: '',
   createdBy: '', createdAt: '',
 })
+
+let _sbCidRisk = null
 
 let _sbCidRisk = null
 
