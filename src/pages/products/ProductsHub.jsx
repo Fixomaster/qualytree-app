@@ -26,7 +26,6 @@ import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
-let _sbCidPr = null
 import { permissions, requirePermission, LEVEL_LABEL } from '../../lib/permissions'
 import { onboarding, getProductProcesses, setProductProcesses, productKeyOf, getAllUsedBlockIds } from '../../lib/onboardingState'
 import { PROCESS_BLOCKS, PROCESS_CATEGORIES } from '../../lib/processBlocks'
@@ -55,6 +54,7 @@ import DeviceFileHub from '../device-file/DeviceFileHub'
 import RiskHub from '../risk/RiskHub'
 import ValidationHub from '../validation/ValidationHub'
 import ProductionControlHub from '../production-control/ProductionControlHub'
+let _sbCidPr = null
 
 const CUSTOM_BLOCK_KEY = 'qualytree.customBlocks'
 
@@ -74,35 +74,35 @@ function saveCustomBlocks(blocks) {
   } catch {}
 }
 
-// ìì½ì² ë¶ë¥ ê¸°ë° ì¸íê° ìì¢ (ëë¶ë¥ â ì¤ë¶ë¥)
+// Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â Ã«Â¶ÂÃ«Â¥Â ÃªÂ¸Â°Ã«Â°Â Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬Â¢Â (Ã«ÂÂÃ«Â¶ÂÃ«Â¥Â Ã¢ÂÂ Ã¬Â¤ÂÃ«Â¶ÂÃ«Â¥Â)
 const MDCAT = {
-  'ê¸°êµ¬Â·ê¸°ê³': ['ì§ë£ì© ê¸°ê¸°', 'ìì ì© ê¸°ê¸°', 'ì íì©í', 'ììì§ë¨ì¥ì¹', 'ì¸¡ì Â·ê°ìì¥ì¹', 'ë¬¼ë¦¬ì¹ë£Â·ì¬íê¸°ê¸°', 'ìê³¼ì© ê¸°ê¸°', 'ë´ìê²½Â·ê´íê¸°ê¸°', 'ê¸°í'],
-  'ìë£ì©í': ['ì£¼ì¬ê¸°Â·ì£¼ì¬ì¹¨', 'ì¹´íí°Â·íë¸', 'ë´í©ì¬Â·ê²°ì°°ì¬', 'ìì¡Â·ìíì¸í¸', 'ê±°ì¦Â·ëë ì±', 'ì½íí¸ë ì¦', 'ê¸°í'],
-  'ì²´ì¸ì§ë¨ìë£ê¸°ê¸°': ['ìíí ê²ì¬', 'ë©´ì­ ê²ì¬', 'ë¶ìì§ë¨(NAT)', 'íì¡Â·íë¹ ê²ì¬', 'ìê°ê²ì¬', 'ê¸°í'],
-  'ì¹ê³¼ì¬ë£': ['ì¶©ì Â·ìë³µì¬ë£', 'ì¸ìì¬', 'ìì¹Â·êµì ì¬ë£', 'ìíëí¸', 'ê¸°í'],
-  'ìíí¸ì¨ì´Â·ëì§í¸(SaMD)': ['ì§ë¨ë³´ì¡° SW', 'AI ììë¶ì', 'íì ëª¨ëí°ë§', 'ëì§í¸ì¹ë£ê¸°ê¸°(DTx)', 'ê¸°í'],
-  'ê¸°í': [],
+  'ÃªÂ¸Â°ÃªÂµÂ¬ÃÂ·ÃªÂ¸Â°ÃªÂ³Â': ['Ã¬Â§ÂÃ«Â£ÂÃ¬ÂÂ© ÃªÂ¸Â°ÃªÂ¸Â°', 'Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂ© ÃªÂ¸Â°ÃªÂ¸Â°', 'Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ©Ã­ÂÂ', 'Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃ«ÂÂ¨Ã¬ÂÂ¥Ã¬Â¹Â', 'Ã¬Â¸Â¡Ã¬Â ÂÃÂ·ÃªÂ°ÂÃ¬ÂÂÃ¬ÂÂ¥Ã¬Â¹Â', 'Ã«Â¬Â¼Ã«Â¦Â¬Ã¬Â¹ÂÃ«Â£ÂÃÂ·Ã¬ÂÂ¬Ã­ÂÂÃªÂ¸Â°ÃªÂ¸Â°', 'Ã¬ÂÂÃªÂ³Â¼Ã¬ÂÂ© ÃªÂ¸Â°ÃªÂ¸Â°', 'Ã«ÂÂ´Ã¬ÂÂÃªÂ²Â½ÃÂ·ÃªÂ´ÂÃ­ÂÂÃªÂ¸Â°ÃªÂ¸Â°', 'ÃªÂ¸Â°Ã­ÂÂ'],
+  'Ã¬ÂÂÃ«Â£ÂÃ¬ÂÂ©Ã­ÂÂ': ['Ã¬Â£Â¼Ã¬ÂÂ¬ÃªÂ¸Â°ÃÂ·Ã¬Â£Â¼Ã¬ÂÂ¬Ã¬Â¹Â¨', 'Ã¬Â¹Â´Ã­ÂÂÃ­ÂÂ°ÃÂ·Ã­ÂÂÃ«Â¸Â', 'Ã«Â´ÂÃ­ÂÂ©Ã¬ÂÂ¬ÃÂ·ÃªÂ²Â°Ã¬Â°Â°Ã¬ÂÂ¬', 'Ã¬ÂÂÃ¬ÂÂ¡ÃÂ·Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ¸Ã­ÂÂ¸', 'ÃªÂ±Â°Ã¬Â¦ÂÃÂ·Ã«ÂÂÃ«Â ÂÃ¬ÂÂ±', 'Ã¬Â½ÂÃ­ÂÂÃ­ÂÂ¸Ã«Â ÂÃ¬Â¦Â', 'ÃªÂ¸Â°Ã­ÂÂ'],
+  'Ã¬Â²Â´Ã¬ÂÂ¸Ã¬Â§ÂÃ«ÂÂ¨Ã¬ÂÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â°': ['Ã¬ÂÂÃ­ÂÂÃ­ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã«Â©Â´Ã¬ÂÂ­ ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã«Â¶ÂÃ¬ÂÂÃ¬Â§ÂÃ«ÂÂ¨(NAT)', 'Ã­ÂÂÃ¬ÂÂ¡ÃÂ·Ã­ÂÂÃ«ÂÂ¹ ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã¬ÂÂÃªÂ°ÂÃªÂ²ÂÃ¬ÂÂ¬', 'ÃªÂ¸Â°Ã­ÂÂ'],
+  'Ã¬Â¹ÂÃªÂ³Â¼Ã¬ÂÂ¬Ã«Â£Â': ['Ã¬Â¶Â©Ã¬Â ÂÃÂ·Ã¬ÂÂÃ«Â³ÂµÃ¬ÂÂ¬Ã«Â£Â', 'Ã¬ÂÂ¸Ã¬ÂÂÃ¬ÂÂ¬', 'Ã¬ÂÂÃ¬Â¹ÂÃÂ·ÃªÂµÂÃ¬Â ÂÃ¬ÂÂ¬Ã«Â£Â', 'Ã¬ÂÂÃ­ÂÂÃ«ÂÂÃ­ÂÂ¸', 'ÃªÂ¸Â°Ã­ÂÂ'],
+  'Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´ÃÂ·Ã«ÂÂÃ¬Â§ÂÃ­ÂÂ¸(SaMD)': ['Ã¬Â§ÂÃ«ÂÂ¨Ã«Â³Â´Ã¬Â¡Â° SW', 'AI Ã¬ÂÂÃ¬ÂÂÃ«Â¶ÂÃ¬ÂÂ', 'Ã­ÂÂÃ¬ÂÂ Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â', 'Ã«ÂÂÃ¬Â§ÂÃ­ÂÂ¸Ã¬Â¹ÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â°(DTx)', 'ÃªÂ¸Â°Ã­ÂÂ'],
+  'ÃªÂ¸Â°Ã­ÂÂ': [],
 }
 const MDCAT1 = Object.keys(MDCAT)
 
 /**
- * PROD-001 ì í ë¼ì´ë¸ë¬ë¦¬ (ë©ì¸)
- *   - í­ 1: ì í ë§ì¤í° (PROD-001)
- *   - í­ 2: ê³µì  ë¼ì´ë¸ë¬ë¦¬ (PROD-002)
- *   - í­ 3: ê²ì¬ í­ëª© ë§ì¤í° (PROD-003)
+ * PROD-001 Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ¼Ã¬ÂÂ´Ã«Â¸ÂÃ«ÂÂ¬Ã«Â¦Â¬ (Ã«Â©ÂÃ¬ÂÂ¸)
+ *   - Ã­ÂÂ­ 1: Ã¬Â ÂÃ­ÂÂ Ã«Â§ÂÃ¬ÂÂ¤Ã­ÂÂ° (PROD-001)
+ *   - Ã­ÂÂ­ 2: ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¼Ã¬ÂÂ´Ã«Â¸ÂÃ«ÂÂ¬Ã«Â¦Â¬ (PROD-002)
+ *   - Ã­ÂÂ­ 3: ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ© Ã«Â§ÂÃ¬ÂÂ¤Ã­ÂÂ° (PROD-003)
  *
- * ì ì© íì¤:
- * - ISO 13485:2016 Â§4.2.4 (ë¬¸ì ê´ë¦¬), Â§7.3 (ì¤ê³ ê°ë°)
- * - 21 CFR 820.30 (Design Controls), Â§820.40 (Document Controls)
- * - Project Instructions Â§9 SSoT, Â§13.15 êµ¬ì± ê´ë¦¬
+ * Ã¬Â ÂÃ¬ÂÂ© Ã­ÂÂÃ¬Â¤Â:
+ * - ISO 13485:2016 ÃÂ§4.2.4 (Ã«Â¬Â¸Ã¬ÂÂ ÃªÂ´ÂÃ«Â¦Â¬), ÃÂ§7.3 (Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ°ÂÃ«Â°Â)
+ * - 21 CFR 820.30 (Design Controls), ÃÂ§820.40 (Document Controls)
+ * - Project Instructions ÃÂ§9 SSoT, ÃÂ§13.15 ÃªÂµÂ¬Ã¬ÂÂ± ÃªÂ´ÂÃ«Â¦Â¬
  */
 const DEFAULT_CHAIN = [
-  { blockId: 'visual-inspection', customName: 'ììê²ì¬(IQC)' },
-  { blockId: 'manual-assembly', customName: 'ì£¼ê³µì ' },
-  { blockId: 'cmm-inspection', customName: 'ê³µì ê²ì¬(IPQC)' },
-  { blockId: 'functional-test', customName: 'ìµì¢ê²ì¬(OQC)' },
-  { blockId: 'primary-packaging', customName: 'í¬ì¥' },
-  { blockId: 'labeling', customName: 'ë¼ë²¨ë§' },
+  { blockId: 'visual-inspection', customName: 'Ã¬ÂÂÃ¬ÂÂÃªÂ²ÂÃ¬ÂÂ¬(IQC)' },
+  { blockId: 'manual-assembly', customName: 'Ã¬Â£Â¼ÃªÂ³ÂµÃ¬Â Â' },
+  { blockId: 'cmm-inspection', customName: 'ÃªÂ³ÂµÃ¬Â ÂÃªÂ²ÂÃ¬ÂÂ¬(IPQC)' },
+  { blockId: 'functional-test', customName: 'Ã¬ÂµÂÃ¬Â¢ÂÃªÂ²ÂÃ¬ÂÂ¬(OQC)' },
+  { blockId: 'primary-packaging', customName: 'Ã­ÂÂ¬Ã¬ÂÂ¥' },
+  { blockId: 'labeling', customName: 'Ã«ÂÂ¼Ã«Â²Â¨Ã«Â§Â' },
 ]
 
 export default function ProductsHub() {
@@ -118,7 +118,7 @@ export default function ProductsHub() {
     setTimeout(() => setToast(null), 2400)
   }
 
-  // ì¨ë³´ë© ë°ì´í°ìì íì¬Â·ì í ì¶ì¶ (ë¤ì¤ ì í ì§ì)
+  // Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂÃ¬ÂÂ¬ÃÂ·Ã¬Â ÂÃ­ÂÂ Ã¬Â¶ÂÃ¬Â¶Â (Ã«ÂÂ¤Ã¬Â¤Â Ã¬Â ÂÃ­ÂÂ Ã¬Â§ÂÃ¬ÂÂ)
   const ob = onboarding.load() || {}
   const company = ob.company
   const products = (Array.isArray(ob.products) && ob.products.length)
@@ -132,7 +132,7 @@ export default function ProductsHub() {
   const hasOnboarding = !!(company?.name) || products.length > 0
   const canEditProduct = permissions.can('onb.product.edit')
   const [addingProduct, setAddingProduct] = useState(false)
-  // ì í í­ ì ì©: ì¹´ë ê·¸ë¦¬ë(ëª©ë¡) â ìì¸(ê¸°ë³¸ì ë³´/ëª¨ë¸ ëª©ë¡/ì¤ê³ ê³í) ì í
+  // Ã¬Â ÂÃ­ÂÂ Ã­ÂÂ­ Ã¬Â ÂÃ¬ÂÂ©: Ã¬Â¹Â´Ã«ÂÂ ÃªÂ·Â¸Ã«Â¦Â¬Ã«ÂÂ(Ã«ÂªÂ©Ã«Â¡Â) Ã¢ÂÂ Ã¬ÂÂÃ¬ÂÂ¸(ÃªÂ¸Â°Ã«Â³Â¸Ã¬Â ÂÃ«Â³Â´/Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â/Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂ) Ã¬Â ÂÃ­ÂÂ
   const [productView, setProductView] = useState(deepLinkProductId ? 'detail' : 'grid') // grid | detail
   const [detailTab, setDetailTab] = useState(searchParams.get('detailTab') || 'info') // info | models | design
   const openProduct = (p, tabName) => {
@@ -145,10 +145,10 @@ export default function ProductsHub() {
   return (
     <AppLayout
       user={user}
-      title="ì í Â· ê³µì "
-      subtitle="íê°ì¦ ë¨ì íµí© ê´ë¦¬ Â· ì¤ê³ê°ë° ì ì£¼ê¸°"
+      title="Ã¬Â ÂÃ­ÂÂ ÃÂ· ÃªÂ³ÂµÃ¬Â Â"
+      subtitle="Ã­ÂÂÃªÂ°ÂÃ¬Â¦Â Ã«ÂÂ¨Ã¬ÂÂ Ã­ÂÂµÃ­ÂÂ© ÃªÂ´ÂÃ«Â¦Â¬ ÃÂ· Ã¬ÂÂ¤ÃªÂ³ÂÃªÂ°ÂÃ«Â°Â Ã¬Â ÂÃ¬Â£Â¼ÃªÂ¸Â°"
     >
-      <HubBanner icon={PackageSearch} title="ì í ê´ë¦¬" subtitle="ì í ë±ë¡ ë° ê´ë¦¬" color="#475569" />
+      <HubBanner icon={PackageSearch} title="Ã¬Â ÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" subtitle="Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â Ã«Â°Â ÃªÂ´ÂÃ«Â¦Â¬" color="#475569" />
       <div className="px-6 lg:px-8 py-6 max-w-[1280px] mx-auto fade-in">
         {/* Toast */}
         {toast && (
@@ -161,33 +161,33 @@ export default function ProductsHub() {
               fontWeight: 500,
             }}
           >
-            â {toast}
+            Ã¢ÂÂ {toast}
           </div>
         )}
 
-        {/* í¤ë */}
+        {/* Ã­ÂÂ¤Ã«ÂÂ */}
         <div className="mb-5">
           <span
             className="font-mono text-[10px] tracking-[0.18em] uppercase"
             style={{ color: 'var(--moss)' }}
           >
-            PROD Â· PRODUCT & PROCESS LIBRARY
+            PROD ÃÂ· PRODUCT & PROCESS LIBRARY
           </span>
           <div
             className="font-display text-[26px] mt-1"
             style={{ color: 'var(--ink)', fontWeight: 500 }}
           >
-            ì íÂ·ê³µì  ë§ì¤í°
+            Ã¬Â ÂÃ­ÂÂÃÂ·ÃªÂ³ÂµÃ¬Â Â Ã«Â§ÂÃ¬ÂÂ¤Ã­ÂÂ°
           </div>
           <div
             className="text-[12.5px] mt-0.5"
             style={{ color: 'var(--ink-mute)' }}
           >
-            ISO 13485 Â§4.2.4 / 21 CFR 820.30 / 820.40 â ëª¨ë  ë³ê²½ì CCR ìë ë°ì
+            ISO 13485 ÃÂ§4.2.4 / 21 CFR 820.30 / 820.40 Ã¢ÂÂ Ã«ÂªÂ¨Ã«ÂÂ  Ã«Â³ÂÃªÂ²Â½Ã¬ÂÂ CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ
           </div>
         </div>
 
-        {/* ì¨ë³´ë© ë¯¸ì ìë´ */}
+        {/* Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã«Â¯Â¸Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂ´ */}
         {!hasOnboarding && (
           <div
             className="card-base p-6 mb-5 text-center"
@@ -199,19 +199,19 @@ export default function ProductsHub() {
               strokeWidth={1.4}
             />
             <div className="mt-3 text-[14px]" style={{ color: 'var(--ink)' }}>
-              íì¬Â·ì í ì ë³´ê° ìì§ ë±ë¡ëì§ ìììµëë¤
+              Ã­ÂÂÃ¬ÂÂ¬ÃÂ·Ã¬Â ÂÃ­ÂÂ Ã¬Â ÂÃ«Â³Â´ÃªÂ°Â Ã¬ÂÂÃ¬Â§Â Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂÃ¬Â§Â Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤
             </div>
             <div
               className="mt-1 text-[12px]"
               style={{ color: 'var(--ink-mute)' }}
             >
-              ì¨ë³´ë©ì ë¨¼ì  ìë£íìê±°ë ë°ëª¨ ë°ì´í°ë¥¼ ì±ìë³´ì¸ì.
+              Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ©Ã¬ÂÂ Ã«Â¨Â¼Ã¬Â Â Ã¬ÂÂÃ«Â£ÂÃ­ÂÂÃ¬ÂÂÃªÂ±Â°Ã«ÂÂ Ã«ÂÂ°Ã«ÂªÂ¨ Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã«Â¥Â¼ Ã¬Â±ÂÃ¬ÂÂÃ«Â³Â´Ã¬ÂÂ¸Ã¬ÂÂ.
             </div>
             <button
               onClick={() => nav('/onboarding')}
               className="btn-primary mt-3"
             >
-              ì¨ë³´ë© ìì <ArrowRight size={13} />
+              Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã¬ÂÂÃ¬ÂÂ <ArrowRight size={13} />
             </button>
           </div>
         )}
@@ -219,7 +219,7 @@ export default function ProductsHub() {
         {hasOnboarding && (
           <>
             
-            {/* í­ ë´ì© */}
+            {/* Ã­ÂÂ­ Ã«ÂÂ´Ã¬ÂÂ© */}
             {tab === 'product' && (
               <div className="space-y-3">
                 {productView === 'grid' && !addingProduct && (
@@ -235,7 +235,7 @@ export default function ProductsHub() {
                     onCancel={() => setAddingProduct(false)}
                     onSaved={(p) => {
                       setAddingProduct(false)
-                      showToast(productKind(p) === PRODUCT_KIND.NEW ? 'ì ê· ì íì´ ë±ë¡ëììµëë¤ Â· ì¤ê³ ê³íì ììíì¸ì Â· CCR ìë ë°ì' : 'ì íì´ ë±ë¡ëììµëë¤ Â· CCR ìë ë°ì')
+                      showToast(productKind(p) === PRODUCT_KIND.NEW ? 'Ã¬ÂÂ ÃªÂ·Â Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤ ÃÂ· Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ ÃÂ· CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ' : 'Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤ ÃÂ· CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ')
                       setTimeout(() => window.location.reload(), 600)
                     }}
                   />
@@ -245,22 +245,22 @@ export default function ProductsHub() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between flex-wrap gap-2">
                         <button onClick={() => setProductView('grid')} className="btn-ghost text-[12px]">
-                          <ChevronLeft size={13} /> ì í ëª©ë¡ì¼ë¡
+                          <ChevronLeft size={13} /> Ã¬Â ÂÃ­ÂÂ Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ¼Ã«Â¡Â
                         </button>
                         <div className="flex gap-1 rounded-lg p-1 flex-wrap" style={{ background: 'var(--bg-soft)' }}>
-                          <DetailTabBtn active={detailTab === 'info'} onClick={() => setDetailTab('info')} label="ê¸°ë³¸ì ë³´" />
-                          <DetailTabBtn active={detailTab === 'models'} onClick={() => setDetailTab('models')} label="ëª¨ë¸ ëª©ë¡" count={productModels.getForProduct(productKeyOf(product)).length} />
+                          <DetailTabBtn active={detailTab === 'info'} onClick={() => setDetailTab('info')} label="ÃªÂ¸Â°Ã«Â³Â¸Ã¬Â ÂÃ«Â³Â´" />
+                          <DetailTabBtn active={detailTab === 'models'} onClick={() => setDetailTab('models')} label="Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â" count={productModels.getForProduct(productKeyOf(product)).length} />
                           {productKind(product) === PRODUCT_KIND.NEW && (
-                            <DetailTabBtn active={detailTab === 'design'} onClick={() => setDetailTab('design')} label="ì¤ê³ ê³í" />
+                            <DetailTabBtn active={detailTab === 'design'} onClick={() => setDetailTab('design')} label="Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂ" />
                           )}
-                          <DetailTabBtn active={detailTab === 'customer-req'} onClick={() => setDetailTab('customer-req')} label="ê³ ê°ìêµ¬ì¬í­" />
+                          <DetailTabBtn active={detailTab === 'customer-req'} onClick={() => setDetailTab('customer-req')} label="ÃªÂ³Â ÃªÂ°ÂÃ¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­" />
                           <DetailTabBtn active={detailTab === 'dhf'} onClick={() => setDetailTab('dhf')} label="DHF" />
                           <DetailTabBtn active={detailTab === 'dmr'} onClick={() => setDetailTab('dmr')} label="DMR" />
-                          <DetailTabBtn active={detailTab === 'risk'} onClick={() => setDetailTab('risk')} label="ìíê´ë¦¬" />
-                          <DetailTabBtn active={detailTab === 'validation'} onClick={() => setDetailTab('validation')} label="ë°¸ë¦¬ë°ì´ì" />
-                          <DetailTabBtn active={detailTab === 'pcp'} onClick={() => setDetailTab('pcp')} label="ìì°ì ì´ê³í" />
-                        <DetailTabBtn active={detailTab === 'process'} onClick={() => setDetailTab('process')} label="ê³µì " />
-                        <DetailTabBtn active={detailTab === 'inspection'} onClick={() => setDetailTab('inspection')} label="ê²ì¬í­ëª©" />
+                          <DetailTabBtn active={detailTab === 'risk'} onClick={() => setDetailTab('risk')} label="Ã¬ÂÂÃ­ÂÂÃªÂ´ÂÃ«Â¦Â¬" />
+                          <DetailTabBtn active={detailTab === 'validation'} onClick={() => setDetailTab('validation')} label="Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ" />
+                          <DetailTabBtn active={detailTab === 'pcp'} onClick={() => setDetailTab('pcp')} label="Ã¬ÂÂÃ¬ÂÂ°Ã¬Â ÂÃ¬ÂÂ´ÃªÂ³ÂÃ­ÂÂ" />
+                        <DetailTabBtn active={detailTab === 'process'} onClick={() => setDetailTab('process')} label="ÃªÂ³ÂµÃ¬Â Â" />
+                        <DetailTabBtn active={detailTab === 'inspection'} onClick={() => setDetailTab('inspection')} label="ÃªÂ²ÂÃ¬ÂÂ¬Ã­ÂÂ­Ã«ÂªÂ©" />
                         </div>
                       </div>
                       {detailTab === 'info' && <ProductPanel key={product?.id || 'main'} product={product} company={company} onAction={showToast} onDeleted={() => { setProductView('grid'); setTimeout(() => window.location.reload(), 400) }} />}
@@ -296,8 +296,8 @@ export default function ProductsHub() {
                   ) : (
                     <div className="card-base p-6 text-center" style={{ borderStyle: 'dashed' }}>
                       <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-                      <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>ë±ë¡ë ì íì´ ììµëë¤</div>
-                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'ì í ë±ë¡' ë²í¼ì¼ë¡ ì²« ì íì ë±ë¡íì¸ì.</div>
+                      <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤</div>
+                      <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â' Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ¼Ã«Â¡Â Ã¬Â²Â« Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</div>
                     </div>
                   )
                 )}
@@ -363,11 +363,11 @@ function TabButton({ active, onClick, icon: Icon, label, en, count }) {
 }
 
 /* ================================================================
-   PROD-001 ì í í¨ë
+   PROD-001 Ã¬Â ÂÃ­ÂÂ Ã­ÂÂ¨Ã«ÂÂ
    ================================================================ */
 
 /* ================================================================
-   ì í ì¹´ë ê·¸ë¦¬ë â ì í í­ ê¸°ë³¸ íë©´ (ê¸°íê°/ì ê· ì¹´ë + íì´ì§ë¤ì´ì)
+   Ã¬Â ÂÃ­ÂÂ Ã¬Â¹Â´Ã«ÂÂ ÃªÂ·Â¸Ã«Â¦Â¬Ã«ÂÂ Ã¢ÂÂ Ã¬Â ÂÃ­ÂÂ Ã­ÂÂ­ ÃªÂ¸Â°Ã«Â³Â¸ Ã­ÂÂÃ«Â©Â´ (ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â/Ã¬ÂÂ ÃªÂ·Â Ã¬Â¹Â´Ã«ÂÂ + Ã­ÂÂÃ¬ÂÂ´Ã¬Â§ÂÃ«ÂÂ¤Ã¬ÂÂ´Ã¬ÂÂ)
    ================================================================ */
 function DetailTabBtn({ active, onClick, label, count }) {
   return (
@@ -398,11 +398,11 @@ function ProductCardGrid({ products, onOpen, canEdit, onAdd }) {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-start gap-2 text-[12px] px-3 py-2 rounded-lg flex-1 min-w-[280px]" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>
           <AlertCircle size={14} className="shrink-0 mt-0.5" />
-          <span>ê¸°íê° ì íì íê° ì ë³´ ìë ¥ì¼ë¡ ë±ë¡íê³ , ì ê· ê°ë° ì íì ì¤ê³ ê³íë¶í° ììí©ëë¤.</span>
+          <span>ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã­ÂÂÃªÂ°Â Ã¬Â ÂÃ«Â³Â´ Ã¬ÂÂÃ«Â Â¥Ã¬ÂÂ¼Ã«Â¡Â Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃªÂ³Â , Ã¬ÂÂ ÃªÂ·Â ÃªÂ°ÂÃ«Â°Â Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂÃ«Â¶ÂÃ­ÂÂ° Ã¬ÂÂÃ¬ÂÂÃ­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.</span>
         </div>
         {canEdit && (
           <button onClick={onAdd} className="btn-primary text-[12.5px] shrink-0">
-            <Plus size={13} /> ì í ë±ë¡
+            <Plus size={13} /> Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â
           </button>
         )}
       </div>
@@ -410,8 +410,8 @@ function ProductCardGrid({ products, onOpen, canEdit, onAdd }) {
       {products.length === 0 ? (
         <div className="card-base p-8 text-center" style={{ borderStyle: 'dashed' }}>
           <PackageSearch size={28} style={{ color: 'var(--ink-faint)', margin: '0 auto' }} strokeWidth={1.4} />
-          <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>ë±ë¡ë ì íì´ ììµëë¤</div>
-          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'ì í ë±ë¡' ë²í¼ì¼ë¡ ì²« ì íì ë±ë¡íì¸ì.</div>
+          <div className="mt-3 text-[13.5px]" style={{ color: 'var(--ink)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤</div>
+          <div className="mt-1 text-[12px]" style={{ color: 'var(--ink-mute)' }}>'Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â' Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ¼Ã«Â¡Â Ã¬Â²Â« Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</div>
         </div>
       ) : (
         <>
@@ -423,11 +423,11 @@ function ProductCardGrid({ products, onOpen, canEdit, onAdd }) {
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-3 pt-2">
               <button onClick={() => setPage((x) => Math.max(0, x - 1))} disabled={page === 0} className="btn-ghost text-[12px] disabled:opacity-30">
-                <ChevronLeft size={13} /> ì´ì 
+                <ChevronLeft size={13} /> Ã¬ÂÂ´Ã¬Â Â
               </button>
               <span className="font-mono text-[12px]" style={{ color: 'var(--ink-mute)' }}>{page + 1} / {totalPages}</span>
               <button onClick={() => setPage((x) => Math.min(totalPages - 1, x + 1))} disabled={page >= totalPages - 1} className="btn-ghost text-[12px] disabled:opacity-30">
-                ë¤ì <ChevronRight size={13} />
+                Ã«ÂÂ¤Ã¬ÂÂ <ChevronRight size={13} />
               </button>
             </div>
           )}
@@ -454,30 +454,30 @@ function ProductCard({ product, onOpen }) {
           className="inline-block text-[10.5px] font-medium px-2 py-0.5 rounded-full mb-2"
           style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)' } : { background: 'var(--leaf-soft)', color: 'var(--moss)' }}
         >
-          {isNew ? 'ì ê·' : 'ê¸°íê°'}
+          {isNew ? 'Ã¬ÂÂ ÃªÂ·Â' : 'ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â'}
         </span>
-        <div className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--ink)' }}>{product.name || '(ì´ë¦ìì)'}</div>
+        <div className="text-[15px] font-semibold leading-tight" style={{ color: 'var(--ink)' }}>{product.name || '(Ã¬ÂÂ´Ã«Â¦ÂÃ¬ÂÂÃ¬ÂÂ)'}</div>
         <div className="font-mono text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{product.classNo || product.itemName || '\u2014'}</div>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-[11.5px] pt-2" style={{ borderTop: '1px solid var(--line)' }}>
         <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>ë±ê¸</div>
-          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{product.grade ? product.grade + 'ë±ê¸' : (isNew ? '3ë±ê¸ ìì ' : '\uBBF8\uBD84\uB958')}</div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>Ã«ÂÂ±ÃªÂ¸Â</div>
+          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{product.grade ? product.grade + 'Ã«ÂÂ±ÃªÂ¸Â' : (isNew ? '3Ã«ÂÂ±ÃªÂ¸Â Ã¬ÂÂÃ¬Â Â' : '\uBBF8\uBD84\uB958')}</div>
         </div>
         <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>íê°ë²í¸</div>
-          <div className="mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{isNew ? 'ì¤ê³ ì§íì¤' : (licProg.primaryLicense?.licenseNo || 'ë¯¸ë±ë¡')}</div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸</div>
+          <div className="mt-0.5 truncate" style={{ color: 'var(--ink)' }}>{isNew ? 'Ã¬ÂÂ¤ÃªÂ³Â Ã¬Â§ÂÃ­ÂÂÃ¬Â¤Â' : (licProg.primaryLicense?.licenseNo || 'Ã«Â¯Â¸Ã«ÂÂ±Ã«Â¡Â')}</div>
         </div>
         <div>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>ëª¨ë¸ ì</div>
-          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{isNew ? 'ê°ë°ì¤' : (models.length ? models.length + 'ê°' : '0ê°')}</div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--ink-faint)' }}>Ã«ÂªÂ¨Ã«ÂÂ¸ Ã¬ÂÂ</div>
+          <div className="mt-0.5" style={{ color: 'var(--ink)' }}>{isNew ? 'ÃªÂ°ÂÃ«Â°ÂÃ¬Â¤Â' : (models.length ? models.length + 'ÃªÂ°Â' : '0ÃªÂ°Â')}</div>
         </div>
       </div>
 
       <div>
         <div className="flex items-center justify-between text-[11px] mb-1">
-          <span style={{ color: 'var(--ink-mute)' }}>{isNew ? 'ì¤ê³ ì§íë¥ ' : 'ë±ë¡ ìë£'}</span>
+          <span style={{ color: 'var(--ink-mute)' }}>{isNew ? 'Ã¬ÂÂ¤ÃªÂ³Â Ã¬Â§ÂÃ­ÂÂÃ«Â¥Â ' : 'Ã«ÂÂ±Ã«Â¡Â Ã¬ÂÂÃ«Â£Â'}</span>
           <span className="font-mono font-medium" style={{ color: isNew ? 'var(--amber)' : 'var(--moss)' }}>{pct}%</span>
         </div>
         <div className="h-1.5 rounded-full w-full" style={{ background: 'var(--bg-soft)' }}>
@@ -487,39 +487,39 @@ function ProductCard({ product, onOpen }) {
 
       <div className="flex gap-2">
         <button onClick={() => onOpen(product, 'models')} className="btn-ghost text-[12px] flex-1 justify-center">
-          ëª¨ë¸ ëª©ë¡ <ArrowRight size={12} />
+          Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â <ArrowRight size={12} />
         </button>
         {isNew ? (
           <button onClick={() => onOpen(product, 'dhf')} className="text-[12px] font-medium px-3 py-1.5 rounded-lg flex-1 flex items-center justify-center gap-1" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-            ì¤ê³ ê³ì <ArrowRight size={12} />
+            Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ¬ÂÂ <ArrowRight size={12} />
           </button>
         ) : (
           <button onClick={() => onOpen(product, 'info')} className="btn-primary text-[12px] flex-1 justify-center">
-            ì¤ê³ ë³ê²½ <ArrowRight size={12} />
+            Ã¬ÂÂ¤ÃªÂ³Â Ã«Â³ÂÃªÂ²Â½ <ArrowRight size={12} />
           </button>
         )}
       </div>
 
       {isNew ? (
         <div className="rounded-lg px-3 py-2" style={{ background: 'var(--amber-soft)' }}>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--amber)' }}>íì¬ ë¨ê³</div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase" style={{ color: 'var(--amber)' }}>Ã­ÂÂÃ¬ÂÂ¬ Ã«ÂÂ¨ÃªÂ³Â</div>
           <div className="text-[12.5px] font-medium mt-0.5" style={{ color: 'var(--ink)' }}>{desProg.currentLabel}</div>
-          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{desProg.done} / {desProg.total} ë¨ê³ ìë£</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--ink-mute)' }}>{desProg.done} / {desProg.total} Ã«ÂÂ¨ÃªÂ³Â Ã¬ÂÂÃ«Â£Â</div>
         </div>
       ) : (
         <div className="rounded-lg p-2" style={{ background: 'var(--bg-soft)' }}>
-          <div className="font-mono text-[9.5px] tracking-wide uppercase mb-1" style={{ color: 'var(--ink-faint)' }}>ëª¨ë¸ ëª©ë¡ ë¯¸ë¦¬ë³´ê¸°</div>
+          <div className="font-mono text-[9.5px] tracking-wide uppercase mb-1" style={{ color: 'var(--ink-faint)' }}>Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â Ã«Â¯Â¸Ã«Â¦Â¬Ã«Â³Â´ÃªÂ¸Â°</div>
           {models.length === 0 ? (
-            <div className="text-[11.5px] py-1" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ëª¨ë¸ì´ ììµëë¤.</div>
+            <div className="text-[11.5px] py-1" style={{ color: 'var(--ink-faint)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
           ) : (
             <div className="space-y-0.5">
               {models.slice(0, 3).map((m) => (
                 <div key={m.id} className="flex items-center gap-2 text-[11.5px]">
-                  <span className="font-mono shrink-0" style={{ color: 'var(--moss)' }}>{m.code || '(ì½ëìì)'}</span>
+                  <span className="font-mono shrink-0" style={{ color: 'var(--moss)' }}>{m.code || '(Ã¬Â½ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂ)'}</span>
                   <span className="truncate" style={{ color: 'var(--ink-mute)' }}>{m.spec}</span>
                 </div>
               ))}
-              {models.length > 3 && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>+{models.length - 3}ê° ë</div>}
+              {models.length > 3 && <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>+{models.length - 3}ÃªÂ°Â Ã«ÂÂ</div>}
             </div>
           )}
         </div>
@@ -529,7 +529,7 @@ function ProductCard({ product, onOpen }) {
 }
 
 /* ================================================================
-   ëª¨ë¸(ë³í) ëª©ë¡ í¨ë
+   Ã«ÂªÂ¨Ã«ÂÂ¸(Ã«Â³ÂÃ­ÂÂ) Ã«ÂªÂ©Ã«Â¡Â Ã­ÂÂ¨Ã«ÂÂ
    ================================================================ */
 function ModelListPanel({ product, onAction }) {
   const key = productKeyOf(product)
@@ -541,41 +541,41 @@ function ModelListPanel({ product, onAction }) {
   const refresh = () => setModels(productModels.getForProduct(key))
 
   const add = () => {
-    if (!code.trim()) { alert('ëª¨ë¸ì½ëë íììëë¤.'); return }
+    if (!code.trim()) { alert('Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬Â½ÂÃ«ÂÂÃ«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.'); return }
     productModels.add(key, { code: code.trim(), spec: spec.trim() })
     setCode(''); setSpec('')
     refresh()
-    onAction('ëª¨ë¸ì´ ì¶ê°ëììµëë¤.')
+    onAction('Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ´ Ã¬Â¶ÂÃªÂ°ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.')
   }
 
   const del = (id) => {
-    if (!window.confirm('ì´ ëª¨ë¸ì ì­ì í ê¹ì?')) return
+    if (!window.confirm('Ã¬ÂÂ´ Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂ ÃªÂ¹ÂÃ¬ÂÂ?')) return
     productModels.remove(id)
     refresh()
-    onAction('ëª¨ë¸ì´ ì­ì ëììµëë¤.')
+    onAction('Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ´ Ã¬ÂÂ­Ã¬Â ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.')
   }
 
   return (
     <div className="card-base p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
-          MODEL LIST Â· {product.name}
+          MODEL LIST ÃÂ· {product.name}
         </span>
         <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-mute)' }}>
-          {models.length}ê° ëª¨ë¸
+          {models.length}ÃªÂ°Â Ã«ÂªÂ¨Ã«ÂÂ¸
         </span>
       </div>
 
       {canEdit && (
         <div className="grid md:grid-cols-[1fr_2fr_auto] gap-2 pb-3 mb-3" style={{ borderBottom: '1px solid var(--line)' }}>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="ëª¨ë¸ì½ë (ì: PA-SCS-3522)" className="input-base text-[13px]" />
-          <input value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="ê·ê²©/ì¤ëª (ì: SCS M3.5x22mm)" className="input-base text-[13px]" onKeyDown={(e) => e.key === 'Enter' && add()} />
-          <button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> ì¶ê°</button>
+          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬Â½ÂÃ«ÂÂ (Ã¬ÂÂ: PA-SCS-3522)" className="input-base text-[13px]" />
+          <input value={spec} onChange={(e) => setSpec(e.target.value)} placeholder="ÃªÂ·ÂÃªÂ²Â©/Ã¬ÂÂ¤Ã«ÂªÂ (Ã¬ÂÂ: SCS M3.5x22mm)" className="input-base text-[13px]" onKeyDown={(e) => e.key === 'Enter' && add()} />
+          <button onClick={add} className="btn-primary text-[12.5px]"><Plus size={13} /> Ã¬Â¶ÂÃªÂ°Â</button>
         </div>
       )}
 
       {models.length === 0 ? (
-        <div className="text-center py-8 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>ë±ë¡ë ëª¨ë¸ì´ ììµëë¤.</div>
+        <div className="text-center py-8 text-[12.5px]" style={{ color: 'var(--ink-faint)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
       ) : (
         <div className="space-y-1.5">
           {models.map((m) => (
@@ -591,24 +591,24 @@ function ModelListPanel({ product, onAction }) {
           ))}
         </div>
       )}
-      <ComplianceFooter regs={['ISO 13485 Â§7.5.8 (ìë³)', '21 CFR 820.60']} />
+      <ComplianceFooter regs={['ISO 13485 ÃÂ§7.5.8 (Ã¬ÂÂÃ«Â³Â)', '21 CFR 820.60']} />
     </div>
   )
 }
 
 /* ================================================================
-   ì¤ê³ ê³í í¨ë (ì ê· ì í Â· 9ë¨ê³ ì¤ê³ê´ë¦¬ ì²´í¬ë¦¬ì¤í¸)
+   Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂ Ã­ÂÂ¨Ã«ÂÂ (Ã¬ÂÂ ÃªÂ·Â Ã¬Â ÂÃ­ÂÂ ÃÂ· 9Ã«ÂÂ¨ÃªÂ³Â Ã¬ÂÂ¤ÃªÂ³ÂÃªÂ´ÂÃ«Â¦Â¬ Ã¬Â²Â´Ã­ÂÂ¬Ã«Â¦Â¬Ã¬ÂÂ¤Ã­ÂÂ¸)
    ================================================================ */
 const STAGE_REQUIRED_DOCS = [
-  ['ì¤ê³ ìë ¥ ëªì¸ì', 'ì¬ì©ì ìêµ¬ì¬í­ ë¬¸ì (URS)', 'ë²ì Â·ê·ì  ìêµ¬ì¬í­ ëª©ë¡'],
-  ['ì¤ê³ ì¶ë ¥ ëë©´ ë° ì¬ìì', 'ì ì¡° ì§ìì ì´ì (WI/BOM)', 'ê²ì¬Â·ìí ì ì°¨ì'],
-  ['ì¤ê³ ê²í  íìë¡', 'ê²í  ì°¸ìì ìëªë¶', 'ì¡°ì¹ì¬í­ ì¶ì  ëª©ë¡'],
-  ['ê²ì¦ ê³íì (Verification Plan)', 'ê²ì¦ íë¡í ì½', 'ê²ì¦ ê²°ê³¼ ë³´ê³ ì'],
-  ['ë°¸ë¦¬ë°ì´ì ê³íì', 'ìì íê° ë³´ê³ ì (CER)', 'ë°¸ë¦¬ë°ì´ì ê²°ê³¼ ë³´ê³ ì'],
-  ['ìíë¶ìì (ISO 14971)', 'ìí ê´ë¦¬ ê³íì (RMP)', 'ìì¬ ìí ìì©ì± íê°ì'],
-  ['ì´ê´ ì²´í¬ë¦¬ì¤í¸', 'DMR (Device Master Record)', 'ì ì¡° ê°ë¥ì± ê²í ì'],
-  ['ì¸íê° ì ì²­ í¨í¤ì§', 'ê¸°ì ë¬¸ì (Technical File)', 'ê·ì  ì ëµ ë¬¸ì'],
-  ['íê°ì¦ ì¬ë³¸', 'ì ì¡°íê° ì¡°ê±´ ê²í ì', 'ì¸íê° ì ì§ ê³íì'],
+  ['Ã¬ÂÂ¤ÃªÂ³Â Ã¬ÂÂÃ«Â Â¥ Ã«ÂªÂÃ¬ÂÂ¸Ã¬ÂÂ', 'Ã¬ÂÂ¬Ã¬ÂÂ©Ã¬ÂÂ Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã«Â¬Â¸Ã¬ÂÂ (URS)', 'Ã«Â²ÂÃ¬Â ÂÃÂ·ÃªÂ·ÂÃ¬Â Â Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã«ÂªÂ©Ã«Â¡Â'],
+  ['Ã¬ÂÂ¤ÃªÂ³Â Ã¬Â¶ÂÃ«Â Â¥ Ã«ÂÂÃ«Â©Â´ Ã«Â°Â Ã¬ÂÂ¬Ã¬ÂÂÃ¬ÂÂ', 'Ã¬Â ÂÃ¬Â¡Â° Ã¬Â§ÂÃ¬ÂÂÃ¬ÂÂ Ã¬Â´ÂÃ¬ÂÂ (WI/BOM)', 'ÃªÂ²ÂÃ¬ÂÂ¬ÃÂ·Ã¬ÂÂÃ­ÂÂ Ã¬Â ÂÃ¬Â°Â¨Ã¬ÂÂ'],
+  ['Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ²ÂÃ­ÂÂ  Ã­ÂÂÃ¬ÂÂÃ«Â¡Â', 'ÃªÂ²ÂÃ­ÂÂ  Ã¬Â°Â¸Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂªÂÃ«Â¶Â', 'Ã¬Â¡Â°Ã¬Â¹ÂÃ¬ÂÂ¬Ã­ÂÂ­ Ã¬Â¶ÂÃ¬Â Â Ã«ÂªÂ©Ã«Â¡Â'],
+  ['ÃªÂ²ÂÃ¬Â¦Â ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ (Verification Plan)', 'ÃªÂ²ÂÃ¬Â¦Â Ã­ÂÂÃ«Â¡ÂÃ­ÂÂ Ã¬Â½Â', 'ÃªÂ²ÂÃ¬Â¦Â ÃªÂ²Â°ÃªÂ³Â¼ Ã«Â³Â´ÃªÂ³Â Ã¬ÂÂ'],
+  ['Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ', 'Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂÃªÂ°Â Ã«Â³Â´ÃªÂ³Â Ã¬ÂÂ (CER)', 'Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ ÃªÂ²Â°ÃªÂ³Â¼ Ã«Â³Â´ÃªÂ³Â Ã¬ÂÂ'],
+  ['Ã¬ÂÂÃ­ÂÂÃ«Â¶ÂÃ¬ÂÂÃ¬ÂÂ (ISO 14971)', 'Ã¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬ ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ (RMP)', 'Ã¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ¬ÂÂ©Ã¬ÂÂ± Ã­ÂÂÃªÂ°ÂÃ¬ÂÂ'],
+  ['Ã¬ÂÂ´ÃªÂ´Â Ã¬Â²Â´Ã­ÂÂ¬Ã«Â¦Â¬Ã¬ÂÂ¤Ã­ÂÂ¸', 'DMR (Device Master Record)', 'Ã¬Â ÂÃ¬Â¡Â° ÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ'],
+  ['Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂ Ã¬Â²Â­ Ã­ÂÂ¨Ã­ÂÂ¤Ã¬Â§Â', 'ÃªÂ¸Â°Ã¬ÂÂ Ã«Â¬Â¸Ã¬ÂÂ (Technical File)', 'ÃªÂ·ÂÃ¬Â Â Ã¬Â ÂÃ«ÂÂµ Ã«Â¬Â¸Ã¬ÂÂ'],
+  ['Ã­ÂÂÃªÂ°ÂÃ¬Â¦Â Ã¬ÂÂ¬Ã«Â³Â¸', 'Ã¬Â ÂÃ¬Â¡Â°Ã­ÂÂÃªÂ°Â Ã¬Â¡Â°ÃªÂ±Â´ ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ', 'Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂ Ã¬Â§Â ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ'],
 ]
 
 function DesignStagePanel({ product, onAction }) {
@@ -633,10 +633,10 @@ function DesignStagePanel({ product, onAction }) {
       action: CHANGE_ACTIONS.UPDATE,
       before,
       after,
-      reason: (next[idx] ? DESIGN_STAGES[idx] + ' ìë£' : DESIGN_STAGES[idx] + ' ì¬ê°'),
+      reason: (next[idx] ? DESIGN_STAGES[idx] + ' Ã¬ÂÂÃ«Â£Â' : DESIGN_STAGES[idx] + ' Ã¬ÂÂ¬ÃªÂ°Â'),
     })
 
-    onAction(next[idx] ? DESIGN_STAGES[idx] + ' ìë£ ì²ë¦¬ëììµëë¤.' : DESIGN_STAGES[idx] + ' ë¥¼ ë¤ì ì§íì¤ì¼ë¡ ëëë ¸ìµëë¤.')
+    onAction(next[idx] ? DESIGN_STAGES[idx] + ' Ã¬ÂÂÃ«Â£Â Ã¬Â²ÂÃ«Â¦Â¬Ã«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.' : DESIGN_STAGES[idx] + ' Ã«Â¥Â¼ Ã«ÂÂ¤Ã¬ÂÂ Ã¬Â§ÂÃ­ÂÂÃ¬Â¤ÂÃ¬ÂÂ¼Ã«Â¡Â Ã«ÂÂÃ«ÂÂÃ«Â Â¸Ã¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.')
     setTimeout(() => window.location.reload(), 500)
   }
 
@@ -644,13 +644,13 @@ function DesignStagePanel({ product, onAction }) {
     <div className="card-base p-5">
       <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
         <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--amber)' }}>
-          DESIGN PLAN Â· {product.name}
+          DESIGN PLAN ÃÂ· {product.name}
         </span>
         <span className="font-mono text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--amber-soft)', color: 'var(--amber)' }}>
-          {progress.done} / {progress.total} ë¨ê³ ìë£ ({progress.pct}%)
+          {progress.done} / {progress.total} Ã«ÂÂ¨ÃªÂ³Â Ã¬ÂÂÃ«Â£Â ({progress.pct}%)
         </span>
       </div>
-      <div className="text-[11.5px] mb-4" style={{ color: 'var(--ink-mute)' }}>ISO 13485 Â§7.3 ì¤ê³ ë° ê°ë° â ë¨ê³ë¥¼ ììëë¡ ìë£íë©° ì§ííì¸ì. ìë£ ì²ë¦¬ë§ë¤ CCRì´ ìë ë°ìë©ëë¤.</div>
+      <div className="text-[11.5px] mb-4" style={{ color: 'var(--ink-mute)' }}>ISO 13485 ÃÂ§7.3 Ã¬ÂÂ¤ÃªÂ³Â Ã«Â°Â ÃªÂ°ÂÃ«Â°Â Ã¢ÂÂ Ã«ÂÂ¨ÃªÂ³ÂÃ«Â¥Â¼ Ã¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«Â¡Â Ã¬ÂÂÃ«Â£ÂÃ­ÂÂÃ«Â©Â° Ã¬Â§ÂÃ­ÂÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ. Ã¬ÂÂÃ«Â£Â Ã¬Â²ÂÃ«Â¦Â¬Ã«Â§ÂÃ«ÂÂ¤ CCRÃ¬ÂÂ´ Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.</div>
 
       <div className="space-y-1.5">
         {DESIGN_STAGES.map((label, i) => {
@@ -668,7 +668,7 @@ function DesignStagePanel({ product, onAction }) {
               <span className="text-[13px] flex-1" style={{ color: done ? 'var(--ink-mute)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
                 {i + 1}. {label}
               </span>
-              {current && <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--amber)', color: '#fff' }}>ì§íì¤</span>}
+              {current && <span className="font-mono text-[10px] px-2 py-0.5 rounded-full" style={{ background: 'var(--amber)', color: '#fff' }}>Ã¬Â§ÂÃ­ÂÂÃ¬Â¤Â</span>}
             </button>
           )
         })}
@@ -677,12 +677,12 @@ function DesignStagePanel({ product, onAction }) {
         {progress.currentIdx >= 0 && progress.currentIdx < STAGE_REQUIRED_DOCS.length && (
           <div className="mt-3 rounded-lg p-3" style={{ background: 'var(--bg-soft)', borderLeft: '3px solid var(--amber)' }}>
             <div className="font-mono text-[9px] tracking-widest uppercase mb-2" style={{ color: 'var(--amber)' }}>
-              ISO 13485 Â§7.3 Â· íì¬ ë¨ê³ íì ìê±´
+              ISO 13485 ÃÂ§7.3 ÃÂ· Ã­ÂÂÃ¬ÂÂ¬ Ã«ÂÂ¨ÃªÂ³Â Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂÃªÂ±Â´
             </div>
             <div className="flex flex-col gap-1">
               {STAGE_REQUIRED_DOCS[progress.currentIdx].map((doc, di) => (
                 <div key={di} className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--ink-mute)' }}>
-                  <span style={{ color: 'var(--amber)', fontWeight: 700 }}>Â·</span> {doc}
+                  <span style={{ color: 'var(--amber)', fontWeight: 700 }}>ÃÂ·</span> {doc}
                 </div>
               ))}
             </div>
@@ -692,11 +692,11 @@ function DesignStagePanel({ product, onAction }) {
         <div className="mt-4 flex items-start gap-2 p-3 rounded-lg" style={{ background: 'var(--leaf-soft)' }}>
           <Sparkles size={15} style={{ color: 'var(--moss)' }} className="shrink-0 mt-0.5" />
           <div className="text-[12.5px]" style={{ color: 'var(--ink)' }}>
-            ì¤ê³ ê³í 9ë¨ê³ê° ëª¨ë ìë£ëììµëë¤. íê° ì ì²­ì ì§íí ë¤, 'ëª¨ë¸ ëª©ë¡'ê³¼ 'ë¬¸ì' í­ìì íê°ì ë³´Â·ëª¨ë¸ì ë±ë¡íë©´ ê¸°íê° ì íì¼ë¡ ì íí  ì ììµëë¤.
+            Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂ 9Ã«ÂÂ¨ÃªÂ³ÂÃªÂ°Â Ã«ÂªÂ¨Ã«ÂÂ Ã¬ÂÂÃ«Â£ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. Ã­ÂÂÃªÂ°Â Ã¬ÂÂ Ã¬Â²Â­Ã¬ÂÂ Ã¬Â§ÂÃ­ÂÂÃ­ÂÂ Ã«ÂÂ¤, 'Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â'ÃªÂ³Â¼ 'Ã«Â¬Â¸Ã¬ÂÂ' Ã­ÂÂ­Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂÃªÂ°ÂÃ¬Â ÂÃ«Â³Â´ÃÂ·Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃ«Â©Â´ ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â ÂÃ­ÂÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.
           </div>
         </div>
       )}
-      <ComplianceFooter regs={['ISO 13485 Â§7.3', '21 CFR 820.30', 'ISO 14971']} />
+      <ComplianceFooter regs={['ISO 13485 ÃÂ§7.3', '21 CFR 820.30', 'ISO 14971']} />
     </div>
   )
 }
@@ -721,7 +721,7 @@ function AddProductPanel({ onCancel, onSaved }) {
     try {
       const r = await extractLicenseFromPdf(file)
       if (!r) {
-        setExtractNote('PDFìì ìëì¼ë¡ ì¶ì¶íì§ ëª»íìµëë¤ â ìë í­ëª©ì ì§ì  ìë ¥í´ì£¼ì¸ì.')
+        setExtractNote('PDFÃ¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â¶ÂÃ¬Â¶ÂÃ­ÂÂÃ¬Â§Â Ã«ÂªÂ»Ã­ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤ Ã¢ÂÂ Ã¬ÂÂÃ«ÂÂ Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ«Â Â¥Ã­ÂÂ´Ã¬Â£Â¼Ã¬ÂÂ¸Ã¬ÂÂ.')
       } else {
         setForm((f) => ({
           ...f,
@@ -734,7 +734,7 @@ function AddProductPanel({ onCancel, onSaved }) {
         if (r.models && r.models.length) {
           setDraftModels(r.models.map((m) => ({ id: mkId(), code: m.code || '', name: m.name || '' })))
         }
-        setExtractNote(`AI ì¶ì¶ ìë£ Â· ëª¨ë¸ ${r.models ? r.models.length : 0}ê° â ìë ë´ì©ì ê²í  í ìì íì¸ì.`)
+        setExtractNote(`AI Ã¬Â¶ÂÃ¬Â¶Â Ã¬ÂÂÃ«Â£Â ÃÂ· Ã«ÂªÂ¨Ã«ÂÂ¸ ${r.models ? r.models.length : 0}ÃªÂ°Â Ã¢ÂÂ Ã¬ÂÂÃ«ÂÂ Ã«ÂÂ´Ã¬ÂÂ©Ã¬ÂÂ ÃªÂ²ÂÃ­ÂÂ  Ã­ÂÂ Ã¬ÂÂÃ¬Â ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.`)
       }
     } finally {
       setExtractedFileName(file.name)
@@ -748,16 +748,16 @@ function AddProductPanel({ onCancel, onSaved }) {
 
   const save = () => {
     if (isNew) {
-      if (!form.name.trim()) { alert('ì íëªì íììëë¤.'); return }
+      if (!form.name.trim()) { alert('Ã¬Â ÂÃ­ÂÂÃ«ÂªÂÃ¬ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.'); return }
     } else {
-      if (!form.licenseNo.trim()) { alert('íê°ë²í¸ë íììëë¤.'); return }
-      if (!form.itemName.trim()) { alert('íëª©ëªì íììëë¤.'); return }
-      if (!form.classNo.trim()) { alert('ìì½ì² ë¶ë¥ë²í¸ë íììëë¤.'); return }
+      if (!form.licenseNo.trim()) { alert('Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.'); return }
+      if (!form.itemName.trim()) { alert('Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂÃ¬ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.'); return }
+      if (!form.classNo.trim()) { alert('Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â Ã«Â¶ÂÃ«Â¥ÂÃ«Â²ÂÃ­ÂÂ¸Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.'); return }
     }
-    const autoReason = !isNew && form.licenseNo.trim() ? `íê°ë²í¸ ${form.licenseNo.trim()} ê¸°ì¤ ì ê· ë±ë¡` : ''
+    const autoReason = !isNew && form.licenseNo.trim() ? `Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸ ${form.licenseNo.trim()} ÃªÂ¸Â°Ã¬Â¤Â Ã¬ÂÂ ÃªÂ·Â Ã«ÂÂ±Ã«Â¡Â` : ''
     const finalReason = reason.trim() || autoReason
     if (!finalReason) {
-      alert((isNew ? 'ë±ë¡' : 'ì¶ê°') + ' ì¬ì ë íììëë¤ (CCR â ISO 13485 Â§4.2.4).')
+      alert((isNew ? 'Ã«ÂÂ±Ã«Â¡Â' : 'Ã¬Â¶ÂÃªÂ°Â') + ' Ã¬ÂÂ¬Ã¬ÂÂ Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤ (CCR Ã¢ÂÂ ISO 13485 ÃÂ§4.2.4).')
       return
     }
 
@@ -817,13 +817,13 @@ function AddProductPanel({ onCancel, onSaved }) {
       <div className="flex items-start justify-between mb-3 flex-wrap gap-2">
         <div>
           <span className="font-mono text-[10px] tracking-[0.18em] uppercase" style={{ color: 'var(--moss)' }}>
-            PROD Â· ì í ë±ë¡ Â· {isNew ? 'ì ê·' : 'ê¸°íê°'}
+            PROD ÃÂ· Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â ÃÂ· {isNew ? 'Ã¬ÂÂ ÃªÂ·Â' : 'ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â'}
           </span>
           <div className="mt-0.5 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-            ì íÂ·ê³µì  <ChevronRight size={11} className="inline align-[-1px]" /> ì í ë±ë¡ <ChevronRight size={11} className="inline align-[-1px]" /> {isNew ? 'ì ê· ê°ë° ì í ë±ë¡' : 'ê¸°íê° ì í ë±ë¡'}
+            Ã¬Â ÂÃ­ÂÂÃÂ·ÃªÂ³ÂµÃ¬Â Â <ChevronRight size={11} className="inline align-[-1px]" /> Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â <ChevronRight size={11} className="inline align-[-1px]" /> {isNew ? 'Ã¬ÂÂ ÃªÂ·Â ÃªÂ°ÂÃ«Â°Â Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â' : 'ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â Ã¬Â ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â'}
           </div>
         </div>
-        <button onClick={onCancel} className="btn-ghost text-[12px]">ì·¨ì</button>
+        <button onClick={onCancel} className="btn-ghost text-[12px]">Ã¬Â·Â¨Ã¬ÂÂ</button>
       </div>
 
       <div className="flex gap-2 mb-4">
@@ -833,8 +833,8 @@ function AddProductPanel({ onCancel, onSaved }) {
           className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
           style={!isNew ? { background: 'var(--leaf-soft)', color: 'var(--moss)', border: '1.5px solid var(--moss)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
         >
-          ê¸°íê° ì í
-          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>ì´ë¯¸ íê°ë¥¼ ë°ì ì í â íê°ì¦ PDFë¡ ìë ë±ë¡</div>
+          ÃªÂ¸Â°Ã­ÂÂÃªÂ°Â Ã¬Â ÂÃ­ÂÂ
+          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>Ã¬ÂÂ´Ã«Â¯Â¸ Ã­ÂÂÃªÂ°ÂÃ«Â¥Â¼ Ã«Â°ÂÃ¬ÂÂ Ã¬Â ÂÃ­ÂÂ Ã¢ÂÂ Ã­ÂÂÃªÂ°ÂÃ¬Â¦Â PDFÃ«Â¡Â Ã¬ÂÂÃ«ÂÂ Ã«ÂÂ±Ã«Â¡Â</div>
         </button>
         <button
           type="button"
@@ -842,17 +842,17 @@ function AddProductPanel({ onCancel, onSaved }) {
           className="flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium text-left transition"
           style={isNew ? { background: 'var(--amber-soft)', color: 'var(--amber)', border: '1.5px solid var(--amber)' } : { background: 'var(--bg-soft)', color: 'var(--ink-mute)', border: '1.5px solid transparent' }}
         >
-          ì ê· ê°ë° ì í
-          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>ìì§ íê°ê° ìë ê°ë° ì¤ ì í â ì¤ê³ ê³íë¶í° ìì</div>
+          Ã¬ÂÂ ÃªÂ·Â ÃªÂ°ÂÃ«Â°Â Ã¬Â ÂÃ­ÂÂ
+          <div className="text-[11px] font-normal mt-0.5" style={{ color: 'var(--ink-mute)' }}>Ã¬ÂÂÃ¬Â§Â Ã­ÂÂÃªÂ°ÂÃªÂ°Â Ã¬ÂÂÃ«ÂÂ ÃªÂ°ÂÃ«Â°Â Ã¬Â¤Â Ã¬Â ÂÃ­ÂÂ Ã¢ÂÂ Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂÃ«Â¶ÂÃ­ÂÂ° Ã¬ÂÂÃ¬ÂÂ</div>
         </button>
       </div>
 
       {isNew ? (
         <div className="grid md:grid-cols-2 gap-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
-          <FieldEdit label="ì íëª" value={form.name} onChange={(v) => setF('name', v)} placeholder="ì: ì ê· ìì´ì´ ì í" required />
-          <FieldEdit label="íëª©ëª (ìì½ì², ìì )" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="ìì  íëª©ëª (ë¯¸íì  ì ë¹ìëì¸ì)" />
-          <MdcatCardPicker label="ìë£ê¸°ê¸° ëë¶ë¥ ì í" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', 'ì í ì í¨'], ...MDCAT1.map((cc) => [cc, cc])]} />
-          <MdcatCardPicker label="ì¤ë¶ë¥ ì í" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === 'ê¸°í'} options={[['', 'ì í ì í¨'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+          <FieldEdit label="Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ" value={form.name} onChange={(v) => setF('name', v)} placeholder="Ã¬ÂÂ: Ã¬ÂÂ ÃªÂ·Â Ã¬ÂÂÃ¬ÂÂ´Ã¬ÂÂ´ Ã¬Â ÂÃ­ÂÂ" required />
+          <FieldEdit label="Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ (Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â, Ã¬ÂÂÃ¬Â Â)" value={form.itemName} onChange={(v) => setF('itemName', v)} placeholder="Ã¬ÂÂÃ¬Â Â Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ (Ã«Â¯Â¸Ã­ÂÂÃ¬Â Â Ã¬ÂÂ Ã«Â¹ÂÃ¬ÂÂÃ«ÂÂÃ¬ÂÂ¸Ã¬ÂÂ)" />
+          <MdcatCardPicker label="Ã¬ÂÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â° Ã«ÂÂÃ«Â¶ÂÃ«Â¥Â Ã¬ÂÂ Ã­ÂÂ" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', 'Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã­ÂÂ¨'], ...MDCAT1.map((cc) => [cc, cc])]} />
+          <MdcatCardPicker label="Ã¬Â¤ÂÃ«Â¶ÂÃ«Â¥Â Ã¬ÂÂ Ã­ÂÂ" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === 'ÃªÂ¸Â°Ã­ÂÂ'} options={[['', 'Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã­ÂÂ¨'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
         </div>
       ) : (
         <div className="space-y-4 pt-3" style={{ borderTop: '1px solid var(--line)' }}>
@@ -867,10 +867,10 @@ function AddProductPanel({ onCancel, onSaved }) {
             <label htmlFor="license-pdf-input" className="cursor-pointer inline-flex flex-col items-center gap-1.5">
               <Upload size={22} style={{ color: 'var(--moss)' }} />
               <span className="text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
-                {extracting ? 'AIê° íê°ì¦ì ë¶ìíë ì¤â¦' : 'íê°ì¦ PDF ìë¡ë'}
+                {extracting ? 'AIÃªÂ°Â Ã­ÂÂÃªÂ°ÂÃ¬Â¦ÂÃ¬ÂÂ Ã«Â¶ÂÃ¬ÂÂÃ­ÂÂÃ«ÂÂ Ã¬Â¤ÂÃ¢ÂÂ¦' : 'Ã­ÂÂÃªÂ°ÂÃ¬Â¦Â PDF Ã¬ÂÂÃ«Â¡ÂÃ«ÂÂ'}
               </span>
               <span className="text-[11.5px]" style={{ color: 'var(--ink-mute)' }}>
-                ìë¡ëíë©´ AIê° íëª©ëª Â· ë¶ë¥ë²í¸ Â· ë±ê¸ Â· íê°ë²í¸ Â· íê°ì¼ê³¼ ëª¨ë¸ ëª©ë¡ì ìëì¼ë¡ ì±ìëë¤
+                Ã¬ÂÂÃ«Â¡ÂÃ«ÂÂÃ­ÂÂÃ«Â©Â´ AIÃªÂ°Â Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ ÃÂ· Ã«Â¶ÂÃ«Â¥ÂÃ«Â²ÂÃ­ÂÂ¸ ÃÂ· Ã«ÂÂ±ÃªÂ¸Â ÃÂ· Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸ ÃÂ· Ã­ÂÂÃªÂ°ÂÃ¬ÂÂ¼ÃªÂ³Â¼ Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â±ÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤
               </span>
             </label>
             {extractedFileName && (
@@ -884,59 +884,59 @@ function AddProductPanel({ onCancel, onSaved }) {
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
-            <FieldEdit label="íê°ë²í¸" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="ì: ì í 2024-00123" required />
+            <FieldEdit label="Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸" value={form.licenseNo} onChange={(v) => setF('licenseNo', v)} placeholder="Ã¬ÂÂ: Ã¬Â ÂÃ­ÂÂ 2024-00123" required />
             <FieldEdit
-              label="íëª©ëª (ìì½ì²)"
+              label="Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ (Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â)"
               value={form.itemName}
               onChange={(v) => { setF('itemName', v); if (!form.name.trim()) setF('name', v) }}
-              placeholder="ìì½ì² íëª©ëª"
+              placeholder="Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ"
               required
             />
-            <FieldEdit label="ìì½ì² ë¶ë¥ë²í¸" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="ì: A11010.01" required />
-            <MdcatCardPicker label="ë±ê¸ ì í (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1ë±ê¸'], ['2', '2ë±ê¸'], ['3', '3ë±ê¸'], ['4', '4ë±ê¸']]} />
-            <FieldEdit label="íê°ì¼" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
-            <FieldEdit label="ì íëª (ë´ë¶ ê´ë¦¬ëª, ì í)" value={form.name} onChange={(v) => setF('name', v)} placeholder="ë¹ìëë©´ íëª©ëªì ì¬ì©í©ëë¤" />
+            <FieldEdit label="Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â Ã«Â¶ÂÃ«Â¥ÂÃ«Â²ÂÃ­ÂÂ¸" value={form.classNo} onChange={(v) => setF('classNo', v)} placeholder="Ã¬ÂÂ: A11010.01" required />
+            <MdcatCardPicker label="Ã«ÂÂ±ÃªÂ¸Â Ã¬ÂÂ Ã­ÂÂ (Class)" value={form.grade} onChange={(v) => setF('grade', v)} options={[['1', '1Ã«ÂÂ±ÃªÂ¸Â'], ['2', '2Ã«ÂÂ±ÃªÂ¸Â'], ['3', '3Ã«ÂÂ±ÃªÂ¸Â'], ['4', '4Ã«ÂÂ±ÃªÂ¸Â']]} />
+            <FieldEdit label="Ã­ÂÂÃªÂ°ÂÃ¬ÂÂ¼" value={form.issueDate} onChange={(v) => setF('issueDate', v)} type="date" />
+            <FieldEdit label="Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ (Ã«ÂÂ´Ã«Â¶Â ÃªÂ´ÂÃ«Â¦Â¬Ã«ÂªÂ, Ã¬ÂÂ Ã­ÂÂ)" value={form.name} onChange={(v) => setF('name', v)} placeholder="Ã«Â¹ÂÃ¬ÂÂÃ«ÂÂÃ«Â©Â´ Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂÃ¬ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤" />
           </div>
 
           <details className="text-[12.5px]">
-            <summary className="cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>ì¶ê° í­ëª© (ëª¨ë¸ë²í¸ Â· ìì¢ Â· ì ì´ Â· SW ë±) â íì ì í¼ì¹ê¸°</summary>
+            <summary className="cursor-pointer select-none" style={{ color: 'var(--ink-mute)' }}>Ã¬Â¶ÂÃªÂ°Â Ã­ÂÂ­Ã«ÂªÂ© (Ã«ÂªÂ¨Ã«ÂÂ¸Ã«Â²ÂÃ­ÂÂ¸ ÃÂ· Ã¬ÂÂÃ¬Â¢Â ÃÂ· Ã¬Â ÂÃ¬Â´Â ÃÂ· SW Ã«ÂÂ±) Ã¢ÂÂ Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ Ã­ÂÂ¼Ã¬Â¹ÂÃªÂ¸Â°</summary>
             <div className="grid md:grid-cols-2 gap-4 pt-3">
-              <FieldEdit label="ëª¨ë¸ ë²í¸" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
-              <SelectEdit label="ì¶ì ê´ë¦¬ ëì" value={form.track} onChange={(v) => setF('track', v)} options={[['N', 'ë¹ëì'], ['Y', 'ëì (Y)']]} />
-              <SelectEdit label="ì¸íê° ìì¢ (ëë¶ë¥)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', 'ì í ì í¨'], ...MDCAT1.map((cc) => [cc, cc])]} />
-              <SelectEdit label="ì¸íê° ìì¢ (ì¤ë¶ë¥)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === 'ê¸°í'} options={[['', 'ì í ì í¨'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
-              {(form.cat1 === 'ê¸°í' || form.cat2 === 'ê¸°í') && (
-                <FieldEdit label="ê¸°í ìì¢ ì§ì  ìë ¥" value={form.etc} onChange={(v) => setF('etc', v)} />
+              <FieldEdit label="Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«Â²ÂÃ­ÂÂ¸" value={form.modelNumber} onChange={(v) => setF('modelNumber', v)} />
+              <SelectEdit label="Ã¬Â¶ÂÃ¬Â ÂÃªÂ´ÂÃ«Â¦Â¬ Ã«ÂÂÃ¬ÂÂ" value={form.track} onChange={(v) => setF('track', v)} options={[['N', 'Ã«Â¹ÂÃ«ÂÂÃ¬ÂÂ'], ['Y', 'Ã«ÂÂÃ¬ÂÂ (Y)']]} />
+              <SelectEdit label="Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬Â¢Â (Ã«ÂÂÃ«Â¶ÂÃ«Â¥Â)" value={form.cat1} onChange={(v) => setF('cat1', v)} options={[['', 'Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã­ÂÂ¨'], ...MDCAT1.map((cc) => [cc, cc])]} />
+              <SelectEdit label="Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬Â¢Â (Ã¬Â¤ÂÃ«Â¶ÂÃ«Â¥Â)" value={form.cat2} onChange={(v) => setF('cat2', v)} disabled={!form.cat1 || form.cat1 === 'ÃªÂ¸Â°Ã­ÂÂ'} options={[['', 'Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã­ÂÂ¨'], ...(MDCAT[form.cat1] || []).map((cc) => [cc, cc])]} />
+              {(form.cat1 === 'ÃªÂ¸Â°Ã­ÂÂ' || form.cat2 === 'ÃªÂ¸Â°Ã­ÂÂ') && (
+                <FieldEdit label="ÃªÂ¸Â°Ã­ÂÂ Ã¬ÂÂÃ¬Â¢Â Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ«Â Â¥" value={form.etc} onChange={(v) => setF('etc', v)} />
               )}
-              <SelectEdit label="ì ì²´ ì ì´" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', 'ì ì²´ ë¹ì ì´'], ['surface', 'í¼ë¶Â·ì ë§ ì ì´ (Surface)'], ['external', 'ì¸ë¶ íµì  (External Communicating)'], ['implantable', 'ìíëí¸ (Implantable)']]} />
-              <SelectEdit label="ìíí¸ì¨ì´" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW ìì'], ['embedded', 'ë´ì¥ SW'], ['samd', 'ëë¦½í SW (SaMD)']]} />
-              <FieldEdit label="ìëë ì¬ì©" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
+              <SelectEdit label="Ã¬ÂÂ Ã¬Â²Â´ Ã¬Â ÂÃ¬Â´Â" value={form.contact} onChange={(v) => setF('contact', v)} options={[['none', 'Ã¬ÂÂ Ã¬Â²Â´ Ã«Â¹ÂÃ¬Â ÂÃ¬Â´Â'], ['surface', 'Ã­ÂÂ¼Ã«Â¶ÂÃÂ·Ã¬Â ÂÃ«Â§Â Ã¬Â ÂÃ¬Â´Â (Surface)'], ['external', 'Ã¬ÂÂ¸Ã«Â¶Â Ã­ÂÂµÃ¬ÂÂ  (External Communicating)'], ['implantable', 'Ã¬ÂÂÃ­ÂÂÃ«ÂÂÃ­ÂÂ¸ (Implantable)']]} />
+              <SelectEdit label="Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´" value={form.software} onChange={(v) => setF('software', v)} options={[['none', 'SW Ã¬ÂÂÃ¬ÂÂ'], ['embedded', 'Ã«ÂÂ´Ã¬ÂÂ¥ SW'], ['samd', 'Ã«ÂÂÃ«Â¦Â½Ã­ÂÂ SW (SaMD)']]} />
+              <FieldEdit label="Ã¬ÂÂÃ«ÂÂÃ«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©" value={form.intendedUse} onChange={(v) => setF('intendedUse', v)} multiline />
             </div>
           </details>
 
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[12.5px] font-medium" style={{ color: 'var(--ink)' }}>
-                ëª¨ë¸ ëª©ë¡{draftModels.length > 0 ? ` (${draftModels.length}ê°)` : ''}
+                Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡Â{draftModels.length > 0 ? ` (${draftModels.length}ÃªÂ°Â)` : ''}
               </span>
-              <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> í ì¶ê°</button>
+              <button type="button" onClick={addDraftModel} className="btn-ghost text-[11.5px]"><Plus size={12} /> Ã­ÂÂ Ã¬Â¶ÂÃªÂ°Â</button>
             </div>
             {draftModels.length === 0 ? (
               <div className="text-center py-6 text-[12px] rounded-lg" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                PDFë¥¼ ìë¡ëíë©´ ëª¨ë¸ ëª©ë¡ì´ ìëì¼ë¡ ì±ìì§ëë¤. ì§ì  ì¶ê°í  ìë ììµëë¤.
+                PDFÃ«Â¥Â¼ Ã¬ÂÂÃ«Â¡ÂÃ«ÂÂÃ­ÂÂÃ«Â©Â´ Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ´ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â±ÂÃ¬ÂÂÃ¬Â§ÂÃ«ÂÂÃ«ÂÂ¤. Ã¬Â§ÂÃ¬Â Â Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂ  Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.
               </div>
             ) : (
               <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--line)' }}>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 text-[10.5px] font-mono uppercase tracking-wide" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>
-                  <span>ëª¨ë¸ ì½ë</span>
-                  <span>ëª¨ë¸ëª / ë¹ê³ </span>
+                  <span>Ã«ÂªÂ¨Ã«ÂÂ¸ Ã¬Â½ÂÃ«ÂÂ</span>
+                  <span>Ã«ÂªÂ¨Ã«ÂÂ¸Ã«ÂªÂ / Ã«Â¹ÂÃªÂ³Â </span>
                   <span></span>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   {draftModels.map((m) => (
                     <div key={m.id} className="grid grid-cols-[1fr_1fr_auto] gap-2 px-3 py-1.5 items-center" style={{ borderTop: '1px solid var(--line)' }}>
-                      <input value={m.code} onChange={(e) => updateDraftModel(m.id, { code: e.target.value })} className="input-base text-[12.5px] font-mono" placeholder="ëª¨ë¸ì½ë" />
-                      <input value={m.name} onChange={(e) => updateDraftModel(m.id, { name: e.target.value })} className="input-base text-[12.5px]" placeholder="ëª¨ë¸ëª / ê·ê²©" />
+                      <input value={m.code} onChange={(e) => updateDraftModel(m.id, { code: e.target.value })} className="input-base text-[12.5px] font-mono" placeholder="Ã«ÂªÂ¨Ã«ÂÂ¸Ã¬Â½ÂÃ«ÂÂ" />
+                      <input value={m.name} onChange={(e) => updateDraftModel(m.id, { name: e.target.value })} className="input-base text-[12.5px]" placeholder="Ã«ÂªÂ¨Ã«ÂÂ¸Ã«ÂªÂ / ÃªÂ·ÂÃªÂ²Â©" />
                       <button onClick={() => removeDraftModel(m.id)} style={{ color: 'var(--ink-faint)' }}><Trash2 size={13} /></button>
                     </div>
                   ))}
@@ -949,20 +949,20 @@ function AddProductPanel({ onCancel, onSaved }) {
 
       <div className="pt-3">
         <FieldEdit
-          label={(isNew ? 'ë±ë¡' : 'ì¶ê°') + ' ì¬ì  (CCR â ISO 13485 Â§4.2.4)' + (!isNew ? ' Â· ë¹ìëë©´ íê°ë²í¸ ê¸°ì¤ì¼ë¡ ìë ê¸°ë¡' : '')}
+          label={(isNew ? 'Ã«ÂÂ±Ã«Â¡Â' : 'Ã¬Â¶ÂÃªÂ°Â') + ' Ã¬ÂÂ¬Ã¬ÂÂ  (CCR Ã¢ÂÂ ISO 13485 ÃÂ§4.2.4)' + (!isNew ? ' ÃÂ· Ã«Â¹ÂÃ¬ÂÂÃ«ÂÂÃ«Â©Â´ Ã­ÂÂÃªÂ°ÂÃ«Â²ÂÃ­ÂÂ¸ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬ÂÂÃ«ÂÂ ÃªÂ¸Â°Ã«Â¡Â' : '')}
           value={reason}
           onChange={setReason}
-          placeholder={isNew ? 'ì: ì ê· ë¼ì¸ì ì¶ì / ì í í¬í¸í´ë¦¬ì¤ íì¥' : 'ë¹ìëë©´ ìë ê¸°ë¡ë©ëë¤ (ì§ì  ìë ¥ ê°ë¥)'}
+          placeholder={isNew ? 'Ã¬ÂÂ: Ã¬ÂÂ ÃªÂ·Â Ã«ÂÂ¼Ã¬ÂÂ¸Ã¬ÂÂ Ã¬Â¶ÂÃ¬ÂÂ / Ã¬Â ÂÃ­ÂÂ Ã­ÂÂ¬Ã­ÂÂ¸Ã­ÂÂ´Ã«Â¦Â¬Ã¬ÂÂ¤ Ã­ÂÂÃ¬ÂÂ¥' : 'Ã«Â¹ÂÃ¬ÂÂÃ«ÂÂÃ«Â©Â´ Ã¬ÂÂÃ«ÂÂ ÃªÂ¸Â°Ã«Â¡ÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤ (Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ«Â Â¥ ÃªÂ°ÂÃ«ÂÂ¥)'}
           required={isNew}
         />
       </div>
 
       <div className="flex justify-end gap-2 pt-3">
-        <button onClick={onCancel} className="btn-ghost">â ì´ì </button>
-        <button onClick={save} className="btn-primary">{isNew ? 'ì¤ê³ ê³í ìì' : 'ë±ë¡ ìë£'} Â· CCR ë°ì</button>
+        <button onClick={onCancel} className="btn-ghost">Ã¢ÂÂ Ã¬ÂÂ´Ã¬Â Â</button>
+        <button onClick={save} className="btn-primary">{isNew ? 'Ã¬ÂÂ¤ÃªÂ³Â ÃªÂ³ÂÃ­ÂÂ Ã¬ÂÂÃ¬ÂÂ' : 'Ã«ÂÂ±Ã«Â¡Â Ã¬ÂÂÃ«Â£Â'} ÃÂ· CCR Ã«Â°ÂÃ¬ÂÂ</button>
       </div>
 
-      <ComplianceFooter regs={['ISO 13485 Â§7.3', '21 CFR 820.30', 'MDR Annex II']} />
+      <ComplianceFooter regs={['ISO 13485 ÃÂ§7.3', '21 CFR 820.30', 'MDR Annex II']} />
     </div>
   )
 }
@@ -979,7 +979,7 @@ function MdcatCardPicker({ label, value, onChange, options, disabled, cols = 3 }
           >{display}</button>
         ))}
       </div>
-      {value && <div className="mt-1 font-mono text-[9px]" style={{ color: 'var(--moss)' }}>â {value} ì íë¨</div>}
+      {value && <div className="mt-1 font-mono text-[9px]" style={{ color: 'var(--moss)' }}>Ã¢ÂÂ {value} Ã¬ÂÂ Ã­ÂÂÃ«ÂÂ¨</div>}
     </div>
   )
 }
@@ -1015,7 +1015,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteReason, setDeleteReason] = useState('')
 
-  // ìí°í° IDë ì ì¥ ì í ëì¼í´ì¼ CCR ì´ë ¥ì´ ì´ì´ì§ë¤ (id ìë êµ¬í ë ì½ëë modelNumberë¡ ê³ ì )
+  // Ã¬ÂÂÃ­ÂÂ°Ã­ÂÂ° IDÃ«ÂÂ Ã¬Â ÂÃ¬ÂÂ¥ Ã¬Â ÂÃ­ÂÂ Ã«ÂÂÃ¬ÂÂ¼Ã­ÂÂ´Ã¬ÂÂ¼ CCR Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ´ Ã¬ÂÂ´Ã¬ÂÂ´Ã¬Â§ÂÃ«ÂÂ¤ (id Ã¬ÂÂÃ«ÂÂ ÃªÂµÂ¬Ã­ÂÂ Ã«Â ÂÃ¬Â½ÂÃ«ÂÂÃ«ÂÂ modelNumberÃ«Â¡Â ÃªÂ³Â Ã¬Â Â)
   const productId = product?.id || product?.classNo || product?.modelNumber || 'main'
   const productEid = eid(ENTITY_TYPES.PRODUCT, productId)
 
@@ -1024,9 +1024,9 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
     [productEid, editing]
   )
 
-  // #32 ì¬ìì  â ì°ëë³ ìì°Â·ììì¤ì (#â¥)ì KMDIA(ìë£ê¸°ê¸°ì°ìì ë³´ìì¤í)ì ë³ë ë³´ê³ íë
-  // ì¬í­ì´ë©° ì´ íë©´(ì¤ê³ê°ë°/ì íìì¸) ìì¹ë ë§ì§ ìëë¤ë ì§ì ì ë°ë¼ ì­ì íë¤.
-  // (GMP ì ì²­ ê´ë ¨ ìë£ë ë³ë "GMP ì ì²­" ë©ë´ìì íµí© ê´ë¦¬íë¤.)
+  // #32 Ã¬ÂÂ¬Ã¬ÂÂÃ¬Â Â Ã¢ÂÂ Ã¬ÂÂ°Ã«ÂÂÃ«Â³Â Ã¬ÂÂÃ¬ÂÂ°ÃÂ·Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¤Ã¬Â Â(#Ã¢ÂÂ¥)Ã¬ÂÂ KMDIA(Ã¬ÂÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â°Ã¬ÂÂ°Ã¬ÂÂÃ¬Â ÂÃ«Â³Â´Ã¬ÂÂÃ¬ÂÂ¤Ã­ÂÂ)Ã¬ÂÂ Ã«Â³ÂÃ«ÂÂ Ã«Â³Â´ÃªÂ³Â Ã­ÂÂÃ«ÂÂ
+  // Ã¬ÂÂ¬Ã­ÂÂ­Ã¬ÂÂ´Ã«Â©Â° Ã¬ÂÂ´ Ã­ÂÂÃ«Â©Â´(Ã¬ÂÂ¤ÃªÂ³ÂÃªÂ°ÂÃ«Â°Â/Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃ¬ÂÂ¸) Ã¬ÂÂÃ¬Â¹ÂÃ«ÂÂ Ã«Â§ÂÃ¬Â§Â Ã¬ÂÂÃ«ÂÂÃ«ÂÂ¤Ã«ÂÂ Ã¬Â§ÂÃ¬Â ÂÃ¬ÂÂ Ã«ÂÂ°Ã«ÂÂ¼ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ«ÂÂ¤.
+  // (GMP Ã¬ÂÂ Ã¬Â²Â­ ÃªÂ´ÂÃ«Â Â¨ Ã¬ÂÂÃ«Â£ÂÃ«ÂÂ Ã«Â³ÂÃ«ÂÂ "GMP Ã¬ÂÂ Ã¬Â²Â­" Ã«Â©ÂÃ«ÂÂ´Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂµÃ­ÂÂ© ÃªÂ´ÂÃ«Â¦Â¬Ã­ÂÂÃ«ÂÂ¤.)
 
   const startEdit = () => {
     if (!requirePermission('onb.product.edit')) return
@@ -1043,13 +1043,13 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
   const saveEdit = () => {
     if (!reason.trim()) {
-      alert('ë³ê²½ ì¬ì ë íììëë¤ (CCR â ISO 13485 Â§4.2.4).')
+      alert('Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ¬Ã¬ÂÂ Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤ (CCR Ã¢ÂÂ ISO 13485 ÃÂ§4.2.4).')
       return
     }
     const before = { ...product }
     const next = { ...product, ...draft, id: productId }
 
-    // ì¨ë³´ë© ìí ìë°ì´í¸ (ì í ë°°ì´ìì í´ë¹ ì íë§ ê°±ì )
+    // Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ¸ (Ã¬Â ÂÃ­ÂÂ Ã«Â°Â°Ã¬ÂÂ´Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂ´Ã«ÂÂ¹ Ã¬Â ÂÃ­ÂÂÃ«Â§Â ÃªÂ°Â±Ã¬ÂÂ )
     const ob = onboarding.load()
     const list = Array.isArray(ob.products) ? ob.products.slice() : []
     const idx = list.findIndex((p) => (p.id || p.modelNumber || 'main') === productId)
@@ -1057,7 +1057,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
     else list.push(next)
     onboarding.save({ ...ob, products: list })
 
-    // CCR ìë ë°ì
+    // CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ
     commitChange({
       targetEid: productEid,
       action: CHANGE_ACTIONS.UPDATE,
@@ -1069,13 +1069,13 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
     setEditing(false)
     setDraft(null)
     setReason('')
-    onAction('ì í ì ë³´ ìì  Â· CCR ìë ë°ì')
+    onAction('Ã¬Â ÂÃ­ÂÂ Ã¬Â ÂÃ«Â³Â´ Ã¬ÂÂÃ¬Â Â ÃÂ· CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ')
     setTimeout(() => window.location.reload(), 600)
   }
 
   const doDelete = () => {
     if (!deleteReason.trim()) {
-      alert('ì­ì  ì¬ì ë íììëë¤ (ì: íê°ì·¨ì, ìëª»ìë ¥ ë±).')
+      alert('Ã¬ÂÂ­Ã¬Â Â Ã¬ÂÂ¬Ã¬ÂÂ Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤ (Ã¬ÂÂ: Ã­ÂÂÃªÂ°ÂÃ¬Â·Â¨Ã¬ÂÂ, Ã¬ÂÂÃ«ÂªÂ»Ã¬ÂÂÃ«Â Â¥ Ã«ÂÂ±).')
       return
     }
     const ob = onboarding.load()
@@ -1083,7 +1083,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
     const nextList = list.filter((p) => (p.id || 'main') !== (product.id || 'main'))
     onboarding.save({ ...ob, products: nextList })
 
-    // CCR ìë ë°ì (ì­ì  ì´ë ¥ ë³´ì¡´)
+    // CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ (Ã¬ÂÂ­Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥ Ã«Â³Â´Ã¬Â¡Â´)
     commitChange({
       targetEid: productEid,
       action: CHANGE_ACTIONS.DELETE,
@@ -1094,7 +1094,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
     setShowDeleteModal(false)
     setDeleteReason('')
-    onAction('ì íì´ ì­ì ëììµëë¤ Â· CCR ìë ë°ì')
+    onAction('Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã¬ÂÂ­Ã¬Â ÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤ ÃÂ· CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂ')
     if (onDeleted) onDeleted()
   }
 
@@ -1137,7 +1137,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
   return (
     <div className="grid lg:grid-cols-3 gap-4">
-      {/* ì¢: ì í ì¹´ë */}
+      {/* Ã¬Â¢Â: Ã¬Â ÂÃ­ÂÂ Ã¬Â¹Â´Ã«ÂÂ */}
       <div className="lg:col-span-2">
         <div className="card-base p-5">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -1146,7 +1146,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                 className="font-mono text-[10px] tracking-[0.18em] uppercase"
                 style={{ color: 'var(--moss)' }}
               >
-                PRODUCT MASTER Â· {productEid}
+                PRODUCT MASTER ÃÂ· {productEid}
               </span>
               <div
                 className="font-display text-[22px] mt-1 leading-tight"
@@ -1158,16 +1158,16 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                 className="font-mono text-[12px] mt-0.5"
                 style={{ color: 'var(--ink-mute)' }}
               >
-                {[product.classNo, company?.name].filter(Boolean).join(' Â· ')}
+                {[product.classNo, company?.name].filter(Boolean).join(' ÃÂ· ')}
               </div>
             </div>
             {!editing && canEdit && (
               <div className="flex items-center gap-2">
                 <button onClick={startEdit} className="btn-ghost text-[12px]">
-                  <Edit3 size={12} /> ìì 
+                  <Edit3 size={12} /> Ã¬ÂÂÃ¬Â Â
                 </button>
                 <button onClick={() => setShowDeleteModal(true)} className="btn-ghost text-[12px]" style={{ color: '#DC2626' }}>
-                  <Trash2 size={12} /> ì­ì 
+                  <Trash2 size={12} /> Ã¬ÂÂ­Ã¬Â Â
                 </button>
               </div>
             )}
@@ -1179,47 +1179,47 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                 className="grid md:grid-cols-2 gap-4 pt-3"
                 style={{ borderTop: '1px solid var(--line)' }}
               >
-                <Field label="íëª©ëª (ìì½ì²)" value={product.itemName || product.name || '-'} />
-                <Field label="ë¶ë¥ë²í¸" value={product.classNo || '-'} />
+                <Field label="Ã­ÂÂÃ«ÂªÂ©Ã«ÂªÂ (Ã¬ÂÂÃ¬ÂÂ½Ã¬Â²Â)" value={product.itemName || product.name || '-'} />
+                <Field label="Ã«Â¶ÂÃ«Â¥ÂÃ«Â²ÂÃ­ÂÂ¸" value={product.classNo || '-'} />
                 <Field
-                  label="ë±ê¸ (Class)"
+                  label="Ã«ÂÂ±ÃªÂ¸Â (Class)"
                   value={
                     product.grade
-                      ? `${product.grade}ë±ê¸`
+                      ? `${product.grade}Ã«ÂÂ±ÃªÂ¸Â`
                       : product.classification
                       ? `Class ${product.classification}`
-                      : 'ë¯¸ë¶ë¥'
+                      : 'Ã«Â¯Â¸Ã«Â¶ÂÃ«Â¥Â'
                   }
                 />
                 <Field
-                  label="ì¸íê° ìì¢"
+                  label="Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬Â¢Â"
                   value={
-                    [product.cat1, product.cat2].filter(Boolean).join(' âº ') ||
+                    [product.cat1, product.cat2].filter(Boolean).join(' Ã¢ÂÂº ') ||
                     product.etc ||
                     '-'
                   }
                 />
                 <Field
-                  label="ì ì²´ ì ì´"
+                  label="Ã¬ÂÂ Ã¬Â²Â´ Ã¬Â ÂÃ¬Â´Â"
                   value={CONTACT_LABELS[product.contact] || '-'}
                 />
                 <Field
-                  label="ìíí¸ì¨ì´"
+                  label="Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´"
                   value={SW_LABELS[product.software] || product.software || '-'}
                 />
                 <Field
-                  label="ì¶ì ê´ë¦¬ ëì"
-                  value={product.track === 'Y' ? 'ëì (Y)' : 'ë¹ëì'}
+                  label="Ã¬Â¶ÂÃ¬Â ÂÃªÂ´ÂÃ«Â¦Â¬ Ã«ÂÂÃ¬ÂÂ"
+                  value={product.track === 'Y' ? 'Ã«ÂÂÃ¬ÂÂ (Y)' : 'Ã«Â¹ÂÃ«ÂÂÃ¬ÂÂ'}
                 />
                 {product.intendedUse && (
-                  <Field label="ìëë ì¬ì©" value={product.intendedUse} />
+                  <Field label="Ã¬ÂÂÃ«ÂÂÃ«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©" value={product.intendedUse} />
                 )}
               </div>
 
               {product.sterileEnabled && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
-                    ë©¸ê·  ë°©ë² ì¬ì (ISO 13485 Â§7.5.7)
+                    Ã«Â©Â¸ÃªÂ·Â  Ã«Â°Â©Ã«Â²Â Ã¬ÂÂ¬Ã¬ÂÂ (ISO 13485 ÃÂ§7.5.7)
                     <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{
                       background: (SPEC_STATUSES.find(s => s.value === (product.sterileStatus || 'not_validated')) || {}).color + '22',
                       color: (SPEC_STATUSES.find(s => s.value === (product.sterileStatus || 'not_validated')) || {}).color,
@@ -1228,24 +1228,24 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </span>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="ë©¸ê·  ë°©ë²" value={product.sterileMethod || '-'} />
-                    <Field label="SAL ëª©í" value={product.salTarget || '-'} />
-                    <Field label="ì¬ì´í´ ì¨ë / ìê° / ìë ¥" value={[
-                      product.cycleTemp && (product.cycleTemp + 'â'),
-                      product.cycleTime && (product.cycleTime + 'ë¶'),
+                    <Field label="Ã«Â©Â¸ÃªÂ·Â  Ã«Â°Â©Ã«Â²Â" value={product.sterileMethod || '-'} />
+                    <Field label="SAL Ã«ÂªÂ©Ã­ÂÂ" value={product.salTarget || '-'} />
+                    <Field label="Ã¬ÂÂ¬Ã¬ÂÂ´Ã­ÂÂ´ Ã¬ÂÂ¨Ã«ÂÂ / Ã¬ÂÂÃªÂ°Â / Ã¬ÂÂÃ«Â Â¥" value={[
+                      product.cycleTemp && (product.cycleTemp + 'Ã¢ÂÂ'),
+                      product.cycleTime && (product.cycleTime + 'Ã«Â¶Â'),
                       product.cyclePressure && (product.cyclePressure + ' bar'),
                     ].filter(Boolean).join(' / ') || '-'} />
-                    <Field label="ì ë (ë°©ì¬ì )" value={product.cycleDose || '-'} />
-                    <Field label="ë°¸ë¦¬ë°ì´ì ì°¸ì¡°" value={product.validationRef || '-'} />
-                    <Field label="í¬ì¥ ë°¸ë¦¬ë°ì´ì ì°¸ì¡°" value={product.packagingRef || '-'} />
-                    <Field label="ë°ì´ì¤ë²ë  íë / ìíë²" value={[product.bioburdenLimit, product.bioburdenMethod].filter(Boolean).join(' / ') || '-'} />
-                    <Field label="ë©¸ê·  ì í¨ê¸°ê°" value={product.expiryMonths ? product.expiryMonths + 'ê°ì' : '-'} />
-                    <Field label="ë©¸ê· ì± ìí" value={product.sterilityTestRequired !== false ? 'íì (ISO 11737-2)' : 'í´ë¹ ìì'} />
-                    <Field label="ì¬ì²ë¦¬ íì©" value={product.reprocessingAllowed ? 'ì (ì£¼ì)' : 'ë¨íì© (ì¬ì²ë¦¬ ê¸ì§)'} />
+                    <Field label="Ã¬ÂÂ Ã«ÂÂ (Ã«Â°Â©Ã¬ÂÂ¬Ã¬ÂÂ )" value={product.cycleDose || '-'} />
+                    <Field label="Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â°" value={product.validationRef || '-'} />
+                    <Field label="Ã­ÂÂ¬Ã¬ÂÂ¥ Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â°" value={product.packagingRef || '-'} />
+                    <Field label="Ã«Â°ÂÃ¬ÂÂ´Ã¬ÂÂ¤Ã«Â²ÂÃ«ÂÂ  Ã­ÂÂÃ«ÂÂ / Ã¬ÂÂÃ­ÂÂÃ«Â²Â" value={[product.bioburdenLimit, product.bioburdenMethod].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="Ã«Â©Â¸ÃªÂ·Â  Ã¬ÂÂ Ã­ÂÂ¨ÃªÂ¸Â°ÃªÂ°Â" value={product.expiryMonths ? product.expiryMonths + 'ÃªÂ°ÂÃ¬ÂÂ' : '-'} />
+                    <Field label="Ã«Â©Â¸ÃªÂ·Â Ã¬ÂÂ± Ã¬ÂÂÃ­ÂÂ" value={product.sterilityTestRequired !== false ? 'Ã­ÂÂÃ¬ÂÂ (ISO 11737-2)' : 'Ã­ÂÂ´Ã«ÂÂ¹ Ã¬ÂÂÃ¬ÂÂ'} />
+                    <Field label="Ã¬ÂÂ¬Ã¬Â²ÂÃ«Â¦Â¬ Ã­ÂÂÃ¬ÂÂ©" value={product.reprocessingAllowed ? 'Ã¬ÂÂ (Ã¬Â£Â¼Ã¬ÂÂ)' : 'Ã«ÂÂ¨Ã­ÂÂÃ¬ÂÂ© (Ã¬ÂÂ¬Ã¬Â²ÂÃ«Â¦Â¬ ÃªÂ¸ÂÃ¬Â§Â)'} />
                   </div>
                   {product.sterileNotes && (
                     <div className="mt-3">
-                      <Field label="ë¹ê³ " value={product.sterileNotes} />
+                      <Field label="Ã«Â¹ÂÃªÂ³Â " value={product.sterileNotes} />
                     </div>
                   )}
                 </div>
@@ -1254,7 +1254,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
               {product.cleanEnabled && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2 flex items-center gap-1.5" style={{ color: 'var(--moss)' }}>
-                    ì²­ê²°ë ì¬ì (ISO 13485 Â§7.5.2)
+                    Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ (ISO 13485 ÃÂ§7.5.2)
                     <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-full" style={{
                       background: (CLEAN_STATUSES.find(s => s.value === (product.cleanStatus || 'not_validated')) || {}).color + '22',
                       color: (CLEAN_STATUSES.find(s => s.value === (product.cleanStatus || 'not_validated')) || {}).color,
@@ -1263,22 +1263,22 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </span>
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="ì ì© ì¡°ê±´" value={CLEAN_APPLIES_WHEN[product.cleanAppliesWhen] || '-'} />
-                    <Field label="ì²­ê²°ë ë±ê¸" value={product.cleanClass || '-'} />
-                    <Field label="ì¸ì² ë°©ë²" value={product.cleaningMethod || '-'} />
-                    <Field label="ëª¨ëí°ë§ ë¹ë" value={product.cleanFrequency || '-'} />
-                    <Field label="ì¤ì¼ ì í" value={(product.contaminationTypes || []).join(', ') || '-'} />
-                    <Field label="ë¯¸ë¦½ì íë / ë¯¸ìë¬¼ íë" value={[product.particleLimit, product.microbialLimit].filter(Boolean).join(' / ') || '-'} />
-                    <Field label="íí ìë¥ íë" value={product.chemicalLimit || '-'} />
-                    <Field label="ì¸ì² SOP ì°¸ì¡°" value={product.cleaningProcedureRef || '-'} />
-                    <Field label="ë°¸ë¦¬ë°ì´ì ì°¸ì¡°" value={product.cleanValidationRef || '-'} />
-                    <Field label="ì²­ê²°ë ê²ì¬ ë°©ë²" value={product.inspectionMethod || '-'} />
-                    <Field label="í©ê²© ê¸°ì¤" value={product.acceptanceCriteria || '-'} />
-                    <Field label="ë´ë¹" value={product.cleanResponsible || '-'} />
+                    <Field label="Ã¬Â ÂÃ¬ÂÂ© Ã¬Â¡Â°ÃªÂ±Â´" value={CLEAN_APPLIES_WHEN[product.cleanAppliesWhen] || '-'} />
+                    <Field label="Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ Ã«ÂÂ±ÃªÂ¸Â" value={product.cleanClass || '-'} />
+                    <Field label="Ã¬ÂÂ¸Ã¬Â²Â Ã«Â°Â©Ã«Â²Â" value={product.cleaningMethod || '-'} />
+                    <Field label="Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â Ã«Â¹ÂÃ«ÂÂ" value={product.cleanFrequency || '-'} />
+                    <Field label="Ã¬ÂÂ¤Ã¬ÂÂ¼ Ã¬ÂÂ Ã­ÂÂ" value={(product.contaminationTypes || []).join(', ') || '-'} />
+                    <Field label="Ã«Â¯Â¸Ã«Â¦Â½Ã¬ÂÂ Ã­ÂÂÃ«ÂÂ / Ã«Â¯Â¸Ã¬ÂÂÃ«Â¬Â¼ Ã­ÂÂÃ«ÂÂ" value={[product.particleLimit, product.microbialLimit].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="Ã­ÂÂÃ­ÂÂ Ã¬ÂÂÃ«Â¥Â Ã­ÂÂÃ«ÂÂ" value={product.chemicalLimit || '-'} />
+                    <Field label="Ã¬ÂÂ¸Ã¬Â²Â SOP Ã¬Â°Â¸Ã¬Â¡Â°" value={product.cleaningProcedureRef || '-'} />
+                    <Field label="Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â°" value={product.cleanValidationRef || '-'} />
+                    <Field label="Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬ Ã«Â°Â©Ã«Â²Â" value={product.inspectionMethod || '-'} />
+                    <Field label="Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â" value={product.acceptanceCriteria || '-'} />
+                    <Field label="Ã«ÂÂ´Ã«ÂÂ¹" value={product.cleanResponsible || '-'} />
                   </div>
                   {product.cleanNotes && (
                     <div className="mt-3">
-                      <Field label="ë¹ê³ " value={product.cleanNotes} />
+                      <Field label="Ã«Â¹ÂÃªÂ³Â " value={product.cleanNotes} />
                     </div>
                   )}
                 </div>
@@ -1287,32 +1287,32 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
               {product.preserveEnabled && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    ë³´ì¡´ ì¬ì (ISO 13485 Â§7.5.11)
+                    Ã«Â³Â´Ã¬Â¡Â´ Ã¬ÂÂ¬Ã¬ÂÂ (ISO 13485 ÃÂ§7.5.11)
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="ë³´ê´ ì¡°ê±´" value={(STORAGE_CONDITIONS.find(c => c.key === (product.storageCondition || 'room')) || {}).label || '-'} />
-                    <Field label="ì¨ë / ìµë ë²ì" value={[
-                      (product.tempMin || product.tempMax) && `${product.tempMin || '-'}~${product.tempMax || '-'}â`,
+                    <Field label="Ã«Â³Â´ÃªÂ´Â Ã¬Â¡Â°ÃªÂ±Â´" value={(STORAGE_CONDITIONS.find(c => c.key === (product.storageCondition || 'room')) || {}).label || '-'} />
+                    <Field label="Ã¬ÂÂ¨Ã«ÂÂ / Ã¬ÂÂµÃ«ÂÂ Ã«Â²ÂÃ¬ÂÂ" value={[
+                      (product.tempMin || product.tempMax) && `${product.tempMin || '-'}~${product.tempMax || '-'}Ã¢ÂÂ`,
                       (product.humMin || product.humMax) && `${product.humMin || '-'}~${product.humMax || '-'}%RH`,
                     ].filter(Boolean).join(' / ') || '-'} />
-                    <Field label="ì í¨ê¸°ê°" value={product.shelfLifeMonths ? product.shelfLifeMonths + 'ê°ì' : '-'} />
-                    <Field label="ë©¸ê·  ë°©ë²" value={product.preserveSterility || '-'} />
-                    <Field label="í¬ì¥ ì í / ì¬ì" value={[product.packagingType, product.packagingSpec].filter(Boolean).join(' / ') || '-'} />
-                    <Field label="ì ì¬ íê³" value={product.stackLimit || '-'} />
-                    <Field label="ì°¨ê´ / ì¶©ê²© ì·¨ì½" value={[product.lightSensitive && 'ì°¨ê´ íì', product.shockSensitive && 'ì¶©ê²© ì·¨ì½'].filter(Boolean).join(' Â· ') || 'í´ë¹ ìì'} />
-                    <Field label="ì°ê²° íê²½ êµ¬ì­ ID" value={product.linkedEnvZoneId || '-'} />
-                    <Field label="ì²­ê²° ìêµ¬ì¬í­" value={product.cleanlinessReq || '-'} />
-                    <Field label="ì·¨ê¸ ì§ì¹¨" value={product.handlingInstructions || '-'} />
+                    <Field label="Ã¬ÂÂ Ã­ÂÂ¨ÃªÂ¸Â°ÃªÂ°Â" value={product.shelfLifeMonths ? product.shelfLifeMonths + 'ÃªÂ°ÂÃ¬ÂÂ' : '-'} />
+                    <Field label="Ã«Â©Â¸ÃªÂ·Â  Ã«Â°Â©Ã«Â²Â" value={product.preserveSterility || '-'} />
+                    <Field label="Ã­ÂÂ¬Ã¬ÂÂ¥ Ã¬ÂÂ Ã­ÂÂ / Ã¬ÂÂ¬Ã¬ÂÂ" value={[product.packagingType, product.packagingSpec].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="Ã¬Â ÂÃ¬ÂÂ¬ Ã­ÂÂÃªÂ³Â" value={product.stackLimit || '-'} />
+                    <Field label="Ã¬Â°Â¨ÃªÂ´Â / Ã¬Â¶Â©ÃªÂ²Â© Ã¬Â·Â¨Ã¬ÂÂ½" value={[product.lightSensitive && 'Ã¬Â°Â¨ÃªÂ´Â Ã­ÂÂÃ¬ÂÂ', product.shockSensitive && 'Ã¬Â¶Â©ÃªÂ²Â© Ã¬Â·Â¨Ã¬ÂÂ½'].filter(Boolean).join(' ÃÂ· ') || 'Ã­ÂÂ´Ã«ÂÂ¹ Ã¬ÂÂÃ¬ÂÂ'} />
+                    <Field label="Ã¬ÂÂ°ÃªÂ²Â° Ã­ÂÂÃªÂ²Â½ ÃªÂµÂ¬Ã¬ÂÂ­ ID" value={product.linkedEnvZoneId || '-'} />
+                    <Field label="Ã¬Â²Â­ÃªÂ²Â° Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­" value={product.cleanlinessReq || '-'} />
+                    <Field label="Ã¬Â·Â¨ÃªÂ¸Â Ã¬Â§ÂÃ¬Â¹Â¨" value={product.handlingInstructions || '-'} />
                   </div>
                   {(product.pkgCheckItems || []).length > 0 && (
                     <div className="mt-3">
-                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì¶í ì  í¬ì¥Â·ë³´ì¡´ ì ê² í­ëª©</label>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬Â¶ÂÃ­ÂÂ Ã¬Â Â Ã­ÂÂ¬Ã¬ÂÂ¥ÃÂ·Ã«Â³Â´Ã¬Â¡Â´ Ã¬Â ÂÃªÂ²Â Ã­ÂÂ­Ã«ÂªÂ©</label>
                       <div className="mt-1 grid md:grid-cols-2 gap-1.5">
                         {product.pkgCheckItems.map((ci, i) => (
                           <div key={i} className="flex gap-2 text-[12px] p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                             <span style={{ color: 'var(--ink-faint)', minWidth: 16 }}>{i + 1}.</span>
                             <span style={{ color: 'var(--ink)' }}>{ci.name}</span>
-                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>â {ci.spec}</span>}
+                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>Ã¢ÂÂ {ci.spec}</span>}
                           </div>
                         ))}
                       </div>
@@ -1320,7 +1320,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                   )}
                   {product.preserveNotes && (
                     <div className="mt-3">
-                      <Field label="ë¹ê³ " value={product.preserveNotes} />
+                      <Field label="Ã«Â¹ÂÃªÂ³Â " value={product.preserveNotes} />
                     </div>
                   )}
                 </div>
@@ -1329,7 +1329,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
               {(product.installCheckItems || []).length > 0 && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    ì¤ì¹ ì²´í¬ë¦¬ì¤í¸ (ISO 13485 Â§7.5.3 â ì¤ì¹Â·ìë¹ì¤ íë©´ìì ì¬ì©)
+                    Ã¬ÂÂ¤Ã¬Â¹Â Ã¬Â²Â´Ã­ÂÂ¬Ã«Â¦Â¬Ã¬ÂÂ¤Ã­ÂÂ¸ (ISO 13485 ÃÂ§7.5.3 Ã¢ÂÂ Ã¬ÂÂ¤Ã¬Â¹ÂÃÂ·Ã¬ÂÂÃ«Â¹ÂÃ¬ÂÂ¤ Ã­ÂÂÃ«Â©Â´Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©)
                   </div>
                   <div className="grid md:grid-cols-2 gap-1.5">
                     {product.installCheckItems.map((ci, i) => (
@@ -1345,24 +1345,24 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
               {product.inspStdName && (
                 <div className="pt-3 mt-3" style={{ borderTop: '1px dashed var(--line)' }}>
                   <div className="text-[11.5px] font-bold mb-2" style={{ color: 'var(--moss)' }}>
-                    ê²ì¬ ê¸°ì¤ì (ISO 13485 Â§8.2.4 ìµì¢ê²ì¬)
+                    ÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ (ISO 13485 ÃÂ§8.2.4 Ã¬ÂµÂÃ¬Â¢ÂÃªÂ²ÂÃ¬ÂÂ¬)
                   </div>
                   <div className="grid md:grid-cols-2 gap-4">
-                    <Field label="ê¸°ì¤ì ì´ë¦" value={product.inspStdName} />
-                    <Field label="ë²ì  / ìíì¼" value={[product.inspStdVersion || '1.0', product.inspStdEffectiveDate].filter(Boolean).join(' Â· ')} />
-                    <Field label="ê²ì¬ ì í" value={(INSP_TYPES.find((t) => t.value === (product.inspStdType || 'fqc')) || {}).label || '-'} />
-                    <Field label="AQL ìì¤" value={product.inspStdAqlLevel || '-'} />
-                    <Field label="í©ê²© / ë¶í©ê²© ìë" value={[product.inspStdAcceptQty, product.inspStdRejectQty].filter(Boolean).join(' / ') || '-'} />
+                    <Field label="ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ Ã¬ÂÂ´Ã«Â¦Â" value={product.inspStdName} />
+                    <Field label="Ã«Â²ÂÃ¬Â Â / Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ¼" value={[product.inspStdVersion || '1.0', product.inspStdEffectiveDate].filter(Boolean).join(' ÃÂ· ')} />
+                    <Field label="ÃªÂ²ÂÃ¬ÂÂ¬ Ã¬ÂÂ Ã­ÂÂ" value={(INSP_TYPES.find((t) => t.value === (product.inspStdType || 'fqc')) || {}).label || '-'} />
+                    <Field label="AQL Ã¬ÂÂÃ¬Â¤Â" value={product.inspStdAqlLevel || '-'} />
+                    <Field label="Ã­ÂÂ©ÃªÂ²Â© / Ã«Â¶ÂÃ­ÂÂ©ÃªÂ²Â© Ã¬ÂÂÃ«ÂÂ" value={[product.inspStdAcceptQty, product.inspStdRejectQty].filter(Boolean).join(' / ') || '-'} />
                   </div>
                   {(product.inspStdCheckItems || []).length > 0 && (
                     <div className="mt-3">
-                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ê²ì¬ í­ëª©</label>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©</label>
                       <div className="mt-1 grid md:grid-cols-2 gap-1.5">
                         {product.inspStdCheckItems.map((ci, i) => (
                           <div key={i} className="flex gap-2 text-[12px] p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                             <span style={{ color: 'var(--ink-faint)', minWidth: 16 }}>{i + 1}.</span>
                             <span style={{ color: 'var(--ink)' }}>{ci.name}</span>
-                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>â {ci.spec}</span>}
+                            {ci.spec && <span style={{ color: 'var(--ink-faint)' }}>Ã¢ÂÂ {ci.spec}</span>}
                           </div>
                         ))}
                       </div>
@@ -1370,7 +1370,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                   )}
                   {product.inspStdNotes && (
                     <div className="mt-3">
-                      <Field label="ë¹ê³ " value={product.inspStdNotes} />
+                      <Field label="Ã«Â¹ÂÃªÂ³Â " value={product.inspStdNotes} />
                     </div>
                   )}
                 </div>
@@ -1382,31 +1382,31 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
               style={{ borderTop: '1px solid var(--line)' }}
             >
               <FieldEdit
-                label="ì íëª"
+                label="Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ"
                 value={draft.name}
                 onChange={(v) => setDraft({ ...draft, name: v })}
               />
               <FieldEdit
-                label="ëª¨ë¸ ë²í¸"
+                label="Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«Â²ÂÃ­ÂÂ¸"
                 value={draft.modelNumber}
                 onChange={(v) => setDraft({ ...draft, modelNumber: v })}
               />
               <FieldEdit
-                label="ìëë ì¬ì©"
+                label="Ã¬ÂÂÃ«ÂÂÃ«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©"
                 value={draft.intendedUse}
                 onChange={(v) => setDraft({ ...draft, intendedUse: v })}
                 multiline
               />
               <FieldEdit
-                label="ë¶ë¥ (ì: IIa, IIb, III)"
+                label="Ã«Â¶ÂÃ«Â¥Â (Ã¬ÂÂ: IIa, IIb, III)"
                 value={draft.classification || ''}
                 onChange={(v) => setDraft({ ...draft, classification: v })}
               />
 
               <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
                 <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-                  ì í ê¸°ì ì¤ëªÂ·ë¹êµìë£(ê¸°ì ë¬¸ìë±ì¬ì¬ìë¢°ì ì ì²­ë´ì©)ë{' '}
-                  <a href="/gmp-application?tab=tech" className="underline" style={{ color: 'var(--moss)' }}>GMP ì ì²­</a> íë©´ìì ìì±Â·ê´ë¦¬í©ëë¤.
+                  Ã¬Â ÂÃ­ÂÂ ÃªÂ¸Â°Ã¬ÂÂ Ã¬ÂÂ¤Ã«ÂªÂÃÂ·Ã«Â¹ÂÃªÂµÂÃ¬ÂÂÃ«Â£Â(ÃªÂ¸Â°Ã¬ÂÂ Ã«Â¬Â¸Ã¬ÂÂÃ«ÂÂ±Ã¬ÂÂ¬Ã¬ÂÂ¬Ã¬ÂÂÃ«Â¢Â°Ã¬ÂÂ Ã¬ÂÂ Ã¬Â²Â­Ã«ÂÂ´Ã¬ÂÂ©)Ã«ÂÂ{' '}
+                  <a href="/gmp-application?tab=tech" className="underline" style={{ color: 'var(--moss)' }}>GMP Ã¬ÂÂ Ã¬Â²Â­</a> Ã­ÂÂÃ«Â©Â´Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±ÃÂ·ÃªÂ´ÂÃ«Â¦Â¬Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
                 </div>
               </div>
 
@@ -1417,20 +1417,20 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     checked={!!draft.sterileEnabled}
                     onChange={(e) => setDraft({ ...draft, sterileEnabled: e.target.checked })}
                   />
-                  ì´ ì íì ë©¸ê·  ìë£ê¸°ê¸°ìëë¤ (ISO 13485 Â§7.5.7 ì¬ì ìë ¥)
+                  Ã¬ÂÂ´ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã«Â©Â¸ÃªÂ·Â  Ã¬ÂÂÃ«Â£ÂÃªÂ¸Â°ÃªÂ¸Â°Ã¬ÂÂÃ«ÂÂÃ«ÂÂ¤ (ISO 13485 ÃÂ§7.5.7 Ã¬ÂÂ¬Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥)
                 </label>
 
                 {draft.sterileEnabled && (
                   <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ë©¸ê·  ë°©ë²</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«Â©Â¸ÃªÂ·Â  Ã«Â°Â©Ã«Â²Â</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.sterileMethod || STERILE_METHODS[0]} onChange={(e) => setDraft({ ...draft, sterileMethod: e.target.value })}>
                           {STERILE_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>SAL ëª©í</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>SAL Ã«ÂªÂ©Ã­ÂÂ</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.salTarget || SAL_LEVELS[0]} onChange={(e) => setDraft({ ...draft, salTarget: e.target.value })}>
                           {SAL_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
@@ -1438,25 +1438,25 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <FieldEdit label="ì¬ì´í´ ì¨ë (â)" value={draft.cycleTemp} onChange={(v) => setDraft({ ...draft, cycleTemp: v })} placeholder="121" />
-                      <FieldEdit label="ì¬ì´í´ ìê° (ë¶)" value={draft.cycleTime} onChange={(v) => setDraft({ ...draft, cycleTime: v })} placeholder="15" />
-                      <FieldEdit label="ì¬ì´í´ ìë ¥ (bar)" value={draft.cyclePressure} onChange={(v) => setDraft({ ...draft, cyclePressure: v })} placeholder="2.1" />
-                      <FieldEdit label="ì ë (kGy)" value={draft.cycleDose} onChange={(v) => setDraft({ ...draft, cycleDose: v })} placeholder="25 (ë°©ì¬ì )" />
+                      <FieldEdit label="Ã¬ÂÂ¬Ã¬ÂÂ´Ã­ÂÂ´ Ã¬ÂÂ¨Ã«ÂÂ (Ã¢ÂÂ)" value={draft.cycleTemp} onChange={(v) => setDraft({ ...draft, cycleTemp: v })} placeholder="121" />
+                      <FieldEdit label="Ã¬ÂÂ¬Ã¬ÂÂ´Ã­ÂÂ´ Ã¬ÂÂÃªÂ°Â (Ã«Â¶Â)" value={draft.cycleTime} onChange={(v) => setDraft({ ...draft, cycleTime: v })} placeholder="15" />
+                      <FieldEdit label="Ã¬ÂÂ¬Ã¬ÂÂ´Ã­ÂÂ´ Ã¬ÂÂÃ«Â Â¥ (bar)" value={draft.cyclePressure} onChange={(v) => setDraft({ ...draft, cyclePressure: v })} placeholder="2.1" />
+                      <FieldEdit label="Ã¬ÂÂ Ã«ÂÂ (kGy)" value={draft.cycleDose} onChange={(v) => setDraft({ ...draft, cycleDose: v })} placeholder="25 (Ã«Â°Â©Ã¬ÂÂ¬Ã¬ÂÂ )" />
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3">
-                      <FieldEdit label="ë°¸ë¦¬ë°ì´ì ì°¸ì¡° ë²í¸" value={draft.validationRef} onChange={(v) => setDraft({ ...draft, validationRef: v })} placeholder="VLD-2024-001" />
-                      <FieldEdit label="í¬ì¥ ë°¸ë¦¬ë°ì´ì ì°¸ì¡°" value={draft.packagingRef} onChange={(v) => setDraft({ ...draft, packagingRef: v })} placeholder="PKG-VAL-001" />
-                      <FieldEdit label="ë°ì´ì¤ë²ë  íë (CFU/ê°)" value={draft.bioburdenLimit} onChange={(v) => setDraft({ ...draft, bioburdenLimit: v })} placeholder="â¤ 100" />
+                      <FieldEdit label="Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â° Ã«Â²ÂÃ­ÂÂ¸" value={draft.validationRef} onChange={(v) => setDraft({ ...draft, validationRef: v })} placeholder="VLD-2024-001" />
+                      <FieldEdit label="Ã­ÂÂ¬Ã¬ÂÂ¥ Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â°" value={draft.packagingRef} onChange={(v) => setDraft({ ...draft, packagingRef: v })} placeholder="PKG-VAL-001" />
+                      <FieldEdit label="Ã«Â°ÂÃ¬ÂÂ´Ã¬ÂÂ¤Ã«Â²ÂÃ«ÂÂ  Ã­ÂÂÃ«ÂÂ (CFU/ÃªÂ°Â)" value={draft.bioburdenLimit} onChange={(v) => setDraft({ ...draft, bioburdenLimit: v })} placeholder="Ã¢ÂÂ¤ 100" />
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ë°ì´ì¤ë²ë  ìíë²</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«Â°ÂÃ¬ÂÂ´Ã¬ÂÂ¤Ã«Â²ÂÃ«ÂÂ  Ã¬ÂÂÃ­ÂÂÃ«Â²Â</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.bioburdenMethod || BIOBURDEN_METHODS[0]} onChange={(e) => setDraft({ ...draft, bioburdenMethod: e.target.value })}>
                           {BIOBURDEN_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </div>
-                      <FieldEdit label="ë©¸ê·  ì í¨ê¸°ê° (ê°ì)" value={draft.expiryMonths} onChange={(v) => setDraft({ ...draft, expiryMonths: v })} placeholder="24" />
+                      <FieldEdit label="Ã«Â©Â¸ÃªÂ·Â  Ã¬ÂÂ Ã­ÂÂ¨ÃªÂ¸Â°ÃªÂ°Â (ÃªÂ°ÂÃ¬ÂÂ)" value={draft.expiryMonths} onChange={(v) => setDraft({ ...draft, expiryMonths: v })} placeholder="24" />
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ë°¸ë¦¬ë°ì´ì ìí</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬ÂÂÃ­ÂÂ</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.sterileStatus || 'not_validated'} onChange={(e) => setDraft({ ...draft, sterileStatus: e.target.value })}>
                           {SPEC_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
@@ -1466,15 +1466,15 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     <div className="flex gap-5">
                       <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
                         <input type="checkbox" checked={draft.sterilityTestRequired !== false} onChange={(e) => setDraft({ ...draft, sterilityTestRequired: e.target.checked })} />
-                        ë©¸ê· ì± ìí íì (ISO 11737-2)
+                        Ã«Â©Â¸ÃªÂ·Â Ã¬ÂÂ± Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃ¬ÂÂ (ISO 11737-2)
                       </label>
                       <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
                         <input type="checkbox" checked={!!draft.reprocessingAllowed} onChange={(e) => setDraft({ ...draft, reprocessingAllowed: e.target.checked })} />
-                        ì¬ì²ë¦¬ íì© (ë¨íì©ì´ ìë ê²½ì°)
+                        Ã¬ÂÂ¬Ã¬Â²ÂÃ«Â¦Â¬ Ã­ÂÂÃ¬ÂÂ© (Ã«ÂÂ¨Ã­ÂÂÃ¬ÂÂ©Ã¬ÂÂ´ Ã¬ÂÂÃ«ÂÂ ÃªÂ²Â½Ã¬ÂÂ°)
                       </label>
                     </div>
 
-                    <FieldEdit label="ë©¸ê·  ì¬ì ë¹ê³ " value={draft.sterileNotes} onChange={(v) => setDraft({ ...draft, sterileNotes: v })} multiline placeholder="ì¶ê° ìêµ¬ì¬í­ ëë í¹ì´ì¬í­" />
+                    <FieldEdit label="Ã«Â©Â¸ÃªÂ·Â  Ã¬ÂÂ¬Ã¬ÂÂ Ã«Â¹ÂÃªÂ³Â " value={draft.sterileNotes} onChange={(v) => setDraft({ ...draft, sterileNotes: v })} multiline placeholder="Ã¬Â¶ÂÃªÂ°Â Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã«ÂÂÃ«ÂÂ Ã­ÂÂ¹Ã¬ÂÂ´Ã¬ÂÂ¬Ã­ÂÂ­" />
                   </div>
                 )}
               </div>
@@ -1486,32 +1486,32 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     checked={!!draft.cleanEnabled}
                     onChange={(e) => setDraft({ ...draft, cleanEnabled: e.target.checked })}
                   />
-                  ì´ ì íì ì²­ê²°ëÂ·ì¤ì¼ ê´ë¦¬ ìêµ¬ì¬í­ì´ ì ì©ë©ëë¤ (ISO 13485 Â§7.5.2 ì¬ì ìë ¥)
+                  Ã¬ÂÂ´ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂÃÂ·Ã¬ÂÂ¤Ã¬ÂÂ¼ ÃªÂ´ÂÃ«Â¦Â¬ Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­Ã¬ÂÂ´ Ã¬Â ÂÃ¬ÂÂ©Ã«ÂÂ©Ã«ÂÂÃ«ÂÂ¤ (ISO 13485 ÃÂ§7.5.2 Ã¬ÂÂ¬Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥)
                 </label>
 
                 {draft.cleanEnabled && (
                   <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì ì© ì¡°ê±´</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬Â ÂÃ¬ÂÂ© Ã¬Â¡Â°ÃªÂ±Â´</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanAppliesWhen || 'supplied_clean'} onChange={(e) => setDraft({ ...draft, cleanAppliesWhen: e.target.value })}>
                           {Object.entries(CLEAN_APPLIES_WHEN).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì²­ê²°ë ë±ê¸</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ Ã«ÂÂ±ÃªÂ¸Â</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanClass || CLEAN_CLASSES[6]} onChange={(e) => setDraft({ ...draft, cleanClass: e.target.value })}>
                           {CLEAN_CLASSES.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì¸ì² ë°©ë²</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬ÂÂ¸Ã¬Â²Â Ã«Â°Â©Ã«Â²Â</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.cleaningMethod || CLEANING_METHODS[0]} onChange={(e) => setDraft({ ...draft, cleaningMethod: e.target.value })}>
                           {CLEANING_METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ëª¨ëí°ë§ ë¹ë</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â Ã«Â¹ÂÃ«ÂÂ</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanFrequency || MONITOR_FREQS[0]} onChange={(e) => setDraft({ ...draft, cleanFrequency: e.target.value })}>
                           {MONITOR_FREQS.map((f) => <option key={f} value={f}>{f}</option>)}
                         </select>
@@ -1519,7 +1519,7 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </div>
 
                     <div>
-                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì¤ì¼ ì í (ë³µì ì í)</label>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬ÂÂ¤Ã¬ÂÂ¼ Ã¬ÂÂ Ã­ÂÂ (Ã«Â³ÂµÃ¬ÂÂ Ã¬ÂÂ Ã­ÂÂ)</label>
                       <div className="flex flex-wrap gap-2 mt-1">
                         {CONTAMINATION_TYPES.map((t) => {
                           const active = (draft.contaminationTypes || []).includes(t)
@@ -1538,26 +1538,26 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      <FieldEdit label="ë¯¸ë¦½ì íë (ê°/ã¥)" value={draft.particleLimit} onChange={(v) => setDraft({ ...draft, particleLimit: v })} placeholder="12,500" />
-                      <FieldEdit label="ë¯¸ìë¬¼ íë (CFU/ã¥)" value={draft.microbialLimit} onChange={(v) => setDraft({ ...draft, microbialLimit: v })} placeholder="3" />
-                      <FieldEdit label="íí ìë¥ íë" value={draft.chemicalLimit} onChange={(v) => setDraft({ ...draft, chemicalLimit: v })} placeholder="" />
+                      <FieldEdit label="Ã«Â¯Â¸Ã«Â¦Â½Ã¬ÂÂ Ã­ÂÂÃ«ÂÂ (ÃªÂ°Â/Ã£ÂÂ¥)" value={draft.particleLimit} onChange={(v) => setDraft({ ...draft, particleLimit: v })} placeholder="12,500" />
+                      <FieldEdit label="Ã«Â¯Â¸Ã¬ÂÂÃ«Â¬Â¼ Ã­ÂÂÃ«ÂÂ (CFU/Ã£ÂÂ¥)" value={draft.microbialLimit} onChange={(v) => setDraft({ ...draft, microbialLimit: v })} placeholder="3" />
+                      <FieldEdit label="Ã­ÂÂÃ­ÂÂ Ã¬ÂÂÃ«Â¥Â Ã­ÂÂÃ«ÂÂ" value={draft.chemicalLimit} onChange={(v) => setDraft({ ...draft, chemicalLimit: v })} placeholder="" />
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3">
-                      <FieldEdit label="ì¸ì² SOP ì°¸ì¡°" value={draft.cleaningProcedureRef} onChange={(v) => setDraft({ ...draft, cleaningProcedureRef: v })} placeholder="SOP-CL-001" />
-                      <FieldEdit label="ë°¸ë¦¬ë°ì´ì ì°¸ì¡° ë²í¸ (ìì¼ë©´ ì ê¸° ì¸¡ì ê° ëì²´)" value={draft.cleanValidationRef} onChange={(v) => setDraft({ ...draft, cleanValidationRef: v })} placeholder="VLD-2024-CL-001" />
-                      <FieldEdit label="ì²­ê²°ë ê²ì¬ ë°©ë²" value={draft.inspectionMethod} onChange={(v) => setDraft({ ...draft, inspectionMethod: v })} placeholder="íí°í´ ì¹´ì´í° ì¸¡ì " />
-                      <FieldEdit label="í©ê²© ê¸°ì¤" value={draft.acceptanceCriteria} onChange={(v) => setDraft({ ...draft, acceptanceCriteria: v })} placeholder="" />
-                      <FieldEdit label="ë´ë¹" value={draft.cleanResponsible} onChange={(v) => setDraft({ ...draft, cleanResponsible: v })} placeholder="ìì°í" />
+                      <FieldEdit label="Ã¬ÂÂ¸Ã¬Â²Â SOP Ã¬Â°Â¸Ã¬Â¡Â°" value={draft.cleaningProcedureRef} onChange={(v) => setDraft({ ...draft, cleaningProcedureRef: v })} placeholder="SOP-CL-001" />
+                      <FieldEdit label="Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ Ã¬Â°Â¸Ã¬Â¡Â° Ã«Â²ÂÃ­ÂÂ¸ (Ã¬ÂÂÃ¬ÂÂ¼Ã«Â©Â´ Ã¬Â ÂÃªÂ¸Â° Ã¬Â¸Â¡Ã¬Â ÂÃªÂ°Â Ã«ÂÂÃ¬Â²Â´)" value={draft.cleanValidationRef} onChange={(v) => setDraft({ ...draft, cleanValidationRef: v })} placeholder="VLD-2024-CL-001" />
+                      <FieldEdit label="Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬ Ã«Â°Â©Ã«Â²Â" value={draft.inspectionMethod} onChange={(v) => setDraft({ ...draft, inspectionMethod: v })} placeholder="Ã­ÂÂÃ­ÂÂ°Ã­ÂÂ´ Ã¬Â¹Â´Ã¬ÂÂ´Ã­ÂÂ° Ã¬Â¸Â¡Ã¬Â Â" />
+                      <FieldEdit label="Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â" value={draft.acceptanceCriteria} onChange={(v) => setDraft({ ...draft, acceptanceCriteria: v })} placeholder="" />
+                      <FieldEdit label="Ã«ÂÂ´Ã«ÂÂ¹" value={draft.cleanResponsible} onChange={(v) => setDraft({ ...draft, cleanResponsible: v })} placeholder="Ã¬ÂÂÃ¬ÂÂ°Ã­ÂÂ" />
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ìí</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬ÂÂÃ­ÂÂ</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.cleanStatus || 'not_validated'} onChange={(e) => setDraft({ ...draft, cleanStatus: e.target.value })}>
                           {CLEAN_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
                       </div>
                     </div>
 
-                    <FieldEdit label="ì²­ê²°ë ì¬ì ë¹ê³ " value={draft.cleanNotes} onChange={(v) => setDraft({ ...draft, cleanNotes: v })} multiline placeholder="ì¶ê° ìêµ¬ì¬í­ ëë í¹ì´ì¬í­" />
+                    <FieldEdit label="Ã¬Â²Â­ÃªÂ²Â°Ã«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ Ã«Â¹ÂÃªÂ³Â " value={draft.cleanNotes} onChange={(v) => setDraft({ ...draft, cleanNotes: v })} multiline placeholder="Ã¬Â¶ÂÃªÂ°Â Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã«ÂÂÃ«ÂÂ Ã­ÂÂ¹Ã¬ÂÂ´Ã¬ÂÂ¬Ã­ÂÂ­" />
                   </div>
                 )}
               </div>
@@ -1569,20 +1569,20 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     checked={!!draft.preserveEnabled}
                     onChange={(e) => setDraft({ ...draft, preserveEnabled: e.target.checked })}
                   />
-                  ì´ ì íì ë³´ì¡´Â·ì·¨ê¸ ì¬ìì´ ì ì©ë©ëë¤ (ISO 13485 Â§7.5.11 ì¬ì ìë ¥)
+                  Ã¬ÂÂ´ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã«Â³Â´Ã¬Â¡Â´ÃÂ·Ã¬Â·Â¨ÃªÂ¸Â Ã¬ÂÂ¬Ã¬ÂÂÃ¬ÂÂ´ Ã¬Â ÂÃ¬ÂÂ©Ã«ÂÂ©Ã«ÂÂÃ«ÂÂ¤ (ISO 13485 ÃÂ§7.5.11 Ã¬ÂÂ¬Ã¬ÂÂ Ã¬ÂÂÃ«Â Â¥)
                 </label>
 
                 {draft.preserveEnabled && (
                   <div className="mt-3 space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                     <div className="grid md:grid-cols-2 gap-3">
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ë³´ê´ ì¡°ê±´</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«Â³Â´ÃªÂ´Â Ã¬Â¡Â°ÃªÂ±Â´</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.storageCondition || 'room'} onChange={(e) => setDraft({ ...draft, storageCondition: e.target.value })}>
                           {STORAGE_CONDITIONS.map((c) => <option key={c.key} value={c.key}>{c.icon} {c.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ë©¸ê·  ë°©ë²</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã«Â©Â¸ÃªÂ·Â  Ã«Â°Â©Ã«Â²Â</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.preserveSterility || STERILITY[0]} onChange={(e) => setDraft({ ...draft, preserveSterility: e.target.value })}>
                           {STERILITY.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -1590,57 +1590,57 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <FieldEdit label="ì¨ë ìµì (â)" value={draft.tempMin} onChange={(v) => setDraft({ ...draft, tempMin: v })} placeholder="1" />
-                      <FieldEdit label="ì¨ë ìµë (â)" value={draft.tempMax} onChange={(v) => setDraft({ ...draft, tempMax: v })} placeholder="30" />
-                      <FieldEdit label="ìµë ìµì (%RH)" value={draft.humMin} onChange={(v) => setDraft({ ...draft, humMin: v })} placeholder="" />
-                      <FieldEdit label="ìµë ìµë (%RH)" value={draft.humMax} onChange={(v) => setDraft({ ...draft, humMax: v })} placeholder="" />
+                      <FieldEdit label="Ã¬ÂÂ¨Ã«ÂÂ Ã¬ÂµÂÃ¬ÂÂ (Ã¢ÂÂ)" value={draft.tempMin} onChange={(v) => setDraft({ ...draft, tempMin: v })} placeholder="1" />
+                      <FieldEdit label="Ã¬ÂÂ¨Ã«ÂÂ Ã¬ÂµÂÃ«ÂÂ (Ã¢ÂÂ)" value={draft.tempMax} onChange={(v) => setDraft({ ...draft, tempMax: v })} placeholder="30" />
+                      <FieldEdit label="Ã¬ÂÂµÃ«ÂÂ Ã¬ÂµÂÃ¬ÂÂ (%RH)" value={draft.humMin} onChange={(v) => setDraft({ ...draft, humMin: v })} placeholder="" />
+                      <FieldEdit label="Ã¬ÂÂµÃ«ÂÂ Ã¬ÂµÂÃ«ÂÂ (%RH)" value={draft.humMax} onChange={(v) => setDraft({ ...draft, humMax: v })} placeholder="" />
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <FieldEdit label="ì í¨ê¸°ê° (ê°ì)" value={draft.shelfLifeMonths} onChange={(v) => setDraft({ ...draft, shelfLifeMonths: v })} placeholder="12" />
+                      <FieldEdit label="Ã¬ÂÂ Ã­ÂÂ¨ÃªÂ¸Â°ÃªÂ°Â (ÃªÂ°ÂÃ¬ÂÂ)" value={draft.shelfLifeMonths} onChange={(v) => setDraft({ ...draft, shelfLifeMonths: v })} placeholder="12" />
                       <div>
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>í¬ì¥ ì í</label>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã­ÂÂ¬Ã¬ÂÂ¥ Ã¬ÂÂ Ã­ÂÂ</label>
                         <select className="input-base mt-1 w-full text-[13px]" value={draft.packagingType || PACKAGING_TYPES[0]} onChange={(e) => setDraft({ ...draft, packagingType: e.target.value })}>
                           {PACKAGING_TYPES.map((p) => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
-                      <FieldEdit label="ì ì¬ íê³" value={draft.stackLimit} onChange={(v) => setDraft({ ...draft, stackLimit: v })} placeholder="5ë¨ ì´í" />
-                      <FieldEdit label="ì°ê²° íê²½ êµ¬ì­ ID" value={draft.linkedEnvZoneId} onChange={(v) => setDraft({ ...draft, linkedEnvZoneId: v })} placeholder="ZON-xxxx" />
+                      <FieldEdit label="Ã¬Â ÂÃ¬ÂÂ¬ Ã­ÂÂÃªÂ³Â" value={draft.stackLimit} onChange={(v) => setDraft({ ...draft, stackLimit: v })} placeholder="5Ã«ÂÂ¨ Ã¬ÂÂ´Ã­ÂÂ" />
+                      <FieldEdit label="Ã¬ÂÂ°ÃªÂ²Â° Ã­ÂÂÃªÂ²Â½ ÃªÂµÂ¬Ã¬ÂÂ­ ID" value={draft.linkedEnvZoneId} onChange={(v) => setDraft({ ...draft, linkedEnvZoneId: v })} placeholder="ZON-xxxx" />
                     </div>
 
                     <div className="flex gap-5">
                       <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
                         <input type="checkbox" checked={!!draft.lightSensitive} onChange={(e) => setDraft({ ...draft, lightSensitive: e.target.checked })} />
-                        ì°¨ê´ ë³´ê´ íì
+                        Ã¬Â°Â¨ÃªÂ´Â Ã«Â³Â´ÃªÂ´Â Ã­ÂÂÃ¬ÂÂ
                       </label>
                       <label className="flex items-center gap-2 text-[12.5px] cursor-pointer" style={{ color: 'var(--ink)' }}>
                         <input type="checkbox" checked={!!draft.shockSensitive} onChange={(e) => setDraft({ ...draft, shockSensitive: e.target.checked })} />
-                        ì¶©ê²© ì·¨ì½
+                        Ã¬Â¶Â©ÃªÂ²Â© Ã¬Â·Â¨Ã¬ÂÂ½
                       </label>
                     </div>
 
                     <div className="grid md:grid-cols-2 gap-3">
-                      <FieldEdit label="í¬ì¥ ì¬ì" value={draft.packagingSpec} onChange={(v) => setDraft({ ...draft, packagingSpec: v })} multiline placeholder="ì: PE íì°ì¹ ì´ì¤ ë°ë´" />
-                      <FieldEdit label="ì²­ê²° ìêµ¬ì¬í­" value={draft.cleanlinessReq} onChange={(v) => setDraft({ ...draft, cleanlinessReq: v })} multiline placeholder="Â§7.5.2 ì°¸ì¡°" />
-                      <FieldEdit label="ì·¨ê¸ ì§ì¹¨" value={draft.handlingInstructions} onChange={(v) => setDraft({ ...draft, handlingInstructions: v })} multiline placeholder="" />
-                      <FieldEdit label="ë³´ì¡´ ì¬ì ë¹ê³ " value={draft.preserveNotes} onChange={(v) => setDraft({ ...draft, preserveNotes: v })} multiline placeholder="ì¶ê° ìêµ¬ì¬í­ ëë í¹ì´ì¬í­" />
+                      <FieldEdit label="Ã­ÂÂ¬Ã¬ÂÂ¥ Ã¬ÂÂ¬Ã¬ÂÂ" value={draft.packagingSpec} onChange={(v) => setDraft({ ...draft, packagingSpec: v })} multiline placeholder="Ã¬ÂÂ: PE Ã­ÂÂÃ¬ÂÂ°Ã¬Â¹Â Ã¬ÂÂ´Ã¬Â¤Â Ã«Â°ÂÃ«Â´Â" />
+                      <FieldEdit label="Ã¬Â²Â­ÃªÂ²Â° Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­" value={draft.cleanlinessReq} onChange={(v) => setDraft({ ...draft, cleanlinessReq: v })} multiline placeholder="ÃÂ§7.5.2 Ã¬Â°Â¸Ã¬Â¡Â°" />
+                      <FieldEdit label="Ã¬Â·Â¨ÃªÂ¸Â Ã¬Â§ÂÃ¬Â¹Â¨" value={draft.handlingInstructions} onChange={(v) => setDraft({ ...draft, handlingInstructions: v })} multiline placeholder="" />
+                      <FieldEdit label="Ã«Â³Â´Ã¬Â¡Â´ Ã¬ÂÂ¬Ã¬ÂÂ Ã«Â¹ÂÃªÂ³Â " value={draft.preserveNotes} onChange={(v) => setDraft({ ...draft, preserveNotes: v })} multiline placeholder="Ã¬Â¶ÂÃªÂ°Â Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ Ã«ÂÂÃ«ÂÂ Ã­ÂÂ¹Ã¬ÂÂ´Ã¬ÂÂ¬Ã­ÂÂ­" />
                     </div>
 
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì¶í ì  í¬ì¥Â·ë³´ì¡´ ì ê² í­ëª©</label>
-                        <button type="button" onClick={addPkgItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ í­ëª© ì¶ê°</button>
+                        <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬Â¶ÂÃ­ÂÂ Ã¬Â Â Ã­ÂÂ¬Ã¬ÂÂ¥ÃÂ·Ã«Â³Â´Ã¬Â¡Â´ Ã¬Â ÂÃªÂ²Â Ã­ÂÂ­Ã«ÂªÂ©</label>
+                        <button type="button" onClick={addPkgItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â</button>
                       </div>
                       <div className="space-y-2">
                         {(draft.pkgCheckItems || []).map((ci, i) => (
                           <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 32px' }}>
-                            <input value={ci.name} onChange={(e) => updPkgItem(i, 'name', e.target.value)} placeholder="ì ê² í­ëª©ëª" className="input-base text-[12px]" />
-                            <input value={ci.spec} onChange={(e) => updPkgItem(i, 'spec', e.target.value)} placeholder="ê¸°ì¤/íì© ë²ì" className="input-base text-[12px]" />
+                            <input value={ci.name} onChange={(e) => updPkgItem(i, 'name', e.target.value)} placeholder="Ã¬Â ÂÃªÂ²Â Ã­ÂÂ­Ã«ÂªÂ©Ã«ÂªÂ" className="input-base text-[12px]" />
+                            <input value={ci.spec} onChange={(e) => updPkgItem(i, 'spec', e.target.value)} placeholder="ÃªÂ¸Â°Ã¬Â¤Â/Ã­ÂÂÃ¬ÂÂ© Ã«Â²ÂÃ¬ÂÂ" className="input-base text-[12px]" />
                             <button type="button" onClick={() => delPkgItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
                           </div>
                         ))}
                         {(draft.pkgCheckItems || []).length === 0 && (
-                          <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ ë²í¼ì¼ë¡ ì ê² í­ëª©ì ì¶ê°íì¸ì (ë¯¸ìë ¥ ì ê¸°ë³¸ í­ëª© ì¬ì©)</div>
+                          <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ¼Ã«Â¡Â Ã¬Â ÂÃªÂ²Â Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ (Ã«Â¯Â¸Ã¬ÂÂÃ«Â Â¥ Ã¬ÂÂ ÃªÂ¸Â°Ã«Â³Â¸ Ã­ÂÂ­Ã«ÂªÂ© Ã¬ÂÂ¬Ã¬ÂÂ©)</div>
                         )}
                       </div>
                     </div>
@@ -1650,22 +1650,22 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
               <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
                 <div className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>
-                  ì¤ì¹ ì²´í¬ë¦¬ì¤í¸ (ISO 13485 Â§7.5.3 â ì¤ì¹Â·ìë¹ì¤ íë©´ìì ì¬ì©)
+                  Ã¬ÂÂ¤Ã¬Â¹Â Ã¬Â²Â´Ã­ÂÂ¬Ã«Â¦Â¬Ã¬ÂÂ¤Ã­ÂÂ¸ (ISO 13485 ÃÂ§7.5.3 Ã¢ÂÂ Ã¬ÂÂ¤Ã¬Â¹ÂÃÂ·Ã¬ÂÂÃ«Â¹ÂÃ¬ÂÂ¤ Ã­ÂÂÃ«Â©Â´Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©)
                 </div>
                 <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                   <div className="flex items-center justify-between mb-2">
-                    <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ì²´í¬ í­ëª©</label>
-                    <button type="button" onClick={addInstallItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ í­ëª© ì¶ê°</button>
+                    <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>Ã¬Â²Â´Ã­ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©</label>
+                    <button type="button" onClick={addInstallItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â</button>
                   </div>
                   <div className="space-y-2">
                     {(draft.installCheckItems || []).map((ci, i) => (
                       <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 32px' }}>
-                        <input value={ci.name} onChange={(e) => updInstallItem(i, e.target.value)} placeholder="ì¤ì¹ ì ê² í­ëª©ëª" className="input-base text-[12px]" />
+                        <input value={ci.name} onChange={(e) => updInstallItem(i, e.target.value)} placeholder="Ã¬ÂÂ¤Ã¬Â¹Â Ã¬Â ÂÃªÂ²Â Ã­ÂÂ­Ã«ÂªÂ©Ã«ÂªÂ" className="input-base text-[12px]" />
                         <button type="button" onClick={() => delInstallItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
                       </div>
                     ))}
                     {(draft.installCheckItems || []).length === 0 && (
-                      <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ ë²í¼ì¼ë¡ í­ëª©ì ì¶ê°íì¸ì (ë¯¸ìë ¥ ì ê¸°ë³¸ ì¤ì¹ ì²´í¬ë¦¬ì¤í¸ ì¬ì©)</div>
+                      <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ¼Ã«Â¡Â Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ (Ã«Â¯Â¸Ã¬ÂÂÃ«Â Â¥ Ã¬ÂÂ ÃªÂ¸Â°Ã«Â³Â¸ Ã¬ÂÂ¤Ã¬Â¹Â Ã¬Â²Â´Ã­ÂÂ¬Ã«Â¦Â¬Ã¬ÂÂ¤Ã­ÂÂ¸ Ã¬ÂÂ¬Ã¬ÂÂ©)</div>
                     )}
                   </div>
                 </div>
@@ -1673,103 +1673,103 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 
               <div className="pt-3 mt-1" style={{ borderTop: '1px dashed var(--line)' }}>
                 <div className="text-[12.5px] font-semibold mb-2" style={{ color: 'var(--ink)' }}>
-                  ê²ì¬ ê¸°ì¤ì (ISO 13485 Â§8.2.4 ìµì¢ê²ì¬ â ê°ë° ì¤ê³ë¨ê³ ìì±)
+                  ÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ (ISO 13485 ÃÂ§8.2.4 Ã¬ÂµÂÃ¬Â¢ÂÃªÂ²ÂÃ¬ÂÂ¬ Ã¢ÂÂ ÃªÂ°ÂÃ«Â°Â Ã¬ÂÂ¤ÃªÂ³ÂÃ«ÂÂ¨ÃªÂ³Â Ã¬ÂÂÃ¬ÂÂ±)
                 </div>
                 <div className="space-y-3 p-3 rounded-lg" style={{ background: 'var(--bg-soft)' }}>
                   <div className="grid md:grid-cols-2 gap-3">
-                    <FieldEdit label="ê¸°ì¤ì ì´ë¦" value={draft.inspStdName} onChange={(v) => setDraft({ ...draft, inspStdName: v })} placeholder="ì: ìì í ìµì¢ê²ì¬ ê¸°ì¤ì" />
-                    <FieldEdit label="ë²ì " value={draft.inspStdVersion} onChange={(v) => setDraft({ ...draft, inspStdVersion: v })} placeholder="1.0" />
+                    <FieldEdit label="ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ Ã¬ÂÂ´Ã«Â¦Â" value={draft.inspStdName} onChange={(v) => setDraft({ ...draft, inspStdName: v })} placeholder="Ã¬ÂÂ: Ã¬ÂÂÃ¬Â ÂÃ­ÂÂ Ã¬ÂµÂÃ¬Â¢ÂÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ" />
+                    <FieldEdit label="Ã«Â²ÂÃ¬Â Â" value={draft.inspStdVersion} onChange={(v) => setDraft({ ...draft, inspStdVersion: v })} placeholder="1.0" />
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ê²ì¬ ì í</label>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ÃªÂ²ÂÃ¬ÂÂ¬ Ã¬ÂÂ Ã­ÂÂ</label>
                       <select className="input-base mt-1 w-full text-[13px]" value={draft.inspStdType || 'fqc'} onChange={(e) => setDraft({ ...draft, inspStdType: e.target.value })}>
                         {INSP_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                       </select>
                     </div>
-                    <FieldEdit label="ìíì¼" type="date" value={draft.inspStdEffectiveDate} onChange={(v) => setDraft({ ...draft, inspStdEffectiveDate: v })} />
-                    <FieldEdit label="AQL ìì¤" value={draft.inspStdAqlLevel} onChange={(v) => setDraft({ ...draft, inspStdAqlLevel: v })} placeholder="0.65" />
-                    <FieldEdit label="í©ê²© / ë¶í©ê²© ìë" value={draft.inspStdAcceptQty} onChange={(v) => setDraft({ ...draft, inspStdAcceptQty: v })} placeholder="Ac 0" />
+                    <FieldEdit label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂ¼" type="date" value={draft.inspStdEffectiveDate} onChange={(v) => setDraft({ ...draft, inspStdEffectiveDate: v })} />
+                    <FieldEdit label="AQL Ã¬ÂÂÃ¬Â¤Â" value={draft.inspStdAqlLevel} onChange={(v) => setDraft({ ...draft, inspStdAqlLevel: v })} placeholder="0.65" />
+                    <FieldEdit label="Ã­ÂÂ©ÃªÂ²Â© / Ã«Â¶ÂÃ­ÂÂ©ÃªÂ²Â© Ã¬ÂÂÃ«ÂÂ" value={draft.inspStdAcceptQty} onChange={(v) => setDraft({ ...draft, inspStdAcceptQty: v })} placeholder="Ac 0" />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ê²ì¬ í­ëª©</label>
-                      <button type="button" onClick={addInspItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ í­ëª© ì¶ê°</button>
+                      <label className="font-mono text-[10px] tracking-[0.16em] uppercase" style={{ color: 'var(--ink-mute)' }}>ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©</label>
+                      <button type="button" onClick={addInspItem} className="text-[11px] px-2.5 py-1 rounded-lg font-semibold" style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>+ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â</button>
                     </div>
                     <div className="space-y-2">
                       {(draft.inspStdCheckItems || []).map((ci, i) => (
                         <div key={i} className="grid gap-2 items-center" style={{ gridTemplateColumns: '1fr 1fr 1fr 32px' }}>
-                          <input value={ci.name} onChange={(e) => updInspItem(i, 'name', e.target.value)} placeholder="ê²ì¬ í­ëª©ëª" className="input-base text-[12px]" />
-                          <input value={ci.spec} onChange={(e) => updInspItem(i, 'spec', e.target.value)} placeholder="ê¸°ì¤/íì© ë²ì" className="input-base text-[12px]" />
-                          <input value={ci.method} onChange={(e) => updInspItem(i, 'method', e.target.value)} placeholder="ê²ì¬ ë°©ë²" className="input-base text-[12px]" />
+                          <input value={ci.name} onChange={(e) => updInspItem(i, 'name', e.target.value)} placeholder="ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©Ã«ÂªÂ" className="input-base text-[12px]" />
+                          <input value={ci.spec} onChange={(e) => updInspItem(i, 'spec', e.target.value)} placeholder="ÃªÂ¸Â°Ã¬Â¤Â/Ã­ÂÂÃ¬ÂÂ© Ã«Â²ÂÃ¬ÂÂ" className="input-base text-[12px]" />
+                          <input value={ci.method} onChange={(e) => updInspItem(i, 'method', e.target.value)} placeholder="ÃªÂ²ÂÃ¬ÂÂ¬ Ã«Â°Â©Ã«Â²Â" className="input-base text-[12px]" />
                           <button type="button" onClick={() => delInspItem(i)} style={{ background: '#FEE2E2', color: '#DC2626', border: 'none', borderRadius: 6, padding: '6px', cursor: 'pointer' }}><Trash2 size={12} /></button>
                         </div>
                       ))}
                       {(draft.inspStdCheckItems || []).length === 0 && (
-                        <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ ë²í¼ì¼ë¡ ê²ì¬ í­ëª©ì ì¶ê°íì¸ì</div>
+                        <div className="text-[12px] text-center py-3" style={{ color: 'var(--ink-faint)', background: 'var(--bg-card)', borderRadius: 8 }}>+ Ã«Â²ÂÃ­ÂÂ¼Ã¬ÂÂ¼Ã«Â¡Â ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ</div>
                       )}
                     </div>
                   </div>
 
-                  <FieldEdit label="ê²ì¬ ê¸°ì¤ì ë¹ê³ " value={draft.inspStdNotes} onChange={(v) => setDraft({ ...draft, inspStdNotes: v })} multiline placeholder="ì¶ê° ì°¸ê³ ì¬í­" />
+                  <FieldEdit label="ÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ¸Â°Ã¬Â¤ÂÃ¬ÂÂ Ã«Â¹ÂÃªÂ³Â " value={draft.inspStdNotes} onChange={(v) => setDraft({ ...draft, inspStdNotes: v })} multiline placeholder="Ã¬Â¶ÂÃªÂ°Â Ã¬Â°Â¸ÃªÂ³Â Ã¬ÂÂ¬Ã­ÂÂ­" />
                 </div>
               </div>
 
               <FieldEdit
-                label="ë³ê²½ ì¬ì  (CCR íì â ISO 13485 Â§4.2.4)"
+                label="Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ¬Ã¬ÂÂ  (CCR Ã­ÂÂÃ¬ÂÂ Ã¢ÂÂ ISO 13485 ÃÂ§4.2.4)"
                 value={reason}
                 onChange={setReason}
-                placeholder="ì: ìì íê° ê²°ê³¼ ìëë ì¬ì© ëªíí / ëª¨ë¸ ë²í¸ ê¸ë¡ë² íê¸° íµì¼"
+                placeholder="Ã¬ÂÂ: Ã¬ÂÂÃ¬ÂÂ Ã­ÂÂÃªÂ°Â ÃªÂ²Â°ÃªÂ³Â¼ Ã¬ÂÂÃ«ÂÂÃ«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ© Ã«ÂªÂÃ­ÂÂÃ­ÂÂ / Ã«ÂªÂ¨Ã«ÂÂ¸ Ã«Â²ÂÃ­ÂÂ¸ ÃªÂ¸ÂÃ«Â¡ÂÃ«Â²Â Ã­ÂÂÃªÂ¸Â° Ã­ÂÂµÃ¬ÂÂ¼"
                 required
               />
 
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={cancelEdit} className="btn-ghost">
-                  ì·¨ì
+                  Ã¬Â·Â¨Ã¬ÂÂ
                 </button>
                 <button onClick={saveEdit} className="btn-primary">
-                  ì ì¥ Â· CCR ë°ì
+                  Ã¬Â ÂÃ¬ÂÂ¥ ÃÂ· CCR Ã«Â°ÂÃ¬ÂÂ
                 </button>
               </div>
             </div>
           )}
 
           <ComplianceFooter
-            regs={['ISO 13485 Â§7.3', '21 CFR 820.30', 'MDR Annex II']}
+            regs={['ISO 13485 ÃÂ§7.3', '21 CFR 820.30', 'MDR Annex II']}
           />
         </div>
       </div>
 
-      {/* ì°: ë³ê²½ ì´ë ¥ */}
+      {/* Ã¬ÂÂ°: Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ´Ã«Â Â¥ */}
       <div className="lg:col-span-1">
         <ChangeHistoryPanel ccrs={ccrs} onNavigateTo={() => navigate('/change-control')} />
       </div>
 
-      {/* ì­ì  íì¸ ëª¨ë¬ */}
+      {/* Ã¬ÂÂ­Ã¬Â Â Ã­ÂÂÃ¬ÂÂ¸ Ã«ÂªÂ¨Ã«ÂÂ¬ */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.4)' }}>
           <div className="card-base p-5 w-full max-w-[420px]" style={{ background: 'var(--bg-card)' }}>
             <div className="flex items-center gap-2 mb-3">
               <Trash2 size={16} style={{ color: '#DC2626' }} />
-              <div className="font-display text-[16px]" style={{ color: 'var(--ink)' }}>ì í ì­ì </div>
+              <div className="font-display text-[16px]" style={{ color: 'var(--ink)' }}>Ã¬Â ÂÃ­ÂÂ Ã¬ÂÂ­Ã¬Â Â</div>
             </div>
             <div className="text-[12.5px] mb-3" style={{ color: 'var(--ink-mute)' }}>
-              '{product.name}' ì íì ì­ì í©ëë¤. ì´ ììì ëëë¦´ ì ìì¼ë©°, ì­ì  ì¬ì ë CCR(ë³ê²½ê´ë¦¬)ë¡ ìë ë°ìëì´ ì´ë ¥ì ë³´ì¡´ë©ëë¤.
+              '{product.name}' Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂ©Ã«ÂÂÃ«ÂÂ¤. Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ Ã«ÂÂÃ«ÂÂÃ«Â¦Â´ Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂ¼Ã«Â©Â°, Ã¬ÂÂ­Ã¬Â Â Ã¬ÂÂ¬Ã¬ÂÂ Ã«ÂÂ CCR(Ã«Â³ÂÃªÂ²Â½ÃªÂ´ÂÃ«Â¦Â¬)Ã«Â¡Â Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂÃ«ÂÂÃ¬ÂÂ´ Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ Ã«Â³Â´Ã¬Â¡Â´Ã«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
             </div>
             <FieldEdit
-              label="ì­ì  ì¬ì  (íì)"
+              label="Ã¬ÂÂ­Ã¬Â Â Ã¬ÂÂ¬Ã¬ÂÂ  (Ã­ÂÂÃ¬ÂÂ)"
               value={deleteReason}
               onChange={setDeleteReason}
-              placeholder="ì: íê°ì·¨ì, ìëª»ìë ¥, ì¤ë³µë±ë¡ ë±"
+              placeholder="Ã¬ÂÂ: Ã­ÂÂÃªÂ°ÂÃ¬Â·Â¨Ã¬ÂÂ, Ã¬ÂÂÃ«ÂªÂ»Ã¬ÂÂÃ«Â Â¥, Ã¬Â¤ÂÃ«Â³ÂµÃ«ÂÂ±Ã«Â¡Â Ã«ÂÂ±"
               required
             />
             <div className="flex justify-end gap-2 pt-3">
               <button onClick={() => { setShowDeleteModal(false); setDeleteReason('') }} className="btn-ghost">
-                ì·¨ì
+                Ã¬Â·Â¨Ã¬ÂÂ
               </button>
               <button onClick={doDelete} className="btn-primary" style={{ background: '#DC2626' }}>
-                ì­ì  íì 
+                Ã¬ÂÂ­Ã¬Â Â Ã­ÂÂÃ¬Â Â
               </button>
             </div>
           </div>
@@ -1780,20 +1780,20 @@ function ProductPanel({ product, company, onAction, onDeleted }) {
 }
 
 const CONTACT_LABELS = {
-  none: 'ì ì²´ ë¹ì ì´',
-  surface: 'í¼ë¶Â·ì ë§ ì ì´ (Surface)',
-  external: 'ì¸ë¶ íµì  (External Communicating)',
-  implantable: 'ìíëí¸ (Implantable)',
+  none: 'Ã¬ÂÂ Ã¬Â²Â´ Ã«Â¹ÂÃ¬Â ÂÃ¬Â´Â',
+  surface: 'Ã­ÂÂ¼Ã«Â¶ÂÃÂ·Ã¬Â ÂÃ«Â§Â Ã¬Â ÂÃ¬Â´Â (Surface)',
+  external: 'Ã¬ÂÂ¸Ã«Â¶Â Ã­ÂÂµÃ¬ÂÂ  (External Communicating)',
+  implantable: 'Ã¬ÂÂÃ­ÂÂÃ«ÂÂÃ­ÂÂ¸ (Implantable)',
 }
 
 const SW_LABELS = {
-  none: 'SW ìì',
-  embedded: 'ë´ì¥ SW',
-  samd: 'ëë¦½í SW (SaMD)',
+  none: 'SW Ã¬ÂÂÃ¬ÂÂ',
+  embedded: 'Ã«ÂÂ´Ã¬ÂÂ¥ SW',
+  samd: 'Ã«ÂÂÃ«Â¦Â½Ã­ÂÂ SW (SaMD)',
 }
 
 /* ================================================================
-   PROD-002 ê³µì  í¨ë
+   PROD-002 ÃªÂ³ÂµÃ¬Â Â Ã­ÂÂ¨Ã«ÂÂ
    ================================================================ */
 function ProcessPanel({ product, products, selId, setSelId, onAction }) {
   const productKey = productKeyOf(product)
@@ -1823,14 +1823,14 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
     setList(ordered)
     const ob = onboarding.load()
     onboarding.save(setProductProcesses(ob, productKey, ordered))
-    onAction && onAction('ê³µì  ììê° ì ì¥ëììµëë¤')
+    onAction && onAction('ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ¬ÂÂÃªÂ°Â Ã¬Â ÂÃ¬ÂÂ¥Ã«ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤')
   }
   const addBlock = (b) => { persist([...list, { id: 'p' + Date.now(), blockId: b.id, order: list.length + 1 }]); setPicking(false); setQ('') }
   const addCustomBlock = () => {
     const name = q.trim()
     if (!name) return
     if (!requirePermission('onb.process.addBlock')) return
-    const nb = { id: 'custom-' + Date.now(), name, en: '', category: customCat || undefined, desc: 'ì¬ì©ì ì ì ê³µì ', custom: true, sopAuto: [], inspections: [], standards: [], risks: [] }
+    const nb = { id: 'custom-' + Date.now(), name, en: '', category: customCat || undefined, desc: 'Ã¬ÂÂ¬Ã¬ÂÂ©Ã¬ÂÂ Ã¬Â ÂÃ¬ÂÂ ÃªÂ³ÂµÃ¬Â Â', custom: true, sopAuto: [], inspections: [], standards: [], risks: [] }
     const nextCustom = [...customList, nb]
     setCustomList(nextCustom)
     saveCustomBlocks(nextCustom)
@@ -1839,7 +1839,7 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
   }
   const del = (id) => persist(list.filter((p) => p.id !== id))
   const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= list.length) return; const n = list.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; persist(n) }
-  const loadDefault = () => { if (list.length && !window.confirm('íì¬ ê³µì ì ê¸°ë³¸ 6ë¨ê³ ì²´ì¸ì¼ë¡ ëì²´í ê¹ì?')) return; persist(DEFAULT_CHAIN.map((b, i) => ({ id: 'p' + Date.now() + '-' + i, blockId: b.blockId, order: i + 1, customName: b.customName }))) }
+  const loadDefault = () => { if (list.length && !window.confirm('Ã­ÂÂÃ¬ÂÂ¬ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ ÃªÂ¸Â°Ã«Â³Â¸ 6Ã«ÂÂ¨ÃªÂ³Â Ã¬Â²Â´Ã¬ÂÂ¸Ã¬ÂÂ¼Ã«Â¡Â Ã«ÂÂÃ¬Â²Â´Ã­ÂÂ ÃªÂ¹ÂÃ¬ÂÂ?')) return; persist(DEFAULT_CHAIN.map((b, i) => ({ id: 'p' + Date.now() + '-' + i, blockId: b.blockId, order: i + 1, customName: b.customName }))) }
 
   const stats = useMemo(() => {
     const S = { sop: new Set(), insp: new Set(), std: new Set(), risk: new Set() }
@@ -1852,15 +1852,15 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
   return (
     <div className="space-y-4">
       <div className="grid md:grid-cols-4 gap-3">
-        <StatCard label="SOP ìë" value={stats.sops} hint="ìë ë§¤íë íì¤ìì" />
-        <StatCard label="ê²ì¬ í­ëª© (ìë)" value={stats.inspections} hint="ë¸ë¡ë³ ë§¤í" />
-        <StatCard label="íì¤" value={stats.standards} hint="ISO/FDA ì¸ì© ì¡°í­" />
-        <StatCard label="ìí ID" value={stats.risks} hint="ISO 14971 í­ëª©" />
+        <StatCard label="SOP Ã¬ÂÂÃ«ÂÂ" value={stats.sops} hint="Ã¬ÂÂÃ«ÂÂ Ã«Â§Â¤Ã­ÂÂÃ«ÂÂ Ã­ÂÂÃ¬Â¤ÂÃ¬ÂÂÃ¬ÂÂ" />
+        <StatCard label="ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ© (Ã¬ÂÂÃ«ÂÂ)" value={stats.inspections} hint="Ã«Â¸ÂÃ«Â¡ÂÃ«Â³Â Ã«Â§Â¤Ã­ÂÂ" />
+        <StatCard label="Ã­ÂÂÃ¬Â¤Â" value={stats.standards} hint="ISO/FDA Ã¬ÂÂ¸Ã¬ÂÂ© Ã¬Â¡Â°Ã­ÂÂ­" />
+        <StatCard label="Ã¬ÂÂÃ­ÂÂ ID" value={stats.risks} hint="ISO 14971 Ã­ÂÂ­Ã«ÂªÂ©" />
       </div>
 
       {Array.isArray(products) && products.length > 1 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[11.5px] mr-1" style={{ color: 'var(--ink-mute)' }}>ì íë³ ê³µì :</span>
+          <span className="text-[11.5px] mr-1" style={{ color: 'var(--ink-mute)' }}>Ã¬Â ÂÃ­ÂÂÃ«Â³Â ÃªÂ³ÂµÃ¬Â Â:</span>
           {products.map((p) => {
             const on = (p.id || 'main') === (product?.id || 'main')
             return (
@@ -1873,7 +1873,7 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
                   color: on ? 'var(--bg)' : 'var(--ink-mute)',
                 }}
               >
-                {p.name || '(ì´ë¦ìì)'}
+                {p.name || '(Ã¬ÂÂ´Ã«Â¦ÂÃ¬ÂÂÃ¬ÂÂ)'}
               </button>
             )
           })}
@@ -1882,38 +1882,38 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
 
       <div className="card-base p-3">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>{product?.name ? `${product.name} Â· ` : ''}ì ì¡°Â·ê²ì¬ ê³µì  ìì ({list.length}ë¨ê³)</div>
+          <div className="text-[13px]" style={{ color: 'var(--ink)' }}>{product?.name ? `${product.name} ÃÂ· ` : ''}Ã¬Â ÂÃ¬Â¡Â°ÃÂ·ÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ¬ÂÂ ({list.length}Ã«ÂÂ¨ÃªÂ³Â)</div>
           <div className="flex gap-2">
-            <button onClick={loadDefault} className="btn-ghost text-[12px]">ê¸°ë³¸ ê³µì ì²´ì¸ ë¶ë¬ì¤ê¸°</button>
-            <button onClick={() => setPicking((v) => !v)} className="btn-primary text-[12px]" style={{ background: 'var(--rust)' }}>+ ê³µì  ì¶ê°</button>
+            <button onClick={loadDefault} className="btn-ghost text-[12px]">ÃªÂ¸Â°Ã«Â³Â¸ ÃªÂ³ÂµÃ¬Â ÂÃ¬Â²Â´Ã¬ÂÂ¸ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¤ÃªÂ¸Â°</button>
+            <button onClick={() => setPicking((v) => !v)} className="btn-primary text-[12px]" style={{ background: 'var(--rust)' }}>+ ÃªÂ³ÂµÃ¬Â Â Ã¬Â¶ÂÃªÂ°Â</button>
           </div>
         </div>
-        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>ì íë§ë¤ ìë¡ ë¤ë¥¸ ê³µì ì ì ìí  ì ììµëë¤. ì¬ê¸°ì ì ìí ììëë¡ (ì íë ì íì) ìì ì§ì ë¨ê³ê° ë°ê¸ë©ëë¤. ì§í ì¤ ìì ì§ìë ë°ê¸ ìì  ì¤ëì·ì´ ì ì§ë©ëë¤(ìê° ì ê¸).</div>
+        <div className="text-[11.5px] mb-2" style={{ color: 'var(--ink-mute)' }}>Ã¬Â ÂÃ­ÂÂÃ«Â§ÂÃ«ÂÂ¤ Ã¬ÂÂÃ«Â¡Â Ã«ÂÂ¤Ã«Â¥Â¸ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ Ã¬Â ÂÃ¬ÂÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. Ã¬ÂÂ¬ÃªÂ¸Â°Ã¬ÂÂ Ã¬Â ÂÃ¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«Â¡Â (Ã¬ÂÂ Ã­ÂÂÃ«ÂÂ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ) Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂ Ã«ÂÂ¨ÃªÂ³ÂÃªÂ°Â Ã«Â°ÂÃªÂ¸ÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤. Ã¬Â§ÂÃ­ÂÂ Ã¬Â¤Â Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂÃ«ÂÂ Ã«Â°ÂÃªÂ¸Â Ã¬ÂÂÃ¬Â Â Ã¬ÂÂ¤Ã«ÂÂÃ¬ÂÂ·Ã¬ÂÂ´ Ã¬ÂÂ Ã¬Â§ÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤(Ã¬ÂÂÃªÂ°Â Ã¬ÂÂ ÃªÂ¸Â).</div>
         {picking && (
           <div className="rounded-md p-2" style={{ background: 'var(--bg-soft)' }}>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ê³µì  ë¸ë¡ ê²ìâ¦ (ëª©ë¡ì ìì¼ë©´ ìëìì ì§ì  ì¶ê°)" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ÃªÂ³ÂµÃ¬Â Â Ã«Â¸ÂÃ«Â¡Â ÃªÂ²ÂÃ¬ÂÂÃ¢ÂÂ¦ (Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ¼Ã«Â©Â´ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬Â Â Ã¬Â¶ÂÃªÂ°Â)" className="w-full bg-transparent outline-none text-[12.5px] mb-2 px-1" />
             <div className="grid sm:grid-cols-2 gap-1.5 max-h-64 overflow-auto">
               {blockChoices.map((b) => {
                 const cat = PROCESS_CATEGORIES.find((c) => c.id === b.category)
                 return (
                   <button key={b.id} onClick={() => addBlock(b)} className="text-left px-2.5 py-1.5 rounded-md text-[12px]" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
                     <span style={{ color: 'var(--ink)' }}>{b.name}</span>
-                    {b.custom && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>ì§ì  ì¶ê°</span>}
-                    {cat && <span className="ml-1.5" style={{ color: 'var(--ink-faint)' }}>Â· {cat.name}</span>}
+                    {b.custom && <span className="ml-1.5 text-[10px] px-1 rounded" style={{ background: 'var(--leaf-soft)', color: 'var(--moss)' }}>Ã¬Â§ÂÃ¬Â Â Ã¬Â¶ÂÃªÂ°Â</span>}
+                    {cat && <span className="ml-1.5" style={{ color: 'var(--ink-faint)' }}>ÃÂ· {cat.name}</span>}
                   </button>
                 )
               })}
             </div>
             {blockChoices.length === 0 && q.trim() && (
-              <div className="text-[11.5px] mt-2 px-1" style={{ color: 'var(--ink-mute)' }}>'{q.trim()}' ê²ì ê²°ê³¼ê° ììµëë¤. ìëìì ëª©ë¡ì ìë ê³µì ì¼ë¡ ì§ì  ì¶ê°í  ì ììµëë¤.</div>
+              <div className="text-[11.5px] mt-2 px-1" style={{ color: 'var(--ink-mute)' }}>'{q.trim()}' ÃªÂ²ÂÃ¬ÂÂ ÃªÂ²Â°ÃªÂ³Â¼ÃªÂ°Â Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. Ã¬ÂÂÃ«ÂÂÃ¬ÂÂÃ¬ÂÂ Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â§ÂÃ¬Â Â Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
             )}
             <div className="mt-2 pt-2 flex items-center gap-1.5 flex-wrap" style={{ borderTop: '1px solid var(--line)' }}>
               <select value={customCat} onChange={(e) => setCustomCat(e.target.value)} className="input-base text-[12px]" style={{ width: 'auto', padding: '5px 8px' }}>
-                <option value="">ë¶ë¥ ì í ì í¨</option>
+                <option value="">Ã«Â¶ÂÃ«Â¥Â Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ Ã­ÂÂ¨</option>
                 {PROCESS_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <button onClick={addCustomBlock} disabled={!q.trim()} className="btn-primary text-[12px] disabled:opacity-40" style={{ padding: '5px 10px' }}>
-                + '{q.trim() || 'â¦'}' ëª©ë¡ì ìë ê³µì ì¼ë¡ ì¶ê°
+                + '{q.trim() || 'Ã¢ÂÂ¦'}' Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ¼Ã«Â¡Â Ã¬Â¶ÂÃªÂ°Â
               </button>
             </div>
           </div>
@@ -1922,14 +1922,14 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
 
       {!product && (
         <div className="card-base p-3 text-[12px]" style={{ color: 'var(--rust)', background: 'var(--rust-soft)', borderStyle: 'dashed' }}>
-          ë±ë¡ë ì íì´ ìì´ ê¸°ë³¸(ê³µì©) ê³µì  ëª©ë¡ì í¸ì§íê³  ììµëë¤. 'ì í' í­ìì ì íì ì¶ê°íë©´ ì íë³ë¡ ë¤ë¥¸ ê³µì ì ì ìí  ì ììµëë¤.
+          Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂ´ ÃªÂ¸Â°Ã«Â³Â¸(ÃªÂ³ÂµÃ¬ÂÂ©) ÃªÂ³ÂµÃ¬Â Â Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂ Ã­ÂÂ¸Ã¬Â§ÂÃ­ÂÂÃªÂ³Â  Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. 'Ã¬Â ÂÃ­ÂÂ' Ã­ÂÂ­Ã¬ÂÂÃ¬ÂÂ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ«Â©Â´ Ã¬Â ÂÃ­ÂÂÃ«Â³ÂÃ«Â¡Â Ã«ÂÂ¤Ã«Â¥Â¸ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ Ã¬Â ÂÃ¬ÂÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.
         </div>
       )}
 
       <div className="space-y-2">
         {list.length === 0 ? (
           <div className="card-base p-6 text-center text-[13px]" style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}>
-            ë±ë¡ë ê³µì ì´ ììµëë¤. "ê¸°ë³¸ ê³µì ì²´ì¸ ë¶ë¬ì¤ê¸°" ëë "ê³µì  ì¶ê°"ë¡ ììíì¸ì.
+            Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ ÃªÂ³ÂµÃ¬Â ÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. "ÃªÂ¸Â°Ã«Â³Â¸ ÃªÂ³ÂµÃ¬Â ÂÃ¬Â²Â´Ã¬ÂÂ¸ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¤ÃªÂ¸Â°" Ã«ÂÂÃ«ÂÂ "ÃªÂ³ÂµÃ¬Â Â Ã¬Â¶ÂÃªÂ°Â"Ã«Â¡Â Ã¬ÂÂÃ¬ÂÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.
           </div>
         ) : (
           list.map((p, idx) => {
@@ -1939,12 +1939,12 @@ function ProcessPanel({ product, products, selId, setSelId, onAction }) {
               <div key={p.id || idx} className="card-base p-3 flex items-center gap-3">
                 <span className="font-mono text-[12px] w-6 text-center" style={{ color: 'var(--rust)' }}>{idx + 1}</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] truncate" style={{ color: 'var(--ink)' }}>{p.customName || block?.name || p.blockId}{p.customName && block ? ' Â· ' + block.name : ''}</div>
-                  {cat && <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{cat.name}{block?.standards?.length ? ' Â· ' + block.standards.join(', ') : ''}</div>}
+                  <div className="text-[13px] truncate" style={{ color: 'var(--ink)' }}>{p.customName || block?.name || p.blockId}{p.customName && block ? ' ÃÂ· ' + block.name : ''}</div>
+                  {cat && <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{cat.name}{block?.standards?.length ? ' ÃÂ· ' + block.standards.join(', ') : ''}</div>}
                 </div>
-                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>â²</button>
-                <button onClick={() => move(idx, 1)} disabled={idx === list.length - 1} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>â¼</button>
-                <button onClick={() => del(p.id)} className="px-2 py-1 rounded-md text-[12px]" style={{ color: 'var(--rust)', border: '1px solid var(--line)' }}>ì­ì </button>
+                <button onClick={() => move(idx, -1)} disabled={idx === 0} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>Ã¢ÂÂ²</button>
+                <button onClick={() => move(idx, 1)} disabled={idx === list.length - 1} className="px-2 py-1 rounded-md text-[13px] disabled:opacity-30" style={{ border: '1px solid var(--line)' }}>Ã¢ÂÂ¼</button>
+                <button onClick={() => del(p.id)} className="px-2 py-1 rounded-md text-[12px]" style={{ color: 'var(--rust)', border: '1px solid var(--line)' }}>Ã¬ÂÂ­Ã¬Â Â</button>
               </div>
             )
           })
@@ -2007,7 +2007,7 @@ function ProcessRow({ index, process, block, category }) {
                   color: 'var(--rust)',
                   fontWeight: 600,
                 }}
-                title="í¹ìê³µì  (ISO 13485 Â§7.5.6)"
+                title="Ã­ÂÂ¹Ã¬ÂÂÃªÂ³ÂµÃ¬Â Â (ISO 13485 ÃÂ§7.5.6)"
               >
                 SPECIAL
               </span>
@@ -2016,7 +2016,7 @@ function ProcessRow({ index, process, block, category }) {
               className="font-mono text-[10px] ml-auto"
               style={{ color: 'var(--ink-faint)' }}
             >
-              {tplCount}ê° ê²ì¬ í­ëª©
+              {tplCount}ÃªÂ°Â ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©
             </span>
           </div>
           <div
@@ -2042,23 +2042,23 @@ function ProcessRow({ index, process, block, category }) {
           style={{ borderTop: '1px solid var(--line)' }}
         >
           <ChipBlock
-            title="ìë SOP"
+            title="Ã¬ÂÂÃ«ÂÂ SOP"
             items={block.sopAuto || []}
             color="moss"
           />
           <ChipBlock
-            title="ìë ê²ì¬"
+            title="Ã¬ÂÂÃ«ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬"
             items={block.inspections || []}
             color="sky"
           />
           <ChipBlock
-            title="ì ì© íì¤"
+            title="Ã¬Â ÂÃ¬ÂÂ© Ã­ÂÂÃ¬Â¤Â"
             items={block.standards || []}
             color="ink"
             mono
           />
           <ChipBlock
-            title="ìí"
+            title="Ã¬ÂÂÃ­ÂÂ"
             items={block.risks || []}
             color="rust"
           />
@@ -2106,7 +2106,7 @@ function ChipBlock({ title, items, color, mono }) {
 }
 
 /* ================================================================
-   PROD-003 ê²ì¬ í­ëª© ë§ì¤í°
+   PROD-003 ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ© Ã«Â§ÂÃ¬ÂÂ¤Ã­ÂÂ°
    ================================================================ */
 function InspectionPanel({ onAction }) {
   const allBlocks = useMemo(
@@ -2115,7 +2115,7 @@ function InspectionPanel({ onAction }) {
   )
   const findBlock = (id) => allBlocks.find((b) => b.id === id)
 
-  // ëª¨ë  ë¸ë¡ Ã ëª¨ë  ííë¦¿ íµí© ì¡°í
+  // Ã«ÂªÂ¨Ã«ÂÂ  Ã«Â¸ÂÃ«Â¡Â ÃÂ Ã«ÂªÂ¨Ã«ÂÂ  Ã­ÂÂÃ­ÂÂÃ«Â¦Â¿ Ã­ÂÂµÃ­ÂÂ© Ã¬Â¡Â°Ã­ÂÂ
   const ob = onboarding.load() || {}
   const usedBlockIds = getAllUsedBlockIds(ob)
 
@@ -2154,7 +2154,7 @@ function InspectionPanel({ onAction }) {
     return true
   })
 
-  // íµê³
+  // Ã­ÂÂµÃªÂ³Â
   const stats = useMemo(() => {
     const counts = { Critical: 0, Major: 0, Minor: 0 }
     allTemplates.forEach((t) => {
@@ -2165,29 +2165,29 @@ function InspectionPanel({ onAction }) {
 
   return (
     <div className="space-y-4">
-      {/* íµê³ */}
+      {/* Ã­ÂÂµÃªÂ³Â */}
       <div className="grid md:grid-cols-3 gap-3">
         <StatCard
-          label="Critical ê²ì¬ í­ëª©"
+          label="Critical ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©"
           value={stats.Critical}
-          hint="ìì Â·íì ì±ë¥"
+          hint="Ã¬ÂÂÃ¬Â ÂÃÂ·Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ±Ã«ÂÂ¥"
           tone="rust"
         />
         <StatCard
-          label="Major ê²ì¬ í­ëª©"
+          label="Major ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©"
           value={stats.Major}
-          hint="ì£¼ì íì§"
+          hint="Ã¬Â£Â¼Ã¬ÂÂ Ã­ÂÂÃ¬Â§Â"
           tone="amber"
         />
         <StatCard
-          label="Minor ê²ì¬ í­ëª©"
+          label="Minor ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©"
           value={stats.Minor}
-          hint="ì¸ê´Â·ì¼ë°"
+          hint="Ã¬ÂÂ¸ÃªÂ´ÂÃÂ·Ã¬ÂÂ¼Ã«Â°Â"
           tone="ink-mute"
         />
       </div>
 
-      {/* íí° */}
+      {/* Ã­ÂÂÃ­ÂÂ° */}
       <div className="card-base p-3 flex items-center gap-2 flex-wrap">
         <div
           className="flex-1 flex items-center gap-2 px-3 py-1.5 rounded-md"
@@ -2198,13 +2198,13 @@ function InspectionPanel({ onAction }) {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="ê²ì¬ í­ëª©Â·ê³µì  ê²ìâ¦"
+            placeholder="ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©ÃÂ·ÃªÂ³ÂµÃ¬Â Â ÃªÂ²ÂÃ¬ÂÂÃ¢ÂÂ¦"
             className="bg-transparent outline-none text-[12.5px] flex-1"
           />
         </div>
         <div className="flex gap-1">
           {[
-            { id: 'all', label: 'ì ì²´' },
+            { id: 'all', label: 'Ã¬Â ÂÃ¬Â²Â´' },
             { id: 'Critical', label: 'Critical' },
             { id: 'Major', label: 'Major' },
             { id: 'Minor', label: 'Minor' },
@@ -2226,7 +2226,7 @@ function InspectionPanel({ onAction }) {
         </div>
       </div>
 
-      {/* ìë´ */}
+      {/* Ã¬ÂÂÃ«ÂÂ´ */}
       <div
         className="rounded-lg p-3 flex items-start gap-2 text-[12px]"
         style={{
@@ -2239,21 +2239,21 @@ function InspectionPanel({ onAction }) {
           style={{ color: 'var(--ink-mute)', marginTop: 2 }}
         />
         <div>
-          ê²ì¬ í­ëª©ì ì ê· ì ìÂ·ìì Â·ì­ì ë <strong>eBR íë©´(ìì ì§ì
-          ì§í ì¤)</strong> ëë <strong>ì¨ë³´ë© ONB-003</strong>ìì
-          ì´ë£¨ì´ì§ëë¤. ë³¸ íë©´ì íµí© ì¡°íÂ·ê°ì¬ ì¶ì ì ìí ë§ì¤í° ë·°ìëë¤. ëª¨ë  ë³ê²½ì CCR ìë ë°ìëë©° ì§í ì¤ ìì ì§ìë ìê° ì ê¸ë©ëë¤.
+          ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬ÂÂ ÃªÂ·Â Ã¬Â ÂÃ¬ÂÂÃÂ·Ã¬ÂÂÃ¬Â ÂÃÂ·Ã¬ÂÂ­Ã¬Â ÂÃ«ÂÂ <strong>eBR Ã­ÂÂÃ«Â©Â´(Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂ
+          Ã¬Â§ÂÃ­ÂÂ Ã¬Â¤Â)</strong> Ã«ÂÂÃ«ÂÂ <strong>Ã¬ÂÂ¨Ã«Â³Â´Ã«ÂÂ© ONB-003</strong>Ã¬ÂÂÃ¬ÂÂ
+          Ã¬ÂÂ´Ã«Â£Â¨Ã¬ÂÂ´Ã¬Â§ÂÃ«ÂÂÃ«ÂÂ¤. Ã«Â³Â¸ Ã­ÂÂÃ«Â©Â´Ã¬ÂÂ Ã­ÂÂµÃ­ÂÂ© Ã¬Â¡Â°Ã­ÂÂÃÂ·ÃªÂ°ÂÃ¬ÂÂ¬ Ã¬Â¶ÂÃ¬Â ÂÃ¬ÂÂ Ã¬ÂÂÃ­ÂÂ Ã«Â§ÂÃ¬ÂÂ¤Ã­ÂÂ° Ã«Â·Â°Ã¬ÂÂÃ«ÂÂÃ«ÂÂ¤. Ã«ÂªÂ¨Ã«ÂÂ  Ã«Â³ÂÃªÂ²Â½Ã¬ÂÂ CCR Ã¬ÂÂÃ«ÂÂ Ã«Â°ÂÃ¬ÂÂÃ«ÂÂÃ«Â©Â° Ã¬Â§ÂÃ­ÂÂ Ã¬Â¤Â Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂÃ«ÂÂ Ã¬ÂÂÃªÂ°Â Ã¬ÂÂ ÃªÂ¸ÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤.
         </div>
       </div>
 
-      {/* ëª©ë¡ */}
+      {/* Ã«ÂªÂ©Ã«Â¡Â */}
       {filtered.length === 0 ? (
         <div
           className="card-base p-6 text-center text-[13px]"
           style={{ color: 'var(--ink-mute)', borderStyle: 'dashed' }}
         >
           {allTemplates.length === 0
-            ? 'ì ìë ê²ì¬ í­ëª©ì´ ììµëë¤. eBR íë©´ìì ë§¤ëì ê° ì¶ê°í  ì ììµëë¤.'
-            : 'ê²ìÂ·íí° ê²°ê³¼ ìì'}
+            ? 'Ã¬Â ÂÃ¬ÂÂÃ«ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. eBR Ã­ÂÂÃ«Â©Â´Ã¬ÂÂÃ¬ÂÂ Ã«Â§Â¤Ã«ÂÂÃ¬Â ÂÃªÂ°Â Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.'
+            : 'ÃªÂ²ÂÃ¬ÂÂÃÂ·Ã­ÂÂÃ­ÂÂ° ÃªÂ²Â°ÃªÂ³Â¼ Ã¬ÂÂÃ¬ÂÂ'}
         </div>
       ) : (
         <div className="space-y-2">
@@ -2307,7 +2307,7 @@ function InspectionTemplateRow({ template }) {
           className="text-[11.5px]"
           style={{ color: 'var(--ink-mute)' }}
         >
-          â {template.blockName}
+          Ã¢ÂÂ {template.blockName}
         </span>
         {template.inUse ? (
           <span
@@ -2317,7 +2317,7 @@ function InspectionTemplateRow({ template }) {
               color: 'var(--moss)',
             }}
           >
-            íì¬ ì¬ì© ì¤
+            Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¬Ã¬ÂÂ© Ã¬Â¤Â
           </span>
         ) : (
           <span
@@ -2327,7 +2327,7 @@ function InspectionTemplateRow({ template }) {
               color: 'var(--ink-faint)',
             }}
           >
-            ë¼ì´ë¸ë¬ë¦¬
+            Ã«ÂÂ¼Ã¬ÂÂ´Ã«Â¸ÂÃ«ÂÂ¬Ã«Â¦Â¬
           </span>
         )}
       </div>
@@ -2336,17 +2336,17 @@ function InspectionTemplateRow({ template }) {
         style={{ color: 'var(--ink-faint)' }}
       >
         <span>
-          ê·ê²©: {template.specMin}~{template.specMax}
+          ÃªÂ·ÂÃªÂ²Â©: {template.specMin}~{template.specMax}
           {template.unit ? ' ' + template.unit : ''}
         </span>
         {template.specNominal !== '' && template.specNominal != null && (
-          <span>ê³µì¹­: {template.specNominal}</span>
+          <span>ÃªÂ³ÂµÃ¬Â¹Â­: {template.specNominal}</span>
         )}
-        {template.method && <span>ë°©ë²: {template.method}</span>}
+        {template.method && <span>Ã«Â°Â©Ã«Â²Â: {template.method}</span>}
         <span>v{template.version || 1}</span>
         {ccrCount > 0 && (
           <span style={{ color: 'var(--amber)' }}>
-            <History size={9} style={{ display: 'inline' }} /> CCR {ccrCount}ê±´
+            <History size={9} style={{ display: 'inline' }} /> CCR {ccrCount}ÃªÂ±Â´
           </span>
         )}
       </div>
@@ -2355,7 +2355,7 @@ function InspectionTemplateRow({ template }) {
 }
 
 /* ================================================================
-   ë³ê²½ ì´ë ¥ í¨ë (CCR)
+   Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ´Ã«Â Â¥ Ã­ÂÂ¨Ã«ÂÂ (CCR)
    ================================================================ */
 function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
   return (
@@ -2366,7 +2366,7 @@ function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
           className="font-mono text-[10px] tracking-[0.16em] uppercase"
           style={{ color: 'var(--ink-mute)' }}
         >
-          CHANGE HISTORY Â· ë³ê²½ ì´ë ¥
+          CHANGE HISTORY ÃÂ· Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ´Ã«Â Â¥
         </span>
         <span
           className="font-mono text-[10px] px-1.5 py-0.5 rounded ml-auto"
@@ -2379,7 +2379,7 @@ function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
           {ccrs.length}
         </span>
         {onNavigateTo && (
-          <button onClick={onNavigateTo} className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--moss)', border: '1px solid var(--line)', cursor: 'pointer' }}>ì¤ê³ë³ê²½ ë°ë¡ê°ê¸° â</button>
+          <button onClick={onNavigateTo} className="font-mono text-[10px] px-2 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--moss)', border: '1px solid var(--line)', cursor: 'pointer' }}>Ã¬ÂÂ¤ÃªÂ³ÂÃ«Â³ÂÃªÂ²Â½ Ã«Â°ÂÃ«Â¡ÂÃªÂ°ÂÃªÂ¸Â° Ã¢ÂÂ</button>
         )}
       </div>
 
@@ -2391,7 +2391,7 @@ function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
             color: 'var(--ink-faint)',
           }}
         >
-          ë³ê²½ ì´ë ¥ ìì
+          Ã«Â³ÂÃªÂ²Â½ Ã¬ÂÂ´Ã«Â Â¥ Ã¬ÂÂÃ¬ÂÂ
         </div>
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -2442,7 +2442,7 @@ function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
                   className="font-mono text-[10px] mt-1"
                   style={{ color: 'var(--ink-faint)' }}
                 >
-                  {new Date(r.performedAt).toLocaleString('ko-KR')} Â·{' '}
+                  {new Date(r.performedAt).toLocaleString('ko-KR')} ÃÂ·{' '}
                   {r.performedBy.name} ({r.performedBy.levelLabel})
                 </div>
               </div>
@@ -2454,7 +2454,7 @@ function ChangeHistoryPanel({ ccrs, onNavigateTo }) {
 }
 
 /* ================================================================
-   ë¶ì ì»´í¬ëí¸
+   Ã«Â¶ÂÃ¬ÂÂ Ã¬Â»Â´Ã­ÂÂ¬Ã«ÂÂÃ­ÂÂ¸
    ================================================================ */
 function StatCard({ label, value, hint, tone = 'moss' }) {
   const tones = {
