@@ -1,5 +1,5 @@
 // src/pages/qplan/QualityPlanHub.jsx
-// ISO 13485 Â§7.1 ì í ì¤íì ê³í â íì§ ê³í íë¸
+// ISO 13485 §7.1 제품 실현의 계획 — 품질 계획 허브
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Save, Edit2, Trash2, CheckCircle2, Clock,
@@ -14,83 +14,83 @@ import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
 let _sbCidQp = null
 
-// ââ ìì âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.quality_plans'
 
 const PLAN_STATUSES = {
-  draft:    { label: 'ì´ì',    color: '#6366F1', bg: '#EEF2FF' },
-  review:   { label: 'ê²í  ì¤', color: '#D97706', bg: '#FEF3C7' },
-  approved: { label: 'ì¹ì¸',    color: '#059669', bg: '#D1FAE5' },
-  obsolete: { label: 'íê¸°',    color: '#9CA3AF', bg: '#F3F4F6' },
+  draft:    { label: '초안',    color: '#6366F1', bg: '#EEF2FF' },
+  review:   { label: '검토 중', color: '#D97706', bg: '#FEF3C7' },
+  approved: { label: '승인',    color: '#059669', bg: '#D1FAE5' },
+  obsolete: { label: '폐기',    color: '#9CA3AF', bg: '#F3F4F6' },
 }
 
-const DEVICE_CLASSES = ['1ë±ê¸', '2ë±ê¸', '3ë±ê¸', '4ë±ê¸', 'ë¯¸ë¶ë¥']
+const DEVICE_CLASSES = ['1등급', '2등급', '3등급', '4등급', '미분류']
 
 const ACTIVITY_GROUPS = [
   {
-    group: 'ì¤ê³Â·ê°ë° (Â§7.3)',
+    group: '설계·개발 (§7.3)',
     items: [
-      'ì¤ê³ ìë ¥ ê²í  ë° ì¹ì¸',
-      'ì¤ê³ ì¶ë ¥ ê²í ',
-      'ì¤ê³ ê²í  (Design Review)',
-      'ì¤ê³ ê²ì¦ (Design Verification)',
-      'ì¤ê³ ì í¨ì± íì¸ (Design Validation)',
-      'ì¤ê³ ì´ì  (Design Transfer)',
+      '설계 입력 검토 및 승인',
+      '설계 출력 검토',
+      '설계 검토 (Design Review)',
+      '설계 검증 (Design Verification)',
+      '설계 유효성 확인 (Design Validation)',
+      '설계 이전 (Design Transfer)',
     ],
   },
   {
-    group: 'ìí ê´ë¦¬ (ISO 14971)',
+    group: '위험 관리 (ISO 14971)',
     items: [
-      'ìí ë¶ì (FMEA)',
-      'ìí ì ê° ì¡°ì¹',
-      'ìë¥ ìí íê°',
-      'ìí ê´ë¦¬ ë³´ê³ ì ì¹ì¸',
+      '위험 분석 (FMEA)',
+      '위험 저감 조치',
+      '잔류 위험 평가',
+      '위험 관리 보고서 승인',
     ],
   },
   {
-    group: 'êµ¬ë§¤Â·ê³µê¸ìì²´ (Â§7.4)',
+    group: '구매·공급업체 (§7.4)',
     items: [
-      'ê³µê¸ìì²´ ì ì  ë° íê°',
-      'êµ¬ë§¤ ì¬ìì ìì±',
-      'ìì ê²ì¬ ê¸°ì¤ ìë¦½',
+      '공급업체 선정 및 평가',
+      '구매 사양서 작성',
+      '수입 검사 기준 수립',
     ],
   },
   {
-    group: 'ìì°Â·ìë¹ì¤ ì ê³µ (Â§7.5)',
+    group: '생산·서비스 제공 (§7.5)',
     items: [
-      'ìì° ê³µì  ë¬¸ìí (SOP)',
-      'ê³µì  ì í¨ì± íì¸ (Validation)',
-      'ì²­ê²° ê´ë¦¬ ê¸°ì¤ ìë¦½ (Â§7.5.2)',
-      'ì í ìë³Â·ì¶ì ì± ê¸°ì¤ ìë¦½ (Â§7.5.9)',
-      'ë³´ì¡´Â·ì·¨ê¸Â·í¬ì¥ ê¸°ì¤ ìë¦½ (Â§7.5.11)',
+      '생산 공정 문서화 (SOP)',
+      '공정 유효성 확인 (Validation)',
+      '청결 관리 기준 수립 (§7.5.2)',
+      '제품 식별·추적성 기준 수립 (§7.5.9)',
+      '보존·취급·포장 기준 수립 (§7.5.11)',
     ],
   },
   {
-    group: 'ê²ì¬Â·ì¸¡ì  (Â§7.6 / Â§8.2)',
+    group: '검사·측정 (§7.6 / §8.2)',
     items: [
-      'ê²ì¬ ê¸°ì¤ì (IQC/ê³µì ê²ì¬/ìµì¢ê²ì¬) ìì±',
-      'ì¸¡ì  ì¥ë¹ êµì  ê³í ìë¦½',
-      'ìíë§ ê³í ìë¦½',
-      'í©ê²© ê¸°ì¤ ì ì',
+      '검사 기준서 (IQC/공정검사/최종검사) 작성',
+      '측정 장비 교정 계획 수립',
+      '샘플링 계획 수립',
+      '합격 기준 정의',
     ],
   },
   {
-    group: 'ê·ì Â·ì¸íê°',
+    group: '규제·인허가',
     items: [
-      'ê·ì  ë¶ë¥ íì  (ìë£ê¸°ê¸° ë±ê¸)',
-      'ì¸Â·íê° ì ì²­ ìë£ ì¤ë¹',
-      'ìì ë°ì´í° ìêµ¬ì¬í­ ê²í ',
-      'ë¼ë²¨ë§ ìêµ¬ì¬í­ ì ì',
-      'UDI ë±ë¡ ê³í',
+      '규제 분류 확정 (의료기기 등급)',
+      '인·허가 신청 자료 준비',
+      '임상 데이터 요구사항 검토',
+      '라벨링 요구사항 정의',
+      'UDI 등록 계획',
     ],
   },
   {
-    group: 'íì§ ê¸°ë¡',
+    group: '품질 기록',
     items: [
-      'íì ê¸°ë¡ ëª©ë¡ ìì± (Â§4.2.4)',
-      'ê¸°ë¡ ë³´ì¡´ ê¸°ê° ì ì',
-      'DHF êµ¬ì± ê³í',
-      'DMR(Device Master Record) êµ¬ì±',
+      '필요 기록 목록 작성 (§4.2.4)',
+      '기록 보존 기간 정의',
+      'DHF 구성 계획',
+      'DMR(Device Master Record) 구성',
     ],
   },
 ]
@@ -100,9 +100,9 @@ const ALL_DEFAULT_ITEMS = ACTIVITY_GROUPS.flatMap(g =>
 )
 
 const ITEM_STATUSES = {
-  not_started: { label: 'ë¯¸ìì',  color: '#9CA3AF' },
-  in_progress: { label: 'ì§í ì¤', color: '#D97706' },
-  completed:   { label: 'ìë£',    color: '#059669' },
+  not_started: { label: '미시작',  color: '#9CA3AF' },
+  in_progress: { label: '진행 중', color: '#D97706' },
+  completed:   { label: '완료',    color: '#059669' },
   na:          { label: 'N/A',     color: '#6B7280' },
 }
 
@@ -111,7 +111,7 @@ function todayStr(){ return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_PLAN = {
   productName: '', productCode: '', revision: '1.0',
-  deviceClass: '2ë±ê¸', intendedUse: '',
+  deviceClass: '2등급', intendedUse: '',
   projectManager: '', approver: '', approvedDate: '',
   startDate: todayStr(), targetDate: '',
   status: 'draft',
@@ -120,7 +120,7 @@ const EMPTY_PLAN = {
   activities: ALL_DEFAULT_ITEMS.map(a => ({ ...a })),
 }
 
-// ââ ë©ì¸ âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 메인 ─────────────────────────────────────────────────────
 export default function QualityPlanHub() {
   const user = auth.current()
   const companyId = user?.company_id
@@ -153,7 +153,7 @@ export default function QualityPlanHub() {
   }, [companyId])
 
   function submitPlan() {
-    if (!form.productName.trim()) return alert('ì íëªì ìë ¥íì¸ì.')
+    if (!form.productName.trim()) return alert('제품명을 입력하세요.')
     const next = editId
       ? plans.map(p => p.id === editId ? { ...p, ...form } : p)
       : [{ id: planId(), createdAt: todayStr(), ...form }, ...plans]
@@ -162,7 +162,7 @@ export default function QualityPlanHub() {
   }
 
   function deletePlan(id) {
-    if (!confirm('íì§ ê³íìë¥¼ ì­ì íìê² ìµëê¹?')) return
+    if (!confirm('품질 계획서를 삭제하시겠습니까?')) return
     save(plans.filter(p => p.id !== id))
     if (selectedId === id) { setSelectedId(null); setTab('list') }
   }
@@ -185,7 +185,7 @@ export default function QualityPlanHub() {
 
   const selected = plans.find(p => p.id === selectedId)
 
-  // ì íë ê³í ìë£ì¨
+  // 선택된 계획 완료율
   function calcProgress(plan) {
     const acts = (plan.activities || []).filter(a => a.required && a.status !== 'na')
     if (!acts.length) return null
@@ -193,13 +193,13 @@ export default function QualityPlanHub() {
     return Math.round((done / acts.length) * 100)
   }
 
-  // íí°ë ê³í ëª©ë¡
+  // 필터된 계획 목록
   const filteredPlans = useMemo(() => plans.filter(p => {
     if (filterStatus !== 'all' && p.status !== filterStatus) return false
     return true
   }), [plans, filterStatus])
 
-  // ì íë ê³íì íí°ë íë
+  // 선택된 계획의 필터된 활동
   const filteredActs = useMemo(() => {
     if (!selected) return []
     const acts = (selected.activities || [])
@@ -207,7 +207,7 @@ export default function QualityPlanHub() {
     return acts.filter(a => a.group === actFilter)
   }, [selected, actFilter])
 
-  // ê·¸ë£¹ë³ ìë£ì¨
+  // 그룹별 완료율
   const groupProgress = useMemo(() => {
     if (!selected) return {}
     const result = {}
@@ -219,7 +219,7 @@ export default function QualityPlanHub() {
     return result
   }, [selected])
 
-  // ë¶ì
+  // 분석
   const analysis = useMemo(() => {
     const byStatus = {}
     Object.keys(PLAN_STATUSES).forEach(k => { byStatus[k] = plans.filter(p => p.status === k).length })
@@ -237,16 +237,16 @@ export default function QualityPlanHub() {
   const groups = ACTIVITY_GROUPS.map(g => g.group)
 
   return (
-    <AppLayout user={user} title="íì§ ê³í (QP)" subtitle="ISO 13485 Â§7.1 ì í ì¤íì ê³í â ì íë³ íì§ ê³íì">
-      <HubBanner title="íì§ ê³í (QP)" subtitle="ISO 13485 Â§7.1 ì í ì¤íì ê³í â ì íë³ íì§ ê³íì" icon={ClipboardList} color="#059669" workflow={['ì í ì ì ', 'ê³í ìì±', 'ê²í Â·ì¹ì¸', 'ì¤í', 'ì±ê³¼ íê°']} />
+    <AppLayout user={user} title="품질 계획 (QP)" subtitle="ISO 13485 §7.1 제품 실현의 계획 — 제품별 품질 계획서">
+      <HubBanner title="품질 계획 (QP)" subtitle="ISO 13485 §7.1 제품 실현의 계획 — 제품별 품질 계획서" icon={ClipboardList} color="#059669" workflow={['제품 선정', '계획 작성', '검토·승인', '실행', '성과 평가']} />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* í­ */}
+        {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `QP ëª©ë¡ (${plans.length})` },
-            { key: 'detail',   label: 'ê³íì ìì¸', disabled: !selectedId },
-            { key: 'analysis', label: 'íí© ë¶ì' },
+            { key: 'list',     label: `QP 목록 (${plans.length})` },
+            { key: 'detail',   label: '계획서 상세', disabled: !selectedId },
+            { key: 'analysis', label: '현황 분석' },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -261,21 +261,21 @@ export default function QualityPlanHub() {
           ))}
         </div>
 
-        {/* ââ ëª©ë¡ í­ ââ */}
+        {/* ── 목록 탭 ── */}
         {tab === 'list' && (
           <div>
             <div className="flex flex-wrap gap-3 mb-4 items-center justify-between">
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">ì ì²´ ìí</option>
+                <option value="all">전체 상태</option>
                 {Object.entries(PLAN_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm(EMPTY_PLAN); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> QP ì ê· ìì±
+                  <Plus size={14} /> QP 신규 작성
                 </button>
               )}
             </div>
@@ -289,7 +289,7 @@ export default function QualityPlanHub() {
             {filteredPlans.length === 0 ? (
               <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
                 <ClipboardList size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                <div className="text-[14px]">ë±ë¡ë íì§ ê³íìê° ììµëë¤.</div>
+                <div className="text-[14px]">등록된 품질 계획서가 없습니다.</div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -310,15 +310,15 @@ export default function QualityPlanHub() {
                             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
                           </div>
                           <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{plan.productName}</div>
-                          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{plan.productCode} Â· Rev.{plan.revision} Â· {plan.deviceClass}</div>
+                          <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{plan.productCode} · Rev.{plan.revision} · {plan.deviceClass}</div>
                         </div>
                       </div>
 
-                      {/* ì§íë¥  */}
+                      {/* 진행률 */}
                       {prog !== null && (
                         <div className="mb-2">
                           <div className="flex justify-between text-[11px] mb-1" style={{ color: 'var(--ink-faint)' }}>
-                            <span>íë ì§íë¥ </span>
+                            <span>활동 진행률</span>
                             <span style={{ fontWeight: 700, color: prog === 100 ? '#059669' : prog >= 50 ? '#D97706' : '#DC2626' }}>{prog}%</span>
                           </div>
                           <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -328,13 +328,13 @@ export default function QualityPlanHub() {
                       )}
 
                       <div className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>
-                        íë {actDone}/{actTotal} ìë£ Â· PM: {plan.projectManager || '-'}
+                        활동 {actDone}/{actTotal} 완료 · PM: {plan.projectManager || '-'}
                       </div>
 
                       {canEdit && (
                         <div className="flex gap-1 mt-3" onClick={e => e.stopPropagation()}>
-                          {plan.status === 'draft' && <QuickBtn label="ê²í " color="#D97706" onClick={() => quickPlanStatus(plan.id, 'review')} />}
-                          {plan.status === 'review' && <QuickBtn label="ì¹ì¸" color="#059669" onClick={() => quickPlanStatus(plan.id, 'approved')} />}
+                          {plan.status === 'draft' && <QuickBtn label="검토" color="#D97706" onClick={() => quickPlanStatus(plan.id, 'review')} />}
+                          {plan.status === 'review' && <QuickBtn label="승인" color="#059669" onClick={() => quickPlanStatus(plan.id, 'approved')} />}
                           <button onClick={() => { setForm({ ...EMPTY_PLAN, ...plan }); setEditId(plan.id); setShowForm(true); setTab('list') }}
                             className="p-1.5 rounded-lg" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
                             <Edit2 size={12} style={{ color: 'var(--ink-soft)' }} />
@@ -353,7 +353,7 @@ export default function QualityPlanHub() {
           </div>
         )}
 
-        {/* ââ ìì¸ í­ ââ */}
+        {/* ── 상세 탭 ── */}
         {tab === 'detail' && selected && (
           <DetailView
             plan={selected} canEdit={canEdit}
@@ -363,7 +363,7 @@ export default function QualityPlanHub() {
           />
         )}
 
-        {/* ââ ë¶ì í­ ââ */}
+        {/* ── 분석 탭 ── */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} plans={plans} setSelectedId={setSelectedId} setTab={setTab} />
         )}
@@ -372,14 +372,14 @@ export default function QualityPlanHub() {
   )
 }
 
-// ââ ê³íì ìì¸ ë·° ââââââââââââââââââââââââââââââââââââââââââââ
+// ── 계획서 상세 뷰 ────────────────────────────────────────────
 function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, groupProgress, groups, updateActivity, calcProgress }) {
   const sm = PLAN_STATUSES[plan.status] || PLAN_STATUSES.draft
   const prog = calcProgress(plan)
 
   return (
     <div>
-      {/* í¤ë */}
+      {/* 헤더 */}
       <div className="p-5 rounded-2xl mb-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
@@ -388,21 +388,21 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
             </div>
             <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{plan.productName}</div>
-            <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>{plan.productCode} Â· Rev.{plan.revision} Â· {plan.deviceClass}</div>
+            <div className="text-[13px]" style={{ color: 'var(--ink-faint)' }}>{plan.productCode} · Rev.{plan.revision} · {plan.deviceClass}</div>
           </div>
           <div className="text-right text-[12px]" style={{ color: 'var(--ink-faint)' }}>
             <div>PM: {plan.projectManager || '-'}</div>
-            <div>ì¹ì¸ì: {plan.approver || '-'}</div>
-            {plan.approvedDate && <div>ì¹ì¸ì¼: {plan.approvedDate}</div>}
-            {plan.targetDate && <div>ëª©í ìë£: {plan.targetDate}</div>}
+            <div>승인자: {plan.approver || '-'}</div>
+            {plan.approvedDate && <div>승인일: {plan.approvedDate}</div>}
+            {plan.targetDate && <div>목표 완료: {plan.targetDate}</div>}
           </div>
         </div>
 
-        {/* ì ì²´ ì§íë¥  */}
+        {/* 전체 진행률 */}
         {prog !== null && (
           <div className="mb-3">
             <div className="flex justify-between text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>
-              <span className="font-semibold">ì ì²´ íë ì§íë¥ </span>
+              <span className="font-semibold">전체 활동 진행률</span>
               <span className="font-bold" style={{ color: prog === 100 ? '#059669' : prog >= 50 ? '#D97706' : '#DC2626' }}>{prog}%</span>
             </div>
             <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -411,14 +411,14 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
           </div>
         )}
 
-        {/* ê·¸ë£¹ë³ ë¯¸ë ì§íë° */}
+        {/* 그룹별 미니 진행바 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
           {ACTIVITY_GROUPS.map(g => {
             const p = groupProgress[g.group]
             return (
               <div key={g.group} className="p-2 rounded-xl cursor-pointer" onClick={() => setActFilter(actFilter === g.group ? 'all' : g.group)}
                 style={{ background: actFilter === g.group ? 'var(--bg-soft)' : 'transparent', border: `1px solid ${actFilter === g.group ? 'var(--moss)' : 'var(--line)'}` }}>
-                <div className="text-[10.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{g.group.replace(' (Â§7.3)', '').replace(' (ISO 14971)', '').replace(' (Â§7.4)', '').replace(' (Â§7.5)', '').replace(' (Â§7.6 / Â§8.2)', '')}</div>
+                <div className="text-[10.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>{g.group.replace(' (§7.3)', '').replace(' (ISO 14971)', '').replace(' (§7.4)', '').replace(' (§7.5)', '').replace(' (§7.6 / §8.2)', '')}</div>
                 <div className="h-1.5 rounded-full" style={{ background: 'var(--line)' }}>
                   <div className="h-1.5 rounded-full" style={{ width: `${p ?? 0}%`, background: p === 100 ? '#059669' : p !== null && p > 0 ? '#D97706' : '#E5E7EB' }} />
                 </div>
@@ -430,39 +430,39 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
 
         {plan.intendedUse && (
           <div className="mt-3 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ì¬ì© ëª©ì : </span>{plan.intendedUse}
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>사용 목적: </span>{plan.intendedUse}
           </div>
         )}
         {plan.customerRequirements && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ê³ ê° ìêµ¬ì¬í­: </span>{plan.customerRequirements}
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>고객 요구사항: </span>{plan.customerRequirements}
           </div>
         )}
         {plan.regulatorySubmission && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: '#EFF6FF', color: '#1E40AF' }}>
-            <span className="font-bold">ê·ì  ì ì¶ ê³í: </span>{plan.regulatorySubmission}
+            <span className="font-bold">규제 제출 계획: </span>{plan.regulatorySubmission}
           </div>
         )}
         {plan.notes && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>ë¹ê³ : </span>{plan.notes}
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>비고: </span>{plan.notes}
           </div>
         )}
       </div>
 
-      {/* íë íí° í­ */}
+      {/* 활동 필터 탭 */}
       <div className="flex gap-1 flex-wrap mb-4">
-        <ActTabBtn active={actFilter === 'all'} onClick={() => setActFilter('all')} label="ì ì²´" />
+        <ActTabBtn active={actFilter === 'all'} onClick={() => setActFilter('all')} label="전체" />
         {groups.map(g => (
           <ActTabBtn key={g} active={actFilter === g} onClick={() => setActFilter(actFilter === g ? 'all' : g)}
             label={g.replace(/\s*\(.*\)/, '')} />
         ))}
       </div>
 
-      {/* íë ëª©ë¡ */}
+      {/* 활동 목록 */}
       <div className="space-y-2">
         {filteredActs.map((act, rawIdx) => {
-          // ì ì²´ activitiesììì ì¤ì  ì¸ë±ì¤
+          // 전체 activities에서의 실제 인덱스
           const realIdx = (selected?.activities || []).findIndex((a, i) =>
             a.group === act.group && a.name === act.name &&
             (selected.activities || []).indexOf(a) === (selected.activities || []).findIndex((b, j) => b.group === act.group && b.name === act.name && j >= i)
@@ -474,7 +474,7 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
             <div key={`${act.group}-${act.name}`} className="p-3 rounded-xl"
               style={{ background: isOverdue ? '#FFF5F5' : 'var(--bg-card)', border: `1px solid ${isOverdue ? '#FECACA' : 'var(--line)'}` }}>
               <div className="flex items-center gap-3 flex-wrap">
-                {/* ìí ë±ì§ */}
+                {/* 상태 뱃지 */}
                 {canEdit ? (
                   <select value={act.status}
                     onChange={e => updateActivity(selected.id, realIdx === -1 ? (selected.activities || []).findIndex(a => a.name === act.name && a.group === act.group) : realIdx, 'status', e.target.value)}
@@ -491,7 +491,7 @@ function DetailView({ plan, canEdit, actFilter, setActFilter, filteredActs, grou
                 </div>
                 {canEdit && (
                   <div className="flex gap-2 items-center flex-wrap">
-                    <input type="text" value={act.owner || ''} placeholder="ë´ë¹ì"
+                    <input type="text" value={act.owner || ''} placeholder="담당자"
                       onChange={e => updateActivity(selected.id, (selected.activities || []).findIndex(a => a.name === act.name && a.group === act.group), 'owner', e.target.value)}
                       className="px-2 py-0.5 rounded-lg text-[11px]"
                       style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', width: 80 }} />
@@ -526,7 +526,7 @@ function ActTabBtn({ active, onClick, label }) {
   )
 }
 
-// ââ ë¶ì í­ ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── 분석 탭 ──────────────────────────────────────────────────
 function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
   return (
     <div className="space-y-5">
@@ -541,7 +541,7 @@ function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
 
       {analysis.overdueItems.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FEF2F2', border: '1px solid #FECACA' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: '#DC2626' }}>â  ê¸°í ì´ê³¼ íë ({analysis.overdueItems.length}ê±´)</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: '#DC2626' }}>⚠ 기한 초과 활동 ({analysis.overdueItems.length}건)</div>
           <div className="space-y-1.5">
             {analysis.overdueItems.slice(0, 8).map(({ plan, act }, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded-lg cursor-pointer"
@@ -551,7 +551,7 @@ function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
                   <span className="font-bold" style={{ color: '#991B1B' }}>{act.name}</span>
                   <span className="ml-2" style={{ color: '#DC2626' }}>{plan.productName}</span>
                 </div>
-                <div className="text-[11px]" style={{ color: '#DC2626' }}>ê¸°í: {act.dueDate}</div>
+                <div className="text-[11px]" style={{ color: '#DC2626' }}>기한: {act.dueDate}</div>
               </div>
             ))}
           </div>
@@ -560,7 +560,7 @@ function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
 
       {analysis.lowProgress.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>ì§íë¥  50% ë¯¸ë§ íì§ ê³í</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: '#92400E' }}>진행률 50% 미만 품질 계획</div>
           <div className="space-y-2">
             {analysis.lowProgress.map(plan => {
               const prog = (() => {
@@ -589,38 +589,38 @@ function AnalysisView({ analysis, plans, setSelectedId, setTab }) {
   )
 }
 
-// ââ íì§ ê³í í¼ âââââââââââââââââââââââââââââââââââââââââââââ
+// ── 품질 계획 폼 ─────────────────────────────────────────────
 function PlanForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'íì§ ê³íì ìì ' : 'íì§ ê³íì ì ê· ìì±'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '품질 계획서 수정' : '품질 계획서 신규 작성'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="ì íëª *" value={form.productName} onChange={v => F('productName', v)} />
-        <Field label="ì í ì½ë" value={form.productCode} onChange={v => F('productCode', v)} />
-        <Field label="ê°ì  ë²í¸" value={form.revision} onChange={v => F('revision', v)} />
-        <FieldSelect label="ê¸°ê¸° ë±ê¸" value={form.deviceClass} onChange={v => F('deviceClass', v)}
+        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
+        <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
+        <Field label="개정 번호" value={form.revision} onChange={v => F('revision', v)} />
+        <FieldSelect label="기기 등급" value={form.deviceClass} onChange={v => F('deviceClass', v)}
           options={DEVICE_CLASSES.map(c => ({ value: c, label: c }))} />
-        <Field label="ììì¼" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
-        <Field label="ëª©í ìë£ì¼" type="date" value={form.targetDate} onChange={v => F('targetDate', v)} />
-        <Field label="íë¡ì í¸ ì±ìì (PM)" value={form.projectManager} onChange={v => F('projectManager', v)} />
+        <Field label="시작일" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
+        <Field label="목표 완료일" type="date" value={form.targetDate} onChange={v => F('targetDate', v)} />
+        <Field label="프로젝트 책임자 (PM)" value={form.projectManager} onChange={v => F('projectManager', v)} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <FieldArea label="ì¬ì© ëª©ì  (Intended Use)" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2} />
-        <FieldArea label="ê³ ê° ìêµ¬ì¬í­ (Â§7.2)" value={form.customerRequirements} onChange={v => F('customerRequirements', v)} rows={2} />
-        <FieldArea label="ê·ì  ì ì¶ ê³í" value={form.regulatorySubmission} onChange={v => F('regulatorySubmission', v)} rows={2} />
-        <FieldArea label="ë¹ê³ " value={form.notes} onChange={v => F('notes', v)} rows={2} />
+        <FieldArea label="사용 목적 (Intended Use)" value={form.intendedUse} onChange={v => F('intendedUse', v)} rows={2} />
+        <FieldArea label="고객 요구사항 (§7.2)" value={form.customerRequirements} onChange={v => F('customerRequirements', v)} rows={2} />
+        <FieldArea label="규제 제출 계획" value={form.regulatorySubmission} onChange={v => F('regulatorySubmission', v)} rows={2} />
+        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
       </div>
       <div className="p-3 rounded-xl mb-4 text-[12px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-        ð¡ ì ì¥ í <strong>ê³íì ìì¸</strong> í­ìì ê° íëì ë´ë¹ìÂ·ê¸°íÂ·ìë£ ìíë¥¼ ìë°ì´í¸íì¸ì. ({ALL_DEFAULT_ITEMS.length}ê° íì¤ íëì´ ìë í¬í¨ë©ëë¤.)
+        💡 저장 후 <strong>계획서 상세</strong> 탭에서 각 활동의 담당자·기한·완료 상태를 업데이트하세요. ({ALL_DEFAULT_ITEMS.length}개 표준 활동이 자동 포함됩니다.)
       </div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> ì ì¥
+          <Save size={13} /> 저장
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>ì·¨ì</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
       </div>
     </div>
   )
