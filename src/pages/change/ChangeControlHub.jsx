@@ -580,7 +580,7 @@ function RegulatoryClassTab({ ccrs }) {
                 <span style={{ background: tm.color + '20', color: tm.color, borderRadius: '6px', padding: '2px 8px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>{tm.label}</span>
                 <div style={{ flex: 1, minWidth: '180px' }}>
                   <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>{r.action || r.reason || r.id}</div>
-                  {r.regulations ? <div style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '2px' }}>{r.regulations}</div> : null}
+                  {r.regulations ? <div style={{ fontSize: '11px', color: 'var(--ink-faint)', marginTop: '2px' }}>{Array.isArray(r.regulations) ? r.regulations.map(rg => [rg.std, rg.clause, rg.desc].filter(Boolean).join(' ')).join(', ') : String(r.regulations)}</div> : null}
                 </div>
                 <span style={{ background: m.bg, color: m.color, border: '1px solid ' + m.color, borderRadius: '6px', padding: '2px 10px', fontSize: '11px', fontWeight: 600, whiteSpace: 'nowrap' }}>{m.label}</span>
                 <select value={overrides[r.id] || ''}
