@@ -243,7 +243,7 @@ export default function PurchaseVerificationHub() {
     if (!companyId) return
     const SB_DT = 'localStorage_sync'
     const keySetters = [
-      [LS_PO, setOrders],
+      [LS_PO, setPos],
       [LS_IQC, setIqcs],
       [LS_INOUT, setRecords],
     ]
