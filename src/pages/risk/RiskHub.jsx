@@ -1,5 +1,5 @@
 // src/pages/risk/RiskHub.jsx
-// ISO 14971 Ã¬ÂÂÃ­ÂÂÃªÂ´ÂÃ«Â¦Â¬ Ã­ÂÂÃ«Â¸Â Ã¢ÂÂ FMEA Ã¬ÂÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«Â¶Â ÃÂ· Ã¬ÂÂÃ­ÂÂ Ã«Â§Â¤Ã­ÂÂ¸Ã«Â¦Â­Ã¬ÂÂ¤ ÃÂ· Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â
+// ISO 14971 위험관리 허브 — FMEA 위험 등록부 · 위험 매트릭스 · 저감 조치
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   AlertTriangle, Plus, Trash2, Search, ShieldAlert,
@@ -12,7 +12,7 @@ import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 
-// Ã¢ÂÂÃ¢ÂÂ localStorage Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── localStorage ──────────────────────────────────────────────
 const LS_KEY = 'qualytree.risks'
 
 function lsRead() {
@@ -27,40 +27,40 @@ function genId() {
   return `RSK-${y}-${String(Date.now()).slice(-5)}`
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ / Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± Ã¬Â ÂÃ¬ÂÂ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 심각도 / 발생가능성 정의 ──────────────────────────────────
 const SEVERITY = [
-  { value: 1, label: '1-ÃªÂ²Â½Ã«Â¯Â¸', desc: 'Ã¬ÂÂ¼Ã¬ÂÂÃ¬Â Â Ã«Â¶ÂÃ­ÂÂ¸, Ã¬ÂÂÃ¬ÂÂ° Ã­ÂÂÃ«Â³Âµ' },
-  { value: 2, label: '2-Ã¬ÂÂ', desc: 'ÃªÂ°ÂÃ¬ÂÂ­Ã¬Â Â Ã¬ÂÂÃ­ÂÂ´, Ã¬ÂÂÃ«Â£Â ÃªÂ°ÂÃ¬ÂÂ Ã«Â¶ÂÃ­ÂÂÃ¬ÂÂ' },
-  { value: 3, label: '3-Ã¬Â¤Â', desc: 'ÃªÂ°ÂÃ¬ÂÂ­Ã¬Â Â Ã¬ÂÂÃ­ÂÂ´, Ã¬ÂÂÃ«Â£Â ÃªÂ°ÂÃ¬ÂÂ Ã­ÂÂÃ¬ÂÂ' },
-  { value: 4, label: '4-Ã¬Â¤ÂÃ«ÂÂ', desc: 'Ã«Â¹ÂÃªÂ°ÂÃ¬ÂÂ­Ã¬Â Â Ã¬ÂÂÃ­ÂÂ´ / Ã¬ÂÂÃªÂµÂ¬ Ã¬ÂÂ¥Ã¬ÂÂ ' },
-  { value: 5, label: '5-Ã¬Â¹ÂÃ«ÂªÂ', desc: 'Ã¬ÂÂ¬Ã«Â§Â Ã«ÂÂÃ«ÂÂ Ã¬ÂÂÃ«ÂªÂ Ã¬ÂÂÃ­ÂÂ' },
+  { value: 1, label: '1-경미', desc: '일시적 불편, 자연 회복' },
+  { value: 2, label: '2-소', desc: '가역적 상해, 의료 개입 불필요' },
+  { value: 3, label: '3-중', desc: '가역적 상해, 의료 개입 필요' },
+  { value: 4, label: '4-중대', desc: '비가역적 상해 / 영구 장애' },
+  { value: 5, label: '5-치명', desc: '사망 또는 생명 위협' },
 ]
 
 const PROBABILITY = [
-  { value: 1, label: '1-ÃªÂ±Â°Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ', desc: '< 1/100,000' },
-  { value: 2, label: '2-Ã«ÂÂ®Ã¬ÂÂ', desc: '1/100,000 ~ 1/10,000' },
-  { value: 3, label: '3-Ã«Â³Â´Ã­ÂÂµ', desc: '1/10,000 ~ 1/1,000' },
-  { value: 4, label: '4-Ã«ÂÂÃ¬ÂÂ', desc: '1/1,000 ~ 1/100' },
-  { value: 5, label: '5-Ã«Â§Â¤Ã¬ÂÂ°Ã«ÂÂÃ¬ÂÂ', desc: '> 1/100' },
+  { value: 1, label: '1-거의없음', desc: '< 1/100,000' },
+  { value: 2, label: '2-낮음', desc: '1/100,000 ~ 1/10,000' },
+  { value: 3, label: '3-보통', desc: '1/10,000 ~ 1/1,000' },
+  { value: 4, label: '4-높음', desc: '1/1,000 ~ 1/100' },
+  { value: 5, label: '5-매우높음', desc: '> 1/100' },
 ]
 
 const CONTROL_TYPES = [
-  { value: 'inherent', label: 'ÃªÂ³Â Ã¬ÂÂ  Ã¬ÂÂÃ¬Â Â Ã¬ÂÂ¤ÃªÂ³Â' },
-  { value: 'protective', label: 'Ã«Â³Â´Ã­ÂÂ¸ Ã¬ÂÂÃ«ÂÂ¨' },
-  { value: 'information', label: 'Ã¬ÂÂÃ¬Â Â Ã¬Â ÂÃ«Â³Â´ Ã¬Â ÂÃªÂ³Âµ' },
-  { value: 'none', label: 'Ã«Â¯Â¸Ã¬Â¡Â°Ã¬Â¹Â' },
+  { value: 'inherent', label: '고유 안전 설계' },
+  { value: 'protective', label: '보호 수단' },
+  { value: 'information', label: '안전 정보 제공' },
+  { value: 'none', label: '미조치' },
 ]
 
 const RISK_CATEGORIES = [
-  'Ã¬ÂÂÃ«Â¬Â¼Ã­ÂÂÃ¬Â Â', 'Ã¬Â ÂÃªÂ¸Â°Ã¬Â Â', 'Ã¬ÂÂÃ«ÂÂÃ¬Â§Â', 'ÃªÂ¸Â°ÃªÂ³ÂÃ¬Â Â', 'Ã«Â°Â©Ã¬ÂÂ¬Ã¬ÂÂ ', 'Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´',
-  'Ã¬ÂÂ¬Ã¬ÂÂ© Ã¬ÂÂ¤Ã«Â¥Â', 'Ã«Â³Â´ÃªÂ´ÂÃÂ·Ã¬ÂÂ´Ã«Â°Â', 'Ã¬ÂÂÃ¬Â²Â´Ã¬Â ÂÃ­ÂÂ©Ã¬ÂÂ±', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '생물학적', '전기적', '에너지', '기계적', '방사선', '소프트웨어',
+  '사용 오류', '보관·운반', '생체적합성', '기타',
 ]
 
-// RPN(Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂ°Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂ) ÃªÂ¸Â°Ã¬Â¤Â
+// RPN(위험 우선순위) 기준
 function rpnColor(rpn) {
-  if (rpn >= 15) return { bg: '#FEE2E2', text: '#991B1B', label: 'Ã­ÂÂÃ¬ÂÂ©Ã«Â¶ÂÃªÂ°Â' }
-  if (rpn >= 8)  return { bg: '#FEF3C7', text: '#92400E', label: 'Ã¬Â¡Â°ÃªÂ±Â´Ã«Â¶ÂÃ­ÂÂÃ¬ÂÂ©' }
-  return { bg: '#D1FAE5', text: '#065F46', label: 'Ã­ÂÂÃ¬ÂÂ©ÃªÂ°ÂÃ«ÂÂ¥' }
+  if (rpn >= 15) return { bg: '#FEE2E2', text: '#991B1B', label: '허용불가' }
+  if (rpn >= 8)  return { bg: '#FEF3C7', text: '#92400E', label: '조건부허용' }
+  return { bg: '#D1FAE5', text: '#065F46', label: '허용가능' }
 }
 
 function matrixColor(s, p) {
@@ -70,7 +70,7 @@ function matrixColor(s, p) {
   return '#10B981'
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â¹Â Ã­ÂÂ¼ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 빈 폼 ─────────────────────────────────────────────────────
 const emptyForm = () => ({
   id: '', productKey: '', title: '', category: '',
   hazard: '', hazardousSituation: '', harm: '',
@@ -83,11 +83,11 @@ const emptyForm = () => ({
 
 let _sbCidRisk = null
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â©ÂÃ¬ÂÂ¸ Ã¬Â»Â´Ã­ÂÂ¬Ã«ÂÂÃ­ÂÂ¸ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 메인 컴포넌트 ─────────────────────────────────────────────
 export default function RiskHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const [searchParams] = useSearchParams()
-  // #284: Ã¬Â ÂÃ­ÂÂÃªÂ³ÂµÃ¬Â Â(ProductsHub)Ã¬ÂÂ Ã¬ÂÂÃ«Â²Â Ã«ÂÂÃ«ÂÂ  Ã«ÂÂÃ«ÂÂ Ã­ÂÂ´Ã«ÂÂ¹ Ã¬Â ÂÃ­ÂÂ(productKey)Ã¬ÂÂ Ã¬ÂÂÃ­ÂÂÃ«Â§Â Ã«ÂÂ¸Ã¬Â¶ÂÃ­ÂÂÃ«ÂÂ¤.
+  // #284: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 위험만 노출한다.
   const scopeKey = scopeProductKey || searchParams.get('productId') || null
   const [risks, setRisks] = useState(() => lsRead())
   const [tab, setTab] = useState('register')
@@ -130,7 +130,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
   }
 
   const submit = () => {
-    if (!form.title || !form.harm) return alert('Ã¬Â ÂÃ«ÂªÂ©ÃªÂ³Â¼ Ã¬ÂÂÃ­ÂÂ´(Harm)Ã«ÂÂ Ã­ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.')
+    if (!form.title || !form.harm) return alert('제목과 위해(Harm)는 필수입니다.')
     const now = new Date().toISOString()
     if (editId) {
       const updated = risks.map(r => r.id === editId ? { ...form, id: editId } : r)
@@ -145,7 +145,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
   }
 
   const remove = (id) => {
-    if (!confirm('Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) return
+    if (!confirm('삭제하시겠습니까?')) return
     save(risks.filter(r => r.id !== id))
   }
 
@@ -179,38 +179,38 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
   }
 
   const TABS = [
-    { key: 'register', label: 'Ã¬ÂÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«Â¶Â', icon: List },
-    { key: 'matrix',   label: 'Ã¬ÂÂÃ­ÂÂ Ã«Â§Â¤Ã­ÂÂ¸Ã«Â¦Â­Ã¬ÂÂ¤', icon: Grid },
-    { key: 'control',  label: 'Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂÃ­ÂÂ©', icon: TrendingDown },
+    { key: 'register', label: '위험 등록부', icon: List },
+    { key: 'matrix',   label: '위험 매트릭스', icon: Grid },
+    { key: 'control',  label: '저감 조치 현황', icon: TrendingDown },
   ]
 
   const body = (
     <>
       <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1280px] mx-auto'}>
 
-        {/* Ã«Â°Â°Ã«ÂÂ (Ã¬ÂÂÃ«Â²Â Ã«ÂÂ Ã¬ÂÂ Ã¬ÂÂ¨ÃªÂ¹Â Ã¢ÂÂ Ã¬ÂÂÃ¬ÂÂ ProductsHub Ã­ÂÂ¤Ã«ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©) */}
+        {/* 배너 (임베드 시 숨김 — 상위 ProductsHub 헤더 사용) */}
         {!embedded && (
         <HubBanner
-          title="Ã¬ÂÂÃ­ÂÂÃªÂ´ÂÃ«Â¦Â¬"
-          subtitle="ISO 14971:2019 ÃÂ· FMEA ÃÂ· Ã¬ÂÂÃ­ÂÂ Ã«Â¶ÂÃ¬ÂÂ ÃÂ· Ã­ÂÂÃ¬ÂÂ©ÃªÂ¸Â°Ã¬Â¤Â Ã­ÂÂÃªÂ°Â"
+          title="위험관리"
+          subtitle="ISO 14971:2019 · FMEA · 위험 분석 · 허용기준 평가"
           icon={ShieldAlert}
           color="#EF4444"
           quickActions={[
-            { label: 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â', icon: Plus, onClick: openNew, primary: true },
-            { label: 'AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±', icon: Sparkles, onClick: () => setShowAiModal(true) },
+            { label: '위험 항목 추가', icon: Plus, onClick: openNew, primary: true },
+            { label: 'AI 초안 생성', icon: Sparkles, onClick: () => setShowAiModal(true) },
           ]}
-          workflow={['Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ«Â³Â', 'Ã¬ÂÂÃ­ÂÂ Ã¬Â¶ÂÃ¬Â Â (SÃÂP)', 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃªÂ°Â', 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂµÃ¬Â Â', 'Ã¬ÂÂÃ¬ÂÂ¬Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃªÂ°Â', 'Ã«Â³Â´ÃªÂ³Â Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±']}
+          workflow={['위험 식별', '위험 추정 (S×P)', '위험 평가', '위험 통제', '잔여위험 평가', '보고서 작성']}
         />
         )}
 
-        {/* KPI Ã¬Â¹Â´Ã«ÂÂ */}
+        {/* KPI 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'Ã¬Â´Â Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ©', count: stats.total, color: '#6B7280' },
-            { label: 'Ã­ÂÂÃ¬ÂÂ©Ã«Â¶ÂÃªÂ°Â (Ã«Â¹Â¨ÃªÂ°Â)', count: stats.high, color: '#EF4444' },
-            { label: 'Ã¬Â¡Â°ÃªÂ±Â´Ã«Â¶ÂÃ­ÂÂÃ¬ÂÂ© (Ã«ÂÂ¸Ã«ÂÂ)', count: stats.med, color: '#F59E0B' },
-            { label: 'Ã­ÂÂÃ¬ÂÂ©ÃªÂ°ÂÃ«ÂÂ¥ (Ã¬Â´ÂÃ«Â¡Â)', count: stats.low, color: '#10B981' },
-            { label: 'ÃªÂ²ÂÃ¬Â¦Â Ã¬ÂÂÃ«Â£Â', count: stats.verified, color: '#3B82F6' },
+            { label: '총 위험 항목', count: stats.total, color: '#6B7280' },
+            { label: '허용불가 (빨강)', count: stats.high, color: '#EF4444' },
+            { label: '조건부허용 (노랑)', count: stats.med, color: '#F59E0B' },
+            { label: '허용가능 (초록)', count: stats.low, color: '#10B981' },
+            { label: '검증 완료', count: stats.verified, color: '#3B82F6' },
           ].map(s => (
             <div key={s.label} className="p-3 rounded-xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
               <div className="text-[22px] font-bold" style={{ color: s.color }}>{s.count}</div>
@@ -219,7 +219,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
           ))}
         </div>
 
-        {/* Ã­ÂÂ­ */}
+        {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl" style={{ background: 'var(--bg-soft)', width: 'fit-content' }}>
           {TABS.map(t => (
             <button
@@ -238,7 +238,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
           ))}
         </div>
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«Â¶Â Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 위험 등록부 탭 ── */}
         {tab === 'register' && (
           <>
             <div className="flex gap-3 mb-4 flex-wrap">
@@ -247,7 +247,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="Ã¬ÂÂÃ­ÂÂID ÃÂ· Ã¬Â ÂÃ«ÂªÂ© ÃÂ· Ã¬ÂÂÃ­ÂÂ´ ÃªÂ²ÂÃ¬ÂÂ..."
+                  placeholder="위험ID · 제목 · 위해 검색..."
                   className="flex-1 text-[13px] outline-none"
                   style={{ background: 'none', border: 'none', color: 'var(--ink)' }}
                 />
@@ -258,7 +258,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
                 className="px-3 py-2 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}
               >
-                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂ Ã­ÂÂ</option>
+                <option value="all">전체 유형</option>
                 {RISK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <button
@@ -266,14 +266,14 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: 'var(--bg-card)', color: '#7C3AED', border: '1px solid #7C3AED40', cursor: 'pointer' }}
               >
-                <Sparkles size={14} /> AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±
+                <Sparkles size={14} /> AI 초안 생성
               </button>
               <button
                 onClick={openNew}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold"
                 style={{ background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer' }}
               >
-                <Plus size={14} /> Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â
+                <Plus size={14} /> 위험 항목 추가
               </button>
             </div>
 
@@ -297,14 +297,14 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
           </>
         )}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ­ÂÂ Ã«Â§Â¤Ã­ÂÂ¸Ã«Â¦Â­Ã¬ÂÂ¤ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 위험 매트릭스 탭 ── */}
         {tab === 'matrix' && <RiskMatrix risks={scopedRisks} />}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂÃ­ÂÂ© Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 저감 조치 현황 탭 ── */}
         {tab === 'control' && <ControlStatus risks={scopedRisks} onEdit={openEdit} />}
       </div>
 
-      {/* Ã¬ÂÂÃ­ÂÂ Ã¬Â¶ÂÃªÂ°Â/Ã¬ÂÂÃ¬Â Â Ã«ÂªÂ¨Ã«ÂÂ¬ */}
+      {/* 위험 추가/수정 모달 */}
       {showForm && (
         <RiskForm
           form={form}
@@ -315,7 +315,7 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
         />
       )}
 
-      {/* AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ± Ã«ÂªÂ¨Ã«ÂÂ¬ */}
+      {/* AI 초안 생성 모달 */}
       {showAiModal && (
         <AiDraftModal onClose={() => setShowAiModal(false)} onUse={openFromAi} />
       )}
@@ -325,13 +325,13 @@ export default function RiskHub({ embedded = false, productKey: scopeProductKey 
   if (embedded) return body
 
   return (
-    <AppLayout user={user} title="Ã¬ÂÂÃ­ÂÂÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 14971 Ã¬ÂÂÃ­ÂÂÃ«Â¶ÂÃ¬ÂÂ ÃÂ· FMEA ÃÂ· Ã¬ÂÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«Â¶Â">
+    <AppLayout user={user} title="위험관리" subtitle="ISO 14971 위험분석 · FMEA · 위험 등록부">
       {body}
     </AppLayout>
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ Ã¬Â»Â´Ã­ÂÂ¬Ã«ÂÂÃ­ÂÂ¸ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 위험 행 컴포넌트 ──────────────────────────────────────────
 function RiskRow({ risk, expanded, onToggle, onEdit, onDelete, onVerify }) {
   const rpn = risk.severity * risk.probability
   const residualRpn = risk.residualSeverity * risk.residualProbability
@@ -339,13 +339,13 @@ function RiskRow({ risk, expanded, onToggle, onEdit, onDelete, onVerify }) {
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-      {/* Ã­ÂÂ¤Ã«ÂÂ Ã­ÂÂ */}
+      {/* 헤더 행 */}
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer"
         onClick={onToggle}
         style={{ borderBottom: expanded ? '1px solid var(--line)' : 'none' }}
       >
-        {/* RPN Ã«Â°Â°Ã¬Â§Â */}
+        {/* RPN 배지 */}
         <div
           className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center"
           style={{ background: bg }}
@@ -370,22 +370,22 @@ function RiskRow({ risk, expanded, onToggle, onEdit, onDelete, onVerify }) {
             </span>
             {risk.verified && (
               <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: '#DBEAFE', color: '#1D4ED8' }}>
-                Ã¢ÂÂ ÃªÂ²ÂÃ¬Â¦ÂÃ¬ÂÂÃ«Â£Â
+                ✓ 검증완료
               </span>
             )}
           </div>
           <div className="text-[13.5px] font-semibold mt-0.5 truncate" style={{ color: 'var(--ink)' }}>
-            {risk.title || '(Ã¬Â ÂÃ«ÂªÂ© Ã¬ÂÂÃ¬ÂÂ)'}
+            {risk.title || '(제목 없음)'}
           </div>
           <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>
-            Ã¬ÂÂÃ­ÂÂ´: {risk.harm || '-'} &nbsp;|&nbsp; Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ {risk.severity} ÃÂ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± {risk.probability}
+            위해: {risk.harm || '-'} &nbsp;|&nbsp; 심각도 {risk.severity} × 발생가능성 {risk.probability}
           </div>
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={e => { e.stopPropagation(); onVerify() }}
-            title={risk.verified ? 'ÃªÂ²ÂÃ¬Â¦Â Ã¬Â·Â¨Ã¬ÂÂ' : 'ÃªÂ²ÂÃ¬Â¦Â Ã¬ÂÂÃ«Â£Â Ã¬Â²ÂÃ«Â¦Â¬'}
+            title={risk.verified ? '검증 취소' : '검증 완료 처리'}
             className="p-1.5 rounded-lg"
             style={{ background: risk.verified ? '#DBEAFE' : 'var(--bg-soft)', color: risk.verified ? '#1D4ED8' : 'var(--ink-faint)', border: 'none', cursor: 'pointer' }}
           >
@@ -409,46 +409,46 @@ function RiskRow({ risk, expanded, onToggle, onEdit, onDelete, onVerify }) {
         </div>
       </div>
 
-      {/* Ã­ÂÂÃ¬ÂÂ¥ Ã¬ÂÂÃ¬ÂÂ¸ */}
+      {/* 확장 상세 */}
       {expanded && (
         <div className="px-4 py-4 grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬ÂÂ¸ (Hazard)</Label>
+            <Label>위험요인 (Hazard)</Label>
             <Value>{risk.hazard || '-'}</Value>
-            <Label>Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ­ÂÂ© (Hazardous Situation)</Label>
+            <Label>위험 상황 (Hazardous Situation)</Label>
             <Value>{risk.hazardousSituation || '-'}</Value>
-            <Label>Ã¬ÂÂÃ­ÂÂ´ (Harm)</Label>
+            <Label>위해 (Harm)</Label>
             <Value>{risk.harm || '-'}</Value>
           </div>
           <div>
-            <Label>Ã¬Â´ÂÃªÂ¸Â° Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃªÂ°Â</Label>
+            <Label>초기 위험 평가</Label>
             <div className="flex gap-3 mb-3">
-              <ScoreBox label="Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ" val={risk.severity} />
-              <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>ÃÂ</span>
-              <ScoreBox label="Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ±" val={risk.probability} />
+              <ScoreBox label="심각도" val={risk.severity} />
+              <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>×</span>
+              <ScoreBox label="발생가능성" val={risk.probability} />
               <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>=</span>
               <ScoreBox label="RPN" val={rpn} color={text} bg={bg} />
             </div>
-            <Label>Ã¬ÂÂÃ­ÂÂ Ã­ÂÂµÃ¬Â Â Ã¬Â¡Â°Ã¬Â¹Â</Label>
+            <Label>위험 통제 조치</Label>
             <Value>{risk.controlMeasure || '-'} ({CONTROL_TYPES.find(c => c.value === risk.controlType)?.label || '-'})</Value>
-            <Label>Ã¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ­ÂÂ (Ã¬Â ÂÃªÂ°Â Ã­ÂÂ)</Label>
+            <Label>잔여 위험 (저감 후)</Label>
             <div className="flex gap-3">
-              <ScoreBox label="Ã¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ" val={risk.residualSeverity} />
-              <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>ÃÂ</span>
-              <ScoreBox label="Ã¬ÂÂÃ¬ÂÂ¬ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ±" val={risk.residualProbability} />
+              <ScoreBox label="잔여 심각도" val={risk.residualSeverity} />
+              <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>×</span>
+              <ScoreBox label="잔여 발생가능성" val={risk.residualProbability} />
               <span className="self-center text-[18px] font-bold" style={{ color: 'var(--ink-faint)' }}>=</span>
-              <ScoreBox label="Ã¬ÂÂÃ¬ÂÂ¬ RPN" val={residualRpn} color={rpnColor(residualRpn).text} bg={rpnColor(residualRpn).bg} />
+              <ScoreBox label="잔여 RPN" val={residualRpn} color={rpnColor(residualRpn).text} bg={rpnColor(residualRpn).bg} />
             </div>
           </div>
           {risk.notes && (
             <div className="md:col-span-2">
-              <Label>Ã«Â¹ÂÃªÂ³Â </Label>
+              <Label>비고</Label>
               <Value>{risk.notes}</Value>
             </div>
           )}
           <div className="md:col-span-2 text-[11px]" style={{ color: 'var(--ink-faint)' }}>
-            Ã«ÂÂ±Ã«Â¡Â: {risk.createdBy} ÃÂ· {risk.createdAt?.slice(0, 10) || '-'}
-            {risk.verified && ` ÃÂ· ÃªÂ²ÂÃ¬Â¦Â: ${risk.verifiedAt}`}
+            등록: {risk.createdBy} · {risk.createdAt?.slice(0, 10) || '-'}
+            {risk.verified && ` · 검증: ${risk.verifiedAt}`}
           </div>
         </div>
       )}
@@ -474,7 +474,7 @@ function ScoreBox({ label, val, color, bg }) {
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ­ÂÂ Ã«Â§Â¤Ã­ÂÂ¸Ã«Â¦Â­Ã¬ÂÂ¤ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 위험 매트릭스 ─────────────────────────────────────────────
 function RiskMatrix({ risks }) {
   const cellRisks = {}
   risks.forEach(r => {
@@ -487,9 +487,9 @@ function RiskMatrix({ risks }) {
     <div>
       <div className="mb-4 flex items-center gap-4 flex-wrap">
         {[
-          { color: '#EF4444', bg: '#FEE2E2', label: 'Ã­ÂÂÃ¬ÂÂ©Ã«Â¶ÂÃªÂ°Â (RPNÃ¢ÂÂ¥15)' },
-          { color: '#F59E0B', bg: '#FEF3C7', label: 'Ã¬Â¡Â°ÃªÂ±Â´Ã«Â¶Â Ã­ÂÂÃ¬ÂÂ© (RPN 8~14)' },
-          { color: '#10B981', bg: '#D1FAE5', label: 'Ã­ÂÂÃ¬ÂÂ©ÃªÂ°ÂÃ«ÂÂ¥ (RPN<8)' },
+          { color: '#EF4444', bg: '#FEE2E2', label: '허용불가 (RPN≥15)' },
+          { color: '#F59E0B', bg: '#FEF3C7', label: '조건부 허용 (RPN 8~14)' },
+          { color: '#10B981', bg: '#D1FAE5', label: '허용가능 (RPN<8)' },
         ].map(l => (
           <div key={l.label} className="flex items-center gap-1.5 text-[12px]">
             <div className="w-4 h-4 rounded" style={{ background: l.bg, border: `2px solid ${l.color}` }} />
@@ -503,7 +503,7 @@ function RiskMatrix({ risks }) {
           <div className="flex items-center mb-1" style={{ paddingLeft: 90 }}>
             {[1,2,3,4,5].map(p => (
               <div key={p} className="flex-1 text-center text-[11px] font-semibold" style={{ color: 'var(--ink-faint)' }}>
-                Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± {p}
+                발생가능성 {p}
               </div>
             ))}
           </div>
@@ -511,7 +511,7 @@ function RiskMatrix({ risks }) {
           {[5,4,3,2,1].map(s => (
             <div key={s} className="flex items-center mb-1.5">
               <div className="text-[11px] font-semibold text-right pr-2 flex-shrink-0" style={{ width: 88, color: 'var(--ink-faint)' }}>
-                Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ {s}
+                심각도 {s}
               </div>
               {[1,2,3,4,5].map(p => {
                 const key = `${s}-${p}`
@@ -531,7 +531,7 @@ function RiskMatrix({ risks }) {
                       background: bg,
                       border: `2px solid ${items.length > 0 ? color : 'transparent'}`,
                     }}
-                    title={`Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ ${s} ÃÂ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± ${p} = RPN ${rpn}\nÃ¬ÂÂÃ­ÂÂ ${items.length}ÃªÂ±Â´`}
+                    title={`심각도 ${s} × 발생가능성 ${p} = RPN ${rpn}\n위험 ${items.length}건`}
                   >
                     <div className="text-[10px] font-bold" style={{ color: isHigh ? '#991B1B' : isMed ? '#92400E' : '#065F46' }}>
                       {rpn}
@@ -551,7 +551,7 @@ function RiskMatrix({ risks }) {
           ))}
 
           <div className="text-center text-[11px] mt-2" style={{ color: 'var(--ink-faint)' }}>
-            Ã¬ÂÂ«Ã¬ÂÂ = RPN ÃÂ· Ã¬ÂÂ = Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬ÂÂÃ­ÂÂ ÃªÂ±Â´Ã¬ÂÂ
+            숫자 = RPN · 원 = 등록된 위험 건수
           </div>
         </div>
       </div>
@@ -559,7 +559,7 @@ function RiskMatrix({ risks }) {
       {risks.filter(r => r.severity * r.probability >= 15).length > 0 && (
         <div className="mt-6">
           <div className="text-[13px] font-bold mb-3 flex items-center gap-2" style={{ color: '#EF4444' }}>
-            <AlertTriangle size={15} /> Ã­ÂÂÃ¬ÂÂ©Ã«Â¶ÂÃªÂ°Â Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© (Ã¬Â¦ÂÃ¬ÂÂ Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂÃ¬ÂÂ)
+            <AlertTriangle size={15} /> 허용불가 위험 항목 (즉시 조치 필요)
           </div>
           <div className="space-y-2">
             {risks
@@ -572,10 +572,10 @@ function RiskMatrix({ risks }) {
                   <div className="flex-1 min-w-0">
                     <div className="font-mono text-[11px]" style={{ color: '#991B1B' }}>{r.id}</div>
                     <div className="text-[13px] font-semibold truncate" style={{ color: '#7F1D1D' }}>{r.title}</div>
-                    <div className="text-[11px]" style={{ color: '#991B1B' }}>Ã¬ÂÂÃ­ÂÂ´: {r.harm}</div>
+                    <div className="text-[11px]" style={{ color: '#991B1B' }}>위해: {r.harm}</div>
                   </div>
                   {r.verified && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#DBEAFE', color: '#1D4ED8' }}>ÃªÂ²ÂÃ¬Â¦ÂÃ¬ÂÂÃ«Â£Â</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold" style={{ background: '#DBEAFE', color: '#1D4ED8' }}>검증완료</span>
                   )}
                 </div>
               ))
@@ -587,7 +587,7 @@ function RiskMatrix({ risks }) {
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂÃ­ÂÂ© Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 저감 조치 현황 탭 ─────────────────────────────────────────
 function ControlStatus({ risks, onEdit }) {
   const byType = CONTROL_TYPES.map(ct => ({
     ...ct,
@@ -615,15 +615,15 @@ function ControlStatus({ risks, onEdit }) {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[28px] font-bold" style={{ color: '#10B981' }}>{reductionRate}%</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂÃ­ÂÂ Ã¬Â ÂÃªÂ°Â Ã¬ÂÂ±ÃªÂ³ÂµÃ«Â¥Â </div>
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>위험 저감 성공률</div>
         </div>
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[28px] font-bold" style={{ color: '#3B82F6' }}>{avgReduction}</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>Ã­ÂÂÃªÂ·Â  RPN ÃªÂ°ÂÃ¬ÂÂ</div>
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>평균 RPN 감소</div>
         </div>
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
           <div className="text-[28px] font-bold" style={{ color: '#8B5CF6' }}>{risks.filter(r => r.verified).length}</div>
-          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>ÃªÂ²ÂÃ¬Â¦Â Ã¬ÂÂÃ«Â£Â Ã­ÂÂ­Ã«ÂªÂ©</div>
+          <div className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>검증 완료 항목</div>
         </div>
       </div>
 
@@ -631,7 +631,7 @@ function ControlStatus({ risks, onEdit }) {
         <div key={ct.value} className="mb-5">
           <div className="text-[13px] font-bold mb-2 flex items-center gap-2" style={{ color: 'var(--ink)' }}>
             <TrendingDown size={14} style={{ color: '#10B981' }} />
-            {ct.label} ({ct.items.length}ÃªÂ±Â´)
+            {ct.label} ({ct.items.length}건)
           </div>
           <div className="space-y-2">
             {ct.items.map(r => {
@@ -651,20 +651,20 @@ function ControlStatus({ risks, onEdit }) {
                       <span className="text-[13px] font-semibold truncate" style={{ color: 'var(--ink)' }}>{r.title}</span>
                     </div>
                     <div className="text-[12px] mt-0.5 truncate" style={{ color: 'var(--ink-faint)' }}>
-                      {r.controlMeasure || '(Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã«Â¯Â¸Ã¬ÂÂÃ«Â Â¥)'}
+                      {r.controlMeasure || '(저감 조치 미입력)'}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <div className="text-center">
                       <div className="text-[14px] font-bold" style={{ color: rpnColor(before).text }}>{before}</div>
-                      <div className="text-[9px]" style={{ color: 'var(--ink-faint)' }}>Ã¬Â´ÂÃªÂ¸Â°</div>
+                      <div className="text-[9px]" style={{ color: 'var(--ink-faint)' }}>초기</div>
                     </div>
                     <div className="text-[12px]" style={{ color: reduced > 0 ? '#10B981' : '#EF4444' }}>
-                      {reduced > 0 ? `Ã¢ÂÂ¼${reduced}` : reduced === 0 ? 'Ã¢ÂÂ' : `Ã¢ÂÂ²${Math.abs(reduced)}`}
+                      {reduced > 0 ? `▼${reduced}` : reduced === 0 ? '→' : `▲${Math.abs(reduced)}`}
                     </div>
                     <div className="text-center">
                       <div className="text-[14px] font-bold" style={{ color: rpnColor(after).text }}>{after}</div>
-                      <div className="text-[9px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂÃ¬ÂÂ¬</div>
+                      <div className="text-[9px]" style={{ color: 'var(--ink-faint)' }}>잔여</div>
                     </div>
                   </div>
                 </div>
@@ -677,14 +677,14 @@ function ControlStatus({ risks, onEdit }) {
       {risks.length === 0 && (
         <div className="text-center py-16" style={{ color: 'var(--ink-faint)' }}>
           <TrendingDown size={40} strokeWidth={1.2} className="mx-auto mb-3 opacity-30" />
-          <div>Ã¬ÂÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡ÂÃ«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­Ã«ÂªÂ©Ã¬ÂÂ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ«Â©Â´ Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂÃ­ÂÂ©Ã¬ÂÂ´ Ã­ÂÂÃ¬ÂÂÃ«ÂÂ©Ã«ÂÂÃ«ÂÂ¤</div>
+          <div>위험 등록부에 항목을 추가하면 저감 조치 현황이 표시됩니다</div>
         </div>
       )}
     </div>
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ± Ã«ÂªÂ¨Ã«ÂÂ¬ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── AI 초안 생성 모달 ────────────────────────────────────────
 function AiDraftModal({ onClose, onUse }) {
   const [productName, setProductName] = useState('')
   const [description, setDescription] = useState('')
@@ -694,7 +694,7 @@ function AiDraftModal({ onClose, onUse }) {
 
   const generate = async () => {
     if (!productName.trim() && !description.trim()) {
-      setError('Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ Ã«ÂÂÃ«ÂÂ Ã¬Â ÂÃ­ÂÂ/ÃªÂ¸Â°Ã«ÂÂ¥ Ã¬ÂÂ¤Ã«ÂªÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+      setError('제품명 또는 제품/기능 설명을 입력하세요.')
       return
     }
     setLoading(true)
@@ -708,12 +708,12 @@ function AiDraftModal({ onClose, onUse }) {
       })
       const j = await r.json()
       if (!j.ok) {
-        setError(j.message || 'AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±Ã¬ÂÂ Ã¬ÂÂ¤Ã­ÂÂ¨Ã­ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.')
+        setError(j.message || 'AI 초안 생성에 실패했습니다.')
       } else {
         setItems(j.items)
       }
     } catch (e) {
-      setError('AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ± Ã¬Â¤Â Ã¬ÂÂ¤Ã«Â¥ÂÃªÂ°Â Ã«Â°ÂÃ¬ÂÂÃ­ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤: ' + String((e && e.message) || e))
+      setError('AI 초안 생성 중 오류가 발생했습니다: ' + String((e && e.message) || e))
     } finally {
       setLoading(false)
     }
@@ -742,26 +742,26 @@ function AiDraftModal({ onClose, onUse }) {
       >
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-[16px] font-bold" style={{ color: 'var(--ink)' }}>
-            <Sparkles size={18} style={{ color: '#7C3AED' }} /> Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© AI Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±
+            <Sparkles size={18} style={{ color: '#7C3AED' }} /> 위험 항목 AI 초안 생성
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
             <X size={20} />
           </button>
         </div>
         <div className="text-[12px] mb-5" style={{ color: 'var(--ink-faint)' }}>
-          Ã¬Â ÂÃ­ÂÂ/ÃªÂ¸Â°Ã«ÂÂ¥Ã¬ÂÂ Ã¬ÂÂ¤Ã«ÂªÂÃ­ÂÂÃ«Â©Â´ ISO 14971 ÃªÂ´ÂÃ¬Â ÂÃ¬ÂÂ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â´ÂÃ¬ÂÂÃ¬ÂÂ Ã¬ÂÂ¬Ã«ÂÂ¬ ÃªÂ±Â´ Ã¬Â ÂÃ¬ÂÂÃ­ÂÂ©Ã«ÂÂÃ«ÂÂ¤. Ã«Â°ÂÃ«ÂÂÃ¬ÂÂ Ã«ÂÂ´Ã¬ÂÂ©Ã¬ÂÂ ÃªÂ²ÂÃ­ÂÂ ÃÂ·Ã¬ÂÂÃ¬Â ÂÃ­ÂÂ Ã«ÂÂ¤ Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ Ã¢ÂÂ AI Ã¬Â´ÂÃ¬ÂÂÃ¬ÂÂ Ã¬Â°Â¸ÃªÂ³Â Ã¬ÂÂ©Ã¬ÂÂ´Ã«Â©Â° Ã¬ÂµÂÃ¬Â¢Â Ã­ÂÂÃ«ÂÂ¨Ã¬ÂÂ Ã¬ÂÂ¬Ã¬ÂÂ©Ã¬ÂÂ Ã¬Â±ÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤.
+          제품/기능을 설명하면 ISO 14971 관점의 위험 항목 초안을 여러 건 제안합니다. 반드시 내용을 검토·수정한 뒤 등록하세요 — AI 초안은 참고용이며 최종 판단은 사용자 책임입니다.
         </div>
 
         <div className="space-y-3">
-          <Field label="Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ">
-            <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Ã¬ÂÂ: Ã­ÂÂ´Ã«ÂÂÃ¬ÂÂ© Ã­ÂÂÃ«ÂÂ¹Ã¬Â¸Â¡Ã¬Â ÂÃªÂ¸Â°" className="w-full" style={inputStyle} />
+          <Field label="제품명">
+            <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="예: 휴대용 혈당측정기" className="w-full" style={inputStyle} />
           </Field>
-          <Field label="Ã¬Â ÂÃ­ÂÂ/ÃªÂ¸Â°Ã«ÂÂ¥ Ã¬ÂÂ¤Ã«ÂªÂ">
+          <Field label="제품/기능 설명">
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               rows={3}
-              placeholder="Ã¬ÂÂ: Ã­ÂÂÃ¬ÂÂÃªÂ°Â Ã¬Â§ÂÃ¬Â Â Ã¬Â±ÂÃ­ÂÂ Ã­ÂÂ Ã¬ÂÂ¤Ã­ÂÂ¸Ã«Â¦Â½Ã¬ÂÂ Ã¬ÂÂ½Ã¬ÂÂÃ­ÂÂ´ Ã­ÂÂÃ«ÂÂ¹ Ã¬ÂÂÃ¬Â¹ÂÃ«Â¥Â¼ Ã¬Â¸Â¡Ã¬Â ÂÃ­ÂÂÃ«ÂÂ Ã­ÂÂ´Ã«ÂÂÃ¬ÂÂ© Ã¬Â ÂÃ¬ÂÂÃªÂ¸Â°ÃªÂ¸Â°. Ã«Â¸ÂÃ«Â£Â¨Ã­ÂÂ¬Ã¬ÂÂ¤Ã«Â¡Â Ã¬ÂÂ±Ã¬ÂÂ ÃªÂ²Â°ÃªÂ³Â¼ Ã¬Â ÂÃ¬ÂÂ¡."
+              placeholder="예: 환자가 직접 채혈 후 스트립을 삽입해 혈당 수치를 측정하는 휴대용 전자기기. 블루투스로 앱에 결과 전송."
               className="w-full"
               style={{ ...inputStyle, resize: 'vertical' }}
             />
@@ -776,14 +776,14 @@ function AiDraftModal({ onClose, onUse }) {
             style={{ background: '#7C3AED', color: 'white', border: 'none', cursor: loading ? 'default' : 'pointer', opacity: loading ? 0.7 : 1 }}
           >
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
-            {loading ? 'Ã¬ÂÂÃ¬ÂÂ± Ã¬Â¤Â...' : 'Ã¬Â´ÂÃ¬ÂÂ Ã¬ÂÂÃ¬ÂÂ±'}
+            {loading ? '생성 중...' : '초안 생성'}
           </button>
         </div>
 
         {items && items.length > 0 && (
           <div className="mt-5 space-y-2.5">
             <div className="text-[11px] font-mono tracking-wider" style={{ color: 'var(--ink-faint)' }}>
-              Ã¬Â ÂÃ¬ÂÂÃ«ÂÂ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© {items.length}ÃªÂ±Â´ Ã¢ÂÂ Ã­ÂÂÃ«ÂÂÃ«Â¥Â¼ Ã¬ÂÂ Ã­ÂÂÃ­ÂÂÃ«Â©Â´ Ã«ÂÂ±Ã«Â¡Â Ã­ÂÂ¼Ã¬ÂÂ Ã¬Â±ÂÃ¬ÂÂÃ¬Â§ÂÃ«ÂÂÃ«ÂÂ¤
+              제안된 위험 항목 {items.length}건 — 하나를 선택하면 등록 폼에 채워집니다
             </div>
             {items.map((it, i) => {
               const rpn = it.severity * it.probability
@@ -801,7 +801,7 @@ function AiDraftModal({ onClose, onUse }) {
                   <div className="text-[13px] font-semibold" style={{ color: 'var(--ink)' }}>{it.hazard}</div>
                   <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-soft)' }}>{it.harm}</div>
                   {it.controlMeasure && (
-                    <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â(Ã¬ÂÂ): {it.controlMeasure}</div>
+                    <div className="text-[11.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>저감 조치(안): {it.controlMeasure}</div>
                   )}
                 </button>
               )
@@ -813,7 +813,7 @@ function AiDraftModal({ onClose, onUse }) {
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ­ÂÂ Ã¬Â¶ÂÃªÂ°Â/Ã¬ÂÂÃ¬Â Â Ã­ÂÂ¼ Ã«ÂªÂ¨Ã«ÂÂ¬ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 위험 추가/수정 폼 모달 ─────────────────────────────────────
 function RiskForm({ form, fld, editId, onSubmit, onClose }) {
   const rpn = form.severity * form.probability
   const resRpn = form.residualSeverity * form.residualProbability
@@ -841,7 +841,7 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
       >
         <div className="flex items-center justify-between mb-5">
           <div className="text-[16px] font-bold" style={{ color: 'var(--ink)' }}>
-            {editId ? 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬ÂÂÃ¬Â Â' : 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â'}
+            {editId ? '위험 항목 수정' : '위험 항목 추가'}
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--ink-faint)' }}>
             <X size={20} />
@@ -850,38 +850,38 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
 
         <div className="space-y-4">
           <Row2>
-            <Field label="Ã¬Â ÂÃ«ÂªÂ© *">
-              <input value={form.title} onChange={e => fld('title', e.target.value)} placeholder="Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â ÂÃ«ÂªÂ©..." className="w-full" style={inputStyle} />
+            <Field label="제목 *">
+              <input value={form.title} onChange={e => fld('title', e.target.value)} placeholder="위험 항목 제목..." className="w-full" style={inputStyle} />
             </Field>
-            <Field label="Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂ Ã­ÂÂ">
+            <Field label="위험 유형">
               <select value={form.category} onChange={e => fld('category', e.target.value)} className="w-full" style={inputStyle}>
-                <option value="">Ã¬ÂÂ Ã­ÂÂ...</option>
+                <option value="">선택...</option>
                 {RISK_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
           </Row2>
 
-          <Field label="Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬ÂÂ¸ (Hazard) Ã¢ÂÂ Ã¬ÂÂÃ­ÂÂ´Ã«Â¥Â¼ Ã¬ÂÂ Ã«Â°ÂÃ­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂ Ã¬ÂÂ¬Ã¬Â Â Ã¬ÂÂÃ¬ÂÂ¸">
-            <input value={form.hazard} onChange={e => fld('hazard', e.target.value)} placeholder="Ã¬ÂÂ: ÃªÂ³Â Ã¬Â ÂÃ¬ÂÂ Ã«ÂÂ¸Ã¬Â¶Â, Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´ Ã¬ÂÂ¤Ã«Â¥Â..." className="w-full" style={inputStyle} />
+          <Field label="위험요인 (Hazard) — 위해를 유발할 수 있는 잠재적 원인">
+            <input value={form.hazard} onChange={e => fld('hazard', e.target.value)} placeholder="예: 고전압 노출, 소프트웨어 오류..." className="w-full" style={inputStyle} />
           </Field>
-          <Field label="Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ­ÂÂ© (Hazardous Situation) Ã¢ÂÂ Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬ÂÂ¸Ã¬ÂÂ´ Ã«Â°ÂÃ¬ÂÂÃ­ÂÂÃ«ÂÂ Ã¬ÂÂÃ­ÂÂ©">
-            <input value={form.hazardousSituation} onChange={e => fld('hazardousSituation', e.target.value)} placeholder="Ã¬ÂÂ: Ã¬ÂÂ¬Ã¬ÂÂ©Ã¬ÂÂÃªÂ°Â ÃªÂ¸Â°ÃªÂ¸Â° Ã¬Â²Â­Ã¬ÂÂ Ã¬Â¤Â Ã¬Â ÂÃ¬ÂÂ Ã«Â¯Â¸Ã¬Â°Â¨Ã«ÂÂ¨..." className="w-full" style={inputStyle} />
+          <Field label="위험 상황 (Hazardous Situation) — 위험요인이 발생하는 상황">
+            <input value={form.hazardousSituation} onChange={e => fld('hazardousSituation', e.target.value)} placeholder="예: 사용자가 기기 청소 중 전원 미차단..." className="w-full" style={inputStyle} />
           </Field>
-          <Field label="Ã¬ÂÂÃ­ÂÂ´ (Harm) * Ã¢ÂÂ Ã¬ÂÂ¤Ã¬Â ÂÃ«Â¡Â Ã«Â°ÂÃ¬ÂÂÃ­ÂÂÃ«ÂÂ Ã­ÂÂ¼Ã­ÂÂ´">
-            <input value={form.harm} onChange={e => fld('harm', e.target.value)} placeholder="Ã¬ÂÂ: Ã¬Â ÂÃªÂ¸Â° Ã¬ÂÂ¼Ã­ÂÂ¬, Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ° Ã¬ÂÂ¤Ã«Â¥ÂÃ«Â¡Â Ã¬ÂÂ¸Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â§Â..." className="w-full" style={inputStyle} />
+          <Field label="위해 (Harm) * — 실제로 발생하는 피해">
+            <input value={form.harm} onChange={e => fld('harm', e.target.value)} placeholder="예: 전기 쇼크, 데이터 오류로 인한 오진..." className="w-full" style={inputStyle} />
           </Field>
 
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
-            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>Ã¬Â´ÂÃªÂ¸Â° Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃªÂ°Â</div>
+            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>초기 위험 평가</div>
             <Row2>
-              <Field label={`Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ (Severity): ${form.severity}`}>
+              <Field label={`심각도 (Severity): ${form.severity}`}>
                 <select value={form.severity} onChange={e => fld('severity', +e.target.value)} className="w-full" style={inputStyle}>
-                  {SEVERITY.map(s => <option key={s.value} value={s.value}>{s.label} Ã¢ÂÂ {s.desc}</option>)}
+                  {SEVERITY.map(s => <option key={s.value} value={s.value}>{s.label} — {s.desc}</option>)}
                 </select>
               </Field>
-              <Field label={`Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± (Probability): ${form.probability}`}>
+              <Field label={`발생가능성 (Probability): ${form.probability}`}>
                 <select value={form.probability} onChange={e => fld('probability', +e.target.value)} className="w-full" style={inputStyle}>
-                  {PROBABILITY.map(p => <option key={p.value} value={p.value}>{p.label} Ã¢ÂÂ {p.desc}</option>)}
+                  {PROBABILITY.map(p => <option key={p.value} value={p.value}>{p.label} — {p.desc}</option>)}
                 </select>
               </Field>
             </Row2>
@@ -894,50 +894,50 @@ function RiskForm({ form, fld, editId, onSubmit, onClose }) {
           </div>
 
           <Row2>
-            <Field label="Ã­ÂÂµÃ¬Â Â Ã«Â°Â©Ã«Â²Â">
+            <Field label="통제 방법">
               <select value={form.controlType} onChange={e => fld('controlType', e.target.value)} className="w-full" style={inputStyle}>
                 {CONTROL_TYPES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </Field>
             <div />
           </Row2>
-          <Field label="Ã¬ÂÂÃ­ÂÂ Ã­ÂÂµÃ¬Â Â Ã¬Â¡Â°Ã¬Â¹Â Ã«ÂÂ´Ã¬ÂÂ©">
-            <textarea value={form.controlMeasure} onChange={e => fld('controlMeasure', e.target.value)} rows={2} placeholder="ÃªÂµÂ¬Ã¬Â²Â´Ã¬Â ÂÃ¬ÂÂ¸ Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã«ÂÂ´Ã¬ÂÂ©..." className="w-full" style={{ ...inputStyle, resize: 'vertical' }} />
+          <Field label="위험 통제 조치 내용">
+            <textarea value={form.controlMeasure} onChange={e => fld('controlMeasure', e.target.value)} rows={2} placeholder="구체적인 저감 조치 내용..." className="w-full" style={{ ...inputStyle, resize: 'vertical' }} />
           </Field>
 
           <div className="p-4 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
-            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂÃªÂ°Â (Ã¬Â ÂÃªÂ°Â Ã¬Â¡Â°Ã¬Â¹Â Ã­ÂÂ)</div>
+            <div className="text-[12px] font-bold mb-3" style={{ color: 'var(--ink-soft)' }}>잔여 위험 평가 (저감 조치 후)</div>
             <Row2>
-              <Field label={`Ã¬ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ: ${form.residualSeverity}`}>
+              <Field label={`잔여 심각도: ${form.residualSeverity}`}>
                 <select value={form.residualSeverity} onChange={e => fld('residualSeverity', +e.target.value)} className="w-full" style={inputStyle}>
                   {SEVERITY.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </Field>
-              <Field label={`Ã¬ÂÂÃ¬ÂÂ¬ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ±: ${form.residualProbability}`}>
+              <Field label={`잔여 발생가능성: ${form.residualProbability}`}>
                 <select value={form.residualProbability} onChange={e => fld('residualProbability', +e.target.value)} className="w-full" style={inputStyle}>
                   {PROBABILITY.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </select>
               </Field>
             </Row2>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂÃ¬ÂÂ¬ RPN =</span>
+              <span className="text-[12px]" style={{ color: 'var(--ink-faint)' }}>잔여 RPN =</span>
               <span className="text-[18px] font-bold px-3 py-1 rounded-lg" style={{ background: rpnColor(resRpn).bg, color: rpnColor(resRpn).text }}>
                 {resRpn} ({rpnColor(resRpn).label})
               </span>
             </div>
           </div>
 
-          <Field label="Ã«Â¹ÂÃªÂ³Â ">
-            <textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} placeholder="Ã¬Â¶ÂÃªÂ°Â Ã«Â©ÂÃ«ÂªÂ¨..." className="w-full" style={{ ...inputStyle, resize: 'vertical' }} />
+          <Field label="비고">
+            <textarea value={form.notes} onChange={e => fld('notes', e.target.value)} rows={2} placeholder="추가 메모..." className="w-full" style={{ ...inputStyle, resize: 'vertical' }} />
           </Field>
         </div>
 
         <div className="flex gap-3 mt-6">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)', border: '1px solid var(--line)', cursor: 'pointer' }}>
-            Ã¬Â·Â¨Ã¬ÂÂ
+            취소
           </button>
           <button onClick={onSubmit} className="flex-1 py-2.5 rounded-xl text-[13px] font-semibold" style={{ background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer' }}>
-            {editId ? 'Ã¬ÂÂÃ¬Â Â Ã¬Â ÂÃ¬ÂÂ¥' : 'Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã«ÂÂ±Ã«Â¡Â'}
+            {editId ? '수정 저장' : '위험 항목 등록'}
           </button>
         </div>
       </div>
@@ -966,28 +966,28 @@ const inputStyle = {
   outline: 'none',
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Empty State Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── Empty State ────────────────────────────────────────────────
 function EmptyState({ onAdd }) {
   return (
     <div className="flex flex-col items-center py-20 text-center">
       <ShieldAlert size={48} strokeWidth={1} className="mb-3" style={{ color: '#EF4444', opacity: 0.5 }} />
-      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬ÂÂÃ¬ÂÂ</div>
+      <div className="text-[16px] font-bold mb-1" style={{ color: 'var(--ink-soft)' }}>위험 항목 없음</div>
       <div className="text-[13px] mb-5" style={{ color: 'var(--ink-faint)' }}>
-        ISO 14971Ã¬ÂÂ Ã«ÂÂ°Ã«ÂÂ¼ Ã¬Â ÂÃ­ÂÂÃ¬ÂÂ Ã¬ÂÂÃ­ÂÂÃ¬ÂÂÃ¬ÂÂ¸Ã¬ÂÂ Ã¬ÂÂÃ«Â³ÂÃ­ÂÂÃªÂ³Â  Ã«ÂÂ±Ã«Â¡ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ
+        ISO 14971에 따라 제품의 위험요인을 식별하고 등록하세요
       </div>
       <button
         onClick={onAdd}
         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold"
         style={{ background: '#EF4444', color: 'white', border: 'none', cursor: 'pointer' }}
       >
-        <Plus size={15} /> Ã¬Â²Â« Ã«Â²ÂÃ¬Â§Â¸ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬Â¶ÂÃªÂ°Â
+        <Plus size={15} /> 첫 번째 위험 항목 추가
       </button>
       <div className="mt-6 p-4 rounded-xl max-w-md" style={{ background: '#FEF3C7', border: '1px solid #FDE68A' }}>
-        <div className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>Ã°ÂÂÂ¡ Ã¬ÂÂÃ­ÂÂ Ã­ÂÂ­Ã«ÂªÂ© Ã¬ÂÂÃ¬ÂÂ</div>
+        <div className="text-[12px] font-semibold mb-1" style={{ color: '#92400E' }}>💡 위험 항목 예시</div>
         <div className="text-[12px] text-left space-y-1" style={{ color: '#78350F', lineHeight: 1.6 }}>
-          <div>Ã¢ÂÂ¢ Ã¬Â ÂÃªÂ¸Â° Ã¬Â¶Â©ÃªÂ²Â© (Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ 5 ÃÂ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± 2 = RPN 10)</div>
-          <div>Ã¢ÂÂ¢ Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´ Ã¬ÂÂ¤Ã«Â¥ÂÃ«Â¡Â Ã¬ÂÂ¸Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â§Â (Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ 4 ÃÂ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± 3)</div>
-          <div>Ã¢ÂÂ¢ Ã«Â¶ÂÃ­ÂÂ Ã¬ÂÂ´Ã«Â¬Â¼Ã¬Â§Â Ã¬ÂÂÃ«Â¥Â (Ã¬ÂÂ¬ÃªÂ°ÂÃ«ÂÂ 3 ÃÂ Ã«Â°ÂÃ¬ÂÂÃªÂ°ÂÃ«ÂÂ¥Ã¬ÂÂ± 2)</div>
+          <div>• 전기 충격 (심각도 5 × 발생가능성 2 = RPN 10)</div>
+          <div>• 소프트웨어 오류로 인한 오진 (심각도 4 × 발생가능성 3)</div>
+          <div>• 부품 이물질 잔류 (심각도 3 × 발생가능성 2)</div>
         </div>
       </div>
     </div>
