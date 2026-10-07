@@ -1,5 +1,5 @@
 // src/pages/quality-objectives/QualityObjectivesHub.jsx
-// ISO 13485 ÃÂ§5.4.1 Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ / ÃÂ§5.4.2 QMS ÃªÂ¸Â°Ã­ÂÂ
+// ISO 13485 §5.4.1 품질 목표 / §5.4.2 QMS 기획
 import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -16,59 +16,60 @@ import { LS_KEY, OBJ_STATUSES, calcRate, autoStatus, LINKED_KPI_OPTIONS, compute
 import { buildSnapshot } from '../../lib/managementReviewState'
 let _sbCidQo = null
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY_POLICY = 'qualytree.quality_policy'
 
-const PERIODS = ['Ã¬ÂÂÃªÂ°Â', 'Ã«Â¶ÂÃªÂ¸Â°', 'Ã«Â°ÂÃªÂ¸Â°', 'Ã¬ÂÂ°ÃªÂ°Â']
+const PERIODS = ['월간', '분기', '반기', '연간']
 const YEARS = ['2023', '2024', '2025', '2026', '2027']
 
 const DEPT_LIST = [
-  'Ã¬Â ÂÃ¬ÂÂ¬', 'Ã­ÂÂÃ¬Â§ÂÃ«Â¶Â(QUA)', 'Ã¬ÂÂÃ¬ÂÂ°Ã«Â¶Â(MFG)', 'Ã¬ÂÂÃ¬ÂÂÃ«Â¶Â(SAL)',
-  'ÃªÂµÂ¬Ã«Â§Â¤Ã«Â¶Â(PUR)', 'Ã¬ÂÂ¤Ã«Â¹ÂÃ«Â¶Â(EQP)', 'ÃªÂ°ÂÃ«Â°ÂÃ«Â¶Â(DEV)', 'ÃªÂ²Â½Ã¬ÂÂÃªÂ²ÂÃ­ÂÂ (MR)',
-  'ÃªÂµÂÃ¬ÂÂ¡Ã­ÂÂÃ«Â Â¨(TRN)', 'Ã¬ÂÂ¸Ã­ÂÂÃªÂ°Â(RA)', 'Ã«ÂÂ´Ã«Â¶ÂÃªÂ°ÂÃ¬ÂÂ¬(AUD)',
+  '전사', '품질부(QUA)', '생산부(MFG)', '영업부(SAL)',
+  '구매부(PUR)', '설비부(EQP)', '개발부(DEV)', '경영검토(MR)',
+  '교육훈련(TRN)', '인허가(RA)', '내부감사(AUD)',
 ]
 
 const KPI_UNIT_PRESETS = [
-  '%', 'ppm', 'ÃªÂ±Â´', 'Ã¬ÂÂ¼', 'Ã¬ÂÂÃªÂ°Â', 'Ã¬Â Â', 'ÃªÂ°Â', 'Ã«ÂªÂ', 'Ã­ÂÂ', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '%', 'ppm', '건', '일', '시간', '점', '개', '명', '회', '기타',
 ]
 
 const CATEGORIES = [
-  'Ã¬Â ÂÃ­ÂÂ Ã­ÂÂÃ¬Â§Â', 'ÃªÂ³Â ÃªÂ°Â Ã«Â§ÂÃ¬Â¡Â±', 'ÃªÂ³ÂµÃ¬Â Â Ã­ÂÂ¨Ã¬ÂÂ¨', 'ÃªÂ³ÂµÃªÂ¸ÂÃ¬ÂÂÃ¬Â²Â´ ÃªÂ´ÂÃ«Â¦Â¬', 'Ã¬ÂÂ¸Ã¬Â Â Ã¬ÂÂÃ¬ÂÂ',
-  'Ã«Â²ÂÃªÂ·Â Ã¬Â¤ÂÃ¬ÂÂ', 'Ã¬Â§ÂÃ¬ÂÂÃ¬Â Â ÃªÂ°ÂÃ¬ÂÂ ', 'Ã¬ÂÂÃ­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '제품 품질', '고객 만족', '공정 효율', '공급업체 관리', '인적 자원',
+  '법규 준수', '지속적 개선', '위험 관리', '기타',
 ]
 
 function genId() { return `QO-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_FORM = {
-  title: '', category: 'Ã¬Â ÂÃ­ÂÂ Ã­ÂÂÃ¬Â§Â', dept: 'Ã­ÂÂÃ¬Â§ÂÃ«Â¶Â(QUA)',
-  period: 'Ã¬ÂÂ°ÃªÂ°Â', year: String(new Date().getFullYear()),
+  title: '', category: '제품 품질', dept: '품질부(QUA)',
+  period: '연간', year: String(new Date().getFullYear()),
   startDate: today(), endDate: '',
   kpiName: '', unit: '%', direction: 'higher',
   baselineValue: '', targetValue: '', actualValue: '',
   status: 'not_started', autoCalc: true,
   linkedKpiId: '',
-  linkedKpi: 'other',   // #364: Ã¬ÂÂ°Ã«ÂÂ KPI Ã¬ÂÂ Ã­ÂÂ Ã¢ÂÂ 'other'ÃªÂ°Â Ã¬ÂÂÃ«ÂÂÃ«Â©Â´ Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã¬ÂÂÃ¬ÂÂ Ã¬ÂÂÃ«ÂÂÃ¬ÂÂ¼Ã«Â¡Â Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ´
+  linkedKpi: 'other',   // #364: 연동 KPI 선택 — 'other'가 아니면 실적값을 실제 데이터에서 자동으로 불러옴
   description: '', actions: '',
   notes: '',
   actuals: [],   // monthly/quarterly actuals [{date, value, note}]
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â©ÂÃ¬ÂÂ¸ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 메인 ─────────────────────────────────────────────────────
 export default function QualityObjectivesHub() {
   const user = auth.current()
   return (
-    <AppLayout user={user} title="Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 13485 ÃÂ§5.4.1 Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ / ÃÂ§5.4.2 QMS ÃªÂ¸Â°Ã­ÂÂ">
-      <HubBanner title="Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ ÃªÂ´ÂÃ«Â¦Â¬" subtitle="ISO 13485 ÃÂ§5.4 Ã¢ÂÂ Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â ÂÃÂ·Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§ÂÃÂ·Ã«ÂÂ¬Ã¬ÂÂ± Ã­ÂÂÃªÂ°Â" icon={Target} color="#059669" workflow={['Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã¬Â Â', 'KPI Ã«Â°Â°Ã«Â¶Â', 'Ã¬ÂÂ¤Ã¬Â Â Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â', 'Ã«ÂÂ¬Ã¬ÂÂ±Ã«ÂÂ Ã­ÂÂÃªÂ°Â', 'Ã¬Â°Â¨ÃªÂ¸Â° Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂÃ«Â¦Â½']} />
+    <AppLayout user={user} title="품질 목표 관리" subtitle="ISO 13485 §5.4.1 품질 목표 / §5.4.2 QMS 기획">
+      <HubBanner title="품질 목표 관리" subtitle="ISO 13485 §5.4 — 품질 목표 설정·모니터링·달성 평가" icon={Target} color="#059669" workflow={['목표 설정', 'KPI 배분', '실적 모니터링', '달성도 평가', '차기 목표 수립']} />
       <QualityObjectivesPanel />
     </AppLayout>
   )
 }
 
-// #360: Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨ÃªÂ³Â¼ Ã«Â©ÂÃ«ÂÂ´ Ã­ÂÂµÃ­ÂÂ© Ã¢ÂÂ QualityPolicyHub(ÃªÂ²Â½Ã¬ÂÂÃ¬ÂÂÃ¬Â§ÂÃÂ·Ã­ÂÂÃ¬Â§ÂÃ«Â°Â©Ã¬Â¹Â¨) Ã­ÂÂ­ Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂÃ«ÂÂ Ã«Â ÂÃ«ÂÂÃ«Â§ÂÃ«ÂÂÃ«ÂÂÃ«Â¡Â
-// AppLayout Ã¬ÂÂÃ¬ÂÂ´ Ã«ÂÂ´Ã¬ÂÂ©Ã«Â§Â export. /quality-objectives Ã«ÂÂ¼Ã¬ÂÂ°Ã­ÂÂ¸(Ã«ÂÂ¥Ã«Â§ÂÃ­ÂÂ¬ Ã­ÂÂÃ¬ÂÂÃ­ÂÂ¸Ã­ÂÂ)Ã«ÂÂ Ã¬ÂÂ Ã«ÂÂÃ­ÂÂ¼ÃªÂ°Â Ã«ÂÂ´Ã«ÂÂ¹.
+// #360: 품질방침과 메뉴 통합 — QualityPolicyHub(경영의지·품질방침) 탭 안에서도 렌더링되도록
+// AppLayout 없이 내용만 export. /quality-objectives 라우트(딥링크 하위호환)는 위 래퍼가 담당.
 export function QualityObjectivesPanel() {
-  const canEdit = auth.current()?.level >= 2
+  const user = auth.current()
+  const canEdit = user?.level >= 2
   const companyId = user?.company_id
 
   const [objectives, setObjectives] = useState(() => {
@@ -101,8 +102,8 @@ export function QualityObjectivesPanel() {
   }, [companyId])
 
   function submitObj() {
-    if (!form.title.trim()) return alert('Ã«ÂªÂ©Ã­ÂÂÃ«ÂªÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
-    if (!form.targetValue) return alert('Ã«ÂªÂ©Ã­ÂÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+    if (!form.title.trim()) return alert('목표명을 입력하세요.')
+    if (!form.targetValue) return alert('목표값을 입력하세요.')
     const computed = { ...form }
     if (form.autoCalc) computed.status = autoStatus(computed)
     const next = editId
@@ -113,13 +114,13 @@ export function QualityObjectivesPanel() {
   }
 
   function deleteObj(id) {
-    if (!confirm('Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂÃ«Â¥Â¼ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) return
+    if (!confirm('품질 목표를 삭제하시겠습니까?')) return
     save(objectives.filter(o => o.id !== id))
     if (selectedId === id) { setSelectedId(null); setTab('list') }
   }
 
   function addActual(objId) {
-    if (!actualForm.value) return alert('Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+    if (!actualForm.value) return alert('실적값을 입력하세요.')
     const entry = { ...actualForm, id: Date.now() }
     const next = objectives.map(o => {
       if (o.id !== objId) return o
@@ -144,7 +145,7 @@ export function QualityObjectivesPanel() {
     return true
   }), [objectives, filterDept, filterYear, filterStatus])
 
-  // Ã«Â¶ÂÃ¬ÂÂ
+  // 분석
   const analysis = useMemo(() => {
     const yr = objectives.filter(o => o.year === filterYear)
     const byStatus = {}
@@ -164,11 +165,11 @@ export function QualityObjectivesPanel() {
   return (
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
-        {/* Ã­ÂÂ­ */}
+        {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `Ã«ÂªÂ©Ã­ÂÂ Ã«ÂªÂ©Ã«Â¡Â (${objectives.length})` },
-            { key: 'analysis', label: 'Ã«ÂÂ¬Ã¬ÂÂ± Ã­ÂÂÃ­ÂÂ©' },
+            { key: 'list',     label: `목표 목록 (${objectives.length})` },
+            { key: 'analysis', label: '달성 현황' },
           ].map(t => (
             <button key={t.key} onClick={() => !t.disabled && setTab(t.key)} disabled={t.disabled}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -183,34 +184,34 @@ export function QualityObjectivesPanel() {
           ))}
         </div>
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã«ÂªÂ©Ã«Â¡Â Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 목록 탭 ── */}
         {tab === 'list' && (
           <div>
-            {/* Ã­ÂÂÃ­ÂÂ° */}
+            {/* 필터 */}
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <select value={filterYear} onChange={e => setFilterYear(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂ°Ã«ÂÂ</option>
-                {YEARS.map(y => <option key={y} value={y}>{y}Ã«ÂÂ</option>)}
+                <option value="all">전체 연도</option>
+                {YEARS.map(y => <option key={y} value={y}>{y}년</option>)}
               </select>
               <select value={filterDept} onChange={e => setFilterDept(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã«Â¶ÂÃ¬ÂÂ</option>
+                <option value="all">전체 부서</option>
                 {DEPT_LIST.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂÃ­ÂÂ</option>
+                <option value="all">전체 상태</option>
                 {Object.entries(OBJ_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm(EMPTY_FORM); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ±Ã«Â¡Â
+                  <Plus size={14} /> 품질 목표 등록
                 </button>
               )}
             </div>
@@ -221,14 +222,14 @@ export function QualityObjectivesPanel() {
                 isEdit={!!editId} />
             )}
 
-            {/* ÃªÂ²Â½Ã«Â³Â´ */}
+            {/* 경보 */}
             {(analysis.missed.length > 0 || analysis.atRisk.length > 0) && tab === 'list' && (
               <div className="mb-4 space-y-2">
                 {analysis.missed.length > 0 && (
                   <div className="p-3 rounded-xl text-[12.5px] flex items-center gap-2 flex-wrap"
                     style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#991B1B' }}>
                     <AlertTriangle size={14} />
-                    Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ± Ã«ÂªÂ©Ã­ÂÂ {analysis.missed.length}ÃªÂ±Â´:
+                    미달성 목표 {analysis.missed.length}건:
                     {analysis.missed.slice(0, 3).map(o => (
                       <span key={o.id} className="font-bold cursor-pointer underline" onClick={() => { setSelectedId(o.id); setTab('detail') }}>{o.title}</span>
                     ))}
@@ -238,7 +239,7 @@ export function QualityObjectivesPanel() {
                   <div className="p-3 rounded-xl text-[12.5px] flex items-center gap-2 flex-wrap"
                     style={{ background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
                     <AlertTriangle size={14} />
-                    Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ {analysis.atRisk.length}ÃªÂ±Â´:
+                    위험 목표 {analysis.atRisk.length}건:
                     {analysis.atRisk.slice(0, 3).map(o => (
                       <span key={o.id} className="font-bold cursor-pointer underline" onClick={() => { setSelectedId(o.id); setTab('detail') }}>{o.title}</span>
                     ))}
@@ -250,7 +251,7 @@ export function QualityObjectivesPanel() {
             {filtered.length === 0 ? (
               <div className="text-center py-20" style={{ color: 'var(--ink-faint)' }}>
                 <Target size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-                <div className="text-[14px]">Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
+                <div className="text-[14px]">등록된 품질 목표가 없습니다.</div>
               </div>
             ) : (
               <div className="space-y-3">
@@ -268,18 +269,18 @@ export function QualityObjectivesPanel() {
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-[11px] font-mono" style={{ color: 'var(--ink-faint)' }}>{obj.id}</span>
                             <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
-                            <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{obj.dept} ÃÂ· {obj.year}Ã«ÂÂ ÃÂ· {obj.period}</span>
+                            <span className="text-[10.5px] px-2 py-0.5 rounded-full" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>{obj.dept} · {obj.year}년 · {obj.period}</span>
                           </div>
                           <div className="text-[14px] font-bold" style={{ color: 'var(--ink)' }}>{obj.title}</div>
-                          <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{obj.kpiName} ÃÂ· {obj.category}</div>
+                          <div className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>{obj.kpiName} · {obj.category}</div>
                         </div>
 
-                        {/* KPI Ã¬ÂÂÃ¬Â¹Â */}
+                        {/* KPI 수치 */}
                         <div className="text-right shrink-0">
                           <div className="flex items-center gap-2 justify-end mb-1">
-                            <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>Ã«ÂªÂ©Ã­ÂÂ: <strong style={{ color: 'var(--ink)' }}>{obj.targetValue}{obj.unit}</strong></span>
+                            <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>목표: <strong style={{ color: 'var(--ink)' }}>{obj.targetValue}{obj.unit}</strong></span>
                             {obj.actualValue && (
-                              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â: <strong style={{ color: sm.color }}>{obj.actualValue}{obj.unit}</strong></span>
+                              <span className="text-[11.5px]" style={{ color: 'var(--ink-faint)' }}>실적: <strong style={{ color: sm.color }}>{obj.actualValue}{obj.unit}</strong></span>
                             )}
                           </div>
                           {rate !== null && (
@@ -295,7 +296,7 @@ export function QualityObjectivesPanel() {
                         </div>
                       </div>
 
-                      {/* Ã¬Â§ÂÃ­ÂÂÃ«Â°Â */}
+                      {/* 진행바 */}
                       {rate !== null && (
                         <div className="mt-2">
                           <div className="h-2 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -324,7 +325,7 @@ export function QualityObjectivesPanel() {
           </div>
         )}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ¸ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 상세 탭 ── */}
         {tab === 'detail' && selected && (
           <DetailView
             obj={selected} canEdit={canEdit}
@@ -334,7 +335,7 @@ export function QualityObjectivesPanel() {
           />
         )}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 분석 탭 ── */}
         {tab === 'analysis' && (
           <AnalysisView analysis={analysis} filterYear={filterYear}
             objectives={objectives} setSelectedId={setSelectedId} setTab={setTab}
@@ -344,7 +345,7 @@ export function QualityObjectivesPanel() {
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ¸ Ã«Â·Â° Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 상세 뷰 ──────────────────────────────────────────────────
 function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualForm, setActualForm, addActual, autoStatus, calcRate }) {
   const effStatus = obj.autoCalc ? autoStatus(obj) : (obj.status || 'not_started')
   const sm = OBJ_STATUSES[effStatus] || OBJ_STATUSES.not_started
@@ -352,26 +353,26 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
 
   return (
     <div className="space-y-4">
-      {/* Ã­ÂÂ¤Ã«ÂÂ */}
+      {/* 헤더 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-[12px] font-mono" style={{ color: 'var(--ink-faint)' }}>{obj.id}</span>
               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sm.bg, color: sm.color }}>{sm.label}</span>
-              {obj.autoCalc && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂ°Ã¬Â Â</span>}
+              {obj.autoCalc && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--bg-soft)', color: 'var(--ink-faint)' }}>자동 산정</span>}
             </div>
             <div className="text-[20px] font-bold" style={{ color: 'var(--ink)' }}>{obj.title}</div>
-            <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{obj.dept} ÃÂ· {obj.category} ÃÂ· {obj.year}Ã«ÂÂ {obj.period}</div>
+            <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{obj.dept} · {obj.category} · {obj.year}년 {obj.period}</div>
           </div>
 
-          {/* Ã«ÂÂÃ­ÂÂ KPI Ã¬ÂÂÃ¬Â¹Â */}
+          {/* 대형 KPI 수치 */}
           <div className="text-center p-4 rounded-2xl" style={{ background: sm.bg, minWidth: 120 }}>
             <div className="text-[11px] mb-1" style={{ color: sm.color }}>{obj.kpiName || 'KPI'}</div>
             {rate !== null ? (
               <>
                 <div className="text-[28px] font-black" style={{ color: sm.color }}>{rate}%</div>
-                <div className="text-[11px]" style={{ color: sm.color }}>Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </div>
+                <div className="text-[11px]" style={{ color: sm.color }}>달성률</div>
               </>
             ) : (
               <div className="text-[20px] font-bold" style={{ color: sm.color }}>-</div>
@@ -379,15 +380,15 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           </div>
         </div>
 
-        {/* Ã«Â©ÂÃ­ÂÂ ÃªÂ·Â¸Ã«Â¦Â¬Ã«ÂÂ */}
+        {/* 메타 그리드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
           {[
-            { label: 'ÃªÂ¸Â°Ã¬Â¤ÂÃªÂ°Â (Baseline)', value: obj.baselineValue ? `${obj.baselineValue}${obj.unit}` : '-' },
-            { label: 'Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â', value: `${obj.targetValue}${obj.unit}` },
-            { label: 'Ã¬ÂµÂÃªÂ·Â¼ Ã¬ÂÂ¤Ã¬Â Â', value: obj.actualValue ? `${obj.actualValue}${obj.unit}` : '-' },
-            { label: 'Ã«Â°Â©Ã­ÂÂ¥', value: obj.direction === 'lower' ? 'Ã¢ÂÂ Ã«ÂÂ®Ã¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' : 'Ã¢ÂÂ Ã«ÂÂÃ¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' },
-            { label: 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼', value: obj.startDate || '-' },
-            { label: 'Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼', value: obj.endDate || '-' },
+            { label: '기준값 (Baseline)', value: obj.baselineValue ? `${obj.baselineValue}${obj.unit}` : '-' },
+            { label: '목표값', value: `${obj.targetValue}${obj.unit}` },
+            { label: '최근 실적', value: obj.actualValue ? `${obj.actualValue}${obj.unit}` : '-' },
+            { label: '방향', value: obj.direction === 'lower' ? '↓ 낮을수록 좋음' : '↑ 높을수록 좋음' },
+            { label: '시작일', value: obj.startDate || '-' },
+            { label: '종료일', value: obj.endDate || '-' },
           ].map(({ label, value }) => (
             <div key={label} className="p-2 rounded-xl" style={{ background: 'var(--bg-soft)' }}>
               <div className="text-[10.5px]" style={{ color: 'var(--ink-faint)' }}>{label}</div>
@@ -396,11 +397,11 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           ))}
         </div>
 
-        {/* Ã¬Â§ÂÃ­ÂÂÃ«Â°Â */}
+        {/* 진행바 */}
         {rate !== null && (
           <div className="mb-3">
             <div className="flex justify-between text-[12px] mb-1" style={{ color: 'var(--ink-soft)' }}>
-              <span>Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </span>
+              <span>달성률</span>
               <span className="font-bold" style={{ color: sm.color }}>{rate}%</span>
             </div>
             <div className="h-3 rounded-full" style={{ background: 'var(--bg-soft)' }}>
@@ -409,7 +410,7 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           </div>
         )}
 
-        {/* Ã«Â§ÂÃ­ÂÂ¬ */}
+        {/* 링크 */}
         {obj.linkedKpiId && (
           <div className="flex gap-2 flex-wrap mb-2">
             <LinkChip label={`KPI: ${obj.linkedKpiId}`} color="#2563EB" />
@@ -418,12 +419,12 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
 
         {obj.description && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: 'var(--bg-soft)', color: 'var(--ink-soft)' }}>
-            <span className="font-bold" style={{ color: 'var(--ink)' }}>Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã«ÂªÂ: </span>{obj.description}
+            <span className="font-bold" style={{ color: 'var(--ink)' }}>목표 설명: </span>{obj.description}
           </div>
         )}
         {obj.actions && (
           <div className="mt-2 p-3 rounded-xl text-[12.5px]" style={{ background: '#EFF6FF', color: '#1E40AF' }}>
-            <span className="font-bold">Ã«ÂÂ¬Ã¬ÂÂ± Ã«Â°Â©Ã¬ÂÂ: </span>{obj.actions}
+            <span className="font-bold">달성 방안: </span>{obj.actions}
           </div>
         )}
 
@@ -431,31 +432,31 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
           <button onClick={() => setShowActualForm(!showActualForm)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold mt-3"
             style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-            <RefreshCw size={13} /> Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥
+            <RefreshCw size={13} /> 실적 입력
           </button>
         )}
       </div>
 
-      {/* Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥ Ã­ÂÂ¼ */}
+      {/* 실적 입력 폼 */}
       {showActualForm && canEdit && (
         <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«Â Â¥</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>실적 입력</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬Â¸Â¡Ã¬Â ÂÃ¬ÂÂ¼</label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>측정일</label>
               <input type="date" value={actualForm.date} onChange={e => setActualForm(f => ({ ...f, date: e.target.value }))}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
             </div>
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â ({obj.unit}) *</label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>실적값 ({obj.unit}) *</label>
               <input type="number" value={actualForm.value} onChange={e => setActualForm(f => ({ ...f, value: e.target.value }))}
-                placeholder={`Ã«ÂªÂ©Ã­ÂÂ: ${obj.targetValue}${obj.unit}`}
+                placeholder={`목표: ${obj.targetValue}${obj.unit}`}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
             </div>
             <div>
-              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>Ã«Â¹ÂÃªÂ³Â </label>
+              <label className="block text-[11.5px] font-semibold mb-1" style={{ color: 'var(--ink-soft)' }}>비고</label>
               <input type="text" value={actualForm.note} onChange={e => setActualForm(f => ({ ...f, note: e.target.value }))}
                 className="w-full px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
@@ -465,25 +466,25 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
             <button onClick={() => addActual(obj.id)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
               style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-              <Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥
+              <Save size={13} /> 저장
             </button>
             <button onClick={() => setShowActualForm(false)}
               className="px-4 py-2 rounded-xl text-[13px]"
-              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
+              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
           </div>
         </div>
       )}
 
-      {/* Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥ */}
+      {/* 실적 이력 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥ ({(obj.actuals || []).length}ÃªÂ±Â´)</div>
+        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>실적 이력 ({(obj.actuals || []).length}건)</div>
         {(obj.actuals || []).length === 0 ? (
-          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂ´Ã«Â Â¥Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
+          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>실적 이력이 없습니다.</div>
         ) : (
           <table className="w-full text-[12.5px]">
             <thead>
               <tr style={{ background: 'var(--bg-soft)' }}>
-                {['Ã¬Â¸Â¡Ã¬Â ÂÃ¬ÂÂ¼', 'Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â', 'Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â ', 'Ã«Â¹ÂÃªÂ³Â '].map(h => (
+                {['측정일', '실적값', '달성률', '비고'].map(h => (
                   <th key={h} className="px-3 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
@@ -513,27 +514,27 @@ function DetailView({ obj, canEdit, showActualForm, setShowActualForm, actualFor
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 분석 탭 ──────────────────────────────────────────────────
 function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab, autoStatus, calcRate }) {
   const yr = objectives.filter(o => o.year === filterYear)
 
   return (
     <div className="space-y-5">
-      {/* Ã¬Â ÂÃ¬Â²Â´ Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â  */}
+      {/* 전체 달성률 */}
       {analysis.total > 0 && (
         <div className="p-6 rounded-2xl text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] mb-1" style={{ color: 'var(--ink-faint)' }}>{filterYear}Ã«ÂÂ Ã¬Â ÂÃ¬Â²Â´ Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ¬Ã¬ÂÂ±Ã«Â¥Â </div>
+          <div className="text-[13px] mb-1" style={{ color: 'var(--ink-faint)' }}>{filterYear}년 전체 목표 달성률</div>
           <div className="text-[48px] font-black" style={{ color: analysis.achieveRate >= 80 ? '#059669' : analysis.achieveRate >= 60 ? '#D97706' : '#DC2626' }}>
             {analysis.achieveRate}%
           </div>
-          <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{analysis.achieved}/{analysis.total}ÃªÂ°Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ¬Ã¬ÂÂ±</div>
+          <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>{analysis.achieved}/{analysis.total}개 목표 달성</div>
           <div className="h-3 rounded-full mt-3" style={{ background: 'var(--bg-soft)' }}>
             <div className="h-3 rounded-full" style={{ width: `${analysis.achieveRate}%`, background: analysis.achieveRate >= 80 ? '#059669' : analysis.achieveRate >= 60 ? '#D97706' : '#DC2626' }} />
           </div>
         </div>
       )}
 
-      {/* Ã¬ÂÂÃ­ÂÂÃ«Â³Â */}
+      {/* 상태별 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {Object.entries(OBJ_STATUSES).map(([k, v]) => (
           <div key={k} className="p-4 rounded-2xl text-center" style={{ background: v.bg, border: `1px solid ${v.color}40` }}>
@@ -543,13 +544,13 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
         ))}
       </div>
 
-      {/* Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ±ÃÂ·Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ */}
+      {/* 미달성·위험 목표 */}
       {[
-        { list: analysis.missed, title: 'Ã«Â¯Â¸Ã«ÂÂ¬Ã¬ÂÂ± Ã«ÂªÂ©Ã­ÂÂ', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
-        { list: analysis.atRisk, title: 'Ã¬ÂÂÃ­ÂÂ Ã«ÂªÂ©Ã­ÂÂ', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
+        { list: analysis.missed, title: '미달성 목표', color: '#DC2626', bg: '#FEF2F2', border: '#FECACA' },
+        { list: analysis.atRisk, title: '위험 목표', color: '#D97706', bg: '#FFFBEB', border: '#FDE68A' },
       ].map(({ list, title, color, bg, border }) => list.length > 0 && (
         <div key={title} className="p-5 rounded-2xl" style={{ background: bg, border: `1px solid ${border}` }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color }}>{title} ({list.length}ÃªÂ±Â´)</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color }}>{title} ({list.length}건)</div>
           <div className="space-y-2">
             {list.map(obj => {
               const rate = calcRate(obj)
@@ -559,11 +560,11 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
                   onClick={() => { setSelectedId(obj.id); setTab('detail') }}>
                   <div>
                     <div className="text-[12px] font-bold" style={{ color }}>{obj.title}</div>
-                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.dept} ÃÂ· Ã«ÂªÂ©Ã­ÂÂ: {obj.targetValue}{obj.unit}</div>
+                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.dept} · 목표: {obj.targetValue}{obj.unit}</div>
                   </div>
                   <div className="text-right">
                     {rate !== null && <div className="text-[13px] font-bold" style={{ color }}>{rate}%</div>}
-                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.actualValue ? `Ã¬ÂÂ¤Ã¬Â Â: ${obj.actualValue}${obj.unit}` : 'Ã¬ÂÂ¤Ã¬Â Â Ã«Â¯Â¸Ã¬ÂÂÃ«Â Â¥'}</div>
+                    <div className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{obj.actualValue ? `실적: ${obj.actualValue}${obj.unit}` : '실적 미입력'}</div>
                   </div>
                 </div>
               )
@@ -572,10 +573,10 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
         </div>
       ))}
 
-      {/* Ã«Â¶ÂÃ¬ÂÂÃ«Â³Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ */}
+      {/* 부서별 목표 수 */}
       {Object.keys(analysis.byDept).length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>Ã«Â¶ÂÃ¬ÂÂÃ«Â³Â Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ</div>
+          <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>부서별 품질 목표 수</div>
           {Object.entries(analysis.byDept).sort(([, a], [, b]) => b - a).map(([dept, cnt]) => (
             <div key={dept} className="flex items-center gap-3 mb-2">
               <span className="text-[12px] w-32 shrink-0" style={{ color: 'var(--ink-soft)' }}>{dept}</span>
@@ -591,7 +592,7 @@ function AnalysisView({ analysis, filterYear, objectives, setSelectedId, setTab,
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã­ÂÂ¼ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 폼 ───────────────────────────────────────────────────────
 function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const navigate = useNavigate()
@@ -601,8 +602,8 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   const kpiSnapshot = useMemo(() => { try { return buildSnapshot().kpi } catch { return null } }, [])
   const isLinked = form.linkedKpi && form.linkedKpi !== 'other'
 
-  // #364: Ã¬ÂÂ°Ã«ÂÂ KPI Ã¬ÂÂ Ã­ÂÂ Ã¬ÂÂ KPIÃ«ÂªÂÃÂ·Ã«ÂÂ¨Ã¬ÂÂÃÂ·Ã«Â°Â©Ã­ÂÂ¥Ã¬ÂÂ Ã¬ÂÂÃ«ÂÂ Ã¬Â§ÂÃ¬Â ÂÃ­ÂÂÃªÂ³Â  Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°ÂÃ¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°Ã¬ÂÂÃ¬ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¨Ã«ÂÂ¤.
-  // 'ÃªÂ¸Â°Ã­ÂÂ'Ã«Â¥Â¼ Ã¬ÂÂ Ã­ÂÂÃ­ÂÂÃ«Â©Â´ ÃªÂ¸Â°Ã¬Â¡Â´ÃªÂ³Â¼ Ã«ÂÂÃ¬ÂÂ¼Ã­ÂÂÃªÂ²Â Ã¬Â ÂÃ«Â¶Â Ã¬Â§ÂÃ¬Â Â Ã¬ÂÂÃ«Â Â¥.
+  // #364: 연동 KPI 선택 시 KPI명·단위·방향을 자동 지정하고 실적값을 실제 데이터에서 불러온다.
+  // '기타'를 선택하면 기존과 동일하게 전부 직접 입력.
   function onLinkedKpiChange(id) {
     F('linkedKpi', id)
     if (id === 'other') return
@@ -623,79 +624,79 @@ function ObjForm({ form, setForm, onSave, onCancel, isEdit }) {
   }
   return (
     <div className="mb-6 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂÃ¬Â Â' : 'Ã­ÂÂÃ¬Â§Â Ã«ÂªÂ©Ã­ÂÂ Ã«ÂÂ±Ã«Â¡Â'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? '품질 목표 수정' : '품질 목표 등록'}</div>
 
-      {/* Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ Ã¬Â°Â¸ÃªÂ³Â  */}
+      {/* 품질 방침 참고 */}
       <div className="mb-4 p-4 rounded-2xl" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: '#1E40AF' }}>
-            <Award size={13} /> Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ (ÃÂ§5.3) Ã¢ÂÂ Ã¬Â°Â¸ÃªÂ³Â Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂÃ¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ
+            <Award size={13} /> 품질 방침 (§5.3) — 참고하여 작성하세요
           </div>
           <button onClick={() => navigate('/management-commitment')}
             className="flex items-center gap-1 text-[11.5px] font-semibold"
             style={{ background: 'none', border: 'none', color: '#1E40AF', cursor: 'pointer' }}>
-            Ã«Â°Â©Ã¬Â¹Â¨ Ã­ÂÂÃ¬ÂÂ´Ã¬Â§ÂÃ«Â¡Â Ã¬ÂÂ´Ã«ÂÂ <ExternalLink size={11} />
+            방침 페이지로 이동 <ExternalLink size={11} />
           </button>
         </div>
         {policy.statement
           ? <p className="text-[12.5px] whitespace-pre-line" style={{ color: '#1E40AF' }}>{policy.statement}</p>
-          : <p className="text-[12px]" style={{ color: '#1E40AF' }}>Ã¬ÂÂÃ¬Â§Â Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨Ã¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂ±Ã«ÂÂÃ¬Â§Â Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤. ÃªÂ²Â½Ã¬ÂÂ Ã¬ÂÂÃ¬Â§ÂÃÂ·Ã­ÂÂÃ¬Â§Â Ã«Â°Â©Ã¬Â¹Â¨ Ã«Â©ÂÃ«ÂÂ´Ã¬ÂÂÃ¬ÂÂ Ã«Â¨Â¼Ã¬Â Â Ã¬ÂÂÃ¬ÂÂ±Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</p>}
+          : <p className="text-[12px]" style={{ color: '#1E40AF' }}>아직 품질 방침이 작성되지 않았습니다. 경영 의지·품질 방침 메뉴에서 먼저 작성하세요.</p>}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="Ã«ÂªÂ©Ã­ÂÂÃ«ÂªÂ *" value={form.title} onChange={v => F('title', v)} />
-        <FieldSelect label="Ã¬Â¹Â´Ã­ÂÂÃªÂ³Â Ã«Â¦Â¬" value={form.category} onChange={v => F('category', v)}
+        <Field label="목표명 *" value={form.title} onChange={v => F('title', v)} />
+        <FieldSelect label="카테고리" value={form.category} onChange={v => F('category', v)}
           options={CATEGORIES.map(c => ({ value: c, label: c }))} />
-        <FieldSelect label="Ã«Â¶ÂÃ¬ÂÂ" value={form.dept} onChange={v => F('dept', v)}
+        <FieldSelect label="부서" value={form.dept} onChange={v => F('dept', v)}
           options={DEPT_LIST.map(d => ({ value: d, label: d }))} />
-        <FieldSelect label="Ã¬ÂÂ°Ã«ÂÂ" value={form.year} onChange={v => F('year', v)}
-          options={YEARS.map(y => ({ value: y, label: `${y}Ã«ÂÂ` }))} />
-        <FieldSelect label="Ã¬Â£Â¼ÃªÂ¸Â°" value={form.period} onChange={v => F('period', v)}
+        <FieldSelect label="연도" value={form.year} onChange={v => F('year', v)}
+          options={YEARS.map(y => ({ value: y, label: `${y}년` }))} />
+        <FieldSelect label="주기" value={form.period} onChange={v => F('period', v)}
           options={PERIODS.map(p => ({ value: p, label: p }))} />
-        <FieldSelect label="Ã¬ÂÂ°Ã«ÂÂ KPI" value={form.linkedKpi || 'other'} onChange={onLinkedKpiChange}
+        <FieldSelect label="연동 KPI" value={form.linkedKpi || 'other'} onChange={onLinkedKpiChange}
           options={LINKED_KPI_OPTIONS.map(o => ({ value: o.id, label: o.label }))} />
-        <Field label="KPI Ã«ÂªÂÃ¬Â¹Â­" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ©ÃªÂ²Â©Ã«Â¥Â " disabled={isLinked} />
-        <FieldSelect label="Ã«ÂÂ¨Ã¬ÂÂ" value={form.unit} onChange={v => F('unit', v)}
+        <Field label="KPI 명칭" value={form.kpiName} onChange={v => F('kpiName', v)} placeholder="검사 합격률" disabled={isLinked} />
+        <FieldSelect label="단위" value={form.unit} onChange={v => F('unit', v)}
           options={KPI_UNIT_PRESETS.map(u => ({ value: u, label: u }))} disabled={isLinked} />
-        <FieldSelect label="Ã«Â°Â©Ã­ÂÂ¥" value={form.direction} onChange={v => F('direction', v)}
-          options={[{ value: 'higher', label: 'Ã¢ÂÂ Ã«ÂÂÃ¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' }, { value: 'lower', label: 'Ã¢ÂÂ Ã«ÂÂ®Ã¬ÂÂÃ¬ÂÂÃ«Â¡Â Ã¬Â¢ÂÃ¬ÂÂ' }]} disabled={isLinked} />
-        <Field label="ÃªÂ¸Â°Ã¬Â¤ÂÃªÂ°Â (Baseline)" value={form.baselineValue} onChange={v => F('baselineValue', v)} type="number" />
-        <Field label="Ã«ÂªÂ©Ã­ÂÂÃªÂ°Â *" value={form.targetValue} onChange={v => F('targetValue', v)} type="number" />
+        <FieldSelect label="방향" value={form.direction} onChange={v => F('direction', v)}
+          options={[{ value: 'higher', label: '↑ 높을수록 좋음' }, { value: 'lower', label: '↓ 낮을수록 좋음' }]} disabled={isLinked} />
+        <Field label="기준값 (Baseline)" value={form.baselineValue} onChange={v => F('baselineValue', v)} type="number" />
+        <Field label="목표값 *" value={form.targetValue} onChange={v => F('targetValue', v)} type="number" />
         <div>
           <div className="flex items-center justify-between mb-1">
-            <label className="block text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>Ã­ÂÂÃ¬ÂÂ¬ Ã¬ÂÂ¤Ã¬Â ÂÃªÂ°Â</label>
-            {isLinked && <button type="button" onClick={refreshLinkedActual} className="text-[10.5px] font-semibold" style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>Ã¬ÂÂ¤Ã¬Â Â Ã¬ÂÂÃ«ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¤ÃªÂ¸Â°</button>}
+            <label className="block text-[11.5px] font-semibold" style={{ color: 'var(--ink-soft)' }}>현재 실적값</label>
+            {isLinked && <button type="button" onClick={refreshLinkedActual} className="text-[10.5px] font-semibold" style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>실적 자동 불러오기</button>}
           </div>
           <input type="number" value={form.actualValue || ''} onChange={e => F('actualValue', e.target.value)}
             className="w-full px-3 py-1.5 rounded-xl text-[13px]"
             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
-          {isLinked && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>Ã¬ÂÂ¤Ã¬Â Â Ã«ÂÂ°Ã¬ÂÂ´Ã­ÂÂ°(ÃªÂ²Â½Ã¬ÂÂÃªÂ²ÂÃ­ÂÂ  KPI Ã¬ÂÂÃ«ÂÂÃ¬Â§ÂÃªÂ³Â)Ã¬ÂÂÃ¬ÂÂ Ã«Â¶ÂÃ«ÂÂ¬Ã¬ÂÂ¨ ÃªÂ°ÂÃ¬ÂÂÃ«ÂÂÃ«ÂÂ¤. Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ Ã¬ÂÂÃ¬Â Â ÃªÂ°ÂÃ«ÂÂ¥Ã­ÂÂ©Ã«ÂÂÃ«ÂÂ¤.</div>}
+          {isLinked && <div className="text-[10.5px] mt-1" style={{ color: 'var(--ink-faint)' }}>실제 데이터(경영검토 KPI 자동집계)에서 불러온 값입니다. 필요 시 수정 가능합니다.</div>}
         </div>
         <div className="flex items-center gap-3 pt-5">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.autoCalc !== false}
               onChange={e => F('autoCalc', e.target.checked)} className="accent-green-500" />
-            <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>Ã¬ÂÂÃ­ÂÂ Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂ°Ã¬Â Â</span>
+            <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>상태 자동 산정</span>
           </label>
         </div>
         {!form.autoCalc && (
-          <FieldSelect label="Ã¬ÂÂÃ­ÂÂ" value={form.status} onChange={v => F('status', v)}
+          <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
             options={Object.entries(OBJ_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
         )}
-        <Field label="Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¼" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
-        <Field label="Ã¬Â¢ÂÃ«Â£ÂÃ¬ÂÂ¼" type="date" value={form.endDate} onChange={v => F('endDate', v)} />
+        <Field label="시작일" type="date" value={form.startDate} onChange={v => F('startDate', v)} />
+        <Field label="종료일" type="date" value={form.endDate} onChange={v => F('endDate', v)} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-        <FieldArea label="Ã«ÂªÂ©Ã­ÂÂ Ã¬ÂÂ¤Ã«ÂªÂ" value={form.description} onChange={v => F('description', v)} rows={2} />
-        <FieldArea label="Ã«ÂÂ¬Ã¬ÂÂ± Ã«Â°Â©Ã¬ÂÂ" value={form.actions} onChange={v => F('actions', v)} rows={2} />
+        <FieldArea label="목표 설명" value={form.description} onChange={v => F('description', v)} rows={2} />
+        <FieldArea label="달성 방안" value={form.actions} onChange={v => F('actions', v)} rows={2} />
       </div>
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥
+          <Save size={13} /> 저장
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
       </div>
     </div>
   )
