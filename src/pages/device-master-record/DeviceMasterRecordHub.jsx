@@ -1,5 +1,5 @@
 // src/pages/device-master-record/DeviceMasterRecordHub.jsx
-// ISO 13485 Â§7.3.10 / Â§4.2.3 â ìë£ê¸°ê¸° íì¼ (Device Master Record)
+// ISO 13485 §7.3.10 / §4.2.3 — 의료기기 파일 (Device Master Record)
 import React, { useState, useEffect, useMemo } from 'react'
 import {
   Plus, Save, Edit2, Trash2, Package, FileText,
@@ -17,13 +17,13 @@ const LS_KEY = 'qualytree.dmr'
 let _sbCidDmr = null
 
 const DMR_TABS = [
-  { key: 'info',        label: 'ê¸°ê¸° ê¸°ë³¸ì ë³´',  icon: Package,    clause: 'Â§4.2.3(a)' },
-  { key: 'specs',       label: 'ì¬ìÂ·ëë©´',       icon: Cpu,        clause: 'Â§4.2.3(b)' },
-  { key: 'process',     label: 'ì ì¡°ê³µì ',        icon: Layers,     clause: 'Â§4.2.3(c)' },
-  { key: 'inspection',  label: 'ê²ì¬Â·ìíê¸°ì¤',   icon: ShieldCheck,clause: 'Â§4.2.3(d)' },
-  { key: 'labeling',    label: 'ë¼ë²¨Â·í¬ì¥',       icon: Tag,        clause: 'Â§4.2.3(e)' },
-  { key: 'maintenance', label: 'ì¤ì¹Â·ì ì§ë³´ì',   icon: Wrench,     clause: 'Â§4.2.3(f)' },
-  { key: 'history',     label: 'ë³ê²½ì´ë ¥',        icon: GitBranch,  clause: 'Â§4.2.5'    },
+  { key: 'info',        label: '기기 기본정보',  icon: Package,    clause: '§4.2.3(a)' },
+  { key: 'specs',       label: '사양·도면',       icon: Cpu,        clause: '§4.2.3(b)' },
+  { key: 'process',     label: '제조공정',        icon: Layers,     clause: '§4.2.3(c)' },
+  { key: 'inspection',  label: '검사·시험기준',   icon: ShieldCheck,clause: '§4.2.3(d)' },
+  { key: 'labeling',    label: '라벨·포장',       icon: Tag,        clause: '§4.2.3(e)' },
+  { key: 'maintenance', label: '설치·유지보수',   icon: Wrench,     clause: '§4.2.3(f)' },
+  { key: 'history',     label: '변경이력',        icon: GitBranch,  clause: '§4.2.5'    },
 ]
 
 const EMPTY_DMR = () => ({
@@ -45,9 +45,9 @@ const EMPTY_DMR = () => ({
 })
 
 const STATUS_META = {
-  draft:   { label: 'ì´ì', color: 'bg-yellow-100 text-yellow-800' },
-  active:  { label: 'ì¹ì¸', color: 'bg-green-100 text-green-800'  },
-  obsolete:{ label: 'íê¸°', color: 'bg-gray-100 text-gray-600'    },
+  draft:   { label: '초안', color: 'bg-yellow-100 text-yellow-800' },
+  active:  { label: '승인', color: 'bg-green-100 text-green-800'  },
+  obsolete:{ label: '폐기', color: 'bg-gray-100 text-gray-600'    },
 }
 
 function load()  { try { return JSON.parse(localStorage.getItem(LS_KEY)) || [] } catch { return [] } }
@@ -82,15 +82,15 @@ function HistoryTable({ entries, onAdd }) {
       <table className="w-full text-sm mb-4 border-collapse">
         <thead>
           <tr className="bg-gray-50 text-gray-600 text-xs">
-            <th className="border px-3 py-2 text-left">ì¼ì</th>
-            <th className="border px-3 py-2 text-left">ë²ì </th>
-            <th className="border px-3 py-2 text-left">ìì±ì</th>
-            <th className="border px-3 py-2 text-left">ë³ê²½ ìì½</th>
+            <th className="border px-3 py-2 text-left">일자</th>
+            <th className="border px-3 py-2 text-left">버전</th>
+            <th className="border px-3 py-2 text-left">작성자</th>
+            <th className="border px-3 py-2 text-left">변경 요약</th>
           </tr>
         </thead>
         <tbody>
           {entries.length === 0 && (
-            <tr><td colSpan={4} className="border px-3 py-4 text-center text-gray-400 text-xs">ë³ê²½ì´ë ¥ ìì</td></tr>
+            <tr><td colSpan={4} className="border px-3 py-4 text-center text-gray-400 text-xs">변경이력 없음</td></tr>
           )}
           {entries.map((e, i) => (
             <tr key={i} className="hover:bg-gray-50">
@@ -105,14 +105,14 @@ function HistoryTable({ entries, onAdd }) {
       <div className="flex gap-2 flex-wrap">
         <input type="date" className="border rounded px-2 py-1 text-xs" value={form.date}
           onChange={e => setForm(f => ({...f, date: e.target.value}))} />
-        <input placeholder="ë²ì " className="border rounded px-2 py-1 text-xs w-20"
+        <input placeholder="버전" className="border rounded px-2 py-1 text-xs w-20"
           value={form.version} onChange={e => setForm(f => ({...f, version: e.target.value}))} />
-        <input placeholder="ìì±ì" className="border rounded px-2 py-1 text-xs w-24"
+        <input placeholder="작성자" className="border rounded px-2 py-1 text-xs w-24"
           value={form.author} onChange={e => setForm(f => ({...f, author: e.target.value}))} />
-        <input placeholder="ë³ê²½ ìì½" className="border rounded px-2 py-1 text-xs flex-1"
+        <input placeholder="변경 요약" className="border rounded px-2 py-1 text-xs flex-1"
           value={form.summary} onChange={e => setForm(f => ({...f, summary: e.target.value}))} />
         <button className="bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
-          onClick={() => { if(form.version && form.summary) { onAdd(form); setForm(f => ({...f, version:'', author:'', summary:''})) }}}>ì¶ê°</button>
+          onClick={() => { if(form.version && form.summary) { onAdd(form); setForm(f => ({...f, version:'', author:'', summary:''})) }}}>추가</button>
       </div>
     </div>
   )
@@ -174,7 +174,7 @@ export default function DeviceMasterRecordHub() {
   }
 
   function deleteRecord(id) {
-    if (!window.confirm('ì´ DMRì ì­ì íìê² ìµëê¹?')) return
+    if (!window.confirm('이 DMR을 삭제하시겠습니까?')) return
     const updated = records.filter(r => r.id !== id)
     persist(updated); setSelectedId(updated.length > 0 ? updated[0].id : null)
   }
@@ -216,73 +216,73 @@ export default function DeviceMasterRecordHub() {
     )
     switch (activeTab) {
       case 'info': return ro ? view([
-        ['ìëë ì©ë',s.info.intendedUse],['ë¶ë¥ ë±ê¸',s.info.classification],
-        ['UDI',s.info.udi],['íê°Â·ì ê³  ë²í¸',s.info.regulatoryRef],
-        ['ì ì¡°ì',s.info.manufacturer],['ë¹ê³ ',s.info.notes]
+        ['의도된 용도',s.info.intendedUse],['분류 등급',s.info.classification],
+        ['UDI',s.info.udi],['허가·신고 번호',s.info.regulatoryRef],
+        ['제조자',s.info.manufacturer],['비고',s.info.notes]
       ]) : (
         <div>
-          <FieldBlock label="ì ì© ëª©ì  / ìëë ì©ë Â§4.2.3(a)" value={s.info.intendedUse} onChange={v=>updateField('info','intendedUse',v)} rows={3} placeholder="ê¸°ê¸°ì ìëë ì¬ì© ëª©ì ì ê¸°ì "/>
-          <FieldBlock label="ë¶ë¥ ë±ê¸ (ì: 2ë±ê¸, Class II)" value={s.info.classification} type="input" onChange={v=>updateField('info','classification',v)}/>
-          <FieldBlock label="UDI (ê³ ì ê¸°ê¸°ìë³ì)" value={s.info.udi} type="input" onChange={v=>updateField('info','udi',v)} placeholder="UDI-DI / UDI-PI"/>
-          <FieldBlock label="íê°Â·ì ê³  ë²í¸ (ìì½ì²)" value={s.info.regulatoryRef} type="input" onChange={v=>updateField('info','regulatoryRef',v)}/>
-          <FieldBlock label="ì ì¡°ì / ì ì¡°ì" value={s.info.manufacturer} type="input" onChange={v=>updateField('info','manufacturer',v)}/>
-          <FieldBlock label="ë¹ê³ " value={s.info.notes} onChange={v=>updateField('info','notes',v)} rows={2}/>
+          <FieldBlock label="적용 목적 / 의도된 용도 §4.2.3(a)" value={s.info.intendedUse} onChange={v=>updateField('info','intendedUse',v)} rows={3} placeholder="기기의 의도된 사용 목적을 기술"/>
+          <FieldBlock label="분류 등급 (예: 2등급, Class II)" value={s.info.classification} type="input" onChange={v=>updateField('info','classification',v)}/>
+          <FieldBlock label="UDI (고유기기식별자)" value={s.info.udi} type="input" onChange={v=>updateField('info','udi',v)} placeholder="UDI-DI / UDI-PI"/>
+          <FieldBlock label="허가·신고 번호 (식약처)" value={s.info.regulatoryRef} type="input" onChange={v=>updateField('info','regulatoryRef',v)}/>
+          <FieldBlock label="제조자 / 제조소" value={s.info.manufacturer} type="input" onChange={v=>updateField('info','manufacturer',v)}/>
+          <FieldBlock label="비고" value={s.info.notes} onChange={v=>updateField('info','notes',v)} rows={2}/>
         </div>
       )
       case 'specs': return ro ? view([
-        ['ì±ë¥ ì¬ì',s.specs.performanceSpecs],['ì¹ì/ì¸í',s.specs.dimensions],
-        ['ì¬ì§/ììì¬',s.specs.materials],['ëë©´ ì°¸ì¡°',s.specs.drawingRef],['ìíí¸ì¨ì´ ë²ì ',s.specs.softwareVersion]
+        ['성능 사양',s.specs.performanceSpecs],['치수/외형',s.specs.dimensions],
+        ['재질/원자재',s.specs.materials],['도면 참조',s.specs.drawingRef],['소프트웨어 버전',s.specs.softwareVersion]
       ]) : (
         <div>
-          <FieldBlock label="ì±ë¥ ì¬ì Â§4.2.3(b)" value={s.specs.performanceSpecs} onChange={v=>updateField('specs','performanceSpecs',v)} rows={4} placeholder="ì¸¡ì  ë²ì, ì íë, ì ê¸° ì¬ì ë±"/>
-          <FieldBlock label="ì¹ì / ì¸í" value={s.specs.dimensions} onChange={v=>updateField('specs','dimensions',v)} rows={2}/>
-          <FieldBlock label="ì¬ì§ / ììì¬" value={s.specs.materials} onChange={v=>updateField('specs','materials',v)} rows={2}/>
-          <FieldBlock label="ëë©´ ì°¸ì¡° ë²í¸" value={s.specs.drawingRef} type="input" onChange={v=>updateField('specs','drawingRef',v)} placeholder="ëë©´ ë²í¸ ëë ë¬¸ì ID"/>
-          <FieldBlock label="ìíí¸ì¨ì´ ë²ì " value={s.specs.softwareVersion} type="input" onChange={v=>updateField('specs','softwareVersion',v)}/>
+          <FieldBlock label="성능 사양 §4.2.3(b)" value={s.specs.performanceSpecs} onChange={v=>updateField('specs','performanceSpecs',v)} rows={4} placeholder="측정 범위, 정확도, 전기 사양 등"/>
+          <FieldBlock label="치수 / 외형" value={s.specs.dimensions} onChange={v=>updateField('specs','dimensions',v)} rows={2}/>
+          <FieldBlock label="재질 / 원자재" value={s.specs.materials} onChange={v=>updateField('specs','materials',v)} rows={2}/>
+          <FieldBlock label="도면 참조 번호" value={s.specs.drawingRef} type="input" onChange={v=>updateField('specs','drawingRef',v)} placeholder="도면 번호 또는 문서 ID"/>
+          <FieldBlock label="소프트웨어 버전" value={s.specs.softwareVersion} type="input" onChange={v=>updateField('specs','softwareVersion',v)}/>
         </div>
       )
       case 'process': return ro ? view([
-        ['ì ì¡°ê³µì  ê°ì',s.process.processOverview],['íµì¬ ê³µì  ë¨ê³',s.process.criticalSteps],
-        ['ì¤ë¹ ëª©ë¡',s.process.equipmentList],['íê²½ ìêµ¬ì¬í­',s.process.environmentalReqs]
+        ['제조공정 개요',s.process.processOverview],['핵심 공정 단계',s.process.criticalSteps],
+        ['설비 목록',s.process.equipmentList],['환경 요구사항',s.process.environmentalReqs]
       ]) : (
         <div>
-          <FieldBlock label="ì ì¡°ê³µì  ê°ì Â§4.2.3(c)" value={s.process.processOverview} onChange={v=>updateField('process','processOverview',v)} rows={4} placeholder="ì£¼ì ê³µì  ë¨ê³ ê¸°ì "/>
-          <FieldBlock label="íµì¬ ê³µì  ë¨ê³ (Critical Steps)" value={s.process.criticalSteps} onChange={v=>updateField('process','criticalSteps',v)} rows={3}/>
-          <FieldBlock label="ì¤ë¹ ëª©ë¡" value={s.process.equipmentList} onChange={v=>updateField('process','equipmentList',v)} rows={2}/>
-          <FieldBlock label="íê²½ ìêµ¬ì¬í­ (ì¨ëÂ·ìµëÂ·ì²­ì ë ë±)" value={s.process.environmentalReqs} onChange={v=>updateField('process','environmentalReqs',v)} rows={2}/>
+          <FieldBlock label="제조공정 개요 §4.2.3(c)" value={s.process.processOverview} onChange={v=>updateField('process','processOverview',v)} rows={4} placeholder="주요 공정 단계 기술"/>
+          <FieldBlock label="핵심 공정 단계 (Critical Steps)" value={s.process.criticalSteps} onChange={v=>updateField('process','criticalSteps',v)} rows={3}/>
+          <FieldBlock label="설비 목록" value={s.process.equipmentList} onChange={v=>updateField('process','equipmentList',v)} rows={2}/>
+          <FieldBlock label="환경 요구사항 (온도·습도·청정도 등)" value={s.process.environmentalReqs} onChange={v=>updateField('process','environmentalReqs',v)} rows={2}/>
         </div>
       )
       case 'inspection': return ro ? view([
-        ['í©ê²© ê¸°ì¤',s.inspection.acceptanceCriteria],['ìí ë°©ë²',s.inspection.testMethods],
-        ['ìíë§ ê³í',s.inspection.samplingPlan],['ì¶í ì¹ì¸ ìêµ¬ì¬í­',s.inspection.releaseRequirements]
+        ['합격 기준',s.inspection.acceptanceCriteria],['시험 방법',s.inspection.testMethods],
+        ['샘플링 계획',s.inspection.samplingPlan],['출하 승인 요구사항',s.inspection.releaseRequirements]
       ]) : (
         <div>
-          <FieldBlock label="í©ê²© ê¸°ì¤ Â§4.2.3(d)" value={s.inspection.acceptanceCriteria} onChange={v=>updateField('inspection','acceptanceCriteria',v)} rows={4} placeholder="ê° í­ëª©ë³ í©ê²©/ë¶í©ê²© íì  ê¸°ì¤"/>
-          <FieldBlock label="ìí ë°©ë²" value={s.inspection.testMethods} onChange={v=>updateField('inspection','testMethods',v)} rows={3}/>
-          <FieldBlock label="ìíë§ ê³í (AQL ë±)" value={s.inspection.samplingPlan} onChange={v=>updateField('inspection','samplingPlan',v)} rows={2}/>
-          <FieldBlock label="ì¶í ì¹ì¸ ìêµ¬ì¬í­" value={s.inspection.releaseRequirements} onChange={v=>updateField('inspection','releaseRequirements',v)} rows={2}/>
+          <FieldBlock label="합격 기준 §4.2.3(d)" value={s.inspection.acceptanceCriteria} onChange={v=>updateField('inspection','acceptanceCriteria',v)} rows={4} placeholder="각 항목별 합격/불합격 판정 기준"/>
+          <FieldBlock label="시험 방법" value={s.inspection.testMethods} onChange={v=>updateField('inspection','testMethods',v)} rows={3}/>
+          <FieldBlock label="샘플링 계획 (AQL 등)" value={s.inspection.samplingPlan} onChange={v=>updateField('inspection','samplingPlan',v)} rows={2}/>
+          <FieldBlock label="출하 승인 요구사항" value={s.inspection.releaseRequirements} onChange={v=>updateField('inspection','releaseRequirements',v)} rows={2}/>
         </div>
       )
       case 'labeling': return ro ? view([
-        ['ë¼ë²¨ ê¸°ì¬ì¬í­',s.labeling.labelContent],['í¬ì¥ ì¬ì',s.labeling.packagingSpec],
-        ['ë©¸ê·  ë°°ë¦¬ì´ ì¬ì',s.labeling.sterileBarrier],['ë³´ê´ ì¡°ê±´',s.labeling.storageConditions]
+        ['라벨 기재사항',s.labeling.labelContent],['포장 사양',s.labeling.packagingSpec],
+        ['멸균 배리어 사양',s.labeling.sterileBarrier],['보관 조건',s.labeling.storageConditions]
       ]) : (
         <div>
-          <FieldBlock label="ë¼ë²¨ ê¸°ì¬ì¬í­ Â§4.2.3(e)" value={s.labeling.labelContent} onChange={v=>updateField('labeling','labelContent',v)} rows={4} placeholder="ì íëª, ëª¨ë¸ë²í¸, ì ì¡°ë²í¸, ì í¨ê¸°ê°, ê²½ê³ ì¬í­ ë±"/>
-          <FieldBlock label="í¬ì¥ ì¬ì" value={s.labeling.packagingSpec} onChange={v=>updateField('labeling','packagingSpec',v)} rows={3}/>
-          <FieldBlock label="ë©¸ê·  ë°°ë¦¬ì´ ì¬ì (í´ë¹ ì)" value={s.labeling.sterileBarrier} onChange={v=>updateField('labeling','sterileBarrier',v)} rows={2}/>
-          <FieldBlock label="ë³´ê´ ì¡°ê±´ (ì¨ëÂ·ìµëÂ·ì°¨ê´ ë±)" value={s.labeling.storageConditions} onChange={v=>updateField('labeling','storageConditions',v)} rows={2}/>
+          <FieldBlock label="라벨 기재사항 §4.2.3(e)" value={s.labeling.labelContent} onChange={v=>updateField('labeling','labelContent',v)} rows={4} placeholder="제품명, 모델번호, 제조번호, 유효기간, 경고사항 등"/>
+          <FieldBlock label="포장 사양" value={s.labeling.packagingSpec} onChange={v=>updateField('labeling','packagingSpec',v)} rows={3}/>
+          <FieldBlock label="멸균 배리어 사양 (해당 시)" value={s.labeling.sterileBarrier} onChange={v=>updateField('labeling','sterileBarrier',v)} rows={2}/>
+          <FieldBlock label="보관 조건 (온도·습도·차광 등)" value={s.labeling.storageConditions} onChange={v=>updateField('labeling','storageConditions',v)} rows={2}/>
         </div>
       )
       case 'maintenance': return ro ? view([
-        ['ì¤ì¹ ìêµ¬ì¬í­',s.maintenance.installationReqs],['ì ì§ë³´ì ì£¼ê¸°',s.maintenance.maintenanceSchedule],
-        ['ìë¹ì¤ ì§ì¹¨',s.maintenance.serviceInstructions],['ìì ì¬ì© ìëª',s.maintenance.expectedLifespan]
+        ['설치 요구사항',s.maintenance.installationReqs],['유지보수 주기',s.maintenance.maintenanceSchedule],
+        ['서비스 지침',s.maintenance.serviceInstructions],['예상 사용 수명',s.maintenance.expectedLifespan]
       ]) : (
         <div>
-          <FieldBlock label="ì¤ì¹ ìêµ¬ì¬í­ Â§4.2.3(f)" value={s.maintenance.installationReqs} onChange={v=>updateField('maintenance','installationReqs',v)} rows={3} placeholder="ì¤ì¹ íê²½, ì ì, ê³µê° ìêµ¬ì¬í­ ë±"/>
-          <FieldBlock label="ì ì§ë³´ì ì£¼ê¸° / ì ê² í­ëª©" value={s.maintenance.maintenanceSchedule} onChange={v=>updateField('maintenance','maintenanceSchedule',v)} rows={3}/>
-          <FieldBlock label="ìë¹ì¤ ì§ì¹¨" value={s.maintenance.serviceInstructions} onChange={v=>updateField('maintenance','serviceInstructions',v)} rows={3}/>
-          <FieldBlock label="ìì ì¬ì© ìëª" value={s.maintenance.expectedLifespan} type="input" onChange={v=>updateField('maintenance','expectedLifespan',v)}/>
+          <FieldBlock label="설치 요구사항 §4.2.3(f)" value={s.maintenance.installationReqs} onChange={v=>updateField('maintenance','installationReqs',v)} rows={3} placeholder="설치 환경, 전원, 공간 요구사항 등"/>
+          <FieldBlock label="유지보수 주기 / 점검 항목" value={s.maintenance.maintenanceSchedule} onChange={v=>updateField('maintenance','maintenanceSchedule',v)} rows={3}/>
+          <FieldBlock label="서비스 지침" value={s.maintenance.serviceInstructions} onChange={v=>updateField('maintenance','serviceInstructions',v)} rows={3}/>
+          <FieldBlock label="예상 사용 수명" value={s.maintenance.expectedLifespan} type="input" onChange={v=>updateField('maintenance','expectedLifespan',v)}/>
         </div>
       )
       case 'history': return <HistoryTable entries={s.history||[]} onAdd={addHistory}/>
@@ -297,12 +297,12 @@ export default function DeviceMasterRecordHub() {
   }), [records])
   return (
     <AppLayout>
-      <HubBanner icon={FileText} title="ìë£ê¸°ê¸° íì¼ (DMR)" subtitle="ISO 13485 Â§4.2.3 Â· Device Master Record â ì íë³ ìì± ê¸°ê¸° ëªì¸ ê´ë¦¬" color="#0284c7" workflow={['DMR ìì±', 'ì ë³´ ë±ë¡', 'ê²í Â·ì¹ì¸', 'ì ì§ê´ë¦¬']}/>
+      <HubBanner icon={FileText} title="의료기기 파일 (DMR)" subtitle="ISO 13485 §4.2.3 · Device Master Record — 제품별 완성 기기 명세 관리" color="#0284c7" workflow={['DMR 생성', '정보 등록', '검토·승인', '유지관리']}/>
 
       <div className="grid grid-cols-3 gap-4 mb-6">
-        {[{label:'ì ì²´ DMR',value:stats.total,color:'text-blue-600'},
-          {label:'ì¹ì¸ ìë£',value:stats.active,color:'text-green-600'},
-          {label:'ì´ì',value:stats.draft,color:'text-yellow-600'}
+        {[{label:'전체 DMR',value:stats.total,color:'text-blue-600'},
+          {label:'승인 완료',value:stats.active,color:'text-green-600'},
+          {label:'초안',value:stats.draft,color:'text-yellow-600'}
         ].map(c=>(
           <div key={c.label} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
             <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
@@ -315,16 +315,16 @@ export default function DeviceMasterRecordHub() {
         <div className="w-64 flex-shrink-0">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-              <span className="text-sm font-semibold text-gray-700">DMR ëª©ë¡</span>
-              <button className="text-blue-600 hover:text-blue-800" onClick={()=>setShowForm(true)} title="ì DMR ë±ë¡"><Plus size={16}/></button>
+              <span className="text-sm font-semibold text-gray-700">DMR 목록</span>
+              <button className="text-blue-600 hover:text-blue-800" onClick={()=>setShowForm(true)} title="새 DMR 등록"><Plus size={16}/></button>
             </div>
             <div className="px-3 py-2 border-b border-gray-100">
               <input className="w-full border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none"
-                placeholder="ì íëªÂ·ëª¨ë¸ ê²ì" value={search} onChange={e=>setSearch(e.target.value)}/>
+                placeholder="제품명·모델 검색" value={search} onChange={e=>setSearch(e.target.value)}/>
             </div>
             <div className="divide-y divide-gray-50 max-h-96 overflow-y-auto">
               {filtered.length===0 && (
-                <div className="px-4 py-6 text-center text-xs text-gray-400">DMRì´ ììµëë¤.<br/>+ ë¡ ë±ë¡íì¸ì.</div>
+                <div className="px-4 py-6 text-center text-xs text-gray-400">DMR이 없습니다.<br/>+ 로 등록하세요.</div>
               )}
               {filtered.map(r=>(
                 <div key={r.id}
@@ -333,11 +333,11 @@ export default function DeviceMasterRecordHub() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-800 truncate">{r.productName}</div>
-                      <div className="text-xs text-gray-500 truncate">{r.modelNumber||'â'}</div>
+                      <div className="text-xs text-gray-500 truncate">{r.modelNumber||'—'}</div>
                     </div>
                     <span className={`text-xs px-1.5 py-0.5 rounded ml-2 flex-shrink-0 ${STATUS_META[r.status]?.color}`}>{STATUS_META[r.status]?.label}</span>
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">v{r.version} Â· {r.updatedAt}</div>
+                  <div className="text-xs text-gray-400 mt-1">v{r.version} · {r.updatedAt}</div>
                 </div>
               ))}
             </div>
@@ -345,13 +345,13 @@ export default function DeviceMasterRecordHub() {
           {showForm && (
             <div className="bg-white rounded-xl border border-blue-200 shadow-sm p-4 mt-3">
               <div className="text-sm font-semibold text-gray-700 mb-3 flex justify-between">
-                ì DMR ë±ë¡ <button onClick={()=>setShowForm(false)}><X size={14}/></button>
+                새 DMR 등록 <button onClick={()=>setShowForm(false)}><X size={14}/></button>
               </div>
               <input className="w-full border rounded px-2 py-1 text-sm mb-2 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                placeholder="ì íëª *" value={newName} onChange={e=>setNewName(e.target.value)}/>
+                placeholder="제품명 *" value={newName} onChange={e=>setNewName(e.target.value)}/>
               <input className="w-full border rounded px-2 py-1 text-sm mb-3 focus:outline-none focus:ring-1 focus:ring-blue-300"
-                placeholder="ëª¨ë¸ë²í¸" value={newModel} onChange={e=>setNewModel(e.target.value)}/>
-              <button className="w-full bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700" onClick={addRecord}>ë±ë¡</button>
+                placeholder="모델번호" value={newModel} onChange={e=>setNewModel(e.target.value)}/>
+              <button className="w-full bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700" onClick={addRecord}>등록</button>
             </div>
           )}
         </div>
@@ -360,7 +360,7 @@ export default function DeviceMasterRecordHub() {
           {!selected ? (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
               <FileText size={40} className="mx-auto mb-3 opacity-30"/>
-              <div className="text-sm">ì¢ì¸¡ìì DMRì ì ííê±°ë ìë¡ ë±ë¡íì¸ì.</div>
+              <div className="text-sm">좌측에서 DMR을 선택하거나 새로 등록하세요.</div>
             </div>
           ) : (
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
@@ -372,25 +372,25 @@ export default function DeviceMasterRecordHub() {
                     <span className={`text-xs px-2 py-0.5 rounded-full ${STATUS_META[selected.status]?.color}`}>{STATUS_META[selected.status]?.label}</span>
                   </div>
                   <div className="flex gap-4 mt-1">
-                    <span className="text-xs text-gray-400">ë²ì  v{selected.version}</span>
-                    <span className="text-xs text-gray-400">ìµì¢ìì  {selected.updatedAt}</span>
+                    <span className="text-xs text-gray-400">버전 v{selected.version}</span>
+                    <span className="text-xs text-gray-400">최종수정 {selected.updatedAt}</span>
                     {selected.dhfRef && <span className="text-xs text-blue-500 flex items-center gap-1"><Link2 size={10}/> DHF {selected.dhfRef}</span>}
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <select className="border rounded text-xs px-2 py-1 text-gray-600" value={selected.status}
                     disabled={ro} onChange={e=>updateField('root','status',e.target.value)}>
-                    <option value="draft">ì´ì</option>
-                    <option value="active">ì¹ì¸</option>
-                    <option value="obsolete">íê¸°</option>
+                    <option value="draft">초안</option>
+                    <option value="active">승인</option>
+                    <option value="obsolete">폐기</option>
                   </select>
                   {editing ? (
                     <button className="flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700" onClick={saveNow}>
-                      <Save size={12}/> ì ì¥{saved&&' â'}
+                      <Save size={12}/> 저장{saved&&' ✓'}
                     </button>
                   ) : (
                     <button className="flex items-center gap-1 text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700" onClick={()=>setEditing(true)}>
-                      <Edit2 size={12}/> í¸ì§
+                      <Edit2 size={12}/> 편집
                     </button>
                   )}
                   <button className="text-xs text-red-400 hover:text-red-600 px-2 py-1" onClick={()=>deleteRecord(selected.id)}><Trash2 size={14}/></button>
@@ -399,14 +399,14 @@ export default function DeviceMasterRecordHub() {
               {editing && (
                 <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex gap-4 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">ë²ì </span>
+                    <span className="text-xs text-gray-500">버전</span>
                     <input className="border rounded px-2 py-0.5 text-xs w-16" value={selected.version}
                       readOnly={ro} onChange={e=>updateField('root','version',e.target.value)}/>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">DHF ì°ê³ ID</span>
+                    <span className="text-xs text-gray-500">DHF 연계 ID</span>
                     <input className="border rounded px-2 py-0.5 text-xs w-32" value={selected.dhfRef}
-                      readOnly={ro} onChange={e=>updateField('root','dhfRef',e.target.value)} placeholder="DHF ë¬¸ìë²í¸"/>
+                      readOnly={ro} onChange={e=>updateField('root','dhfRef',e.target.value)} placeholder="DHF 문서번호"/>
                   </div>
                 </div>
               )}
@@ -427,7 +427,7 @@ export default function DeviceMasterRecordHub() {
                 {!editing && activeTab!=='history' && (
                   <div className="text-xs text-gray-400 mb-3 bg-blue-50 rounded px-3 py-2 flex items-center gap-2">
                     <CheckCircle2 size={13} className="text-blue-400"/>
-                    ë´ì©ì ìì íë ¤ë©´ <strong>í¸ì§</strong> ë²í¼ì ëë¥´ì¸ì.
+                    내용을 수정하려면 <strong>편집</strong> 버튼을 누르세요.
                   </div>
                 )}
                 {renderTabContent()}
