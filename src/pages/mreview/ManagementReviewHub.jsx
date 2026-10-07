@@ -209,6 +209,18 @@ function ReviewDetail({ review, onAction, refresh, onDelete }) {
     try { return JSON.parse(localStorage.getItem(sigKey) || '[]') } catch { return [] }
   })
   const [newSig, setNewSig] = useState({ name: '', role: '', date: new Date().toISOString().slice(0,10) })
+  const addMrSig = () => {
+    if (!newSig.name.trim()) return
+    const updated = [...mrSigs, { ...newSig, id: Date.now() }]
+    setMrSigs(updated)
+    localStorage.setItem(sigKey, JSON.stringify(updated))
+    setNewSig({ name: '', role: '', date: new Date().toISOString().slice(0,10) })
+  }
+  const removeMrSig = (id) => {
+    const updated = mrSigs.filter(s => s.id !== id)
+    setMrSigs(updated)
+    localStorage.setItem(sigKey, JSON.stringify(updated))
+  }
   const aiStatusKey = 'qualytree.mr_ai_status_' + review.id;
   const [aiStatuses, setAiStatuses] = useState(() => {
     try { return JSON.parse(localStorage.getItem(aiStatusKey) || '{}') } catch { return {} }
