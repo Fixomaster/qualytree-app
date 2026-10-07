@@ -1,5 +1,5 @@
 // src/pages/production-control/ProductionControlHub.jsx
-// ISO 13485 ÃÂ§7.5.1 Ã¢ÂÂ Ã¬ÂÂÃ¬ÂÂ° Ã«Â°Â Ã¬ÂÂÃ«Â¹ÂÃ¬ÂÂ¤ Ã¬Â ÂÃªÂ³Âµ ÃªÂ´ÂÃ«Â¦Â¬ (Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂ)
+// ISO 13485 §7.5.1 — 생산 및 서비스 제공 관리 (생산 제어 계획)
 import React, { useState, useMemo, useEffect } from 'react'
 import {
   Plus, Save, Edit2, Trash2, Layers, CheckCircle2,
@@ -14,35 +14,35 @@ import { supabase } from '../../lib/supabaseClient'
 import { useSearchParams } from 'react-router-dom'
 let _sbCidPc = null
 
-// Ã¢ÂÂÃ¢ÂÂ Ã¬ÂÂÃ¬ÂÂ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 상수 ─────────────────────────────────────────────────────
 const LS_KEY = 'qualytree.production_control'
 
-// Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂ Ã¬ÂÂÃ­ÂÂ
+// 제어 계획 상태
 const PCP_STATUSES = {
-  draft:    { label: 'Ã¬Â´ÂÃ¬ÂÂ',   color: '#9CA3AF', bg: '#F3F4F6' },
-  review:   { label: 'ÃªÂ²ÂÃ­ÂÂ ',   color: '#D97706', bg: '#FEF3C7' },
-  approved: { label: 'Ã¬ÂÂ¹Ã¬ÂÂ¸',   color: '#059669', bg: '#D1FAE5' },
-  obsolete: { label: 'Ã­ÂÂÃªÂ¸Â°',   color: '#6B7280', bg: '#F3F4F6' },
+  draft:    { label: '초안',   color: '#9CA3AF', bg: '#F3F4F6' },
+  review:   { label: '검토',   color: '#D97706', bg: '#FEF3C7' },
+  approved: { label: '승인',   color: '#059669', bg: '#D1FAE5' },
+  obsolete: { label: '폐기',   color: '#6B7280', bg: '#F3F4F6' },
 }
 
-// ÃÂ§7.5.1 ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂ Ã­ÂÂ
+// §7.5.1 공정 유형
 const PROCESS_TYPES = [
-  'Ã¬ÂÂÃ¬ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã¬ÂÂÃ¬ÂÂÃ¬ÂÂ¬ Ã¬Â¤ÂÃ«Â¹Â', 'Ã¬Â ÂÃ«ÂÂ¨ÃÂ·ÃªÂ°ÂÃªÂ³Âµ', 'Ã¬ÂÂ±Ã­ÂÂÃÂ·Ã¬Â¡Â°Ã«Â¦Â½', 'Ã¬ÂÂ©Ã¬Â ÂÃÂ·Ã¬Â ÂÃ­ÂÂ©',
-  'Ã¬Â½ÂÃ­ÂÂÃÂ·Ã­ÂÂÃ«Â©Â´Ã¬Â²ÂÃ«Â¦Â¬', 'Ã«Â©Â¸ÃªÂ·Â ', 'Ã­ÂÂ¬Ã¬ÂÂ¥', 'Ã«ÂÂ¼Ã«Â²Â¨Ã«Â§Â', 'Ã¬ÂµÂÃ¬Â¢Â ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã¬Â¶ÂÃ­ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬',
-  'Ã¬ÂÂ¸Ã¬Â²ÂÃÂ·Ã¬ÂÂ¸Ã¬Â Â', 'Ã¬ÂÂÃ­ÂÂÃ­ÂÂ¸Ã¬ÂÂ¨Ã¬ÂÂ´ Ã¬ÂÂ¤Ã¬Â¹Â', 'ÃªÂµÂÃ¬Â ÂÃÂ·Ã¬Â ÂÃªÂ²Â', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '수입 검사', '원자재 준비', '절단·가공', '성형·조립', '용접·접합',
+  '코팅·표면처리', '멸균', '포장', '라벨링', '최종 검사', '출하 검사',
+  '세척·세정', '소프트웨어 설치', '교정·점검', '기타',
 ]
 
-// ÃªÂ´ÂÃ«Â¦Â¬ Ã«Â°Â©Ã«Â²Â
+// 관리 방법
 const CONTROL_METHODS = [
-  'Ã¬ÂÂ¡Ã¬ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬', 'Ã¬Â¹ÂÃ¬ÂÂ Ã¬Â¸Â¡Ã¬Â Â', 'ÃªÂ¸Â°Ã«ÂÂ¥ Ã¬ÂÂÃ­ÂÂ', 'Ã¬Â ÂÃªÂ¸Â° Ã¬ÂÂÃ­ÂÂ', 'Ã¬ÂÂ±Ã«ÂÂ¥ Ã¬ÂÂÃ­ÂÂ',
-  'Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂÃ¬ÂÂ Ã¬Â¤ÂÃ¬ÂÂ', 'ÃªÂ³ÂµÃ¬Â Â Ã­ÂÂÃ«ÂÂ¼Ã«Â¯Â¸Ã­ÂÂ° Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â', 'Ã­ÂÂµÃªÂ³ÂÃ¬Â Â ÃªÂ³ÂµÃ¬Â Â ÃªÂ´ÂÃ«Â¦Â¬ (SPC)',
-  'Ã«Â°Â©Ã«Â²Â Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ± Ã­ÂÂÃ¬ÂÂ¸', 'Ã¬ÂÂ¤Ã«Â¹Â ÃªÂµÂÃ¬Â Â Ã­ÂÂÃ¬ÂÂ¸', 'Ã¬ÂÂ¨Ã«ÂÂ/Ã¬ÂÂµÃ«ÂÂ Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '육안 검사', '치수 측정', '기능 시험', '전기 시험', '성능 시험',
+  '작업 지시서 준수', '공정 파라미터 모니터링', '통계적 공정 관리 (SPC)',
+  '방법 유효성 확인', '설비 교정 확인', '온도/습도 모니터링', '기타',
 ]
 
-// ÃªÂ¸Â°Ã«Â¡Â Ã¬ÂÂ Ã­ÂÂ
+// 기록 유형
 const RECORD_TYPES = [
-  'Ã«Â°Â°Ã¬Â¹Â ÃªÂ¸Â°Ã«Â¡Â (EBR)', 'ÃªÂ²ÂÃ¬ÂÂ¬ ÃªÂ¸Â°Ã«Â¡Â', 'Ã¬ÂÂ¥Ã«Â¹Â Ã«Â¡ÂÃªÂ·Â¸', 'ÃªÂµÂÃ¬Â Â ÃªÂ¸Â°Ã«Â¡Â',
-  'Ã­ÂÂÃªÂ²Â½ Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â ÃªÂ¸Â°Ã«Â¡Â', 'Ã¬ÂÂ¼Ã­ÂÂ ÃªÂ¸Â°Ã«Â¡Â', 'Ã¬ÂÂÃ¬ÂÂ Ã¬Â§ÂÃ¬ÂÂÃ¬ÂÂ', 'ÃªÂ¸Â°Ã­ÂÂ',
+  '배치 기록 (EBR)', '검사 기록', '장비 로그', '교정 기록',
+  '환경 모니터링 기록', '일탈 기록', '작업 지시서', '기타',
 ]
 
 function genPcpId() { return `PCP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }
@@ -50,17 +50,17 @@ function genStepId() { return `STEP-${String(Date.now()).slice(-6)}` }
 function today()    { return new Date().toISOString().slice(0, 10) }
 
 const EMPTY_STEP = {
-  id: '', seq: 1, processType: 'Ã¬Â¡Â°Ã«Â¦Â½', stepName: '', wiNo: '',
+  id: '', seq: 1, processType: '조립', stepName: '', wiNo: '',
   equipment: '', materials: '',
-  controlParams: '',    // ÃªÂ´ÂÃ«Â¦Â¬ Ã­ÂÂÃ«ÂÂ¼Ã«Â¯Â¸Ã­ÂÂ° (Ã¬ÂÂ¨Ã«ÂÂ, Ã¬ÂÂÃ«Â Â¥, Ã¬ÂÂÃªÂ°Â Ã«ÂÂ±)
-  controlMethod: 'Ã¬ÂÂ¡Ã¬ÂÂ ÃªÂ²ÂÃ¬ÂÂ¬',
+  controlParams: '',    // 관리 파라미터 (온도, 압력, 시간 등)
+  controlMethod: '육안 검사',
   acceptanceCriteria: '',
-  samplePlan: '',       // Ã¬ÂÂÃ­ÂÂÃ«Â§Â ÃªÂ³ÂÃ­ÂÂ
-  frequency: 'Ã«Â§Â¤ Ã«Â¡ÂÃ­ÂÂ¸',
-  recordType: 'Ã«Â°Â°Ã¬Â¹Â ÃªÂ¸Â°Ã«Â¡Â (EBR)',
+  samplePlan: '',       // 샘플링 계획
+  frequency: '매 로트',
+  recordType: '배치 기록 (EBR)',
   responsible: '',
   linkedValidationId: '', linkedEquipmentId: '',
-  specialProcess: false, // Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂ¬Ã«Â¶Â (ÃÂ§7.5.6)
+  specialProcess: false, // 특수 공정 여부 (§7.5.6)
   notes: '',
 }
 
@@ -69,22 +69,22 @@ const EMPTY_PCP = {
   productKey: '', productName: '', productCode: '', deviceClass: 'Class II',
   preparedBy: '', reviewedBy: '', approvedBy: '',
   issueDate: today(), reviewDate: '',
-  scope: '',            // Ã¬Â ÂÃ¬ÂÂ© Ã«Â²ÂÃ¬ÂÂ
-  releaseCriteria: '',  // Ã¬Â¶ÂÃ­ÂÂ ÃªÂ¸Â°Ã¬Â¤Â ÃÂ§7.5.1(f)
-  environmentReqs: '',  // Ã­ÂÂÃªÂ²Â½ Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­ ÃÂ§7.5.1(e)
-  monitoringPlan: '',   // Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â ÃªÂ³ÂÃ­ÂÂ ÃÂ§7.5.1(g)
+  scope: '',            // 적용 범위
+  releaseCriteria: '',  // 출하 기준 §7.5.1(f)
+  environmentReqs: '',  // 환경 요구사항 §7.5.1(e)
+  monitoringPlan: '',   // 모니터링 계획 §7.5.1(g)
   linkedDmrId: '', linkedDhfId: '', linkedValidationId: '',
-  steps: [],            // ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â Ã«ÂªÂ©Ã«Â¡Â
+  steps: [],            // 공정 단계 목록
   notes: '',
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â©ÂÃ¬ÂÂ¸ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 메인 ─────────────────────────────────────────────────────
 export default function ProductionControlHub({ embedded = false, productKey: scopeProductKey = null, productLabel = '' } = {}) {
   const user = auth.current()
   const companyId = user?.company_id
   const canEdit = user?.level >= 2
   const [searchParams] = useSearchParams()
-  // #305: Ã¬Â ÂÃ­ÂÂÃªÂ³ÂµÃ¬Â Â(ProductsHub)Ã¬ÂÂ Ã¬ÂÂÃ«Â²Â Ã«ÂÂÃ«ÂÂ  Ã«ÂÂÃ«ÂÂ Ã­ÂÂ´Ã«ÂÂ¹ Ã¬Â ÂÃ­ÂÂ(productKey)Ã¬ÂÂ PCPÃ«Â§Â Ã«ÂÂ¸Ã¬Â¶ÂÃ­ÂÂÃ«ÂÂ¤.
+  // #305: 제품공정(ProductsHub)에 임베드될 때는 해당 제품(productKey)의 PCP만 노출한다.
   const scopeKey = scopeProductKey || searchParams.get('productId') || null
 
   const [pcps, setPcps] = useState(() => {
@@ -96,7 +96,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   const [form, setForm] = useState(EMPTY_PCP)
   const [editId, setEditId] = useState(null)
   const [filterStatus, setFilterStatus] = useState('all')
-  // KGMP LOTÃ«Â²ÂÃ­ÂÂ¸ Ã¬Â²Â´ÃªÂ³Â
+  // KGMP LOT번호 체계
   const [lotCfg, setLotCfg] = useState(() => { try { return JSON.parse(localStorage.getItem('qualytree.lot_config') || 'null') || {prefix:'',yearFmt:'YY',monthFmt:'MM',seqDigits:3,sep:'-'} } catch { return {prefix:'',yearFmt:'YY',monthFmt:'MM',seqDigits:3,sep:'-'} } })
   const saveLotCfg = (cfg) => {
     setLotCfg(cfg)
@@ -138,7 +138,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
     const mm = String(now.getMonth()+1).padStart(2,'0')
     const datePart = yy + (lotCfg.monthFmt!=='(none)'?mm:'')
     const seq = String(lotLog.length+1).padStart(lotCfg.seqDigits||3,'0')
-    return [lotCfg.prefix, datePart, seq].filter(Boolean).join(lotCfg.sep||'')||'(Ã«Â¯Â¸Ã¬ÂÂ¤Ã¬Â Â)'
+    return [lotCfg.prefix, datePart, seq].filter(Boolean).join(lotCfg.sep||'')||'(미설정)'
   }
 
 
@@ -149,7 +149,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   }
 
   function submitPcp() {
-    if (!form.productName.trim()) return alert('Ã¬Â ÂÃ­ÂÂÃ«ÂªÂÃ¬ÂÂ Ã¬ÂÂÃ«Â Â¥Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.')
+    if (!form.productName.trim()) return alert('제품명을 입력하세요.')
     const isEdit = !!editId
     const obj = isEdit
       ? pcps.map(p => p.id === editId ? { ...p, ...form } : p)
@@ -159,7 +159,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   }
 
   function deletePcp(id) {
-    if (!confirm('Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ Ã¬ÂÂ­Ã¬Â ÂÃ­ÂÂÃ¬ÂÂÃªÂ²Â Ã¬ÂÂµÃ«ÂÂÃªÂ¹Â?')) return
+    if (!confirm('생산 제어 계획을 삭제하시겠습니까?')) return
     save(pcps.filter(p => p.id !== id))
     if (selectedId === id) { setSelectedId(null); setTab('list') }
   }
@@ -181,7 +181,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
 
   const F = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  // ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â Ã­ÂÂ¸Ã¬Â§Â (Ã­ÂÂ¼ Ã«ÂÂ´Ã¬ÂÂÃ¬ÂÂ)
+  // 공정 단계 편집 (폼 내에서)
   function addStep() {
     const seq = (form.steps?.length || 0) + 1
     F('steps', [...(form.steps || []), { ...EMPTY_STEP, id: genStepId(), seq }])
@@ -198,7 +198,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
     F('steps', steps.map((s, i) => ({ ...s, seq: i + 1 })))
   }
 
-  // Ã¬ÂÂÃ¬ÂÂ¸ Ã«Â·Â°Ã¬ÂÂÃ¬ÂÂ Ã«ÂÂ¨ÃªÂ³Â Ã¬ÂÂ¸Ã«ÂÂ¼Ã¬ÂÂ¸ Ã­ÂÂ¸Ã¬Â§Â
+  // 상세 뷰에서 단계 인라인 편집
   const [editingStepId, setEditingStepId] = useState(null)
   const [stepDraft, setStepDraft] = useState(null)
 
@@ -213,13 +213,13 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   const body = (
     <div className={embedded ? '' : 'px-6 lg:px-8 py-6 max-w-[1600px] mx-auto'}>
 
-        {/* Ã­ÂÂ­ */}
+        {/* 탭 */}
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>
           {[
-            { key: 'list',     label: `PCP Ã«ÂªÂ©Ã«Â¡Â (${scopedPcps.length})` },
-            { key: 'detail',   label: selectedPcp ? `ÃªÂ³ÂµÃ¬Â ÂÃ­ÂÂ: ${selectedPcp.productName}` : 'ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ¬ÂÂ¸' },
-            { key: 'analysis', label: 'Ã­ÂÂÃ­ÂÂ© Ã«Â¶ÂÃ¬ÂÂ' },
-            { key: 'lot', label: 'LOT Ã¬Â²Â´ÃªÂ³Â Ã¬ÂÂ¤Ã¬Â Â' },
+            { key: 'list',     label: `PCP 목록 (${scopedPcps.length})` },
+            { key: 'detail',   label: selectedPcp ? `공정표: ${selectedPcp.productName}` : '공정 상세' },
+            { key: 'analysis', label: '현황 분석' },
+            { key: 'lot', label: 'LOT 체계 설정' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className="px-4 py-1.5 rounded-lg text-[13px] font-semibold transition"
@@ -234,21 +234,21 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
           ))}
         </div>
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã«ÂªÂ©Ã«Â¡Â Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 목록 탭 ── */}
         {tab === 'list' && (
           <div>
             <div className="flex flex-wrap gap-2 mb-4 items-center">
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="px-3 py-1.5 rounded-xl text-[13px]"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--line)', color: 'var(--ink)' }}>
-                <option value="all">Ã¬Â ÂÃ¬Â²Â´ Ã¬ÂÂÃ­ÂÂ</option>
+                <option value="all">전체 상태</option>
                 {Object.entries(PCP_STATUSES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
               {canEdit && (
                 <button onClick={() => { setForm({ ...EMPTY_PCP, productKey: scopeKey || '', productName: scopeKey ? productLabel : '' }); setEditId(null); setShowForm(true) }}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold ml-auto"
                   style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-                  <Plus size={14} /> PCP Ã«ÂÂ±Ã«Â¡Â
+                  <Plus size={14} /> PCP 등록
                 </button>
               )}
             </div>
@@ -261,7 +261,7 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
 
             <div className="space-y-3">
               {filtered.length === 0 && (
-                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>Ã«ÂÂ±Ã«Â¡ÂÃ«ÂÂ Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂÃ¬ÂÂ´ Ã¬ÂÂÃ¬ÂÂµÃ«ÂÂÃ«ÂÂ¤.</div>
+                <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>등록된 생산 제어 계획이 없습니다.</div>
               )}
               {filtered.map(pcp => {
                 const st = PCP_STATUSES[pcp.status] || PCP_STATUSES.draft
@@ -281,10 +281,10 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
                           <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{pcp.revision}</span>
                         </div>
                         <div className="flex gap-3 flex-wrap text-[12px]" style={{ color: 'var(--ink-soft)' }}>
-                          <span>ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â: <strong>{steps.length}</strong>ÃªÂ°Â</span>
-                          {specialCount > 0 && <span style={{ color: '#7C3AED' }}>Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â: {specialCount}ÃªÂ°Â</span>}
-                          {missingCrit > 0 && <span style={{ color: '#DC2626' }}>Ã¢ÂÂ  Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â Ã«Â¯Â¸Ã«ÂÂ±Ã«Â¡Â: {missingCrit}ÃªÂ°Â</span>}
-                          {pcp.approvedBy && <span>Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ: {pcp.approvedBy}</span>}
+                          <span>공정 단계: <strong>{steps.length}</strong>개</span>
+                          {specialCount > 0 && <span style={{ color: '#7C3AED' }}>특수 공정: {specialCount}개</span>}
+                          {missingCrit > 0 && <span style={{ color: '#DC2626' }}>⚠ 합격 기준 미등록: {missingCrit}개</span>}
+                          {pcp.approvedBy && <span>승인자: {pcp.approvedBy}</span>}
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
@@ -309,9 +309,9 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
           </div>
         )}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂÃ¬ÂÂ¸ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 공정 상세 탭 ── */}
         {tab === 'detail' && !selectedPcp && (
-          <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>Ã«ÂªÂ©Ã«Â¡ÂÃ¬ÂÂÃ¬ÂÂ PCPÃ«Â¥Â¼ Ã¬ÂÂ Ã­ÂÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</div>
+          <div className="text-center py-16 text-[13px]" style={{ color: 'var(--ink-faint)' }}>목록에서 PCP를 선택하세요.</div>
         )}
         {tab === 'detail' && selectedPcp && (
           <PcpDetailView pcp={selectedPcp} canEdit={canEdit}
@@ -328,47 +328,47 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
             }} />
         )}
 
-        {/* Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã­ÂÂ­ Ã¢ÂÂÃ¢ÂÂ */}
+        {/* ── 분석 탭 ── */}
         {tab === 'analysis' && <AnalysisView analysis={analysis} pcps={scopedPcps} />}
 
-        {/* KGMP LOTÃ«Â²ÂÃ­ÂÂ¸ Ã¬Â²Â´ÃªÂ³Â Ã¬ÂÂ¤Ã¬Â Â */}
+        {/* KGMP LOT번호 체계 설정 */}
         {tab === 'lot' && (
           <div>
-            <div style={{fontSize:13.5,fontWeight:700,color:'var(--ink)',marginBottom:4}}>LOTÃ«Â²ÂÃ­ÂÂ¸ Ã¬Â²Â´ÃªÂ³Â Ã¬ÂÂ¤Ã¬Â Â</div>
-            <div style={{fontSize:12,color:'var(--ink-mute)',marginBottom:16}}>KGMP ÃÂ§7 Ã¢ÂÂ Ã¬Â ÂÃ¬Â¡Â°Ã«Â²ÂÃ­ÂÂ¸(Ã«Â¶ÂÃ«Â²ÂÃ­ÂÂ¸) Ã¬Â²Â´ÃªÂ³Â Ã¬ÂÂ¤Ã¬Â Â Ã«Â°Â Ã«Â°ÂÃ«Â²Â ÃªÂ¸Â°Ã«Â¡Â</div>
+            <div style={{fontSize:13.5,fontWeight:700,color:'var(--ink)',marginBottom:4}}>LOT번호 체계 설정</div>
+            <div style={{fontSize:12,color:'var(--ink-mute)',marginBottom:16}}>KGMP §7 — 제조번호(부번호) 체계 설정 및 발번 기록</div>
             <div style={{background:'var(--bg-card)',border:'1px solid var(--line)',borderRadius:12,padding:20,marginBottom:20}}>
-              <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>Ã­ÂÂÃ¬ÂÂ Ã¬ÂÂ¤Ã¬Â Â</div>
+              <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>형식 설정</div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr',gap:12,marginBottom:16}}>
-                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>Ã¬Â ÂÃ«ÂÂÃ¬ÂÂ¬</div>
-                  <input value={lotCfg.prefix} onChange={e=>saveLotCfg({...lotCfg,prefix:e.target.value})} placeholder="Ã¬ÂÂ: KT" style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,boxSizing:'border-box',background:'var(--bg)',color:'var(--ink)'}} /></div>
-                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>Ã¬ÂÂ°Ã«ÂÂ</div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>접두사</div>
+                  <input value={lotCfg.prefix} onChange={e=>saveLotCfg({...lotCfg,prefix:e.target.value})} placeholder="예: KT" style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,boxSizing:'border-box',background:'var(--bg)',color:'var(--ink)'}} /></div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>연도</div>
                   <select value={lotCfg.yearFmt} onChange={e=>saveLotCfg({...lotCfg,yearFmt:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
                     <option value="YY">YY</option><option value="YYYY">YYYY</option>
                   </select></div>
-                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>Ã¬ÂÂ</div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>월</div>
                   <select value={lotCfg.monthFmt} onChange={e=>saveLotCfg({...lotCfg,monthFmt:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
-                    <option value="MM">MM Ã­ÂÂ¬Ã­ÂÂ¨</option><option value="(none)">Ã¬ÂÂÃ«ÂÂµ</option>
+                    <option value="MM">MM 포함</option><option value="(none)">생략</option>
                   </select></div>
-                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>Ã¬ÂÂ¼Ã«Â Â¨Ã«Â²ÂÃ­ÂÂ¸ Ã¬ÂÂÃ«Â¦Â¿Ã¬ÂÂ</div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>일련번호 자릿수</div>
                   <select value={lotCfg.seqDigits} onChange={e=>saveLotCfg({...lotCfg,seqDigits:Number(e.target.value)})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
-                    {[2,3,4,5].map(n=><option key={n} value={n}>{n}Ã¬ÂÂÃ«Â¦Â¬</option>)}
+                    {[2,3,4,5].map(n=><option key={n} value={n}>{n}자리</option>)}
                   </select></div>
-                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>ÃªÂµÂ¬Ã«Â¶ÂÃ¬ÂÂ</div>
+                <div><div style={{fontSize:11.5,color:'var(--ink-mute)',marginBottom:4}}>구분자</div>
                   <select value={lotCfg.sep} onChange={e=>saveLotCfg({...lotCfg,sep:e.target.value})} style={{width:'100%',padding:'7px 10px',borderRadius:7,border:'1px solid var(--line)',fontSize:12.5,background:'var(--bg)',color:'var(--ink)'}}>
-                    <option value="-">-</option><option value="">Ã¬ÂÂÃ¬ÂÂ</option><option value="/">/</option>
+                    <option value="-">-</option><option value="">없음</option><option value="/">/</option>
                   </select></div>
               </div>
               <div style={{display:'flex',alignItems:'center',gap:14}}>
-                <div style={{fontSize:12.5,color:'var(--ink-mute)'}}>Ã«Â¯Â¸Ã«Â¦Â¬Ã«Â³Â´ÃªÂ¸Â°:</div>
+                <div style={{fontSize:12.5,color:'var(--ink-mute)'}}>미리보기:</div>
                 <div style={{fontFamily:'monospace',fontSize:15,fontWeight:700,color:'#059669',background:'#D1FAE5',padding:'4px 14px',borderRadius:6}}>{previewLot()}</div>
-                <button onClick={genLot} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'#2563EB',color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer'}}>LOT Ã«Â²ÂÃ­ÂÂ¸ Ã«Â°ÂÃ«Â²Â</button>
+                <button onClick={genLot} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'#2563EB',color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer'}}>LOT 번호 발번</button>
               </div>
             </div>
             {lotLog.length>0 && (
               <div style={{background:'var(--bg-card)',border:'1px solid var(--line)',borderRadius:12,padding:20}}>
-                <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>LOT Ã«Â°ÂÃ«Â²Â Ã¬ÂÂ´Ã«Â Â¥</div>
+                <div style={{fontSize:13,fontWeight:600,color:'var(--ink)',marginBottom:12}}>LOT 발번 이력</div>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
-                  <thead><tr><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>#</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>LOTÃ«Â²ÂÃ­ÂÂ¸</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>Ã«Â°ÂÃ«Â²ÂÃ¬ÂÂ¼</th></tr></thead>
+                  <thead><tr><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>#</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>LOT번호</th><th style={{padding:'7px 10px',textAlign:'left',color:'var(--ink-mute)',borderBottom:'1px solid var(--line)'}}>발번일</th></tr></thead>
                   <tbody>{lotLog.map((row,i)=>(
                     <tr key={row.id} style={{borderBottom:'1px solid var(--line)'}}>
                       <td style={{padding:'7px 10px',color:'var(--ink-mute)'}}>{lotLog.length-i}</td>
@@ -387,52 +387,52 @@ export default function ProductionControlHub({ embedded = false, productKey: sco
   if (embedded) return body
 
   return (
-    <AppLayout user={user} title="Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂ" subtitle="ISO 13485 ÃÂ§7.5.1 Ã¢ÂÂ ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³ÂÃ«Â³Â ÃªÂ´ÂÃ«Â¦Â¬ Ã­ÂÂ­Ã«ÂªÂ©ÃÂ·Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤ÂÃÂ·Ã¬Â¶ÂÃ­ÂÂ ÃªÂ¸Â°Ã¬Â¤Â">
-      <HubBanner title="Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂ" subtitle="ISO 13485 ÃÂ§7.5.1 Ã¢ÂÂ Ã¬ÂÂÃ¬ÂÂ° Ã«Â°Â Ã¬ÂÂÃ«Â¹ÂÃ¬ÂÂ¤ Ã¬Â ÂÃªÂ³Âµ ÃªÂ´ÂÃ«Â¦Â¬" icon={Settings} color="#EA580C" workflow={['ÃªÂ³ÂÃ­ÂÂ Ã¬ÂÂÃ«Â¦Â½','ÃªÂ³ÂµÃ¬Â Â Ã¬ÂÂ¹Ã¬ÂÂ¸','Ã¬ÂÂÃ¬ÂÂ° Ã¬ÂÂ¤Ã­ÂÂ','ÃªÂ²ÂÃ¬ÂÂ¬','Ã¬Â¶ÂÃ­ÂÂ Ã¬ÂÂ¹Ã¬ÂÂ¸']} />
+    <AppLayout user={user} title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 공정 단계별 관리 항목·합격 기준·출하 기준">
+      <HubBanner title="생산 제어 계획" subtitle="ISO 13485 §7.5.1 — 생산 및 서비스 제공 관리" icon={Settings} color="#EA580C" workflow={['계획 수립','공정 승인','생산 실행','검사','출하 승인']} />
       {body}
     </AppLayout>
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ PCP Ã¬ÂÂÃ¬ÂÂ¸ Ã«Â·Â° Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── PCP 상세 뷰 ───────────────────────────────────────────────
 function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepId, setStepDraft, onSaveStep, onAddStep, onDeleteStep }) {
   const steps = pcp.steps || []
   const st = PCP_STATUSES[pcp.status] || PCP_STATUSES.draft
 
   return (
     <div className="space-y-5">
-      {/* PCP Ã­ÂÂ¤Ã«ÂÂ */}
+      {/* PCP 헤더 */}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
         <div className="flex items-center gap-3 mb-3">
           <div>
             <div className="font-bold text-[16px]" style={{ color: 'var(--ink)' }}>{pcp.productName}</div>
             <div className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
-              {pcp.pcpNo} ÃÂ· {pcp.revision} ÃÂ·
+              {pcp.pcpNo} · {pcp.revision} ·
               <span className="ml-1 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: st.bg, color: st.color }}>{st.label}</span>
             </div>
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-[12px]">
-          {[['Ã¬ÂÂÃ¬ÂÂ±Ã¬ÂÂ', pcp.preparedBy], ['ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ', pcp.reviewedBy], ['Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ', pcp.approvedBy], ['Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ¼', pcp.issueDate]].map(([l, v]) =>
+          {[['작성자', pcp.preparedBy], ['검토자', pcp.reviewedBy], ['승인자', pcp.approvedBy], ['유효일', pcp.issueDate]].map(([l, v]) =>
             v && <div key={l}><span style={{ color: 'var(--ink-faint)' }}>{l}: </span><span style={{ color: 'var(--ink)' }}>{v}</span></div>
           )}
         </div>
         {pcp.releaseCriteria && (
           <div className="mt-3 p-3 rounded-xl text-[12.5px]" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-            <span className="font-bold" style={{ color: '#1E40AF' }}>ÃÂ§7.5.1(f) Ã¬Â¶ÂÃ­ÂÂ ÃªÂ¸Â°Ã¬Â¤Â: </span>
+            <span className="font-bold" style={{ color: '#1E40AF' }}>§7.5.1(f) 출하 기준: </span>
             <span style={{ color: '#1E40AF' }}>{pcp.releaseCriteria}</span>
           </div>
         )}
       </div>
 
-      {/* ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â Ã­ÂÂÃ¬ÂÂ´Ã«Â¸Â */}
+      {/* 공정 단계 테이블 */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â ({steps.length}ÃªÂ°Â)</div>
+          <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>공정 단계 ({steps.length}개)</div>
           {canEdit && (
             <button onClick={onAddStep} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-semibold"
               style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-              <Plus size={12} /> Ã«ÂÂ¨ÃªÂ³Â Ã¬Â¶ÂÃªÂ°Â
+              <Plus size={12} /> 단계 추가
             </button>
           )}
         </div>
@@ -440,14 +440,14 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
           <table className="w-full text-[12px]">
             <thead>
               <tr style={{ background: 'var(--bg-soft)' }}>
-                {['#', 'ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â', 'ÃªÂ´ÂÃ«Â¦Â¬ Ã­ÂÂÃ«ÂÂ¼Ã«Â¯Â¸Ã­ÂÂ°', 'ÃªÂ´ÂÃ«Â¦Â¬ Ã«Â°Â©Ã«Â²Â', 'Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â', 'Ã«Â¹ÂÃ«ÂÂ', 'ÃªÂ¸Â°Ã«Â¡Â', 'Ã«ÂÂ´Ã«ÂÂ¹', ''].map(h => (
+                {['#', '공정 단계', '관리 파라미터', '관리 방법', '합격 기준', '빈도', '기록', '담당', ''].map(h => (
                   <th key={h} className="px-2 py-2 text-left font-semibold" style={{ color: 'var(--ink-soft)' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {steps.length === 0 && (
-                <tr><td colSpan={9} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³ÂÃ«Â¥Â¼ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</td></tr>
+                <tr><td colSpan={9} className="text-center py-10" style={{ color: 'var(--ink-faint)' }}>공정 단계를 추가하세요.</td></tr>
               )}
               {steps.map((step, idx) => {
                 const isEditing = editingStepId === step.id
@@ -457,7 +457,7 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
                   <tr key={step.id} style={{ background: idx % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-soft)', borderTop: '1px solid var(--line)' }}>
                     <td className="px-2 py-2 text-center font-bold" style={{ color: 'var(--ink-soft)' }}>
                       <div className="flex items-center gap-0.5">
-                        {step.specialProcess && <span title="Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â" style={{ color: '#7C3AED', fontSize: 11 }}>Ã¢ÂÂ</span>}
+                        {step.specialProcess && <span title="특수 공정" style={{ color: '#7C3AED', fontSize: 11 }}>★</span>}
                         {step.seq}
                       </div>
                     </td>
@@ -470,7 +470,7 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
                         </td>
                         <td className="px-2 py-1.5">
                           <input value={d.controlParams} onChange={e => setStepDraft(s => ({ ...s, controlParams: e.target.value }))}
-                            placeholder="Ã¬ÂÂ¨Ã«ÂÂ, Ã¬ÂÂÃ«Â Â¥, Ã¬ÂÂÃªÂ°Â..."
+                            placeholder="온도, 압력, 시간..."
                             className="w-full px-2 py-1 rounded text-[12px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                         </td>
@@ -483,7 +483,7 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
                         </td>
                         <td className="px-2 py-1.5">
                           <input value={d.acceptanceCriteria} onChange={e => setStepDraft(s => ({ ...s, acceptanceCriteria: e.target.value }))}
-                            placeholder="Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â..."
+                            placeholder="합격 기준..."
                             className="w-full px-2 py-1 rounded text-[12px]"
                             style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                         </td>
@@ -507,10 +507,10 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
                         <td className="px-2 py-1.5">
                           <div className="flex gap-1">
                             <button onClick={onSaveStep} className="px-2 py-0.5 rounded text-[11px] font-bold"
-                              style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>Ã¬Â ÂÃ¬ÂÂ¥</button>
+                              style={{ background: '#D1FAE5', color: '#059669', border: 'none', cursor: 'pointer' }}>저장</button>
                             <button onClick={() => { setEditingStepId(null); setStepDraft(null) }}
                               className="px-2 py-0.5 rounded text-[11px]"
-                              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
+                              style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink-soft)', cursor: 'pointer' }}>취소</button>
                           </div>
                         </td>
                       </>
@@ -525,7 +525,7 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
                         <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{step.controlMethod}</td>
                         <td className="px-2 py-2">
                           {missingCrit
-                            ? <span className="text-[11px] text-red-500">Ã¢ÂÂ  Ã«Â¯Â¸Ã«ÂÂ±Ã«Â¡Â</span>
+                            ? <span className="text-[11px] text-red-500">⚠ 미등록</span>
                             : <span style={{ color: 'var(--ink)' }}>{step.acceptanceCriteria}</span>}
                         </td>
                         <td className="px-2 py-2" style={{ color: 'var(--ink-soft)' }}>{step.frequency || '-'}</td>
@@ -555,23 +555,23 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
         </div>
         {steps.some(s => s.specialProcess) && (
           <div className="mt-2 text-[11.5px]" style={{ color: '#7C3AED' }}>
-            Ã¢ÂÂ Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â (ÃÂ§7.5.6) Ã¢ÂÂ ÃªÂ²Â°ÃªÂ³Â¼Ã«Â¥Â¼ ÃªÂ²ÂÃ¬ÂÂ¬Ã«Â¡Â Ã¬ÂÂÃ¬Â ÂÃ­ÂÂ Ã­ÂÂÃ¬ÂÂ¸Ã­ÂÂ  Ã¬ÂÂ Ã¬ÂÂÃ¬ÂÂ´ Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ± Ã­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ´ Ã­ÂÂÃ¬ÂÂÃ­ÂÂ ÃªÂ³ÂµÃ¬Â Â
+            ★ 특수 공정 (§7.5.6) — 결과를 검사로 완전히 확인할 수 없어 유효성 확인이 필요한 공정
           </div>
         )}
       </div>
 
-      {/* Ã¬Â¶ÂÃªÂ°Â Ã¬Â ÂÃ«Â³Â´ */}
+      {/* 추가 정보 */}
       {(pcp.environmentReqs || pcp.monitoringPlan) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {pcp.environmentReqs && (
             <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[12.5px] font-bold mb-1" style={{ color: 'var(--ink)' }}>ÃÂ§7.5.1(e) Ã­ÂÂÃªÂ²Â½ Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­</div>
+              <div className="text-[12.5px] font-bold mb-1" style={{ color: 'var(--ink)' }}>§7.5.1(e) 환경 요구사항</div>
               <p className="text-[12.5px] whitespace-pre-line" style={{ color: 'var(--ink-soft)' }}>{pcp.environmentReqs}</p>
             </div>
           )}
           {pcp.monitoringPlan && (
             <div className="p-4 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-              <div className="text-[12.5px] font-bold mb-1" style={{ color: 'var(--ink)' }}>ÃÂ§7.5.1(g) Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â ÃªÂ³ÂÃ­ÂÂ</div>
+              <div className="text-[12.5px] font-bold mb-1" style={{ color: 'var(--ink)' }}>§7.5.1(g) 모니터링 계획</div>
               <p className="text-[12.5px] whitespace-pre-line" style={{ color: 'var(--ink-soft)' }}>{pcp.monitoringPlan}</p>
             </div>
           )}
@@ -581,53 +581,53 @@ function PcpDetailView({ pcp, canEdit, editingStepId, stepDraft, setEditingStepI
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ PCP Ã«ÂÂ±Ã«Â¡Â Ã­ÂÂ¼ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── PCP 등록 폼 ───────────────────────────────────────────────
 function PcpForm({ form, F, onSave, onCancel, isEdit, addStep, updateStep, removeStep, moveStep }) {
   return (
     <div className="mb-5 p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1.5px solid var(--moss)' }}>
-      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'PCP Ã¬ÂÂÃ¬Â Â' : 'Ã¬ÂÂÃ¬ÂÂ° Ã¬Â ÂÃ¬ÂÂ´ ÃªÂ³ÂÃ­ÂÂ Ã«ÂÂ±Ã«Â¡Â (ÃÂ§7.5.1)'}</div>
+      <div className="text-[14px] font-bold mb-4" style={{ color: 'var(--ink)' }}>{isEdit ? 'PCP 수정' : '생산 제어 계획 등록 (§7.5.1)'}</div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-        <Field label="Ã¬Â ÂÃ­ÂÂÃ«ÂªÂ *" value={form.productName} onChange={v => F('productName', v)} />
-        <Field label="Ã¬Â ÂÃ­ÂÂ Ã¬Â½ÂÃ«ÂÂ" value={form.productCode} onChange={v => F('productCode', v)} />
-        <Field label="PCP Ã«Â²ÂÃ­ÂÂ¸" value={form.pcpNo} onChange={v => F('pcpNo', v)} placeholder="Ã¬ÂÂÃ«ÂÂ Ã¬ÂÂÃ¬ÂÂ±" />
-        <Field label="ÃªÂ°ÂÃ¬Â Â Ã«Â²ÂÃ­ÂÂ¸" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
-        <FieldSelect label="Ã¬ÂÂÃ­ÂÂ" value={form.status} onChange={v => F('status', v)}
+        <Field label="제품명 *" value={form.productName} onChange={v => F('productName', v)} />
+        <Field label="제품 코드" value={form.productCode} onChange={v => F('productCode', v)} />
+        <Field label="PCP 번호" value={form.pcpNo} onChange={v => F('pcpNo', v)} placeholder="자동 생성" />
+        <Field label="개정 번호" value={form.revision} onChange={v => F('revision', v)} placeholder="Rev.0" />
+        <FieldSelect label="상태" value={form.status} onChange={v => F('status', v)}
           options={Object.entries(PCP_STATUSES).map(([k, v]) => ({ value: k, label: v.label }))} />
-        <Field label="Ã¬ÂÂ Ã­ÂÂ¨Ã¬ÂÂ¼" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
-        <Field label="Ã¬ÂÂÃ¬ÂÂ±Ã¬ÂÂ" value={form.preparedBy} onChange={v => F('preparedBy', v)} />
-        <Field label="ÃªÂ²ÂÃ­ÂÂ Ã¬ÂÂ" value={form.reviewedBy} onChange={v => F('reviewedBy', v)} />
-        <Field label="Ã¬ÂÂ¹Ã¬ÂÂ¸Ã¬ÂÂ" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
-        <Field label="Ã¬ÂÂ°ÃªÂ²Â° DMR ID" value={form.linkedDmrId} onChange={v => F('linkedDmrId', v)} placeholder="DMR-xxxx" />
-        <Field label="Ã¬ÂÂ°ÃªÂ²Â° DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
-        <Field label="Ã¬ÂÂ°ÃªÂ²Â° Ã«Â°Â¸Ã«Â¦Â¬Ã«ÂÂ°Ã¬ÂÂ´Ã¬ÂÂ ID" value={form.linkedValidationId} onChange={v => F('linkedValidationId', v)} placeholder="VAL-xxxx" />
+        <Field label="유효일" type="date" value={form.issueDate} onChange={v => F('issueDate', v)} />
+        <Field label="작성자" value={form.preparedBy} onChange={v => F('preparedBy', v)} />
+        <Field label="검토자" value={form.reviewedBy} onChange={v => F('reviewedBy', v)} />
+        <Field label="승인자" value={form.approvedBy} onChange={v => F('approvedBy', v)} />
+        <Field label="연결 DMR ID" value={form.linkedDmrId} onChange={v => F('linkedDmrId', v)} placeholder="DMR-xxxx" />
+        <Field label="연결 DHF ID" value={form.linkedDhfId} onChange={v => F('linkedDhfId', v)} placeholder="DHF-xxxx" />
+        <Field label="연결 밸리데이션 ID" value={form.linkedValidationId} onChange={v => F('linkedValidationId', v)} placeholder="VAL-xxxx" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-        <FieldArea label="ÃÂ§7.5.1(f) Ã¬Â¶ÂÃ­ÂÂ ÃªÂ¸Â°Ã¬Â¤Â" value={form.releaseCriteria} onChange={v => F('releaseCriteria', v)} rows={2}
-          placeholder="Ã«ÂªÂ¨Ã«ÂÂ  ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â Ã­ÂÂ©ÃªÂ²Â©, Ã¬ÂµÂÃ¬Â¢Â ÃªÂ²ÂÃ¬ÂÂ¬ Ã­ÂÂ©ÃªÂ²Â©, Ã«Â°Â°Ã¬Â¹Â ÃªÂ¸Â°Ã«Â¡Â Ã¬ÂÂÃªÂ²Â°..." />
-        <FieldArea label="ÃÂ§7.5.1(e) Ã­ÂÂÃªÂ²Â½ Ã¬ÂÂÃªÂµÂ¬Ã¬ÂÂ¬Ã­ÂÂ­" value={form.environmentReqs} onChange={v => F('environmentReqs', v)} rows={2}
-          placeholder="Ã­ÂÂ´Ã«Â¦Â°Ã«Â£Â¸ Class 10000, Ã¬ÂÂ¨Ã«ÂÂ 20ÃÂ±5ÃÂ°C, Ã¬ÂÂµÃ«ÂÂ 40~60%..." />
-        <FieldArea label="ÃÂ§7.5.1(g) Ã«ÂªÂ¨Ã«ÂÂÃ­ÂÂ°Ã«Â§Â ÃªÂ³ÂÃ­ÂÂ" value={form.monitoringPlan} onChange={v => F('monitoringPlan', v)} rows={2} />
-        <FieldArea label="Ã«Â¹ÂÃªÂ³Â " value={form.notes} onChange={v => F('notes', v)} rows={2} />
+        <FieldArea label="§7.5.1(f) 출하 기준" value={form.releaseCriteria} onChange={v => F('releaseCriteria', v)} rows={2}
+          placeholder="모든 공정 단계 합격, 최종 검사 합격, 배치 기록 완결..." />
+        <FieldArea label="§7.5.1(e) 환경 요구사항" value={form.environmentReqs} onChange={v => F('environmentReqs', v)} rows={2}
+          placeholder="클린룸 Class 10000, 온도 20±5°C, 습도 40~60%..." />
+        <FieldArea label="§7.5.1(g) 모니터링 계획" value={form.monitoringPlan} onChange={v => F('monitoringPlan', v)} rows={2} />
+        <FieldArea label="비고" value={form.notes} onChange={v => F('notes', v)} rows={2} />
       </div>
 
-      {/* ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â */}
+      {/* 공정 단계 */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â</div>
+          <div className="text-[13px] font-bold" style={{ color: 'var(--ink)' }}>공정 단계</div>
           <button onClick={addStep} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[12px] font-semibold"
             style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--moss)', cursor: 'pointer' }}>
-            <Plus size={12} /> Ã«ÂÂ¨ÃªÂ³Â Ã¬Â¶ÂÃªÂ°Â
+            <Plus size={12} /> 단계 추가
           </button>
         </div>
         {(form.steps || []).length === 0 ? (
-          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³ÂÃ«Â¥Â¼ Ã¬Â¶ÂÃªÂ°ÂÃ­ÂÂÃ¬ÂÂ¸Ã¬ÂÂ.</div>
+          <div className="text-center py-6 text-[13px]" style={{ color: 'var(--ink-faint)' }}>공정 단계를 추가하세요.</div>
         ) : (form.steps || []).map((step, idx) => (
           <div key={step.id} className="mb-2 p-3 rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
             <div className="flex items-center gap-2 mb-2">
               <span className="font-bold text-[12px] w-5 text-center" style={{ color: 'var(--moss)' }}>{step.seq}</span>
               <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
                 <input value={step.stepName} onChange={e => updateStep(step.id, 'stepName', e.target.value)}
-                  placeholder="Ã«ÂÂ¨ÃªÂ³Â Ã¬ÂÂ´Ã«Â¦Â *"
+                  placeholder="단계 이름 *"
                   className="px-2 py-1 rounded-lg text-[12.5px]"
                   style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                 <select value={step.processType} onChange={e => updateStep(step.id, 'processType', e.target.value)}
@@ -636,11 +636,11 @@ function PcpForm({ form, F, onSave, onCancel, isEdit, addStep, updateStep, remov
                   {PROCESS_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <input value={step.acceptanceCriteria} onChange={e => updateStep(step.id, 'acceptanceCriteria', e.target.value)}
-                  placeholder="Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â *"
+                  placeholder="합격 기준 *"
                   className="px-2 py-1 rounded-lg text-[12.5px]"
                   style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
                 <input value={step.responsible} onChange={e => updateStep(step.id, 'responsible', e.target.value)}
-                  placeholder="Ã«ÂÂ´Ã«ÂÂ¹Ã¬ÂÂ"
+                  placeholder="담당자"
                   className="px-2 py-1 rounded-lg text-[12.5px]"
                   style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
               </div>
@@ -661,7 +661,7 @@ function PcpForm({ form, F, onSave, onCancel, isEdit, addStep, updateStep, remov
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 ml-7">
               <input value={step.controlParams} onChange={e => updateStep(step.id, 'controlParams', e.target.value)}
-                placeholder="ÃªÂ´ÂÃ«Â¦Â¬ Ã­ÂÂÃ«ÂÂ¼Ã«Â¯Â¸Ã­ÂÂ°"
+                placeholder="관리 파라미터"
                 className="px-2 py-1 rounded-lg text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
               <select value={step.controlMethod} onChange={e => updateStep(step.id, 'controlMethod', e.target.value)}
@@ -670,13 +670,13 @@ function PcpForm({ form, F, onSave, onCancel, isEdit, addStep, updateStep, remov
                 {CONTROL_METHODS.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
               <input value={step.frequency} onChange={e => updateStep(step.id, 'frequency', e.target.value)}
-                placeholder="Ã«Â¹ÂÃ«ÂÂ (Ã«Â§Â¤ Ã«Â¡ÂÃ­ÂÂ¸)"
+                placeholder="빈도 (매 로트)"
                 className="px-2 py-1 rounded-lg text-[12px]"
                 style={{ background: 'var(--bg)', border: '1px solid var(--line)', color: 'var(--ink)' }} />
               <label className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: '#7C3AED' }}>
                 <input type="checkbox" checked={!!step.specialProcess} onChange={e => updateStep(step.id, 'specialProcess', e.target.checked)}
                   className="accent-violet-600 w-3.5 h-3.5" />
-                Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â
+                특수 공정
               </label>
             </div>
           </div>
@@ -686,25 +686,25 @@ function PcpForm({ form, F, onSave, onCancel, isEdit, addStep, updateStep, remov
       <div className="flex gap-2">
         <button onClick={onSave} className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold"
           style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          <Save size={13} /> Ã¬Â ÂÃ¬ÂÂ¥
+          <Save size={13} /> 저장
         </button>
         <button onClick={onCancel} className="px-4 py-2 rounded-xl text-[13px]"
-          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>Ã¬Â·Â¨Ã¬ÂÂ</button>
+          style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>취소</button>
       </div>
     </div>
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ Ã«Â¶ÂÃ¬ÂÂ Ã«Â·Â° Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 분석 뷰 ──────────────────────────────────────────────────
 function AnalysisView({ analysis, pcps }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Ã¬Â´Â PCP', value: pcps.length, color: '#2563EB', bg: '#DBEAFE' },
-          { label: 'Ã¬Â´Â ÃªÂ³ÂµÃ¬Â Â Ã«ÂÂ¨ÃªÂ³Â', value: analysis.totalSteps, color: '#7C3AED', bg: '#EDE9FE' },
-          { label: 'Ã­ÂÂ¹Ã¬ÂÂ ÃªÂ³ÂµÃ¬Â Â', value: analysis.specialSteps, color: '#D97706', bg: '#FEF3C7' },
-          { label: 'ÃªÂ¸Â°Ã¬Â¤Â Ã«Â¯Â¸Ã«ÂÂ±Ã«Â¡Â PCP', value: analysis.missingCriteria.length, color: analysis.missingCriteria.length > 0 ? '#DC2626' : '#059669', bg: analysis.missingCriteria.length > 0 ? '#FEE2E2' : '#D1FAE5' },
+          { label: '총 PCP', value: pcps.length, color: '#2563EB', bg: '#DBEAFE' },
+          { label: '총 공정 단계', value: analysis.totalSteps, color: '#7C3AED', bg: '#EDE9FE' },
+          { label: '특수 공정', value: analysis.specialSteps, color: '#D97706', bg: '#FEF3C7' },
+          { label: '기준 미등록 PCP', value: analysis.missingCriteria.length, color: analysis.missingCriteria.length > 0 ? '#DC2626' : '#059669', bg: analysis.missingCriteria.length > 0 ? '#FEE2E2' : '#D1FAE5' },
         ].map(c => (
           <div key={c.label} className="p-4 rounded-2xl text-center" style={{ background: c.bg, border: `1px solid ${c.color}30` }}>
             <div className="text-[26px] font-bold" style={{ color: c.color }}>{c.value}</div>
@@ -714,7 +714,7 @@ function AnalysisView({ analysis, pcps }) {
       </div>
 
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>PCP Ã¬ÂÂÃ­ÂÂÃ«Â³Â Ã«Â¶ÂÃ­ÂÂ¬</div>
+        <div className="text-[13px] font-bold mb-3" style={{ color: 'var(--ink)' }}>PCP 상태별 분포</div>
         {Object.entries(PCP_STATUSES).map(([k, v]) => (
           <div key={k} className="flex items-center gap-3 mb-2">
             <span className="text-[12px] w-20" style={{ color: 'var(--ink-soft)' }}>{v.label}</span>
@@ -728,10 +728,10 @@ function AnalysisView({ analysis, pcps }) {
 
       {analysis.missingCriteria.length > 0 && (
         <div className="p-5 rounded-2xl" style={{ background: '#FEF3C7', border: '1px solid #FCD34D' }}>
-          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>Ã¢ÂÂ  Ã­ÂÂ©ÃªÂ²Â© ÃªÂ¸Â°Ã¬Â¤Â Ã«Â¯Â¸Ã«ÂÂ±Ã«Â¡Â PCP</div>
+          <div className="text-[13px] font-bold mb-2" style={{ color: '#92400E' }}>⚠ 합격 기준 미등록 PCP</div>
           {analysis.missingCriteria.map(p => (
             <div key={p.id} className="text-[12.5px] mb-1" style={{ color: '#92400E' }}>
-              {p.productName} Ã¢ÂÂ {p.steps?.filter(s => !s.acceptanceCriteria).map(s => s.stepName || `Ã«ÂÂ¨ÃªÂ³Â${s.seq}`).join(', ')}
+              {p.productName} — {p.steps?.filter(s => !s.acceptanceCriteria).map(s => s.stepName || `단계${s.seq}`).join(', ')}
             </div>
           ))}
         </div>
@@ -740,7 +740,7 @@ function AnalysisView({ analysis, pcps }) {
   )
 }
 
-// Ã¢ÂÂÃ¢ÂÂ ÃªÂ³ÂµÃ­ÂÂµ Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
+// ── 공통 ─────────────────────────────────────────────────────
 function Field({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <div>
