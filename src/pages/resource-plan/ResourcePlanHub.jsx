@@ -719,6 +719,11 @@ function EmptyState({ icon: Icon, msg, onAdd }) {
 export default function ResourcePlanHub() {
   const user = auth.current()
   const companyId = user?.company?.id ?? null
+  const [tab, setTab] = useState('summary')
+  const [people,    setPeople]    = useState(() => ls(NS.people))
+  const [equip,     setEquip]     = useState(() => ls(NS.equip))
+  const [budget,    setBudget]    = useState(() => ls(NS.budget))
+  const [outsource, setOutsource] = useState(() => ls(NS.outsource))
   useEffect(() => { _sbCidRPlan = companyId }, [companyId])
   useEffect(() => {
     if (!companyId) return
@@ -734,11 +739,6 @@ export default function ResourcePlanHub() {
   useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.equip, payload: equip }, { onConflict: 'company_id,data_type,data_key' }) }, [equip])
   useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.budget, payload: budget }, { onConflict: 'company_id,data_type,data_key' }) }, [budget])
   useEffect(() => { if (_sbCidRPlan) supabase.from('company_data').upsert({ company_id: _sbCidRPlan, data_type: 'localStorage_sync', data_key: NS.outsource, payload: outsource }, { onConflict: 'company_id,data_type,data_key' }) }, [outsource])
-  const [tab, setTab] = useState('summary')
-  const [people,    setPeople]    = useState(() => ls(NS.people))
-  const [equip,     setEquip]     = useState(() => ls(NS.equip))
-  const [budget,    setBudget]    = useState(() => ls(NS.budget))
-  const [outsource, setOutsource] = useState(() => ls(NS.outsource))
 
   const totalGaps = useMemo(() => {
     const p = people.filter(d => d.year === CUR_YEAR && d.status === 'gap').length
