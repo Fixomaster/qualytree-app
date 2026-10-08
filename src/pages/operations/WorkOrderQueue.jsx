@@ -40,14 +40,14 @@ function loadCustomBlocks() {
   }
 }
 
-// ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ°ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂÃÂ ÃÂ¬ÃÂÃÂ¬ÃÂ¬ÃÂÃÂ©ÃÂ­ÃÂÃÂ  ÃÂ­ÃÂÃÂÃÂ¬ÃÂ¤ÃÂ ÃÂªÃÂ¸ÃÂ°ÃÂ«ÃÂ³ÃÂ¸ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂ²ÃÂ´ÃÂ¬ÃÂÃÂ¸ (KGMP ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ°ÃÂ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂ¡ÃÂ°ÃÂÃÂ·ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ­ÃÂÃÂÃÂ«ÃÂ¦ÃÂ)
+// 공정 정의가 없을 때 사용할 표준 기본 공정 체인 (KGMP 일반 제조·검사 흐름)
 const DEFAULT_PROCESSES = [
-  { id: 'def-1', blockId: 'visual-inspection', order: 1, customName: 'ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬(IQC)' },
-  { id: 'def-2', blockId: 'manual-assembly', order: 2, customName: 'ÃÂ¬ÃÂ£ÃÂ¼ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ' },
-  { id: 'def-3', blockId: 'cmm-inspection', order: 3, customName: 'ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬(IPQC)' },
-  { id: 'def-4', blockId: 'functional-test', order: 4, customName: 'ÃÂ¬ÃÂµÃÂÃÂ¬ÃÂ¢ÃÂÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬(OQC)' },
-  { id: 'def-5', blockId: 'primary-packaging', order: 5, customName: 'ÃÂ­ÃÂÃÂ¬ÃÂ¬ÃÂÃÂ¥' },
-  { id: 'def-6', blockId: 'labeling', order: 6, customName: 'ÃÂ«ÃÂÃÂ¼ÃÂ«ÃÂ²ÃÂ¨ÃÂ«ÃÂ§ÃÂ' },
+  { id: 'def-1', blockId: 'visual-inspection', order: 1, customName: '수입검사(IQC)' },
+  { id: 'def-2', blockId: 'manual-assembly', order: 2, customName: '주공정' },
+  { id: 'def-3', blockId: 'cmm-inspection', order: 3, customName: '공정검사(IPQC)' },
+  { id: 'def-4', blockId: 'functional-test', order: 4, customName: '최종검사(OQC)' },
+  { id: 'def-5', blockId: 'primary-packaging', order: 5, customName: '포장' },
+  { id: 'def-6', blockId: 'labeling', order: 6, customName: '라벨링' },
 ]
 
 function OpsShell({ embedded, user, title, subtitle, children }) {
@@ -65,7 +65,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
   const user = auth.current()
   const onbState = onboarding.load()
 
-  // ÃÂ¬ÃÂÃÂ¨ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂÃÂ© ÃÂ«ÃÂ¯ÃÂ¸ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ ÃÂªÃÂ°ÃÂÃÂ«ÃÂÃÂ
+  // 온보딩 미완료 가드
   const procFor = (onb) => {
     const firstProduct = Array.isArray(onb.products) && onb.products.length ? onb.products[0] : null
     const list = getProductProcesses(onb, productKeyOf(firstProduct))
@@ -85,7 +85,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
 
   const reload = () => setOpState(operations.load())
 
-  // ÃÂ¬ÃÂ²ÃÂ« ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂ ÃÂ«ÃÂÃÂ°ÃÂ«ÃÂªÃÂ¨ 1ÃÂªÃÂ±ÃÂ´ ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂ
+  // 첫 진입 시 데모 1건 자동 발급
   useEffect(() => {
     if (!onboardingComplete) return
     const cur = operations.load()
@@ -94,7 +94,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
         ...onbState,
         processes: procFor(onbState),
         product: onbState.product || {
-          name: onbState.products?.[0]?.name || ((onbState.company?.name || '') + ' ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂ').trim(),
+          name: onbState.products?.[0]?.name || ((onbState.company?.name || '') + ' 제품').trim(),
           modelNumber: onbState.products?.[0]?.classNo || 'MODEL-001',
         },
       })
@@ -126,14 +126,14 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
     [opState.workOrders, selectedId]
   )
 
-  // ÃÂ¬ÃÂÃÂ¨ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂÃÂ© ÃÂ«ÃÂ¯ÃÂ¸ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ ÃÂ­ÃÂÃÂÃÂ«ÃÂ©ÃÂ´
+  // 온보딩 미완료 화면
   if (!onboardingComplete) {
     return (
       <OpsShell
         embedded={embedded}
         user={user}
-        title="ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ"
-        subtitle="ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¥ ÃÂ¬ÃÂÃÂ´ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂÃÂ¨ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂÃÂ©ÃÂ¬ÃÂÃÂ´ ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ­ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤"
+        title="작업 지시"
+        subtitle="현장 운영 시작 전 온보딩이 필요합니다"
       >
         <div className="px-6 lg:px-8 py-8 max-w-[1280px] mx-auto">
           <div
@@ -154,22 +154,22 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
               className="font-display text-[22px]"
               style={{ color: 'var(--ink)', fontWeight: 500 }}
             >
-              ÃÂ«ÃÂ¨ÃÂ¼ÃÂ¬ÃÂ ÃÂ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂÃÂ­ÃÂÃÂ´ ÃÂ¬ÃÂ£ÃÂ¼ÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ
+              먼저 공정을 정의해 주세요
             </div>
             <div
               className="mt-2 text-[13.5px] leading-relaxed max-w-md mx-auto"
               style={{ color: 'var(--ink-mute)' }}
             >
-              ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¥ ÃÂ¬ÃÂÃÂ´ÃÂ¬ÃÂÃÂ(OPS)ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂ¨ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂÃÂ© 3ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ <strong>ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂ</strong>ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ
-              ÃÂªÃÂµÃÂ¬ÃÂ¬ÃÂÃÂ±ÃÂ­ÃÂÃÂ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂ¥ÃÂ¼ ÃÂªÃÂ·ÃÂ¸ÃÂ«ÃÂÃÂÃÂ«ÃÂ¡ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂÃÂ­ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤. ÃÂ­ÃÂÃÂ ÃÂ«ÃÂ²ÃÂ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂÃÂ­ÃÂÃÂ´
-              ÃÂ«ÃÂÃÂÃÂ«ÃÂ©ÃÂ´, ÃÂªÃÂ°ÃÂÃÂ¬ÃÂÃÂ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ  ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ°ÃÂ ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂªÃÂ°ÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ ÃÂ¬ÃÂ²ÃÂ´ÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ
-              ÃÂ«ÃÂÃÂ°ÃÂ«ÃÂ¦ÃÂÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
+              현장 운영(OPS)은 온보딩 3단계 <strong>공정 정의</strong>에서
+              구성한 공정 순서를 그대로 작업 지시로 발급합니다. 한 번 정의해
+              두면, 같은 공정의 모든 작업 지시가 자동으로 같은 단계 체인을
+              따릅니다.
             </div>
             <button
               onClick={() => nav('/onboarding')}
               className="btn-primary mt-6"
             >
-              ÃÂ¬ÃÂÃÂ¨ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂÃÂ©ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂ¬ÃÂÃÂ´ÃÂ«ÃÂÃÂ <ArrowRight size={15} />
+              온보딩으로 이동 <ArrowRight size={15} />
             </button>
           </div>
         </div>
@@ -181,13 +181,13 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
     <OpsShell
       embedded={embedded}
       user={user}
-      title="ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ"
-      subtitle={`${onbState.company?.name || ''} ÃÂÃÂ· ${
+      title="작업 지시"
+      subtitle={`${onbState.company?.name || ''} · ${
         opState.workOrders.length
-      }ÃÂªÃÂ±ÃÂ´ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂÃÂ«ÃÂÃÂ¨`}
+      }건 발급됨`}
     >
       <div className="px-6 lg:px-8 py-8 max-w-[1280px] mx-auto fade-in">
-        {/* ÃÂ­ÃÂÃÂ¤ÃÂ«ÃÂÃÂ ÃÂ¢ÃÂÃÂ OPS ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ­ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ³ÃÂ */}
+        {/* 헤더 — OPS 영역 식별 */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-6">
           <div className="flex items-center gap-3">
             <span
@@ -197,13 +197,13 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
                 color: 'var(--rust)',
               }}
             >
-              OPS-001 ÃÂÃÂ· WORK ORDER QUEUE
+              OPS-001 · WORK ORDER QUEUE
             </span>
             <span
               className="text-[12.5px]"
               style={{ color: 'var(--ink-mute)' }}
             >
-              ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¥ ÃÂ¬ÃÂÃÂ´ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂ ÃÂ
+              현장 운영 진입점
             </span>
           </div>
           <button
@@ -211,16 +211,16 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
             className="btn-primary"
             style={{ background: 'var(--rust)' }}
           >
-            <Plus size={15} /> ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ
+            <Plus size={15} /> 새 작업 지시
           </button>
         </div>
 
-        {/* ÃÂ­ÃÂÃÂµÃÂªÃÂ³ÃÂ ÃÂ¬ÃÂ¹ÃÂ´ÃÂ«ÃÂÃÂ ÃÂ¢ÃÂÃÂ ÃÂ­ÃÂÃÂ ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ© */}
+        {/* 통계 카드 — 큐 현황 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard
             icon={Clock}
             tag="PENDING"
-            label="ÃÂ«ÃÂÃÂÃÂªÃÂ¸ÃÂ°"
+            label="대기"
             count={stats.pending}
             tone="amber"
             active={filter === 'pending'}
@@ -229,7 +229,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
           <StatCard
             icon={PlayCircle}
             tag="IN PROGRESS"
-            label="ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ¤ÃÂ"
+            label="진행 중"
             count={stats.in_progress}
             tone="rust"
             active={filter === 'in_progress'}
@@ -238,7 +238,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
           <StatCard
             icon={CheckCircle2}
             tag="COMPLETED"
-            label="ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ"
+            label="완료"
             count={stats.completed}
             tone="leaf"
             active={filter === 'completed'}
@@ -247,7 +247,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
           <StatCard
             icon={PauseCircle}
             tag="ON HOLD"
-            label="ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂ¥ÃÂ"
+            label="보류"
             count={stats.on_hold}
             tone="ink"
             active={filter === 'on_hold'}
@@ -255,14 +255,14 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
           />
         </div>
 
-        {/* ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ° ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ + ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂ²ÃÂ´ ÃÂ«ÃÂ³ÃÂ´ÃÂªÃÂ¸ÃÂ° */}
+        {/* 필터 표시 + 전체 보기 */}
         {filter !== 'all' && (
           <div className="flex items-center gap-2 mb-3">
             <span
               className="text-[12px]"
               style={{ color: 'var(--ink-mute)' }}
             >
-              ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ°:
+              필터:
             </span>
             <button
               onClick={() => setFilter('all')}
@@ -278,7 +278,7 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
           </div>
         )}
 
-        {/* ÃÂ«ÃÂ©ÃÂÃÂ¬ÃÂÃÂ¸: ÃÂ¬ÃÂ¢ÃÂ ÃÂ«ÃÂ¦ÃÂ¬ÃÂ¬ÃÂÃÂ¤ÃÂ­ÃÂÃÂ¸ + ÃÂ¬ÃÂÃÂ° ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ¸ */}
+        {/* 메인: 좌 리스트 + 우 상세 */}
         <div className="grid lg:grid-cols-12 gap-5">
           <div className="lg:col-span-7 space-y-2.5">
             {filtered.length === 0 ? (
@@ -318,15 +318,15 @@ export default function WorkOrderQueue({ embedded = false } = {}) {
                   fontSize: 13,
                 }}
               >
-                ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂ¥ÃÂ¼ ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂ©ÃÂ´<br />
-                ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂÃÂªÃÂ°ÃÂ ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
+                작업 지시를 선택하면<br />
+                상세와 진행 단계가 표시됩니다.
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* ÃÂ¬ÃÂÃÂ WO ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¬ */}
+      {/* 새 WO 모달 */}
       {showNew && (
         <NewWorkOrderModal
           onbState={onbState}
@@ -400,10 +400,10 @@ function StatCard({ icon: Icon, tag, label, count, tone, active, onClick }) {
 function labelFor(s) {
   return (
     {
-      pending: 'ÃÂ«ÃÂÃÂÃÂªÃÂ¸ÃÂ°',
-      in_progress: 'ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ¤ÃÂ',
-      completed: 'ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ',
-      on_hold: 'ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂ¥ÃÂ',
+      pending: '대기',
+      in_progress: '진행 중',
+      completed: '완료',
+      on_hold: '보류',
     }[s] || s
   )
 }
@@ -418,7 +418,7 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
   const totalCount = wo.stages.length
   const progress = totalCount > 0 ? completedCount / totalCount : 0
 
-  // ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ± ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ
+  // 현재 활성 단계
   const activeStage = wo.stages.find(
     (s) =>
       s.status === PROCESS_STATUS.IN_PROGRESS ||
@@ -426,7 +426,7 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
   )
   const activeBlock = activeStage ? findBlock(activeStage.blockId) : null
 
-  // ÃÂ«ÃÂ§ÃÂÃÂªÃÂ°ÃÂ D-day
+  // 마감 D-day
   const dueLabel = formatDDay(wo.dueDate)
   const overdue = isOverdue(wo.dueDate) && wo.status !== WO_STATUS.COMPLETED
 
@@ -471,7 +471,7 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
             className="text-[12px] mt-0.5"
             style={{ color: 'var(--ink-mute)' }}
           >
-            {wo.productModel} ÃÂÃÂ· ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂ¸ {wo.lotNumber} ÃÂÃÂ· ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ {wo.quantity}
+            {wo.productModel} · 로트 {wo.lotNumber} · 수량 {wo.quantity}
           </div>
         </div>
 
@@ -485,13 +485,13 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
             background: 'var(--bg-soft)',
             color: 'var(--ink)',
           }}
-          title="eBR ÃÂ¬ÃÂÃÂÃÂ«ÃÂ ÃÂ¥ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂ¬ÃÂÃÂ´ÃÂ«ÃÂÃÂ"
+          title="eBR 입력으로 이동"
         >
           <ChevronRight size={17} strokeWidth={1.8} />
         </button>
       </div>
 
-      {/* 4ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ­ÃÂÃÂÃÂ«ÃÂ©ÃÂ´ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂ ÃÂ ÃÂ¢ÃÂÃÂ /operations/:woId/inspection (ÃÂÃÂ§13.14 IQCÃÂ¢ÃÂÃÂFAIÃÂ¢ÃÂÃÂIPIÃÂ¢ÃÂÃÂLAI) */}
+      {/* 4단계 검사 화면 진입점 — /operations/:woId/inspection (§13.14 IQC→FAI→IPI→LAI) */}
       {onOpenInspection && (
         <button
           onClick={(e) => {
@@ -500,23 +500,23 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
           }}
           className="mt-2 inline-flex items-center gap-1 text-[12px] px-2 py-1 rounded-md transition"
           style={{ background: 'var(--leaf-soft)', color: 'var(--moss)', fontWeight: 500 }}
-          title="ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ (IQCÃÂÃÂ·FAIÃÂÃÂ·IPIÃÂÃÂ·LAI)"
+          title="검사 단계 (IQC·FAI·IPI·LAI)"
         >
-          <ClipboardCheck size={13} strokeWidth={1.8} /> ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ (IQCÃÂÃÂ·FAIÃÂÃÂ·IPIÃÂÃÂ·LAI)
+          <ClipboardCheck size={13} strokeWidth={1.8} /> 검사 단계 (IQC·FAI·IPI·LAI)
         </button>
       )}
 
-      {/* ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂ¥ÃÂ  ÃÂ«ÃÂ°ÃÂ */}
+      {/* 진행률 바 */}
       <div className="mt-3">
         <div
           className="flex items-center justify-between text-[11px] mb-1"
           style={{ color: 'var(--ink-mute)' }}
         >
           <span>
-            ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ {completedCount}/{totalCount}
+            진행 {completedCount}/{totalCount}
             {activeBlock && wo.status !== WO_STATUS.COMPLETED && (
               <span className="ml-2" style={{ color: 'var(--rust)' }}>
-                ÃÂÃÂ· ÃÂ«ÃÂÃÂ¤ÃÂ¬ÃÂÃÂ: {activeBlock.name}
+                · 다음: {activeBlock.name}
               </span>
             )}
           </span>
@@ -551,14 +551,14 @@ function WorkOrderCard({ wo, selected, onSelect, onOpen, onOpenInspection, findB
 
 function StatusPill({ status }) {
   const cfg = {
-    pending: { bg: 'var(--amber-soft)', fg: 'var(--amber)', text: 'ÃÂ«ÃÂÃÂÃÂªÃÂ¸ÃÂ°' },
+    pending: { bg: 'var(--amber-soft)', fg: 'var(--amber)', text: '대기' },
     in_progress: {
       bg: 'var(--rust-soft)',
       fg: 'var(--rust)',
-      text: 'ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ¤ÃÂ',
+      text: '진행 중',
     },
-    completed: { bg: 'var(--leaf-soft)', fg: 'var(--moss)', text: 'ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ' },
-    on_hold: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)', text: 'ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂ¥ÃÂ' },
+    completed: { bg: 'var(--leaf-soft)', fg: 'var(--moss)', text: '완료' },
+    on_hold: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)', text: '보류' },
   }[status] || {
     bg: 'var(--bg-soft)',
     fg: 'var(--ink-mute)',
@@ -604,16 +604,16 @@ function DetailPanel({ wo, findBlock, onOpenEbr, onOpenInspection, onClose }) {
         </button>
       </div>
 
-      {/* ÃÂ«ÃÂ©ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ ÃÂÃÂ«ÃÂ³ÃÂ´ */}
+      {/* 메타 정보 */}
       <div className="space-y-2 mb-4">
-        <Meta label="ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂ" value={wo.productName} />
-        <Meta label="ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸" value={wo.productModel} />
-        <Meta label="ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂ¸" value={wo.lotNumber} mono />
-        <Meta label="ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ" value={`${wo.quantity}ÃÂªÃÂ°ÃÂ`} />
-        <Meta label="ÃÂ«ÃÂ§ÃÂÃÂªÃÂ°ÃÂ" value={`${wo.dueDate} (${formatDDay(wo.dueDate)})`} />
+        <Meta label="제품" value={wo.productName} />
+        <Meta label="모델" value={wo.productModel} />
+        <Meta label="로트" value={wo.lotNumber} mono />
+        <Meta label="수량" value={`${wo.quantity}개`} />
+        <Meta label="마감" value={`${wo.dueDate} (${formatDDay(wo.dueDate)})`} />
       </div>
 
-      {/* ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¢ÃÂÃÂ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂ°ÃÂ¨ ÃÂ¬ÃÂÃÂ ÃÂªÃÂ¸ÃÂ ÃÂ¬ÃÂÃÂÃÂªÃÂ°ÃÂÃÂ­ÃÂÃÂ */}
+      {/* 단계 진행 — 공정 순차 잠금 시각화 */}
       <div
         className="mb-4 pt-3"
         style={{ borderTop: '1px solid var(--line)' }}
@@ -622,7 +622,7 @@ function DetailPanel({ wo, findBlock, onOpenEbr, onOpenInspection, onClose }) {
           className="font-mono text-[10px] tracking-[0.16em] uppercase mb-2"
           style={{ color: 'var(--ink-mute)' }}
         >
-          STAGE GATE ÃÂÃÂ· ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂ°ÃÂ¨ ÃÂ¬ÃÂÃÂ ÃÂªÃÂ¸ÃÂ
+          STAGE GATE · 공정 순차 잠금
         </div>
         <ol className="space-y-1.5">
           {wo.stages.map((stage, i) => {
@@ -649,15 +649,15 @@ function DetailPanel({ wo, findBlock, onOpenEbr, onOpenInspection, onClose }) {
       >
         {wo.status === WO_STATUS.COMPLETED ? (
           <>
-            ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂÃÂ«ÃÂÃÂ eBR ÃÂ«ÃÂ³ÃÂ´ÃÂªÃÂ¸ÃÂ° <ArrowRight size={15} />
+            완료된 eBR 보기 <ArrowRight size={15} />
           </>
         ) : wo.status === WO_STATUS.PENDING ? (
           <>
-            ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¥ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ ÃÂ¥ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ <PlayCircle size={15} />
+            현장 입력 시작 <PlayCircle size={15} />
           </>
         ) : (
           <>
-            ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ¤ÃÂ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂÃÂ«ÃÂ¡ÃÂ <ArrowRight size={15} />
+            진행 중 단계로 <ArrowRight size={15} />
           </>
         )}
       </button>
@@ -666,9 +666,9 @@ function DetailPanel({ wo, findBlock, onOpenEbr, onOpenInspection, onClose }) {
           onClick={onOpenInspection}
           className="btn-primary w-full justify-center mt-2"
           style={{ background: 'var(--moss-mid)' }}
-          title="4ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ (IQCÃÂÃÂ·FAIÃÂÃÂ·IPIÃÂÃÂ·LAI) ÃÂ­ÃÂÃÂÃÂ«ÃÂ©ÃÂ´ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂ¬ÃÂÃÂ´ÃÂ«ÃÂÃÂ"
+          title="4단계 검사 (IQC·FAI·IPI·LAI) 화면으로 이동"
         >
-          ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ (IQCÃÂÃÂ·FAIÃÂÃÂ·IPIÃÂÃÂ·LAI) <ClipboardCheck size={15} />
+          검사 단계 (IQC·FAI·IPI·LAI) <ClipboardCheck size={15} />
         </button>
       )}
     </div>
@@ -700,25 +700,25 @@ function StageRow({ idx, name, status, operator }) {
       iconColor: 'var(--ink-faint)',
       textColor: 'var(--ink-faint)',
       bg: 'var(--bg-soft)',
-      label: 'ÃÂ¬ÃÂÃÂ ÃÂªÃÂ¹ÃÂ',
+      label: '잠김',
     },
     pending: {
       iconColor: 'var(--amber)',
       textColor: 'var(--ink)',
       bg: 'var(--amber-soft)',
-      label: 'ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ ÃÂªÃÂ°ÃÂÃÂ«ÃÂÃÂ¥',
+      label: '진입 가능',
     },
     in_progress: {
       iconColor: 'var(--rust)',
       textColor: 'var(--ink)',
       bg: 'var(--rust-soft)',
-      label: 'ÃÂ¬ÃÂ§ÃÂÃÂ­ÃÂÃÂ ÃÂ¬ÃÂ¤ÃÂ',
+      label: '진행 중',
     },
     completed: {
       iconColor: 'var(--leaf)',
       textColor: 'var(--ink-mute)',
       bg: 'var(--leaf-soft)',
-      label: 'ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ',
+      label: '완료',
     },
   }[status]
 
@@ -758,7 +758,7 @@ function StageRow({ idx, name, status, operator }) {
         <span
           className="font-mono text-[9.5px]"
           style={{ color: 'var(--ink-faint)' }}
-          title={`ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ: ${operator}`}
+          title={`작업자: ${operator}`}
         >
           {operator.slice(0, 3)}
         </span>
@@ -785,20 +785,20 @@ function EmptyState({ onCreate }) {
         className="mt-3 font-display text-[16px]"
         style={{ color: 'var(--ink)', fontWeight: 500 }}
       >
-        ÃÂ¬ÃÂÃÂ´ ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ°ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ°ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂµÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤
+        이 필터의 작업 지시가 없습니다
       </div>
       <div
         className="mt-1 text-[12.5px]"
         style={{ color: 'var(--ink-mute)' }}
       >
-        ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂ¥ÃÂ¼ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂ©ÃÂ´ ÃÂ¬ÃÂÃÂ¬ÃÂªÃÂ¸ÃÂ° ÃÂ«ÃÂÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
+        새 작업 지시를 발급하면 여기 나타납니다.
       </div>
       <button
         onClick={onCreate}
         className="btn-primary mt-4"
         style={{ background: 'var(--rust)' }}
       >
-        <Plus size={14} /> ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ
+        <Plus size={14} /> 새 작업 지시
       </button>
     </div>
   )
@@ -831,8 +831,8 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
   const pickModel = (p) => { setForm((ff) => ({ ...ff, productName: p.name || '', productModel: p.classNo || p.modelNumber || '' })); setSelectedProductId(productKeyOf(p)) }
   const registerModel = () => {
     const name = (form.productName || '').trim()
-    if (!name) { alert('ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂªÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ ÃÂ¥ÃÂ­ÃÂÃÂ ÃÂ«ÃÂÃÂ¤ ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ.'); return }
-    if (models.some((m) => m.name === name && (m.classNo || '') === (form.productModel || ''))) { alert('ÃÂ¬ÃÂÃÂ´ÃÂ«ÃÂ¯ÃÂ¸ ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂÃÂ«ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.'); return }
+    if (!name) { alert('제품명을 입력한 뒤 등록하세요.'); return }
+    if (models.some((m) => m.name === name && (m.classNo || '') === (form.productModel || ''))) { alert('이미 등록된 모델입니다.'); return }
     const rec = { id: 'pm' + Date.now(), name, classNo: form.productModel || '', grade: '', cat1: '', cat2: '' }
     const next = [...models, rec]
     setModels(next)
@@ -846,7 +846,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
 
   const submit = () => {
     if (!form.productName || !form.lotNumber || !form.quantity || !form.dueDate) {
-      alert('ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ  ÃÂ­ÃÂÃÂ­ÃÂ«ÃÂªÃÂ©ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ ÃÂ¥ÃÂ­ÃÂÃÂ´ ÃÂ¬ÃÂ£ÃÂ¼ÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ.')
+      alert('모든 항목을 입력해 주세요.')
       return
     }
     const wo = operations.createWorkOrder({
@@ -879,7 +879,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
               className="font-display text-[20px] mt-1"
               style={{ color: 'var(--ink)', fontWeight: 500 }}
             >
-              ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂ
+              새 작업 지시 발급
             </div>
           </div>
           <button
@@ -891,7 +891,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
           </button>
         </div>
 
-        {/* ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ ÃÂ¬ÃÂÃÂ¸ÃÂªÃÂ³ÃÂ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ¦ÃÂ¼ */}
+        {/* 자동 인계 알림 */}
         <div
           className="rounded-lg p-3 mb-4 flex items-start gap-2"
           style={{
@@ -905,29 +905,29 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
             strokeWidth={1.8}
           />
           <div className="text-[12px]" style={{ color: 'var(--moss)' }}>
-            <strong>{form.productName ? `${form.productName}ÃÂ¬ÃÂÃÂ ` : ''}ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂ {processCount}ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ</strong>ÃÂªÃÂ°ÃÂ ÃÂªÃÂ·ÃÂ¸ÃÂ«ÃÂÃÂÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂ
-            ÃÂ¬ÃÂ²ÃÂ´ÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂÃÂ«ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤. ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂ§ÃÂÃÂ«ÃÂÃÂ¤ ÃÂ«ÃÂÃÂ¤ÃÂ«ÃÂ¥ÃÂ¸ ÃÂªÃÂ³ÃÂµÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂ´ ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂÃÂ¬ÃÂÃÂ´ ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ¤ÃÂ«ÃÂ©ÃÂ´ ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ ÃÂ«ÃÂÃÂÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂ°ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
-            ÃÂ¬ÃÂ²ÃÂ« ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂÃÂ«ÃÂ§ÃÂ ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ ÃÂªÃÂ°ÃÂÃÂ«ÃÂÃÂ¥, ÃÂ¬ÃÂÃÂ´ÃÂ­ÃÂÃÂ ÃÂ«ÃÂÃÂ¨ÃÂªÃÂ³ÃÂÃÂ«ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂ°ÃÂ¨ ÃÂ¬ÃÂÃÂ ÃÂªÃÂ¸ÃÂ
-            ÃÂ­ÃÂÃÂ´ÃÂ¬ÃÂ ÃÂÃÂ«ÃÂÃÂ©ÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
+            <strong>{form.productName ? `${form.productName}의 ` : ''}공정 {processCount}단계</strong>가 그대로 단계
+            체인으로 발급됩니다. 제품마다 다른 공정이 정의되어 있다면 아래에서 모델을 선택한 대로 반영됩니다.
+            첫 단계만 진입 가능, 이후 단계는 순차 잠금
+            해제됩니다.
           </div>
         </div>
 
-        {/* ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂÃÂÃÂ·ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂ */}
+        {/* 모델 검색·선택 */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂ (ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂ {models.length}ÃÂªÃÂ±ÃÂ´)</span>
-            <button onClick={registerModel} className="text-[11.5px]" style={{ color: 'var(--rust)' }}>+ ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¬ ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂªÃÂ/ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂ</button>
+            <span className="text-[11px]" style={{ color: 'var(--ink-mute)' }}>모델 선택 (등록 {models.length}건)</span>
+            <button onClick={registerModel} className="text-[11.5px]" style={{ color: 'var(--rust)' }}>+ 현재 제품명/모델을 새 모델로 등록</button>
           </div>
           <input
             className="input-base mb-1"
-            placeholder="ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ«ÃÂªÃÂÃÂÃÂ·ÃÂ«ÃÂ¶ÃÂÃÂ«ÃÂ¥ÃÂÃÂ«ÃÂ²ÃÂÃÂ­ÃÂÃÂ¸ ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂÃÂ¢ÃÂÃÂ¦"
+            placeholder="모델명·분류번호 검색…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <div className="rounded-md max-h-40 overflow-auto" style={{ border: '1px solid var(--line)' }}>
             {models.length === 0 ? (
               <div className="px-2.5 py-2 text-[12px]" style={{ color: 'var(--ink-faint)' }}>
-                ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂÃÂ«ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ´ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂµÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤. ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂªÃÂÃÂÃÂ·ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ«ÃÂ ÃÂ¥ÃÂ­ÃÂÃÂÃÂªÃÂ³ÃÂ  "ÃÂ¬ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸ÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂÃÂ±ÃÂ«ÃÂ¡ÃÂ"ÃÂ¬ÃÂÃÂ ÃÂ«ÃÂÃÂÃÂ«ÃÂ¥ÃÂ´ÃÂ«ÃÂ©ÃÂ´ ÃÂ«ÃÂÃÂ¤ÃÂ¬ÃÂÃÂÃÂ«ÃÂ¶ÃÂÃÂ­ÃÂÃÂ° ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂÃÂÃÂ·ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂÃÂ­ÃÂÃÂ  ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂµÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤.
+                등록된 모델이 없습니다. 아래에 제품명·모델을 입력하고 "새 모델로 등록"을 누르면 다음부터 검색·선택할 수 있습니다.
               </div>
             ) : (
               models
@@ -941,8 +941,8 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
                     style={{ borderBottom: '1px solid var(--line)', background: (form.productName === p.name && (form.productModel || '') === (p.classNo || '')) ? 'var(--leaf-soft)' : 'transparent', color: 'var(--ink)' }}
                   >
                     {p.name}
-                    {p.classNo ? <span style={{ color: 'var(--ink-faint)' }}> ÃÂÃÂ· {p.classNo}</span> : null}
-                    {p.grade ? <span style={{ color: 'var(--ink-faint)' }}> ÃÂÃÂ· {p.grade}ÃÂ«ÃÂÃÂ±ÃÂªÃÂ¸ÃÂ</span> : null}
+                    {p.classNo ? <span style={{ color: 'var(--ink-faint)' }}> · {p.classNo}</span> : null}
+                    {p.grade ? <span style={{ color: 'var(--ink-faint)' }}> · {p.grade}등급</span> : null}
                   </button>
                 ))
             )}
@@ -950,7 +950,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
         </div>
 
         <div className="space-y-3">
-          <Field label="ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ«ÃÂªÃÂ">
+          <Field label="제품명">
             <input
               className="input-base"
               value={form.productName}
@@ -960,7 +960,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
             />
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¸">
+            <Field label="모델">
               <input
                 className="input-base"
                 value={form.productModel}
@@ -969,7 +969,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
                 }
               />
             </Field>
-            <Field label="ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂ¸ ÃÂ«ÃÂ²ÃÂÃÂ­ÃÂÃÂ¸">
+            <Field label="로트 번호">
               <input
                 className="input-base font-mono text-[13px]"
                 value={form.lotNumber}
@@ -980,7 +980,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
             </Field>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ">
+            <Field label="수량">
               <input
                 type="number"
                 min="1"
@@ -994,7 +994,7 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
                 }
               />
             </Field>
-            <Field label="ÃÂ«ÃÂ§ÃÂÃÂªÃÂ°ÃÂÃÂ¬ÃÂÃÂ¼">
+            <Field label="마감일">
               <input
                 type="date"
                 className="input-base"
@@ -1005,11 +1005,11 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
               />
             </Field>
           </div>
-          <Field label="ÃÂ¬ÃÂÃÂ°ÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ">
+          <Field label="우선순위">
             <div className="flex gap-2">
               {[
-                { v: 'normal', t: 'ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ°ÃÂ' },
-                { v: 'urgent', t: 'ÃÂªÃÂ¸ÃÂ´ÃÂªÃÂ¸ÃÂ' },
+                { v: 'normal', t: '일반' },
+                { v: 'urgent', t: '긴급' },
               ].map((p) => (
                 <button
                   key={p.v}
@@ -1038,14 +1038,14 @@ function NewWorkOrderModal({ onbState, onClose, onCreated }) {
 
         <div className="flex gap-2 mt-5">
           <button onClick={onClose} className="btn-ghost flex-1 justify-center">
-            ÃÂ¬ÃÂ·ÃÂ¨ÃÂ¬ÃÂÃÂ
+            취소
           </button>
           <button
             onClick={submit}
             className="btn-primary flex-1 justify-center"
             style={{ background: 'var(--rust)' }}
           >
-            ÃÂ«ÃÂ°ÃÂÃÂªÃÂ¸ÃÂ <ArrowRight size={15} />
+            발급 <ArrowRight size={15} />
           </button>
         </div>
       </div>
@@ -1068,16 +1068,16 @@ function Field({ label, children }) {
 }
 
 /* ================================================================
-   ÃÂ¬ÃÂÃÂ ÃÂ­ÃÂÃÂ¸
+   유틸
    ================================================================ */
 function formatDDay(dueDate) {
   const due = new Date(dueDate + 'T00:00:00')
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const diff = Math.round((due - today) / (1000 * 60 * 60 * 24))
-  if (diff === 0) return 'ÃÂ¬ÃÂÃÂ¤ÃÂ«ÃÂÃÂ ÃÂ«ÃÂ§ÃÂÃÂªÃÂ°ÃÂ'
+  if (diff === 0) return '오늘 마감'
   if (diff > 0) return `D-${diff}`
-  return `D+${Math.abs(diff)} ÃÂ¬ÃÂ§ÃÂÃÂ¬ÃÂÃÂ°`
+  return `D+${Math.abs(diff)} 지연`
 }
 
 function isOverdue(dueDate) {
@@ -1088,12 +1088,12 @@ function isOverdue(dueDate) {
 }
 
 
-// ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ ÃÂ«ÃÂ°ÃÂ°ÃÂ¬ÃÂ¹ÃÂÃÂªÃÂ¸ÃÂ°ÃÂ«ÃÂ¡ÃÂÃÂ¬ÃÂÃÂ ÃÂ«ÃÂªÃÂ¨ÃÂ«ÃÂÃÂ¬ ÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂÃÂ¢ÃÂÃÂ
+// ── 배치기록서 모달 ────────────────────────────────────────────────────
 const WO_BR_KEY = 'qualytree.wo_batch_records'
 function WoBatchModal({ wo, onClose }) {
   const user = auth.current()
   const companyId = user?.company_id
-  const EMPTY = { batchNo:'', lotNo:'', actualQty:'', startDate:'', endDate:'', operators:'', equipment:'', yieldRate:'', inspResult:'ÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©', status:'ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ±ÃÂ¬ÃÂ¤ÃÂ', notes:'' }
+  const EMPTY = { batchNo:'', lotNo:'', actualQty:'', startDate:'', endDate:'', operators:'', equipment:'', yieldRate:'', inspResult:'합격', status:'작성중', notes:'' }
   const [recs, setRecs] = useState([])
   const [form, setForm] = useState(EMPTY)
   const [editId, setEditId] = useState(null)
@@ -1160,24 +1160,24 @@ function WoBatchModal({ wo, onClose }) {
   }
 
   const del = (id) => {
-    if (!window.confirm('ÃÂ¬ÃÂÃÂ­ÃÂ¬ÃÂ ÃÂÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ²ÃÂ ÃÂ¬ÃÂÃÂµÃÂ«ÃÂÃÂÃÂªÃÂ¹ÃÂ?')) return
+    if (!window.confirm('삭제하시겠습니까?')) return
     persist(recs.filter(r => r.id !== id))
   }
 
   const setF = (k, v) => setForm(f => ({ ...f, [k]: v }))
-  const statusColor = (s) => s==='ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ'?'green':s==='ÃÂ¬ÃÂÃÂ¹ÃÂ¬ÃÂÃÂ¸'?'blue':'gray'
-  const inspColor = (s) => s==='ÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'green':s==='ÃÂ«ÃÂ¶ÃÂÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'red':'yellow'
+  const statusColor = (s) => s==='완료'?'green':s==='승인'?'blue':'gray'
+  const inspColor = (s) => s==='합격'?'green':s==='불합격'?'red':'yellow'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background:'rgba(0,0,0,0.4)' }} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
       <div className="rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 space-y-4" style={{ background:'var(--surface)' }}>
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-[16px] font-bold">ÃÂ«ÃÂ°ÃÂ°ÃÂ¬ÃÂ¹ÃÂÃÂªÃÂ¸ÃÂ°ÃÂ«ÃÂ¡ÃÂÃÂ¬ÃÂÃÂ</h2>
-            <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{wo.orderNo} ÃÂ¢ÃÂÃÂ {wo.productName}</p>
+            <h2 className="text-[16px] font-bold">배치기록서</h2>
+            <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{wo.orderNo} — {wo.productName}</p>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}><Plus size={14}/>ÃÂ¬ÃÂÃÂ ÃÂªÃÂ·ÃÂ</button>
+            <button onClick={openNew} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}><Plus size={14}/>신규</button>
             <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background:'var(--surface-2)' }}><X size={16}/></button>
           </div>
         </div>
@@ -1185,29 +1185,29 @@ function WoBatchModal({ wo, onClose }) {
         {showForm && (
           <div className="rounded-xl border p-4 space-y-3" style={{ borderColor:'var(--border)', background:'var(--surface-2)' }}>
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ«ÃÂ°ÃÂ°ÃÂ¬ÃÂ¹ÃÂÃÂ«ÃÂ²ÃÂÃÂ­ÃÂÃÂ¸</span><input value={form.batchNo} onChange={e=>setF('batchNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂ¸ÃÂ«ÃÂ²ÃÂÃÂ­ÃÂÃÂ¸</span><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂ¤ÃÂ¬ÃÂ ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ°ÃÂ¬ÃÂÃÂÃÂ«ÃÂÃÂ</span><input type="number" value={form.actualQty} onChange={e=>setF('actualQty',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ¨ (%)</span><input type="number" value={form.yieldRate} onChange={e=>setF('yieldRate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ¼</span><input type="date" value={form.startDate} onChange={e=>setF('startDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ ÃÂ¬ÃÂ¢ÃÂÃÂ«ÃÂ£ÃÂÃÂ¬ÃÂÃÂ¼</span><input type="date" value={form.endDate} onChange={e=>setF('endDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ</span><input value={form.operators} onChange={e=>setF('operators',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂ¬ÃÂ¬ÃÂÃÂ© ÃÂ¬ÃÂÃÂ¤ÃÂ«ÃÂ¹ÃÂ</span><input value={form.equipment} onChange={e=>setF('equipment',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂªÃÂ²ÃÂÃÂ¬ÃÂÃÂ¬ÃÂªÃÂ²ÃÂ°ÃÂªÃÂ³ÃÂ¼</span><select value={form.inspResult} onChange={e=>setF('inspResult',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>ÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©</option><option>ÃÂ«ÃÂ¶ÃÂÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©</option><option>ÃÂ«ÃÂ³ÃÂ´ÃÂ«ÃÂ¥ÃÂ</option></select></label>
-              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">ÃÂ¬ÃÂÃÂÃÂ­ÃÂÃÂ</span><select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ±ÃÂ¬ÃÂ¤ÃÂ</option><option>ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ</option><option>ÃÂ¬ÃÂÃÂ¹ÃÂ¬ÃÂÃÂ¸</option></select></label>
-              <label className="flex flex-col gap-1 col-span-2"><span className="text-[12px] font-medium">ÃÂ«ÃÂ¹ÃÂÃÂªÃÂ³ÃÂ </span><textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">배치번호</span><input value={form.batchNo} onChange={e=>setF('batchNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">로트번호</span><input value={form.lotNo} onChange={e=>setF('lotNo',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">실제 생산수량</span><input type="number" value={form.actualQty} onChange={e=>setF('actualQty',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">수율 (%)</span><input type="number" value={form.yieldRate} onChange={e=>setF('yieldRate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업 시작일</span><input type="date" value={form.startDate} onChange={e=>setF('startDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업 종료일</span><input type="date" value={form.endDate} onChange={e=>setF('endDate',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">작업자</span><input value={form.operators} onChange={e=>setF('operators',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">사용 설비</span><input value={form.equipment} onChange={e=>setF('equipment',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">검사결과</span><select value={form.inspResult} onChange={e=>setF('inspResult',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>합격</option><option>불합격</option><option>보류</option></select></label>
+              <label className="flex flex-col gap-1"><span className="text-[12px] font-medium">상태</span><select value={form.status} onChange={e=>setF('status',e.target.value)} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}><option>작성중</option><option>완료</option><option>승인</option></select></label>
+              <label className="flex flex-col gap-1 col-span-2"><span className="text-[12px] font-medium">비고</span><textarea value={form.notes} onChange={e=>setF('notes',e.target.value)} rows={2} className="border rounded px-2 py-1 text-[13px]" style={{ borderColor:'var(--border)', background:'var(--surface)' }}/></label>
             </div>
             <div className="flex gap-2 justify-end">
-              <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>ÃÂ¬ÃÂ·ÃÂ¨ÃÂ¬ÃÂÃÂ</button>
-              <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>ÃÂ¬ÃÂ ÃÂÃÂ¬ÃÂÃÂ¥</button>
+              <button onClick={()=>setShowForm(false)} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ background:'var(--surface-2)', border:'1px solid var(--border)' }}>취소</button>
+              <button onClick={save} className="px-3 py-1.5 rounded-lg text-[13px] font-medium" style={{ background:'var(--accent)', color:'#fff' }}>저장</button>
             </div>
           </div>
         )}
 
         {recs.length === 0 && !showForm && (
           <div className="text-center py-8" style={{ color:'var(--ink-faint)' }}>
-            <p className="text-[14px]">ÃÂ«ÃÂ°ÃÂ°ÃÂ¬ÃÂ¹ÃÂÃÂªÃÂ¸ÃÂ°ÃÂ«ÃÂ¡ÃÂÃÂ¬ÃÂÃÂÃÂªÃÂ°ÃÂ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂµÃÂ«ÃÂÃÂÃÂ«ÃÂÃÂ¤</p>
-            <p className="text-[12px] mt-1">ÃÂ¬ÃÂÃÂ ÃÂªÃÂ·ÃÂ ÃÂ«ÃÂ²ÃÂÃÂ­ÃÂÃÂ¼ÃÂ¬ÃÂÃÂ¼ÃÂ«ÃÂ¡ÃÂ ÃÂ«ÃÂ°ÃÂ°ÃÂ¬ÃÂ¹ÃÂÃÂªÃÂ¸ÃÂ°ÃÂ«ÃÂ¡ÃÂÃÂ¬ÃÂÃÂÃÂ«ÃÂ¥ÃÂ¼ ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ±ÃÂ­ÃÂÃÂÃÂ¬ÃÂÃÂ¸ÃÂ¬ÃÂÃÂ</p>
+            <p className="text-[14px]">배치기록서가 없습니다</p>
+            <p className="text-[12px] mt-1">신규 버튼으로 배치기록서를 작성하세요</p>
           </div>
         )}
 
@@ -1218,11 +1218,11 @@ function WoBatchModal({ wo, onClose }) {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-[14px] font-semibold">{r.batchNo}</p>
-                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.status==='ÃÂ¬ÃÂÃÂ¹ÃÂ¬ÃÂÃÂ¸'?'var(--accent-soft)':(r.status==='ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ'?'rgba(34,197,94,0.12)':' rgba(148,163,184,0.15)'), color: r.status==='ÃÂ¬ÃÂÃÂ¹ÃÂ¬ÃÂÃÂ¸'?'var(--accent)':(r.status==='ÃÂ¬ÃÂÃÂÃÂ«ÃÂ£ÃÂ'?'#16a34a':'var(--ink-mute)') }}>{r.status}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.inspResult==='ÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'rgba(34,197,94,0.12)':(r.inspResult==='ÃÂ«ÃÂ¶ÃÂÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'rgba(239,68,68,0.12)':' rgba(234,179,8,0.12)'), color: r.inspResult==='ÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'#16a34a':(r.inspResult==='ÃÂ«ÃÂ¶ÃÂÃÂ­ÃÂÃÂ©ÃÂªÃÂ²ÃÂ©'?'#dc2626':'#b45309') }}>{r.inspResult}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.status==='승인'?'var(--accent-soft)':(r.status==='완료'?'rgba(34,197,94,0.12)':' rgba(148,163,184,0.15)'), color: r.status==='승인'?'var(--accent)':(r.status==='완료'?'#16a34a':'var(--ink-mute)') }}>{r.status}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-medium" style={{ background: r.inspResult==='합격'?'rgba(34,197,94,0.12)':(r.inspResult==='불합격'?'rgba(239,68,68,0.12)':' rgba(234,179,8,0.12)'), color: r.inspResult==='합격'?'#16a34a':(r.inspResult==='불합격'?'#dc2626':'#b45309') }}>{r.inspResult}</span>
                   </div>
-                  <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>ÃÂ«ÃÂ¡ÃÂÃÂ­ÃÂÃÂ¸: {r.lotNo} ÃÂÃÂ· ÃÂªÃÂ³ÃÂÃÂ­ÃÂÃÂ {r.planQty} ÃÂ¢ÃÂÃÂ ÃÂ¬ÃÂÃÂ¤ÃÂ¬ÃÂ ÃÂ {r.actualQty} ÃÂÃÂ· ÃÂ¬ÃÂÃÂÃÂ¬ÃÂÃÂ¨ {r.yieldRate}%</p>
-                  <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{r.startDate} ~ {r.endDate} ÃÂÃÂ· {r.operators}</p>
+                  <p className="text-[12px] mt-0.5" style={{ color:'var(--ink-faint)' }}>로트: {r.lotNo} · 계획 {r.planQty} → 실적 {r.actualQty} · 수율 {r.yieldRate}%</p>
+                  <p className="text-[12px]" style={{ color:'var(--ink-faint)' }}>{r.startDate} ~ {r.endDate} · {r.operators}</p>
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={()=>openEdit(r)} className="p-1 rounded" style={{ color:'var(--ink-faint)' }}><Edit2 size={14}/></button>

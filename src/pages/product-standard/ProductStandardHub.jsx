@@ -21,7 +21,7 @@ const STD_TABS = [
   { key:'test',       label:'시험 방법',   icon:FlaskConical, desc:'시험 절차·장비·기준' },
   { key:'regulatory', label:'인허가 연계', icon:Award,        desc:'허가번호·조건·갱신' },
   { key:'history',    label:'개정이력',    icon:GitBranch,    desc:'버전별 변경 사항' },
-  { key:'dhf', label:'DHF�인허가 연계', icon:Link2, desc:'설계이력�인허가 연계' },
+  { key:'dhf', label:'DHF·인허가 연계', icon:Link2, desc:'설계이력·인허가 연계' },
 ]
 
 const EMPTY_STD = () => ({
@@ -332,7 +332,7 @@ export default function ProductStandardHub() {
               linkedDhf.map(d=>(
                 <div key={d.id} style={{border:'1px solid var(--border)',borderRadius:8,padding:'10px 12px',marginBottom:8,background:'var(--surface)'}}>
                   <div style={{fontSize:13,fontWeight:600}}>{d.name}</div>
-                  <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>DHF ID: {String(d.id).slice(-6)} � 상태: {d.stage||d.status||'진행중'}</div>
+                  <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>DHF ID: {String(d.id).slice(-6)} · 상태: {d.stage||d.status||'진행중'}</div>
                 </div>
               ))}
             </div>
@@ -342,7 +342,7 @@ export default function ProductStandardHub() {
               linkedReg.map(d=>(
                 <div key={d.id} style={{border:'1px solid var(--border)',borderRadius:8,padding:'10px 12px',marginBottom:8,background:'var(--surface)'}}>
                   <div style={{fontSize:13,fontWeight:600}}>{d.name}</div>
-                  <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>허가번호: {d.approvalNo||'미입력'} � 분류: {d.deviceClass||'미입력'}</div>
+                  <div style={{fontSize:12,color:'var(--ink-faint)',marginTop:2}}>허가번호: {d.approvalNo||'미입력'} · 분류: {d.deviceClass||'미입력'}</div>
                 </div>
               ))}
             </div>
