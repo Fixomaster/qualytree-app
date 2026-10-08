@@ -8,6 +8,7 @@
 // 만족시킨다.
 
 import { buildKgmpSections } from './kgmpProgress'
+import { isHtml, sanitizeHtml, RICH_CSS } from './richText'
 
 const OB_KEY = 'qualytree.onboarding'
 const DOC_KEY = 'qualytree.documents'
@@ -59,7 +60,7 @@ function fullTextDocHtml(title, r) {
   const stLabel = st === 'effective' ? ('발효 Rev.' + rev) : st === 'pending' ? '승인 대기' : st === 'review' ? '검토 중' : ('작성 중 Rev.' + rev)
   const approver = (r && r.approvedBy) || ''
   const approvedAt = (r && r.approvedAt) || ''
-  const body = esc((r && r.content) || '(내용 없음)').replace(/\n/g, '<br/>')
+  const body = isHtml(r && r.content) ? ('<style>' + RICH_CSS + '</style>' + sanitizeHtml(r.content)) : esc((r && r.content) || '(내용 없음)').replace(/\n/g, '<br/>')
   const meta = '<div style="font-size:10pt;color:#555;margin:4px 0 10px">상태: ' + esc(stLabel) + (approver ? (' · 승인자: ' + esc(approver) + ' (' + esc(approvedAt) + ')') : '') + '</div>'
   return (
     '<div style="page-break-inside:avoid;margin-bottom:18px">' +

@@ -4,6 +4,8 @@ import AppLayout from '../components/AppLayout'
 import { auth } from '../lib/auth'
 import { FileText, ClipboardCheck, BookOpen, ChevronDown, ChevronRight, Check, Info, Sparkles, Languages, Download, Upload, Trash2, Send } from 'lucide-react'
 import { translateToEn } from '../lib/translate'
+import RichTextEditor from '../components/RichTextEditor'
+import { isHtml, sanitizeHtml, htmlToText, RICH_CSS } from '../lib/richText'
 import { loadOrgChartImage } from '../lib/orgChartImage'
 
 const OB_KEY = 'qualytree.onboarding'
@@ -85,7 +87,9 @@ function controlledSection(title, docNo, ctx, r, bodyText, extraHtml) {
     '<tr><td style="background:#f1f6f3">일자</td><td>' + (author ? escHtml(est) : '') + '</td><td>' + escHtml(rdate) + '</td><td>' + escHtml(adate) + '</td></tr>' +
     '</table>' +
     (extraHtml || '') +
-    '<div style="' + F + ';font-size:10.5pt;white-space:pre-wrap;line-height:1.6">' + escHtml(bodyText || '(내용 미작성)') + '</div>'
+    (isHtml(bodyText)
+      ? '<style>' + RICH_CSS + '</style><div style="' + F + ';font-size:10.5pt;line-height:1.6">' + sanitizeHtml(bodyText) + '</div>'
+      : '<div style="' + F + ';font-size:10.5pt;white-space:pre-wrap;line-height:1.6">' + escHtml(bodyText || '(내용 미작성)') + '</div>')
   )
 }
 // 온보딩/회사·조직에서 캡처해 저장한 조직도 이미지를, "조직도" 챕터 문서에 그대로 삽입하기 위한 HTML.
@@ -300,7 +304,7 @@ export default function Documents() {
     if (r.contentEn && r.enEdited && !window.confirm('직접 수정한 영문이 있습니다. 자동 번역으로 덮어쓸까요?')) return
     setTranslating(id)
     try {
-      const en = await translateToEn(r.content, glossaryPairs)
+      const en = await translateToEn(htmlToText(r.content), glossaryPairs)
       patchDoc(id, (rr) => ({ ...rr, contentEn: en, enEdited: false, enUpdatedAt: Date.now(), enSrcAt: rr.updatedAt || Date.now() }))
     } catch (e) {
       window.alert('영문 번역 실패: ' + ((e && e.message) || e) + '\n운영자에게 ANTHROPIC_API_KEY 환경변수 설정을 확인 요청하세요.')
@@ -314,7 +318,7 @@ export default function Documents() {
       setTranslating(it.id)
       try {
         const r = docs[it.id]
-        const en = await translateToEn(r.content, glossaryPairs)
+        const en = await translateToEn(htmlToText(r.content), glossaryPairs)
         patchDoc(it.id, (rr) => ({ ...rr, contentEn: en, enEdited: false, enUpdatedAt: Date.now(), enSrcAt: rr.updatedAt || Date.now() }))
       } catch (e) { window.alert('번역 실패 (' + it.label + '): ' + ((e && e.message) || e)); break }
     }
@@ -384,8 +388,8 @@ export default function Documents() {
       if (/\.docx$/i.test(file.name)) {
         const mammoth = await loadMammoth()
         const ab = await file.arrayBuffer()
-        const res = await mammoth.extractRawText({ arrayBuffer: ab })
-        text = (res && res.value) || ''
+        const res = await mammoth.convertToHtml({ arrayBuffer: ab })
+        text = sanitizeHtml((res && res.value) || '')
       } else {
         text = await file.text()
       }
@@ -620,13 +624,11 @@ export default function Documents() {
                                 </button>
                               </div>
                             )}
-                            <textarea
+                            <RichTextEditor
                               value={r.content || ''}
-                              onChange={(e) => editable && setContent(it.id, e.target.value)}
+                              onChange={(v) => editable && setContent(it.id, v)}
                               readOnly={!editable}
-                              placeholder={'내용을 직접 작성하거나, "AI 초안 생성"으로 기본 초안을 채운 뒤 수정하세요.'}
-                              rows={14}
-                              className={`w-full rounded-lg border px-3 py-2 text-[12.5px] leading-relaxed focus:outline-none resize-y font-mono ${editable ? 'border-slate-200 focus:border-emerald-500' : 'border-slate-200 bg-slate-50 text-slate-600'}`}
+                              placeholder={'내용을 직접 작성하거나, 외부 문서(Word·Excel·웹)를 복사해 붙여넣으세요. 표·그림이 그대로 유지됩니다.'}
                             />
 
                             <div className="mt-3 rounded-lg border border-slate-200">
