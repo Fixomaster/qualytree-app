@@ -216,11 +216,11 @@ export default function Login() {
           <div style={{display:'flex',gap:12,marginBottom:8,flexWrap:'wrap'}}>
             <a href="https://qualy-tree.com/terms" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none'}}>이용약관</a>
             <a href="https://qualy-tree.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none',fontWeight:600}}>개인정보처리방침</a>
-            <a href="https://qualy-tree.com/refund" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none'}}>환불정책</a>
+            <a href="https://qualy-tree.com/refund-policy" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none'}}>환불정책</a>
             <a href="https://qualy-tree.com/pricing" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none'}}>요금제·서비스 안내</a>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:'2px 14px',marginBottom:4}}>
-            <span><b style={{color:'#78716c',fontWeight:600}}>상호명</b> 주식회사 퀼리트리</span>
+            <span><b style={{color:'#78716c',fontWeight:600}}>상호명</b> 주식회사 퀄리트리</span>
             <span><b style={{color:'#78716c',fontWeight:600}}>대표자명</b> 이경혁</span>
             <span><b style={{color:'#78716c',fontWeight:600}}>사업자등록번호</b> 496-81-03944</span>
           </div>

@@ -47,11 +47,11 @@ export default function AppLayout({ user: userProp, title, subtitle, children })
           <div style={{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap'}}>
             <a href="https://qualy-tree.com/terms" target="_blank" rel="noopener noreferrer" style={{color:'#666',textDecoration:'none'}}>이용약관</a>
             <a href="https://qualy-tree.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:'#666',textDecoration:'none',fontWeight:600}}>개인정보처리방침</a>
-            <a href="https://qualy-tree.com/refund" target="_blank" rel="noopener noreferrer" style={{color:'#666',textDecoration:'none'}}>환불정책</a>
+            <a href="https://qualy-tree.com/refund-policy" target="_blank" rel="noopener noreferrer" style={{color:'#666',textDecoration:'none'}}>환불정책</a>
             <a href="https://qualy-tree.com/pricing" target="_blank" rel="noopener noreferrer" style={{color:'#666',textDecoration:'none'}}>요금제·서비스 안내</a>
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:'4px 20px',marginBottom:6}}>
-            <span><b style={{color:'#666',fontWeight:600}}>상호명</b> 주식회사 퀼리트리</span>
+            <span><b style={{color:'#666',fontWeight:600}}>상호명</b> 주식회사 퀄리트리</span>
             <span><b style={{color:'#666',fontWeight:600}}>대표자명</b> 이경혁</span>
             <span><b style={{color:'#666',fontWeight:600}}>사업장 주소</b> 경기도 여주시 세종대왕면 양화로 738, 3층 301호</span>
             <span><b style={{color:'#666',fontWeight:600}}>사업자등록번호</b> 496-81-03944</span>
