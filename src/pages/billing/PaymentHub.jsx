@@ -1,6 +1,7 @@
 // src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 v2 빌링(정기결제) 연동
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
+import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
 import { CreditCard, Check, Sparkles, RefreshCw } from 'lucide-react'
 import { loadPlans, priceFor, won as fmtWon } from '../../lib/plans'
@@ -38,30 +39,55 @@ export default function PaymentHub() {
     } else if (window.TossPayments) setSdkLoaded(true)
 
     async function loadPlan() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single()
-      if (!profile?.company_id) return
-      setCompanyId(profile.company_id)
-      const { data: sub } = await supabase.from('subscriptions').select('plan, expires_at').eq('company_id', profile.company_id).single()
-      if (sub?.plan) setCurrentPlan(sub.plan)
-      if (sub?.expires_at) setExpiresAt(sub.expires_at)
+      // 1순위: auth.current()에서 company.id 가져오기
+      const session = auth.current()
+      const cid = session?.company?.id || null
+      if (cid) {
+        setCompanyId(cid)
+      } else {
+        // 2순위: Supabase auth user → company_members 조회
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: member } = await supabase
+              .from('company_members')
+              .select('company_id')
+              .eq('user_id', user.id)
+              .single()
+            if (member?.company_id) setCompanyId(member.company_id)
+          }
+        } catch (e) {
+          console.warn('[PaymentHub] company_id 조회 실패:', e)
+        }
+      }
+
+      // 현재 구독 플랜 조회
+      const finalCid = cid || auth.current()?.company?.id
+      if (finalCid) {
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('plan, expires_at')
+          .eq('company_id', finalCid)
+          .single()
+        if (sub?.plan) setCurrentPlan(sub.plan)
+        if (sub?.expires_at) setExpiresAt(sub.expires_at)
+      }
     }
     loadPlan()
   }, [])
 
   async function handleCheckout(plan) {
     if (!sdkLoaded || plan.price === 0) return
-    if (!companyId) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
+    const cid = companyId || auth.current()?.company?.id
+    if (!cid) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setLoading(true)
     try {
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'
-      // SDK v2: TossPayments(clientKey) → .payment({ customerKey }) → .requestBillingAuth()
       const tossPayments = window.TossPayments(clientKey)
-      const payment = tossPayments.payment({ customerKey: companyId })
+      const payment = tossPayments.payment({ customerKey: cid })
       await payment.requestBillingAuth({
         method: 'CARD',
-        successUrl: window.location.origin + '/billing/success?plan=' + plan.id + '&companyId=' + companyId + '&amount=' + plan.price,
+        successUrl: window.location.origin + '/billing/success?plan=' + plan.id + '&companyId=' + cid + '&amount=' + plan.price,
         failUrl: window.location.origin + '/billing?fail=1',
       })
     } catch (e) {
