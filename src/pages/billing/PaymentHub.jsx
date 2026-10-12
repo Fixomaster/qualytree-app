@@ -1,6 +1,5 @@
-// src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 결제
-// 요금은 사이드바 "플랜·요금 관리"(lib/plans.js)와 동일한 단일 소스를 사용한다 —
-// 홈페이지 가입 결제 단계(Signup.jsx, 2026-09 확정 요금 모델: 기본 월 300만원 + 추가 인증 월 100만원)와 일치.
+// src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 빌링(정기결제) 연동
+// 단건결제(requestPayment) → 빌링 결제창(requestBillingAuth)으로 전환
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import AppLayout from '../../components/AppLayout'
@@ -47,28 +46,26 @@ export default function PaymentHub() {
       const { data: sub } = await supabase.from('subscriptions').select('plan, expires_at').eq('company_id', profile.company_id).single()
       if (sub?.plan) setCurrentPlan(sub.plan)
       if (sub?.expires_at) setExpiresAt(sub.expires_at)
-      // 구 요금제(free/starter/pro/enterprise)로 저장된 값은 새 인증 기반 플랜 목록에 없으므로
-      // "계약된 플랜 없음"으로 처리한다 — 아래 currentPlanObj가 null이면 안내 카드를 보여준다.
     }
     loadPlan()
   }, [])
 
   async function handleCheckout(plan) {
     if (!sdkLoaded || plan.price === 0) return
+    if (!companyId) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setLoading(true)
     try {
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'
       const tossPayments = window.TossPayments(clientKey)
-      const orderId = `QT-${(companyId || 'guest').slice(0, 8)}-${Date.now()}`
-      await tossPayments.requestPayment('카드', {
-        amount: plan.price,
-        orderId,
-        orderName: `Qualytree ${plan.label} 1개월 (VAT 별도)`,
-        successUrl: `${window.location.origin}/billing/success?plan=${plan.id}&companyId=${companyId}`,
+      // 빌링(정기결제): customerKey = company_id (구매자 고유 식별자)
+      const customerKey = companyId
+      await tossPayments.requestBillingAuth('카드', {
+        customerKey,
+        successUrl: `${window.location.origin}/billing/success?plan=${plan.id}&companyId=${companyId}&amount=${plan.price}`,
         failUrl: `${window.location.origin}/billing?fail=1`,
       })
     } catch (e) {
-      if (e.code !== 'USER_CANCEL') alert('결제 오류: ' + e.message)
+      if (e.code !== 'USER_CANCEL') alert('카드 등록 오류: ' + e.message)
     }
     setLoading(false)
   }
@@ -87,13 +84,13 @@ export default function PaymentHub() {
             {expiresAt && ` · 만료일: ${expiresAt.slice(0, 10)}`}
           </p>
           <p style={{ color: 'var(--ink-faint)', margin: '2px 0 0', fontSize: 12 }}>
-            모든 금액은 VAT 별도이며, 아래 플랜은 홈페이지 가입 결제 화면과 동일한 요금입니다.
+            모든 금액은 VAT 별도이며, 아래 플랜의 퍼블릭 페이지 가격 결제 화면과 동일한 요금입니다.
           </p>
         </div>
 
         {failParam && (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: '#fef2f2', borderRadius: 8, border: '1px solid #fecaca', fontSize: 13, color: '#991b1b' }}>
-            결제가 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.
+            카드 등록이 취소되었거나 오류가 발생했습니다. 다시 시도해 주세요.
           </div>
         )}
 
@@ -114,11 +111,11 @@ export default function PaymentHub() {
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: plan.color, textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 6 }}>{plan.label}</div>
                   <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>
-                    {plan.price === 0 ? '문의' : fmtWon(plan.price)}
+                    {plan.price === 0 ? '무료' : fmtWon(plan.price)}
                     {plan.price > 0 && <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-faint)' }}>/월</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>
-                    VAT 별도 · 월납
+                    VAT 별도 · 자동결제
                   </div>
                 </div>
 
@@ -146,7 +143,7 @@ export default function PaymentHub() {
                       fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       opacity: loading || !sdkLoaded ? 0.7 : 1
                     }}>
-                    {loading ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> 업그레이드</>}
+                    {loading ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> 카드 등록 · 구독</>}
                   </button>
                 )}
               </div>
@@ -156,8 +153,8 @@ export default function PaymentHub() {
 
         <div style={{ marginTop: 28, padding: 20, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--line)', fontSize: 12, color: 'var(--ink-faint)', lineHeight: 1.7 }}>
           <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ink)', fontSize: 13 }}>결제 안내</div>
-          결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 신용카드, 체크카드, 계좌이체를 지원합니다.
-          구독은 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
+          결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 국내에서 발급한 신용·체크카드를 지원합니다.
+          카드를 한 번 등록하면 매월 자동 결제됩니다. 구독을 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
           환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>
       </div>
