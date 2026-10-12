@@ -1,5 +1,4 @@
-// src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 빌링(정기결제) 연동
-// 단건결제(requestPayment) → 빌링 결제창(requestBillingAuth)으로 전환
+// src/pages/billing/PaymentHub.jsx — 플랜 선택 및 토스페이먼츠 v2 빌링(정기결제) 연동
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../../lib/supabase'
 import AppLayout from '../../components/AppLayout'
@@ -29,10 +28,11 @@ export default function PaymentHub() {
   const failParam = urlParams.get('fail')
 
   useEffect(() => {
+    // 토스페이먼츠 SDK v2 로드
     if (!document.getElementById('toss-sdk')) {
       const script = document.createElement('script')
       script.id = 'toss-sdk'
-      script.src = 'https://js.tosspayments.com/v1/payment'
+      script.src = 'https://js.tosspayments.com/v2/standard'
       script.onload = () => setSdkLoaded(true)
       document.head.appendChild(script)
     } else if (window.TossPayments) setSdkLoaded(true)
@@ -56,13 +56,13 @@ export default function PaymentHub() {
     setLoading(true)
     try {
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'
+      // SDK v2: TossPayments(clientKey) → .payment({ customerKey }) → .requestBillingAuth()
       const tossPayments = window.TossPayments(clientKey)
-      // 빌링(정기결제): customerKey = company_id (구매자 고유 식별자)
-      const customerKey = companyId
-      await tossPayments.requestBillingAuth('카드', {
-        customerKey,
-        successUrl: `${window.location.origin}/billing/success?plan=${plan.id}&companyId=${companyId}&amount=${plan.price}`,
-        failUrl: `${window.location.origin}/billing?fail=1`,
+      const payment = tossPayments.payment({ customerKey: companyId })
+      await payment.requestBillingAuth({
+        method: 'CARD',
+        successUrl: window.location.origin + '/billing/success?plan=' + plan.id + '&companyId=' + companyId + '&amount=' + plan.price,
+        failUrl: window.location.origin + '/billing?fail=1',
       })
     } catch (e) {
       if (e.code !== 'USER_CANCEL') alert('카드 등록 오류: ' + e.message)
@@ -81,10 +81,10 @@ export default function PaymentHub() {
           </h1>
           <p style={{ color: 'var(--ink-faint)', margin: '6px 0 0', fontSize: 13 }}>
             현재 플랜: <strong style={{ color: currentPlanObj?.color || 'var(--ink-faint)' }}>{currentPlanObj?.label || '계약된 플랜 없음'}</strong>
-            {expiresAt && ` · 만료일: ${expiresAt.slice(0, 10)}`}
+            {expiresAt && ' · 만료일: ' + expiresAt.slice(0, 10)}
           </p>
           <p style={{ color: 'var(--ink-faint)', margin: '2px 0 0', fontSize: 12 }}>
-            모든 금액은 VAT 별도이며, 아래 플랜의 퍼블릭 페이지 가격 결제 화면과 동일한 요금입니다.
+            모든 금액은 VAT 별도이며, 카드를 한 번 등록하면 매월 자동 결제됩니다.
           </p>
         </div>
 
@@ -99,10 +99,10 @@ export default function PaymentHub() {
             const isActive = plan.id === currentPlan
             return (
               <div key={plan.key} style={{
-                border: `2px solid ${isActive ? plan.color : 'var(--line)'}`,
+                border: '2px solid ' + (isActive ? plan.color : 'var(--line)'),
                 borderRadius: 16, padding: 24, background: 'var(--surface)',
                 display: 'flex', flexDirection: 'column', gap: 14,
-                boxShadow: isActive ? `0 0 0 4px ${plan.color}18` : 'none',
+                boxShadow: isActive ? '0 0 0 4px ' + plan.color + '18' : 'none',
                 position: 'relative',
               }}>
                 {isActive && (
@@ -114,9 +114,7 @@ export default function PaymentHub() {
                     {plan.price === 0 ? '무료' : fmtWon(plan.price)}
                     {plan.price > 0 && <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-faint)' }}>/월</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>
-                    VAT 별도 · 자동결제
-                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>VAT 별도 · 자동결제</div>
                 </div>
 
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
@@ -128,7 +126,7 @@ export default function PaymentHub() {
                 </ul>
 
                 {isActive ? (
-                  <div style={{ textAlign: 'center', padding: '9px', background: `${plan.color}14`, color: plan.color, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
+                  <div style={{ textAlign: 'center', padding: '9px', background: plan.color + '14', color: plan.color, borderRadius: 8, fontSize: 13, fontWeight: 600 }}>
                     현재 이용 중
                   </div>
                 ) : plan.price === 0 ? (
