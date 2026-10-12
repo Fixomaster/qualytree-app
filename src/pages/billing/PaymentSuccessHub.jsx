@@ -1,4 +1,4 @@
-// src/pages/billing/PaymentSuccessHub.jsx — 토스페이먼츠 결제 성공 리디렉션 처리
+// src/pages/billing/PaymentSuccessHub.jsx — 빌링 카드 등록 성공 후 처리
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
@@ -15,33 +15,30 @@ export default function PaymentSuccessHub() {
 
   useEffect(() => {
     async function confirm() {
-      const paymentKey = params.get('paymentKey')
-      const orderId    = params.get('orderId')
-      const amount     = params.get('amount')
-      const plan       = params.get('plan')
-      const companyId  = params.get('companyId')
-
-      if (!paymentKey || !orderId || !amount) {
+      const authKey     = params.get('authKey')
+      const customerKey = params.get('customerKey')
+      const plan        = params.get('plan')
+      const companyId   = params.get('companyId')
+      const amount      = params.get('amount')
+      if (!authKey || !customerKey) {
         setStatus('error')
-        setMessage('결제 정보가 올바르지 않습니다. 결제가 취소됐거나 URL이 잘못되었습니다.')
+        setMessage('카드 등록 정보가 올바르지 않습니다.')
         return
       }
-
       setPlanLabel(planLabelFor(plan))
-
       try {
-        const res = await fetch('/api/payments/toss-confirm', {
+        const res = await fetch('/api/payments/toss-billing-issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), companyId, plan }),
+          body: JSON.stringify({ authKey, customerKey, companyId, plan, amount: Number(amount) }),
         })
         const data = await res.json()
         if (data.ok) {
           setStatus('success')
-          setMessage(`${planLabelFor(plan)} 플랜으로 업그레이드 완료!`)
+          setMessage(planLabelFor(plan) + ' 플랜으로 업그레이드 완료!')
         } else {
           setStatus('error')
-          setMessage(data.error || '결제 승인 중 오류가 발생했습니다.')
+          setMessage(data.error || '빌링키 발급 또는 첫 결제 중 오류가 발생했습니다.')
         }
       } catch (e) {
         setStatus('error')
@@ -53,47 +50,38 @@ export default function PaymentSuccessHub() {
 
   return (
     <AppLayout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 480 }}>
-        <div style={{ textAlign: 'center', padding: '48px 32px', maxWidth: 400 }}>
-
+      <style>{"@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }"}</style>
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <div style={{ textAlign: 'center', maxWidth: 420 }}>
           {status === 'loading' && (
             <>
-              <RefreshCw size={44} style={{ color: 'var(--moss)', marginBottom: 16, animation: 'spin 1s linear infinite' }} />
-              <p style={{ color: 'var(--ink-faint)', fontSize: 15, margin: 0 }}>결제 승인 처리 중…</p>
-              <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
+              <RefreshCw size={48} style={{ color: 'var(--moss)', animation: 'spin 1s linear infinite', marginBottom: 20 }} />
+              <p style={{ fontSize: 16, color: 'var(--ink)' }}>빌링키 발급 및 첫 결제 처리 중…</p>
+              <p style={{ fontSize: 13, color: 'var(--ink-faint)', marginTop: 8 }}>잠시만 기다려 주세요.</p>
             </>
           )}
-
           {status === 'success' && (
             <>
-              <CheckCircle size={52} style={{ color: '#27ae60', marginBottom: 20 }} />
-              <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 10px', color: 'var(--ink)' }}>결제 완료!</h2>
-              <p style={{ color: 'var(--ink-faint)', margin: '0 0 28px', fontSize: 14 }}>{message}</p>
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <a href="/billing"
-                  style={{ padding: '10px 22px', background: 'var(--moss)', color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
-                  플랜 확인
-                </a>
-                <a href="/home"
-                  style={{ padding: '10px 22px', background: 'var(--surface)', color: 'var(--ink)', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14, border: '1px solid var(--line)' }}>
-                  홈으로
-                </a>
-              </div>
+              <CheckCircle size={56} style={{ color: '#16a34a', marginBottom: 20 }} />
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 12px' }}>구독 완료!</h2>
+              <p style={{ fontSize: 15, color: 'var(--ink)', marginBottom: 24 }}>{message}</p>
+              <a href="/dashboard" style={{
+                display: 'inline-block', padding: '12px 28px', background: 'var(--moss)',
+                color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 15
+              }}>대시보드로 이동</a>
             </>
           )}
-
           {status === 'error' && (
             <>
-              <AlertCircle size={52} style={{ color: '#e74c3c', marginBottom: 20 }} />
-              <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 10px', color: 'var(--ink)' }}>결제 오류</h2>
-              <p style={{ color: 'var(--ink-faint)', margin: '0 0 28px', fontSize: 14 }}>{message}</p>
-              <a href="/billing"
-                style={{ display: 'inline-block', padding: '10px 24px', background: '#e74c3c', color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>
-                다시 시도
-              </a>
+              <AlertCircle size={56} style={{ color: '#dc2626', marginBottom: 20 }} />
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 12px' }}>오류 발생</h2>
+              <p style={{ fontSize: 14, color: '#dc2626', marginBottom: 24 }}>{message}</p>
+              <a href="/billing" style={{
+                display: 'inline-block', padding: '12px 28px', background: 'var(--moss)',
+                color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 15
+              }}>다시 시도</a>
             </>
           )}
-
         </div>
       </div>
     </AppLayout>
