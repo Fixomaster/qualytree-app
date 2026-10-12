@@ -212,7 +212,6 @@ export default function Login() {
               >
                 {demoLoading ? '데모 준비 중…' : '계정 없이 데모로 둘러보기 →'}
               </button>
-        </div>
         <footer style={{borderTop:'1px solid #f0ede8',marginTop:28,paddingTop:18,fontSize:11,color:'#a8a29e',lineHeight:1.8}}>
           <div style={{display:'flex',gap:12,marginBottom:8,flexWrap:'wrap'}}>
             <a href="https://qualy-tree.com/terms" target="_blank" rel="noopener noreferrer" style={{color:'#78716c',textDecoration:'none'}}>이용약관</a>
@@ -229,6 +228,7 @@ export default function Login() {
           <div><b style={{color:'#78716c',fontWeight:600}}>연락처</b> 010-3116-5997 · <b style={{color:'#78716c',fontWeight:600}}>이메일</b> contact@qualy-tree.com</div>
           <div style={{marginTop:6}}>© 2026 QUALYTREE CO., LTD. — QUALITY GROWS LIKE A TREE.</div>
         </footer>
+        </div>
       </div>
 
       {/* Right: feature panel */}
