@@ -1,5 +1,9 @@
 {
   "rewrites": [
+    { "source": "/api/risk-draft", "destination": "/api/drafts?kind=risk" },
+    { "source": "/api/dhf-draft", "destination": "/api/drafts?kind=dhf" },
+    { "source": "/api/regulatory-draft", "destination": "/api/drafts?kind=regulatory" },
+    { "source": "/api/import-standard-draft", "destination": "/api/drafts?kind=import-standard" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
