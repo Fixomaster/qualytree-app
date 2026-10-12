@@ -1,4 +1,5 @@
-// src/pages/billing/PaymentSuccessHub.jsx — 토스페이먼츠 결제 성공 리디렉션 처리
+// src/pages/billing/PaymentSuccessHub.jsx — 빌링 카드 등록 성공 후 처리
+// authKey + customerKey를 받아 /api/payments/toss-billing-issue 호출
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
@@ -15,25 +16,27 @@ export default function PaymentSuccessHub() {
 
   useEffect(() => {
     async function confirm() {
-      const paymentKey = params.get('paymentKey')
-      const orderId    = params.get('orderId')
-      const amount     = params.get('amount')
-      const plan       = params.get('plan')
-      const companyId  = params.get('companyId')
+      // 빌링 성공 리다이렉트 파라미터: authKey, customerKey (토스페이먼츠 제공)
+      // + plan, companyId, amount (우리가 successUrl에 포함한 값)
+      const authKey     = params.get('authKey')
+      const customerKey = params.get('customerKey')
+      const plan        = params.get('plan')
+      const companyId   = params.get('companyId')
+      const amount      = params.get('amount')
 
-      if (!paymentKey || !orderId || !amount) {
+      if (!authKey || !customerKey) {
         setStatus('error')
-        setMessage('결제 정보가 올바르지 않습니다. 결제가 취소됐거나 URL이 잘못되었습니다.')
+        setMessage('카드 등록 정보가 올바르지 않습니다. 결제가 취소되었거나 URL이 잘못되었습니다.')
         return
       }
 
       setPlanLabel(planLabelFor(plan))
 
       try {
-        const res = await fetch('/api/payments/toss-confirm', {
+        const res = await fetch('/api/payments/toss-billing-issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ paymentKey, orderId, amount: Number(amount), companyId, plan }),
+          body: JSON.stringify({ authKey, customerKey, companyId, plan, amount: Number(amount) }),
         })
         const data = await res.json()
         if (data.ok) {
@@ -41,7 +44,7 @@ export default function PaymentSuccessHub() {
           setMessage(`${planLabelFor(plan)} 플랜으로 업그레이드 완료!`)
         } else {
           setStatus('error')
-          setMessage(data.error || '결제 승인 중 오류가 발생했습니다.')
+          setMessage(data.error || '빌링키 발급 또는 첫 결제 중 오류가 발생했습니다.')
         }
       } catch (e) {
         setStatus('error')
@@ -59,7 +62,7 @@ export default function PaymentSuccessHub() {
           {status === 'loading' && (
             <>
               <RefreshCw size={44} style={{ color: 'var(--moss)', marginBottom: 16, animation: 'spin 1s linear infinite' }} />
-              <p style={{ color: 'var(--ink-faint)', fontSize: 15, margin: 0 }}>결제 승인 처리 중…</p>
+              <p style={{ color: 'var(--ink-faint)', fontSize: 15, margin: 0 }}>빌링키 발급 및 첫 결제 처리 중…</p>
               <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
             </>
           )}
