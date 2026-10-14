@@ -6,6 +6,9 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
+import RichTextEditor from '../../components/RichTextEditor'
+import RichView from '../../components/RichView'
+import { htmlToText } from '../../lib/richText'
 import { BookOpen, Edit3, History, Eye, Printer, Sparkles, Save, ChevronDown, ChevronRight, Check } from 'lucide-react'
 
 const QM_SECTIONS = [
@@ -395,15 +398,11 @@ export default function QualityManualHub() {
                   </button>
                 </div>
               </div>
-              <textarea
+              <RichTextEditor
                 value={editText}
-                onChange={e => setEditText(e.target.value)}
-                placeholder={`${selectedSection.title} 조항 내용을 입력하세요...\n\nAI 초안 생성 버튼을 누르면 자동으로 작성해드립니다.`}
-                style={{
-                  width: '100%', minHeight: 420, padding: 16, border: '1px solid #e5e7eb',
-                  borderRadius: 10, fontSize: 14, lineHeight: 1.7, resize: 'vertical',
-                  fontFamily: 'inherit', color: '#111827', outline: 'none', boxSizing: 'border-box',
-                }}
+                onChange={setEditText}
+                minHeight={420}
+                placeholder={`${selectedSection.title} 조항 내용을 입력하세요. Word·Excel·웹의 표/그림도 그대로 붙여넣을 수 있습니다.`}
               />
             </div>
           </div>
@@ -435,7 +434,7 @@ export default function QualityManualHub() {
                       </span>
                     </div>
                     <div style={{ fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
-                      {rev.content?.slice(0, 300)}{rev.content?.length > 300 ? '...' : ''}
+                      {htmlToText(rev.content || '').slice(0, 300)}{htmlToText(rev.content || '').length > 300 ? '...' : ''}
                     </div>
                   </div>
                 ))}
@@ -465,9 +464,7 @@ export default function QualityManualHub() {
                   }}>
                     {sec.title}
                   </div>
-                  <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
-                    {entry.content}
-                  </div>
+                  <RichView value={entry.content} style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }} />
                 </div>
               )
             })}

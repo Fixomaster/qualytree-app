@@ -7,6 +7,9 @@ import { Plus, Save, Edit2, Trash2, FileText, BookOpen,
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import AIDraftButton from '../../components/AIDraftButton'
+import RichTextEditor from '../../components/RichTextEditor'
+import RichView from '../../components/RichView'
+import { isHtml, sanitizeHtml, RICH_CSS } from '../../lib/richText'
 import { auth } from '../../lib/auth'
 import { supabase } from '../../lib/supabaseClient'
 
@@ -194,6 +197,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px}
 td,th{border:1px solid #ccc;padding:6px 10px;font-size:12px;text-align:left}
 th{background:#f5f5f5;width:100px}
 pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;background:#fafafa;border-radius:4px}
+${RICH_CSS}
 @media print{button{display:none}}</style></head>
 <body>
 <h1>${sop.title}</h1>
@@ -204,7 +208,7 @@ pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;backg
 <tr><th>적용범위</th><td colspan="3">${sop.scope||''}</td></tr>
 <tr><th>작성자</th><td colspan="3">${sop.responsibilities||''}</td></tr>
 </table>
-<h3>본문</h3><pre>${sop.body||'(내용 없음)'}</pre>
+<h3>본문</h3>${isHtml(sop.body) ? '<div>'+sanitizeHtml(sop.body)+'</div>' : '<pre>'+(sop.body||'(내용 없음)')+'</pre>'}
 </body></html>`;
     const w = window.open('','_blank','width=820,height=700');
     if (!w) { alert('팝업이 차단되었습니다. 팝업 허용 후 다시 시도하세요.'); return; }
@@ -241,8 +245,8 @@ pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;backg
         <div>
           <div className="text-xs text-gray-500 mb-2">절차 본문 — 각 단계, 방법, 기준을 상세히 기술하세요.</div>
           {editing
-            ? <textarea rows={20} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-1 focus:ring-indigo-300" value={selected.body||''} onChange={e=>updateField('body',e.target.value)} placeholder="1. 목적&#10;2. 적용범위&#10;3. 절차&#10;  3.1 ..." />
-            : <pre className="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 rounded-lg p-4 min-h-[12rem]">{selected.body||<span className="text-gray-300 italic">본문 없음</span>}</pre>}
+            ? <RichTextEditor value={selected.body||''} onChange={v=>updateField('body',v)} minHeight={420} placeholder={'1. 목적\n2. 적용범위\n3. 절차\n  3.1 ...  (Word·Excel·웹의 표/그림을 그대로 붙여넣을 수 있습니다)'} />
+            : <RichView value={selected.body} className="text-sm text-gray-800 bg-gray-50 rounded-lg p-4 min-h-[12rem]" empty={<div className="text-sm bg-gray-50 rounded-lg p-4 min-h-[12rem]"><span className="text-gray-300 italic">본문 없음</span></div>} />}
         </div>
       )
       case 'approval': return (
@@ -347,9 +351,7 @@ pre{white-space:pre-wrap;font-size:13px;border:1px solid #eee;padding:12px;backg
             </div>
             <div>
               <div className="font-medium text-gray-600 mb-2">본문</div>
-              <pre className="whitespace-pre-wrap text-sm text-gray-800 bg-gray-50 rounded-lg p-4 min-h-[120px]">
-                {selected.body||'(내용 없음)'}
-              </pre>
+              <RichView value={selected.body} className="text-sm text-gray-800 bg-gray-50 rounded-lg p-4 min-h-[120px]" empty={<div className="text-sm text-gray-800 bg-gray-50 rounded-lg p-4 min-h-[120px]">(내용 없음)</div>} />
             </div>
           </div>
         </div>
