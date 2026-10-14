@@ -1,284 +1,480 @@
 // src/pages/quality-manual/QualityManualHub.jsx
 // ISO 13485 품질매뉴얼 — 본문 작성·AI 초안·개정이력·전체보기·PDF 출력
+// [Fix] quality_manual_sections 테이블 없음 → company_data 테이블 사용
+// [Fix] profiles.company_id → auth.current()?.company?.id 로 수정
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
+import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
 import { BookOpen, Edit3, History, Eye, Printer, Sparkles, Save, ChevronDown, ChevronRight, Check } from 'lucide-react'
 
 const QM_SECTIONS = [
-  { id: '1',   title: '1. 적용 범위',                   clause: '§1' },
-  { id: '4',   title: '4. 품질경영시스템',               clause: '§4' },
-  { id: '4.1', title: '4.1 일반 요구사항',               clause: '§4.1' },
-  { id: '4.2', title: '4.2 문서화 요구사항',             clause: '§4.2' },
-  { id: '5',   title: '5. 경영 책임',                    clause: '§5' },
-  { id: '5.1', title: '5.1 경영 의지',                   clause: '§5.1' },
-  { id: '5.2', title: '5.2 고객 중심',                   clause: '§5.2' },
-  { id: '5.3', title: '5.3 품질 방침',                   clause: '§5.3' },
-  { id: '5.4', title: '5.4 기획',                        clause: '§5.4' },
-  { id: '5.5', title: '5.5 책임·권한·의사소통',          clause: '§5.5' },
-  { id: '5.6', title: '5.6 경영 검토',                   clause: '§5.6' },
-  { id: '6',   title: '6. 자원 관리',                    clause: '§6' },
-  { id: '6.1', title: '6.1 자원 제공',                   clause: '§6.1' },
-  { id: '6.2', title: '6.2 인적 자원',                   clause: '§6.2' },
-  { id: '6.3', title: '6.3 인프라',                      clause: '§6.3' },
-  { id: '6.4', title: '6.4 작업 환경',                   clause: '§6.4' },
-  { id: '7',   title: '7. 제품 실현',                    clause: '§7' },
-  { id: '7.1', title: '7.1 제품 실현 기획',              clause: '§7.1' },
-  { id: '7.2', title: '7.2 고객 관련 프로세스',          clause: '§7.2' },
-  { id: '7.3', title: '7.3 설계·개발',                   clause: '§7.3' },
-  { id: '7.4', title: '7.4 구매',                        clause: '§7.4' },
-  { id: '7.5', title: '7.5 생산·서비스 제공',            clause: '§7.5' },
-  { id: '7.6', title: '7.6 모니터링·측정 장비 관리',     clause: '§7.6' },
-  { id: '8',   title: '8. 측정·분석·개선',               clause: '§8' },
-  { id: '8.1', title: '8.1 일반',                        clause: '§8.1' },
-  { id: '8.2', title: '8.2 모니터링·측정',               clause: '§8.2' },
-  { id: '8.3', title: '8.3 부적합 제품 관리',            clause: '§8.3' },
-  { id: '8.4', title: '8.4 데이터 분석',                 clause: '§8.4' },
-  { id: '8.5', title: '8.5 개선',                        clause: '§8.5' },
+  { id: '1',    title: '1. 적용 범위',                  clause: '§1' },
+  { id: '4',    title: '4. 품질경영시스템',              clause: '§4' },
+  { id: '4.1',  title: '4.1 일반 요구사항',              clause: '§4.1' },
+  { id: '4.2',  title: '4.2 문서화 요구사항',            clause: '§4.2' },
+  { id: '5',    title: '5. 경영 책임',                   clause: '§5' },
+  { id: '5.1',  title: '5.1 경영 의지',                  clause: '§5.1' },
+  { id: '5.2',  title: '5.2 고객 중심',                  clause: '§5.2' },
+  { id: '5.3',  title: '5.3 품질 방침',                  clause: '§5.3' },
+  { id: '5.4',  title: '5.4 기획',                       clause: '§5.4' },
+  { id: '5.5',  title: '5.5 책임·권한·의사소통',          clause: '§5.5' },
+  { id: '5.6',  title: '5.6 경영 검토',                  clause: '§5.6' },
+  { id: '6',    title: '6. 자원 관리',                   clause: '§6' },
+  { id: '6.1',  title: '6.1 자원 확보',                  clause: '§6.1' },
+  { id: '6.2',  title: '6.2 인적 자원',                  clause: '§6.2' },
+  { id: '6.3',  title: '6.3 인프라',                     clause: '§6.3' },
+  { id: '6.4',  title: '6.4 작업 환경',                  clause: '§6.4' },
+  { id: '7',    title: '7. 제품 실현',                   clause: '§7' },
+  { id: '7.1',  title: '7.1 제품 실현 기획',             clause: '§7.1' },
+  { id: '7.2',  title: '7.2 고객 관련 프로세스',         clause: '§7.2' },
+  { id: '7.3',  title: '7.3 설계 및 개발',               clause: '§7.3' },
+  { id: '7.4',  title: '7.4 구매',                       clause: '§7.4' },
+  { id: '7.5',  title: '7.5 생산 및 서비스 제공',        clause: '§7.5' },
+  { id: '7.6',  title: '7.6 모니터링·측정 장비 관리',    clause: '§7.6' },
+  { id: '8',    title: '8. 측정·분석·개선',              clause: '§8' },
+  { id: '8.1',  title: '8.1 일반',                       clause: '§8.1' },
+  { id: '8.2',  title: '8.2 모니터링 및 측정',           clause: '§8.2' },
+  { id: '8.3',  title: '8.3 부적합품 관리',              clause: '§8.3' },
+  { id: '8.4',  title: '8.4 데이터 분석',                clause: '§8.4' },
+  { id: '8.5',  title: '8.5 개선',                       clause: '§8.5' },
 ]
 
 const TABS = [
-  { key: 'write',   label: '본문 작성', icon: Edit3 },
-  { key: 'history', label: '개정이력',  icon: History },
-  { key: 'view',    label: '전체보기',  icon: Eye },
+  { id: 'write',   label: '본문 작성',   icon: Edit3 },
+  { id: 'history', label: '개정 이력',   icon: History },
+  { id: 'view',    label: '전체 보기',   icon: Eye },
 ]
 
-export default function QualityManualHub() {
-  const [activeTab, setActiveTab] = useState('write')
-  const [selectedSection, setSelectedSection] = useState(QM_SECTIONS[0])
-  const [sectionContents, setSectionContents] = useState({})
-  const [revisions, setRevisions] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [aiLoading, setAiLoading] = useState(false)
-  const [batchLoading, setBatchLoading] = useState(false)
-  const [batchProgress, setBatchProgress] = useState({ done: 0, total: 0 })
-  const [editText, setEditText] = useState('')
-  const [companyName, setCompanyName] = useState('(주)귀사')
-  const [expandedSections, setExpandedSections] = useState(new Set(['4','5','6','7','8']))
-  const printRef = useRef()
-
-  useEffect(() => { fetchAll() }, [])
-  useEffect(() => {
-    setEditText(sectionContents[selectedSection.id]?.content || '')
-  }, [selectedSection.id, sectionContents])
-
-  async function fetchAll() {
-    setLoading(true)
+// ── company_id 헬퍼 ──────────────────────────────────────────────────────────
+async function getCompanyId() {
+  // 1순위: auth.current()에서 company.id
+  const session = auth.current()
+  if (session?.company?.id) return session.company.id
+  // 2순위: Supabase auth user → company_members 조회
+  try {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      const { data: profile } = await supabase.from('profiles').select('company_id').eq('id', user.id).single()
-      if (profile?.company_id) {
-        const { data: co } = await supabase.from('companies').select('name').eq('id', profile.company_id).single()
+      const { data: member } = await supabase
+        .from('company_members')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single()
+      if (member?.company_id) return member.company_id
+    }
+  } catch (e) {
+    console.warn('[QualityManualHub] company_id 조회 실패:', e)
+  }
+  return null
+}
+
+// ── Supabase company_data 헬퍼 ───────────────────────────────────────────────
+const DATA_TYPE_CONTENT  = 'quality_manual_content'
+const DATA_TYPE_REVISIONS = 'quality_manual_revisions'
+
+async function loadSectionContent(companyId, sectionId) {
+  const { data } = await supabase
+    .from('company_data')
+    .select('payload')
+    .eq('company_id', companyId)
+    .eq('data_type', DATA_TYPE_CONTENT)
+    .eq('data_key', sectionId)
+    .single()
+  return data?.payload || null
+}
+
+async function loadAllContents(companyId) {
+  const { data } = await supabase
+    .from('company_data')
+    .select('data_key, payload')
+    .eq('company_id', companyId)
+    .eq('data_type', DATA_TYPE_CONTENT)
+  return (data || []).reduce((acc, row) => {
+    acc[row.data_key] = row.payload
+    return acc
+  }, {})
+}
+
+async function saveSectionContent(companyId, sectionId, sectionTitle, content, userEmail) {
+  const now = new Date().toISOString()
+  const payload = { content, section_title: sectionTitle, updated_at: now, updated_by: userEmail }
+  await supabase
+    .from('company_data')
+    .upsert({
+      company_id: companyId,
+      data_type: DATA_TYPE_CONTENT,
+      data_key: sectionId,
+      payload,
+      updated_at: now,
+    }, { onConflict: 'company_id,data_type,data_key' })
+  // 개정이력 을탁
+  const { data: revRow } = await supabase
+    .from('company_data')
+    .select('payload')
+    .eq('company_id', companyId)
+    .eq('data_type', DATA_TYPE_REVISIONS)
+    .eq('data_key', 'all')
+    .single()
+  const revisions = revRow?.payload?.list || []
+  revisions.unshift({ section_id: sectionId, section_title: sectionTitle, content, created_at: now, created_by: userEmail, note: '작적저장' })
+  await supabase
+    .from('company_data')
+    .upsert({
+      company_id: companyId,
+      data_type: DATA_TYPE_REVISIONS,
+      data_key: 'all',
+      payload: { list: revisions.slice(0, 200) }, // 최대 200건 보관
+      updated_at: now,
+    }, { onConflict: 'company_id,data_type,data_key' })
+}
+
+async function loadRevisions(companyId) {
+  const { data } = await supabase
+    .from('company_data')
+    .select('payload')
+    .eq('company_id', companyId)
+    .eq('data_type', DATA_TYPE_REVISIONS)
+    .eq('data_key', 'all')
+    .single()
+  return data?.payload?.list || []
+}
+
+// ── 쮹포넌트 ──────────────────────────────────────────────────────────────────
+export default function QualityManualHub() {
+  const [activeTab, setActiveTab] = useState('write')
+  const [companyId, setCompanyId] = useState(null)
+  const [companyName, setCompanyName] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [selectedSection, setSelectedSection] = useStatdQM_SECTIONS[0])
+  const [sectionContents, setSectionContents] = useState({}) // { sectionId: { content, updatedAt } }
+  const [editText, setEditText] = useState('')
+  const [revisions, setRevisions] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [saveOk, setSaveOk] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [expandedGroups, setExpandedGroups] = useState({ '4': true, '5': true, '6': true, '7': true, '8': true })
+  const printRef = useRef()
+
+  // 초기 로드
+  useEffect(() => {
+    async function init() {
+      setLoading(true)
+      const cid = await getCompanyId()
+      setCompanyId(cid)
+      if (cid) {
+        // 회사명 로드
+        const { data: co } = await supabase.from('companies').select('name').eq('id', cid).single()
         if (co?.name) setCompanyName(co.name)
+        // 전체 섹션 내용 로드
+        const contents = await loadAllContents(cid)
+        const mapped = {}
+        Object.entries(contents).forEach(([key, val]) => {
+          mapped[key] = { content: val.content, updatedAt: val.updated_at }
+        })
+        setSectionContents(mapped)
+        // 첫 섹션 편집창 초기화
+        setEditText(mapped[QM_SECTIONS[0].id]?.content || '')
+        // 개정이력 로드
+        const revs = await loadRevisions(cid)
+        setRevisions(revs)
       }
+      // 사용자 이메일
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user?.email) setUserEmail(user.email)
+      setLoading(false)
     }
-    const { data: contents } = await supabase.from('quality_manual_sections').select('*').order('updated_at', { ascending: false })
-    if (contents) {
-      const map = {}
-      contents.forEach(c => { map[c.section_id] = c })
-      setSectionContents(map)
-    }
-    const { data: revs } = await supabase.from('quality_manual_revisions').select('*').order('created_at', { ascending: false }).limit(50)
-    if (revs) setRevisions(revs)
-    setLoading(false)
-  }
+    init()
+  }, [])
 
+  // 섹션 선택 시 편집 내용 갱신
+  useEffect(() => {
+    setEditText(sectionContents[selectedSection.id]?.content || '')
+  }, [selectedSection])
+
+  // 저장
   async function handleSave() {
-    if (!editText.trim()) return
+    if (!companyId) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setSaving(true)
+    await saveSectionContent(companyId, selectedSection.id, selectedSection.title, editText, userEmail)
     const now = new Date().toISOString()
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: existing } = await supabase.from('quality_manual_sections').select('id').eq('section_id', selectedSection.id).single()
-    if (existing?.id) {
-      await supabase.from('quality_manual_sections').update({ content: editText, updated_at: now, updated_by: user?.email }).eq('id', existing.id)
-    } else {
-      await supabase.from('quality_manual_sections').insert({ section_id: selectedSection.id, section_title: selectedSection.title, content: editText, updated_at: now, updated_by: user?.email })
-    }
-    await supabase.from('quality_manual_revisions').insert({ section_id: selectedSection.id, section_title: selectedSection.title, content: editText, created_at: now, created_by: user?.email, note: '수동 저장' })
     setSectionContents(prev => ({ ...prev, [selectedSection.id]: { content: editText, updatedAt: now } }))
+    const revs = await loadRevisions(companyId)
+    setRevisions(revs)
     setSaving(false)
-    fetchAll()
+    setSaveOk(true)
+    setTimeout(() => setSaveOk(false), 2000)
   }
 
-  async function handleAIDraft() {
-    setAiLoading(true)
+  // AI 초안 생성
+  async function handleGenerate() {
+    setGenerating(true)
     try {
-      const res = await fetch('/api/ai-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ docType: 'qm', fields: { section: selectedSection.clause + ' ' + selectedSection.title, company: companyName, productType: '의료기기' } }) })
+      const res = await fetch('/api/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: `ISO 13485 품질매뉴얼 ${selectedSection.title}(${selectedSection.clause}) 조항에 대한 본문을 작성해주세요. 회사명: ${companyName || '당사'}. 의료기기 제조업체 관점에서 규제 요건을 충족하는 실용적인 내용으로 작성하세요.`,
+        }),
+      })
       const data = await res.json()
-      if (data.ok) setEditText(data.draft)
-      else alert('AI 초안 생성 실패: ' + (data.error || ''))
-    } catch (e) { alert('오류: ' + e.message) }
-    setAiLoading(false)
-  }
-  async function handleBatchAIDraft() {
-    const missing = QM_SECTIONS.filter(s => !sectionContents[s.id]?.content)
-    if (missing.length === 0) { alert('모든 조항이 이미 작성되어 있습니다.'); return }
-    if (!window.confirm('미작성 ' + missing.length + '개 조항을 AI로 일괄 생성하시겠습니까?')) return
-    setBatchLoading(true)
-    setBatchProgress({ done: 0, total: missing.length })
-    const { data: { user } } = await supabase.auth.getUser()
-    const now = new Date().toISOString()
-    let done = 0
-    for (const sec of missing) {
-      try {
-        const res = await fetch('/api/ai-draft', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docType: 'qm', fields: { section: sec.clause + ' ' + sec.title, company: companyName, productType: '의료기기' } }) })
-        const data = await res.json()
-        if (data.ok && data.draft) {
-          const { data: ex } = await supabase.from('quality_manual_sections').select('id').eq('section_id', sec.id).single()
-          if (ex?.id) { await supabase.from('quality_manual_sections').update({ content: data.draft, updated_at: now, updated_by: user?.email }).eq('id', ex.id) }
-          else { await supabase.from('quality_manual_sections').insert({ section_id: sec.id, section_title: sec.title, content: data.draft, updated_at: now, updated_by: user?.email }) }
-        }
-      } catch (e) { /* skip */ }
-      done++
-      setBatchProgress({ done, total: missing.length })
+      if (data.content) setEditText(data.content)
+    } catch (e) {
+      alert('AI 초안 생성 중 오류가 발생했습니다.')
     }
-    setBatchLoading(false)
-    fetchAll()
+    setGenerating(false)
   }
 
-  function toggleSection(id) {
-    setExpandedSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  // 인쇄/PDF
+  function handlePrint() {
+    window.print()
   }
 
-  const topLevel = QM_SECTIONS.filter(s => !s.id.includes('.'))
-  const children = (pid) => QM_SECTIONS.filter(s => s.id.startsWith(pid + '.') && s.id.split('.').length === pid.split('.').length + 1)
-  const doneCount = QM_SECTIONS.filter(s => sectionContents[s.id]?.content).length
+  // 그룹 토글 (섹션 트리)
+  function toggleGroup(id) {
+    setExpandedGroups(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  // 섹션을 최상위(숫자만)와 하위로 구분
+  const topSections = QM_SECTIONS.filter(s => !s.id.includes('.'))
+  function getChildren(parentId) {
+    return QM_SECTIONS.filter(s => s.id.startsWith(parentId + '.') && s.id.split('.').length === parentId.split('.').length + 1)
+  }
+
+  const completedCount = Object.keys(sectionContents).filter(k => sectionContents[k]?.content?.trim()).length
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, color: '#6b7280' }}>
+          품질매뉴얼 데이터를 불러오는 중...
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>
-      <div style={{ padding: '24px 28px', maxWidth: 1200, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <BookOpen size={21} style={{ color: 'var(--moss)' }} /> 품질매뉴얼
-            </h1>
-            <p style={{ color: 'var(--ink-faint)', margin: '3px 0 0', fontSize: 13 }}>ISO 13485 §4.2.2 — {doneCount}/{QM_SECTIONS.length}개 섹션 작성 완료</p>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 16px' }}>
+        {/* 헤더 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          <div style={{ background: '#1a4731', borderRadius: 10, padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BookOpen size={22} color="#fff" />
           </div>
-          {activeTab === 'view' && (
-            <>
-                        <button onClick={handleBatchAIDraft} disabled={batchLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: batchLoading ? 'var(--line)' : '#EDE9FE', color: batchLoading ? 'var(--ink-faint)' : '#7C3AED', border: '1px solid #DDD6FE', borderRadius: 8, cursor: batchLoading ? 'not-allowed' : 'pointer', fontSize: 12.5, fontWeight: 600 }}>
-              <Sparkles size={14} /> {batchLoading ? batchProgress.done + '/' + batchProgress.total + ' 생성 중...' : '전체 조항 AI 일괄생성'}
-            </button>
-            <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              <Printer size={14} /> PDF 출력
-            </button>
-            </>
-          )}
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: '#111827', margin: 0 }}>품질매뉴얼</h1>
+            <p style={{ fontSize: 13, color: '#6b7280', margin: 0 }}>ISO 13485 §4.2.1 · 본문 작성 및 개정이력 관리</p>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: '#6b7280' }}>작성 완료</span>
+            <span style={{ fontWeight: 700, color: '#1a4731' }}>{completedCount} / {QM_SECTIONS.length} 조항</span>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--line)', marginBottom: 20 }}>
-          {TABS.map(t => { const Icon = t.icon; return (
-            <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13,
-              fontWeight: activeTab === t.key ? 700 : 400, color: activeTab === t.key ? 'var(--moss)' : 'var(--ink-faint)',
-              borderBottom: activeTab === t.key ? '2px solid var(--moss)' : '2px solid transparent', marginBottom: -2 }}>
-              <Icon size={14} /> {t.label}
-            </button>
-          )})}
+        {/* 탭 */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid #e5e7eb' }}>
+          {TABS.map(tab => {
+            const Icon = tab.icon
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
+                  border: 'none', borderBottom: active ? '2px solid #1a4731' : '2px solid transparent',
+                  background: 'none', cursor: 'pointer', color: active ? '#1a4731' : '#6b7280',
+                  fontWeight: active ? 700 : 400, fontSize: 14, marginBottom: -1,
+                }}
+              >
+                <Icon size={15} />
+                {tab.label}
+              </button>
+            )
+          })}
+          <button
+            onClick={handlePrint}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px',
+              border: 'none', background: 'none', cursor: 'pointer', color: '#6b7280',
+              fontSize: 14, marginLeft: 'auto',
+            }}
+          >
+            <Printer size={15} />
+            PDF 출력
+          </button>
         </div>
 
-        {loading && <div style={{ textAlign: 'center', padding: 40, color: 'var(--ink-faint)' }}>불러오는 중…</div>}
-
-        {!loading && activeTab === 'write' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20, alignItems: 'start' }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 12, maxHeight: 600, overflowY: 'auto' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink-faint)', textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 8, padding: '0 4px' }}>섹션</div>
-              {topLevel.map(sec => {
-                const ch = children(sec.id)
-                const exp = expandedSections.has(sec.id)
+        {/* 본문 작성 탭 */}
+        {activeTab === 'write' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20 }}>
+            {/* 섹션 트리 */}
+            <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 10, padding: 12, height: 'fit-content' }}>
+              {topSections.map(top => {
+                const children = getChildren(top.id)
+                const isGroup = children.length > 0
+                const isExpanded = expandedGroups[top.id]
+                const isSelected = selectedSection.id === top.id
                 return (
-                  <div key={sec.id}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 6px', borderRadius: 6, cursor: 'pointer', background: selectedSection.id === sec.id ? 'rgba(60,130,90,0.08)' : 'transparent' }}
-                      onClick={() => { setSelectedSection(sec); if (ch.length) toggleSection(sec.id) }}>
-                      {ch.length > 0 && <span style={{ color: 'var(--ink-faint)', flexShrink: 0 }}>{exp ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>}
-                      <span style={{ fontSize: 12, fontWeight: selectedSection.id === sec.id ? 700 : 400, color: 'var(--ink)', flex: 1 }}>{sec.title}</span>
-                      {sectionContents[sec.id]?.content && <Check size={11} style={{ color: 'var(--moss)', flexShrink: 0 }} />}
-                    </div>
-                    {exp && ch.map(child => (
-                      <div key={child.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px 4px 22px', borderRadius: 6, cursor: 'pointer', background: selectedSection.id === child.id ? 'rgba(60,130,90,0.08)' : 'transparent' }}
-                        onClick={() => setSelectedSection(child)}>
-                        <span style={{ fontSize: 12, fontWeight: selectedSection.id === child.id ? 600 : 400, color: 'var(--ink)', flex: 1 }}>{child.title}</span>
-                        {sectionContents[child.id]?.content && <Check size={11} style={{ color: 'var(--moss)', flexShrink: 0 }} />}
-                      </div>
-                    ))}
+                  <div key={top.id}>
+                    <button
+                      onClick={() => isGroup ? toggleGroup(top.id) : setSelectedSection(top)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                        padding: '6px 8px', borderRadius: 6, border: 'none',
+                        background: isSelected && !isGroup ? '#e8f5ee' : 'none',
+                        cursor: 'pointer', textAlign: 'left', fontSize: 13,
+                        color: isSelected && !isGroup ? '#1a4731' : '#374151',
+                        fontWeight: isSelected && !isGroup ? 600 : 400,
+                      }}
+                    >
+                      {isGroup ? (isExpanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />) : <span style={{ width: 13 }} />}
+                      <span style={{ flex: 1 }}>{top.title}</span>
+                      {sectionContents[top.id]?.content && <Check size={12} color="#22c55e" />}
+                    </button>
+                    {isGroup && isExpanded && children.map(child => {
+                      const isSel = selectedSection.id === child.id
+                      return (
+                        <button
+                          key={child.id}
+                          onClick={() => setSelectedSection(child)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+                            padding: '5px 8px 5px 26px', borderRadius: 6, border: 'none',
+                            background: isSel ? '#e8f5ee' : 'none',
+                            cursor: 'pointer', textAlign: 'left', fontSize: 12,
+                            color: isSel ? '#1a4731' : '#6b7280',
+                            fontWeight: isSel ? 600 : 400,
+                          }}
+                        >
+                          <span style={{ flex: 1 }}>{child.title}</span>
+                          {sectionContents[child.id]?.content && <Check size={11} color="#22c55e" />}
+                        </button>
+                      )
+                    })}
                   </div>
                 )
               })}
             </div>
 
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            {/* 편집 영역 */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>{selectedSection.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>{selectedSection.clause}</div>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: '#111827' }}>{selectedSection.title}</div>
+                  {sectionContents[selectedSection.id]?.updatedAt && (
+                    <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                      마지막 저장: {new Date(sectionContents[selectedSection.id].updatedAt).toLocaleString('ko-KR')}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={handleAIDraft} disabled={aiLoading} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: aiLoading ? 'var(--line)' : '#f0fdf4', color: aiLoading ? 'var(--ink-faint)' : 'var(--moss)', border: '1px solid rgba(60,130,90,0.3)', borderRadius: 7, cursor: aiLoading ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600 }}>
-                    <Sparkles size={12} /> {aiLoading ? 'AI 생성 중…' : 'AI 초안'}
+                  <button
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                      background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8,
+                      color: '#15803d', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    }}
+                  >
+                    <Sparkles size={14} />
+                    {generating ? 'AI 생성 중...' : 'AI 초안 생성'}
                   </button>
-                  <button onClick={handleSave} disabled={saving || !editText.trim()} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 16px', background: editText.trim() && !saving ? 'var(--moss)' : 'var(--line)', color: editText.trim() && !saving ? '#fff' : 'var(--ink-faint)', border: 'none', borderRadius: 7, cursor: editText.trim() && !saving ? 'pointer' : 'not-allowed', fontSize: 12, fontWeight: 600 }}>
-                    <Save size={12} /> {saving ? '저장 중…' : '저장'}
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                      background: saveOk ? '#f0fdf4' : '#1a4731', border: 'none', borderRadius: 8,
+                      color: saveOk ? '#15803d' : '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                    }}
+                  >
+                    {saveOk ? <Check size={14} /> : <Save size={14} />}
+                    {saving ? '저장 중...' : saveOk ? '저장됨' : '저장'}
                   </button>
                 </div>
               </div>
-              <textarea value={editText} onChange={e => setEditText(e.target.value)}
-                placeholder={`${selectedSection.title}에 대한 내용을 작성하세요.\nAI 초안 버튼으로 초안을 생성할 수 있습니다.`}
-                style={{ width: '100%', minHeight: 360, padding: '14px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 13, lineHeight: 1.8, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', outline: 'none' }} />
-              {sectionContents[selectedSection.id]?.updatedAt && (
-                <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 8 }}>마지막 저장: {new Date(sectionContents[selectedSection.id].updatedAt).toLocaleString('ko-KR')}</div>
-              )}
+              <textarea
+                value={editText}
+                onChange={e => setEditText(e.target.value)}
+                placeholder={`${selectedSection.title} 조항 내용을 입력하세요...\n\nAI 초안 생성 버튼을 누르면 자동으로 작성해드립니다.`}
+                style={{
+                  width: '100%', minHeight: 420, padding: 16, border: '1px solid #e5e7eb',
+                  borderRadius: 10, fontSize: 14, lineHeight: 1.7, resize: 'vertical',
+                  fontFamily: 'inherit', color: '#111827', outline: 'none', boxSizing: 'border-box',
+                }}
+              />
             </div>
           </div>
         )}
 
-        {!loading && activeTab === 'history' && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: 'var(--bg)' }}>
-                  {['일시','섹션','작성자','비고'].map(h => (
-                    <th key={h} style={{ padding: '11px 16px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid var(--line)', color: 'var(--ink-faint)', fontSize: 12 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {revisions.map((r, i) => (
-                  <tr key={r.id || i} style={{ borderBottom: '1px solid var(--line)' }}>
-                    <td style={{ padding: '10px 16px', color: 'var(--ink-faint)', fontSize: 12 }}>{new Date(r.created_at).toLocaleString('ko-KR')}</td>
-                    <td style={{ padding: '10px 16px', fontWeight: 500 }}>{r.section_title}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--ink-faint)', fontSize: 12 }}>{r.created_by || '-'}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--ink-faint)', fontSize: 12 }}>{r.note || '-'}</td>
-                  </tr>
+        {/* 개정 이력 탭 */}
+        {activeTab === 'history' && (
+          <div>
+            <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
+              총 {revisions.length}건의 개정 이력이 있습니다.
+            </div>
+            {revisions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+                아직 저장된 개정 이력이 없습니다. 본문을 작성하고 저장하면 이력이 기록됩니다.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {revisions.map((rev, i) => (
+                  <div key={i} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                      <span style={{ background: '#e8f5ee', color: '#1a4731', borderRadius: 6, padding: '2px 10px', fontSize: 12, fontWeight: 600 }}>
+                        {rev.section_title || rev.section_id}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#9ca3af' }}>
+                        {rev.created_at ? new Date(rev.created_at).toLocaleString('ko-KR') : ''}
+                      </span>
+                      <span style={{ fontSize: 12, color: '#6b7280', marginLeft: 'auto' }}>
+                        {rev.created_by || ''}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 13, color: '#374151', whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'hidden', position: 'relative' }}>
+                      {rev.content?.slice(0, 300)}{rev.content?.length > 300 ? '...' : ''}
+                    </div>
+                  </div>
                 ))}
-                {revisions.length === 0 && <tr><td colSpan={4} style={{ padding: '48px', textAlign: 'center', color: 'var(--ink-faint)' }}>개정이력 없음</td></tr>}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         )}
 
-        {!loading && activeTab === 'view' && (
-          <div ref={printRef} style={{ background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 12, padding: 32 }}>
-            <style>{`@media print { .no-print { display: none !important; } body { background: #fff; } }`}</style>
-            <div style={{ textAlign: 'center', marginBottom: 32, borderBottom: '2px solid var(--line)', paddingBottom: 24 }}>
-              <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginBottom: 4 }}>QT-QM-001</div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 6px' }}>품질매뉴얼</h1>
-              <div style={{ fontSize: 14, color: 'var(--ink-faint)' }}>{companyName} · ISO 13485:2016</div>
+        {/* 전체 보기 탭 */}
+        {activeTab === 'view' && (
+          <div ref={printRef} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10, padding: 40 }}>
+            <div style={{ textAlign: 'center', marginBottom: 40 }}>
+              <div style={{ fontSize: 11, color: '#6b7280', letterSpacing: 2, marginBottom: 8 }}>ISO 13485 QUALITY MANAGEMENT SYSTEM</div>
+              <h2 style={{ fontSize: 28, fontWeight: 800, color: '#111827', margin: 0 }}>품질매뉴얼</h2>
+              {companyName && <div style={{ fontSize: 16, color: '#6b7280', marginTop: 8 }}>{companyName}</div>}
             </div>
             {QM_SECTIONS.map(sec => {
-              const cnt = sectionContents[sec.id]?.content
-              if (!cnt) return null
+              const entry = sectionContents[sec.id]
+              if (!entry?.content) return null
               const isTop = !sec.id.includes('.')
               return (
-                <div key={sec.id} style={{ marginBottom: 24 }}>
-                  <h2 style={{ fontSize: isTop ? 17 : 14, fontWeight: isTop ? 700 : 600, margin: '0 0 8px', color: 'var(--ink)', paddingLeft: isTop ? 0 : 12 }}>{sec.title}</h2>
-                  <div style={{ fontSize: 13, lineHeight: 1.9, color: 'var(--ink)', whiteSpace: 'pre-wrap', paddingLeft: isTop ? 0 : 12 }}>{cnt}</div>
+                <div key={sec.id} style={{ marginBottom: 28 }}>
+                  <div style={{
+                    fontSize: isTop ? 18 : 15, fontWeight: isTop ? 800 : 700,
+                    color: '#111827', borderBottom: isTop ? '2px solid #1a4731' : '1px solid #e5e7eb',
+                    paddingBottom: 6, marginBottom: 12,
+                  }}>
+                    {sec.title}
+                  </div>
+                  <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                    {entry.content}
+                  </div>
                 </div>
               )
             })}
-            {Object.keys(sectionContents).length === 0 && (
-              <div style={{ textAlign: 'center', padding: '60px', color: 'var(--ink-faint)' }}>아직 작성된 섹션이 없습니다. 본문 작성 탭에서 내용을 입력하세요.</div>
+            {Object.keys(sectionContents).filter(k => sectionContents[k]?.content).length === 0 && (
+              <div style={{ textAlign: 'center', padding: 60, color: '#9ca3af' }}>
+                아직 작성된 조항이 없습니다.
+              </div>
             )}
           </div>
         )}
