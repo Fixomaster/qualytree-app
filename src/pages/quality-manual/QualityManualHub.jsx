@@ -145,7 +145,7 @@ export default function QualityManualHub() {
   const [companyId, setCompanyId] = useState(null)
   const [companyName, setCompanyName] = useState('')
   const [userEmail, setUserEmail] = useState('')
-  const [selectedSection, setSelectedSection] = useStatdQM_SECTIONS[0])
+  const [selectedSection, setSelectedSection] = useState(QM_SECTIONS[0])
   const [sectionContents, setSectionContents] = useState({}) // { sectionId: { content, updatedAt } }
   const [editText, setEditText] = useState('')
   const [revisions, setRevisions] = useState([])
