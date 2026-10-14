@@ -3,6 +3,7 @@
 // [Fix] quality_manual_sections 테이블 없음 → company_data 테이블 사용
 // [Fix] profiles.company_id → auth.current()?.company?.id 로 수정
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
@@ -142,9 +143,102 @@ async function loadRevisions(companyId) {
   return data?.payload?.list || []
 }
 
+// ── 전체 버전 비교 (개정 이력 탭) ─────────────────────────────────────────────
+// 조항을 저장할 때마다 개정 이력에 기록되므로, 특정 시점의 "전체 매뉴얼"은
+// 그 시점까지 각 조항의 가장 마지막 저장본을 모으면 복원된다.
+function VersionCompare({ revisions, sectionContents }) {
+  const sorted = [...revisions].filter(r => r.created_at).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const n = sorted.length
+  const fmt = (d) => new Date(d).toLocaleString('ko-KR')
+  const options = [
+    { key: 'current', label: '현재 버전 (최신 전체)' },
+    ...sorted.map((r, i) => ({ key: 'r' + i, label: fmt(r.created_at) + ' 저장 직후 · ' + (r.section_title || r.section_id) })).reverse(),
+    { key: 'empty', label: '최초 (첫 저장 이전)' },
+  ]
+  const [aKey, setAKey] = useState(n >= 2 ? 'r' + (n - 2) : 'empty')
+  const [bKey, setBKey] = useState('current')
+  const [onlyChanged, setOnlyChanged] = useState(true)
+
+  const snapshot = (key) => {
+    if (key === 'empty') return {}
+    if (key === 'current') {
+      const cur = {}
+      QM_SECTIONS.forEach(sec => { const c = sectionContents[sec.id]?.content; if (c) cur[sec.id] = c })
+      return cur
+    }
+    const idx = Number(key.slice(1)); const map = {}
+    for (let i = 0; i <= idx && i < n; i++) map[sorted[i].section_id] = sorted[i].content
+    return map
+  }
+  const A = snapshot(aKey), B = snapshot(bKey)
+  const norm = (v) => (v || '').replace(/\s+/g, ' ').trim()
+  const rows = QM_SECTIONS.map(sec => {
+    const a = A[sec.id] || '', b = B[sec.id] || ''
+    let status = 'same'
+    if (!norm(a) && !norm(b)) status = 'none'
+    else if (!norm(a)) status = 'added'
+    else if (!norm(b)) status = 'removed'
+    else if (norm(a) !== norm(b)) status = 'changed'
+    return { sec, a, b, status }
+  }).filter(r => r.status !== 'none')
+  const changedCount = rows.filter(r => r.status !== 'same').length
+  const shown = onlyChanged ? rows.filter(r => r.status !== 'same') : rows
+  const badge = { changed: ['변경됨', '#fef3c7', '#92400e'], added: ['신규', '#dcfce7', '#166534'], removed: ['삭제됨', '#fee2e2', '#991b1b'], same: ['동일', '#f3f4f6', '#6b7280'] }
+  const sel = { padding: '8px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, background: '#fff', width: '100%' }
+
+  if (n === 0) return null
+  return (
+    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: 20, marginBottom: 24 }}>
+      <div style={{ fontSize: 15, fontWeight: 700, color: '#111827', marginBottom: 4 }}>전체 버전 비교</div>
+      <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 14 }}>
+        수정되기 전 전체 매뉴얼과 현재 전체 매뉴얼을 조항별로 나란히 비교합니다. (조항을 저장할 때마다 이력이 쌓입니다)
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+        <label style={{ fontSize: 12, color: '#6b7280' }}>이전 버전
+          <select value={aKey} onChange={e => setAKey(e.target.value)} style={sel}>
+            {options.filter(o => o.key !== 'current').map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+        </label>
+        <label style={{ fontSize: 12, color: '#6b7280' }}>비교할 버전
+          <select value={bKey} onChange={e => setBKey(e.target.value)} style={sel}>
+            {options.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+        </label>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14, fontSize: 13, color: '#374151' }}>
+        <span>변경된 조항 <b>{changedCount}</b>개 / 전체 {rows.length}개</span>
+        <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={onlyChanged} onChange={e => setOnlyChanged(e.target.checked)} /> 변경된 조항만 보기 (해제하면 전체 조항 표시)
+        </label>
+      </div>
+      {shown.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af', fontSize: 13 }}>선택한 두 버전 사이에 변경된 조항이 없습니다.</div>
+      ) : shown.map(({ sec, a, b, status }) => (
+        <div key={sec.id} style={{ border: '1px solid ' + (status === 'same' ? '#e5e7eb' : '#fcd34d'), borderRadius: 10, marginBottom: 12, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: status === 'same' ? '#f9fafb' : '#fffbeb', borderBottom: '1px solid #e5e7eb' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{sec.title}</span>
+            <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 999, background: badge[status][1], color: badge[status][2], fontWeight: 600 }}>{badge[status][0]}</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            <div style={{ padding: 12, borderRight: '1px solid #e5e7eb', fontSize: 13, lineHeight: 1.7, background: status === 'changed' || status === 'removed' ? '#fffafa' : '#fff' }}>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>이전 버전</div>
+              <RichView value={a} empty={<span style={{ color: '#d1d5db' }}>(내용 없음)</span>} />
+            </div>
+            <div style={{ padding: 12, fontSize: 13, lineHeight: 1.7, background: status === 'changed' || status === 'added' ? '#f7fef9' : '#fff' }}>
+              <div style={{ fontSize: 11, color: '#9ca3af', marginBottom: 6 }}>비교 버전</div>
+              <RichView value={b} empty={<span style={{ color: '#d1d5db' }}>(내용 없음)</span>} />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── 쮹포넌트 ──────────────────────────────────────────────────────────────────
 export default function QualityManualHub() {
-  const [activeTab, setActiveTab] = useState('write')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState(() => ['write', 'history', 'view'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'write')
   const [companyId, setCompanyId] = useState(null)
   const [companyName, setCompanyName] = useState('')
   const [userEmail, setUserEmail] = useState('')
@@ -411,6 +505,7 @@ export default function QualityManualHub() {
         {/* 개정 이력 탭 */}
         {activeTab === 'history' && (
           <div>
+            <VersionCompare key={revisions.length} revisions={revisions} sectionContents={sectionContents} />
             <div style={{ fontSize: 14, color: '#6b7280', marginBottom: 16 }}>
               총 {revisions.length}건의 개정 이력이 있습니다.
             </div>

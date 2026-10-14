@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import RichView from '../../components/RichView'
 import { supabase } from '../../lib/supabaseClient'
 import { companyDocs, DOC_CATEGORY } from '../../lib/companyState'
 import { onboarding } from '../../lib/onboardingState'
@@ -751,46 +752,114 @@ function FieldArea({ label, value, onChange, rows = 3 }) {
 }
 
 // ── 품질매뉴얼 탭 (ISO 13485 §4.2.1) ────────────────────────
+// 품질매뉴얼 메뉴에서 저장한 최신 본문을 자동으로 보여준다 (별도 등록 불필요).
+const sectionOrder = (id) => String(id).split('.').map(n => String(Number(n) || 0).padStart(3, '0')).join('.')
+
 function QualityManualTab() {
   const navigate = useNavigate()
-  const LS_KEY = 'qualytree.quality_manual'
-  const [sections, setSections] = React.useState(() => {
-    try { const _p = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); return Array.isArray(_p) ? _p : [] } catch { return [] }
-  })
+  const [rows, setRows] = React.useState([])
+  const [revCount, setRevCount] = React.useState(0)
+  const [loading, setLoading] = React.useState(true)
+  const [open, setOpen] = React.useState({})
+
+  React.useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        let cid = auth.current()?.company?.id
+        if (!cid) {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (user) {
+            const { data: m } = await supabase.from('company_members').select('company_id').eq('user_id', user.id).limit(1).maybeSingle()
+            cid = m?.company_id
+          }
+        }
+        if (!cid) return
+        const { data } = await supabase.from('company_data').select('data_key, payload, updated_at')
+          .eq('company_id', cid).eq('data_type', 'quality_manual_content')
+        const { data: rv } = await supabase.from('company_data').select('payload')
+          .eq('company_id', cid).eq('data_type', 'quality_manual_revisions').eq('data_key', 'all').maybeSingle()
+        if (cancelled) return
+        setRows((data || []).filter(r => r.payload && r.payload.content)
+          .sort((x, y) => sectionOrder(x.data_key).localeCompare(sectionOrder(y.data_key))))
+        setRevCount((rv?.payload?.list || []).length)
+      } catch (e) { console.warn('[QualityManualTab]', e) }
+      finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const last = rows.reduce((acc, r) => {
+    const t = r.payload.updated_at || r.updated_at
+    return !acc || (t && new Date(t) > new Date(acc.t)) ? { t, by: r.payload.updated_by, title: r.payload.section_title } : acc
+  }, null)
+
   return (
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-4">
         <div>
           <div className="text-[15px] font-bold" style={{ color: 'var(--ink)' }}>품질 매뉴얼</div>
-          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.1 — 품질경영시스템 문서화</div>
+          <div className="text-[12px] mt-0.5" style={{ color: 'var(--ink-faint)' }}>ISO 13485 §4.2.1 — 최종 수정본이 자동으로 표시됩니다</div>
         </div>
-        <button onClick={() => navigate('/quality-manual')}
-          className="px-4 py-2 rounded-xl text-[13px] font-bold"
-          style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
-          전체 관리 →
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => navigate('/quality-manual')}
+            className="px-4 py-2 rounded-xl text-[13px] font-bold"
+            style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)', color: 'var(--ink)', cursor: 'pointer' }}>
+            본문 수정 →
+          </button>
+          <button onClick={() => navigate('/quality-manual?tab=history')}
+            className="px-4 py-2 rounded-xl text-[13px] font-bold"
+            style={{ background: 'var(--moss)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+            전체 관리 · 개정이력 →
+          </button>
+        </div>
       </div>
+      {rows.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mb-3">
+          {[
+            ['최종 수정', last?.t ? new Date(last.t).toLocaleString('ko-KR') : '-'],
+            ['최종 수정자', last?.by || '-'],
+            ['작성 조항 / 개정 횟수', rows.length + '개 조항 · 개정 ' + revCount + '회'],
+          ].map(([k, v]) => (
+            <div key={k} className="p-3 rounded-xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
+              <div className="text-[10.5px] font-mono mb-1" style={{ color: 'var(--ink-faint)' }}>{k}</div>
+              <div className="text-[12.5px] font-semibold" style={{ color: 'var(--ink)' }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="p-5 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
-        {sections.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>불러오는 중…</div>
+        ) : rows.length === 0 ? (
           <div className="text-center py-8 text-[13px]" style={{ color: 'var(--ink-faint)' }}>
             <BookOpen size={28} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
-            <div>등록된 품질 매뉴얼 섹션이 없습니다.</div>
-            <button onClick={() => navigate('/quality-manual')}
-              className="mt-3 text-[12px] font-medium"
-              style={{ background: 'none', border: 'none', color: 'var(--moss)', cursor: 'pointer' }}>
-              품질매뉴얼 관리에서 등록하기 →
-            </button>
+            <div>아직 저장된 품질매뉴얼 조항이 없습니다.</div>
+            <div className="text-[12px] mt-1">품질매뉴얼 메뉴에서 조항을 작성·저장하면 이 화면에 최신 내용이 자동으로 표시됩니다.</div>
           </div>
         ) : (
           <div className="space-y-2">
-            {sections.map((s, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl"
-                style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
-                <span className="text-[12px] font-mono font-bold" style={{ color: 'var(--moss)' }}>{s.no || s.sectionNo || (i+1)}</span>
-                <span className="text-[13px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{s.title}</span>
-                {s.status && <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#D1FAE5', color: '#065F46' }}>{s.status}</span>}
-              </div>
-            ))}
+            {rows.map((r) => {
+              const isOpen = !!open[r.data_key]
+              return (
+                <div key={r.data_key} className="rounded-xl" style={{ background: 'var(--bg-soft)', border: '1px solid var(--line)' }}>
+                  <button onClick={() => setOpen(o => ({ ...o, [r.data_key]: !o[r.data_key] }))}
+                    className="w-full flex items-center gap-3 p-3 text-left" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                    <span className="text-[12px] font-mono font-bold" style={{ color: 'var(--moss)' }}>§{r.data_key}</span>
+                    <span className="text-[13px] font-semibold flex-1" style={{ color: 'var(--ink)' }}>{r.payload.section_title || r.data_key}</span>
+                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>
+                      {r.payload.updated_at ? new Date(r.payload.updated_at).toLocaleDateString('ko-KR') : ''}
+                    </span>
+                    <span className="text-[11px]" style={{ color: 'var(--ink-faint)' }}>{isOpen ? '접기' : '보기'}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-4 pb-4 text-[13px] leading-relaxed" style={{ color: 'var(--ink)' }}>
+                      <RichView value={r.payload.content} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
