@@ -139,6 +139,7 @@ items: [
 { to: '/document-control', label: '문서관리' },
       { to: '/sop', label: '작업표준서(SOP)' },
       { to: '/quality-manual', label: '품질매뉴얼' },
+      { to: '/quality-procedure', label: '품질절차서' },
 ],
 },
 {

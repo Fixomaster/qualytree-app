@@ -18,6 +18,7 @@ import { auth } from '../../lib/auth'
 import { onboarding } from '../../lib/onboardingState'
 import { loadCompanyMaster, companyDocs } from '../../lib/companyState'
 import { supabase } from '../../lib/supabase'
+import { loadProcedures, isFilled } from '../../lib/qualityProcedureState'
 
 const LS_KEY = 'qualytree.quality_manual'
 
@@ -334,6 +335,22 @@ export default function QmsOverviewHub() {
               )}
             </Section>
 
+            {(() => {
+              const qps = loadProcedures()
+              const done = qps.filter(q => q.items.some(i => isFilled(i.content)))
+              return (
+                <Section icon={FileText} title="품질절차서 현황" color="#0EA5E9" action={<EditBtn to="/quality-procedure" label="품질절차서에서 수정" />}>
+                  <div className="text-[12.5px] mb-2" style={{ color: 'var(--ink-soft)' }}>전체 {qps.length}건 중 {done.length}건 작성 중 (품질절차서 메뉴에서 저장한 내용이 자동 반영됩니다)</div>
+                  <div className="flex flex-wrap gap-2">
+                    {qps.map((q, i) => {
+                      const ok = q.items.some(it => isFilled(it.content))
+                      return <span key={q.id} className="px-2.5 py-1 rounded-full text-[12px]" style={{ background: ok ? '#DCFCE7' : 'var(--bg-soft)', color: ok ? '#166534' : 'var(--ink-faint)', border: '1px solid var(--line)' }}>QP-{String(i + 1).padStart(2, '0')} {q.title}</span>
+                    })}
+                  </div>
+                </Section>
+              )
+            })()}
+
             {(manual.procedureRefs || []).length > 0 && (
               <Section icon={FileText} title="문서화된 절차 참조 (§4.2.1(c))" color="#3B82F6" action={<EditBtn to="/document-control" label="문서관리에서 수정" />}>
                 <div className="overflow-x-auto">
@@ -402,10 +419,11 @@ export default function QmsOverviewHub() {
 
             <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--line)' }}>
               <div className="text-[12px] font-semibold mb-3" style={{ color: 'var(--ink-faint)' }}>관련 메뉴 바로가기</div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                 {[
                   { label: '기본정보', to: '/company', color: '#3B82F6' },
                   { label: '품질매뉴얼', to: '/quality-manual', color: '#0EA5E9' },
+                  { label: '품질절차서', to: '/quality-procedure', color: '#06B6D4' },
                   { label: '문서 관리', to: '/document-control', color: '#6366F1' },
                   { label: '의료기기 파일', to: '/medical-device-file', color: '#8B5CF6' },
                   { label: '경영 의지·품질방침', to: '/management-commitment', color: '#10B981' },

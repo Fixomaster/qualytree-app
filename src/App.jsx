@@ -88,6 +88,8 @@ try { ProductIdHub = React.lazy(() => import(/* @vite-ignore */ './pages/product
 try { OrgResponsibilityHub = React.lazy(() => import(/* @vite-ignore */ './pages/org-responsibility/OrgResponsibilityHub')) } catch {}
 try { PurchaseVerificationHub = React.lazy(() => import(/* @vite-ignore */ './pages/purchase-verification/PurchaseVerificationHub')) } catch {}
 try { QualityManualHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality-manual/QualityManualHub')) } catch {}
+let QualityProcedureHub = null
+try { QualityProcedureHub = React.lazy(() => import(/* @vite-ignore */ './pages/quality-procedure/QualityProcedureHub')) } catch {}
 try { DeviceFileHub = React.lazy(() => import(/* @vite-ignore */ './pages/device-file/DeviceFileHub')) } catch {}
 try { DeviceMasterRecordHub = React.lazy(() => import(/* @vite-ignore */ './pages/device-master-record/DeviceMasterRecordHub')) } catch {}
 try { ProductionControlHub = React.lazy(() => import(/* @vite-ignore */ './pages/production-control/ProductionControlHub')) } catch {}
@@ -245,6 +247,7 @@ return (
 <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />
 <Route path="/purchase-info" element={<ProtectedRoute><LazyRoute Component={PurchaseVerificationHub} /></ProtectedRoute>} />
 <Route path="/quality-manual" element={<ProtectedRoute><LazyRoute Component={QualityManualHub} /></ProtectedRoute>} />
+<Route path="/quality-procedure" element={<ProtectedRoute><LazyRoute Component={QualityProcedureHub} /></ProtectedRoute>} />
 <Route path="/medical-device-file" element={<ProtectedRoute><LazyRoute Component={DeviceFileHub} /></ProtectedRoute>} />
               <Route path="/device-master-record" element={<ProtectedRoute><LazyRoute Component={DeviceMasterRecordHub} /></ProtectedRoute>} />
 <Route path="/production-control" element={<ProtectedRoute><LazyRoute Component={ProductionControlHub} /></ProtectedRoute>} />

@@ -12,6 +12,7 @@ import {
 import AppLayout from '../../components/AppLayout'
 import HubBanner from '../../components/HubBanner'
 import { auth } from '../../lib/auth'
+import { loadProcedures, loadProcRevisions, isFilled } from '../../lib/qualityProcedureState'
 import RichView from '../../components/RichView'
 import { supabase } from '../../lib/supabaseClient'
 import { companyDocs, DOC_CATEGORY } from '../../lib/companyState'
@@ -301,6 +302,7 @@ export default function DocControlHub() {
             { key: 'docs',     label: `문서 대장 (${docs.length})` },
             { key: 'analysis', label: '현황 분석' },
 { key: 'quality-manual', label: '품질매뉴얼' },
+{ key: 'quality-procedure', label: '품질절차서' },
 { key: 'medical-device-file', label: '의료기기파일' },
           ].map(t => (
             <button key={t.key} onClick={() => { setTab(t.key); setShowDetail(null) }}
@@ -456,6 +458,7 @@ export default function DocControlHub() {
         )}
 
 {tab === 'quality-manual' && <QualityManualTab />}
+{tab === 'quality-procedure' && <QualityProcedureTab />}
 {tab === 'medical-device-file' && <MedicalDeviceFileTab />}
       </div>
     </AppLayout>
@@ -753,6 +756,43 @@ function FieldArea({ label, value, onChange, rows = 3 }) {
 
 // ── 품질매뉴얼 탭 (ISO 13485 §4.2.1) ────────────────────────
 // 품질매뉴얼 메뉴에서 저장한 최신 본문을 자동으로 보여준다 (별도 등록 불필요).
+function QualityProcedureTab() {
+  const navigate = useNavigate()
+  const [rev] = React.useState(() => loadProcRevisions())
+  const procs = React.useMemo(() => loadProcedures(), [])
+  const filledN = (p) => p.items.filter(i => isFilled(i.content)).length
+  const last = rev[0]
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
+          절차서 {procs.length}건 · 개정 이력 {rev.length}건{last ? ` · 최종 수정 ${new Date(last.created_at).toLocaleString('ko-KR')} (${last.procedure_title})` : ''}
+        </div>
+        <div className="ml-auto flex gap-2">
+          <button onClick={() => navigate('/quality-procedure')} className="px-3 py-1.5 rounded-lg text-[13px] font-semibold" style={{ background: 'var(--moss)', color: '#fff' }}>절차서 수정</button>
+          <button onClick={() => navigate('/quality-procedure?tab=history')} className="px-3 py-1.5 rounded-lg text-[13px]" style={{ border: '1px solid var(--line)' }}>전체 관리 · 개정이력</button>
+        </div>
+      </div>
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--line)' }}>
+        <table className="w-full text-[13px]">
+          <thead><tr style={{ background: 'var(--bg-soft)' }}>{['문서번호', '절차서 제목', '주제', '작성', '최종 수정'].map(h => <th key={h} className="text-left px-3 py-2 font-semibold">{h}</th>)}</tr></thead>
+          <tbody>
+            {procs.map((p, i) => (
+              <tr key={p.id} onClick={() => navigate('/quality-procedure?id=' + p.id)} className="cursor-pointer" style={{ borderTop: '1px solid var(--line)' }}>
+                <td className="px-3 py-2 font-mono">QP-{String(i + 1).padStart(2, '0')}</td>
+                <td className="px-3 py-2">{p.title}</td>
+                <td className="px-3 py-2">{p.items.length}</td>
+                <td className="px-3 py-2" style={{ color: filledN(p) ? '#166534' : 'var(--ink-faint)' }}>{filledN(p)}</td>
+                <td className="px-3 py-2" style={{ color: 'var(--ink-faint)' }}>{p.updated_at ? new Date(p.updated_at).toLocaleDateString('ko-KR') : '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 const sectionOrder = (id) => String(id).split('.').map(n => String(Number(n) || 0).padStart(3, '0')).join('.')
 
 function QualityManualTab() {

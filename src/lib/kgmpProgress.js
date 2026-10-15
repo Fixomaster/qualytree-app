@@ -44,6 +44,13 @@ function loadDocState() {
 // 새 워크스페이스(사이드 메뉴로 연결된) 화면들이 실제로 데이터를 저장하는 곳 — 여기서 직접 읽어서
 // KGMP 체크리스트 상태에 반영한다(기존 /documents, /company 등 사이드 메뉴에 없는 구 화면은 참조하지 않는다).
 const DOC_REGISTER_KEY = 'qualytree.doc_register'       // 문서·규정 › 문서관리 (/document-control)
+// 품질절차서(/quality-procedure)에서 내용이 작성된 절차서 수
+function qpFilledCount() {
+  try {
+    const l = JSON.parse(localStorage.getItem('qualytree.quality_procedures') || '[]')
+    return (Array.isArray(l) ? l : []).filter((p) => (p.items || []).some((i) => String(i.content || '').replace(/<[^>]*>/g, '').trim() || /<img|<table/i.test(i.content || ''))).length
+  } catch { return 0 }
+}
 const QUALITY_MANUAL_KEY = 'qualytree.quality_manual'   // 문서·규정 › 품질매뉴얼 (/quality-manual)
 const ORG_ROLES_KEY = 'qualytree.org_roles'             // 교육·인력 › 조직·책임 (/org-responsibility)
 const DISTRIBUTIONS_KEY = 'qualytree.distributions'     // 생산·제조 › 제품추적성관리 (/traceability)
@@ -330,8 +337,8 @@ export function buildKgmpSections({ autoHeal = true, profile = 'manufacturer' } 
         },
         {
           label: '주요 절차서 목록',
-          status: ctx.docRegister.filter((d) => d.type === 'SOP').length > 0 ? 'done' : 'missing',
-          detail: `${ctx.docRegister.filter((d) => d.type === 'SOP').length}건 등록`,
+          status: ctx.docRegister.filter((d) => d.type === 'SOP').length + qpFilledCount() > 0 ? 'done' : 'missing',
+          detail: `${ctx.docRegister.filter((d) => d.type === 'SOP').length}건 등록 · 품질절차서 ${qpFilledCount()}건 작성`,
           editHref: '/document-control',
         },
       ],
