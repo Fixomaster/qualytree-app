@@ -104,10 +104,7 @@ const LS_INOUT = 'qualytree.receiving_shipping'
 let _sbCidPVH = null
 const EMPTY_INOUT = { type: 'in', date: '', itemName: '', qty: '', partner: '', note: '' }
 
-function ReceivingShippingPanel({ canEdit }) {
-  const [records, setRecords] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_INOUT) || '[]') } catch { return [] }
-  })
+function ReceivingShippingPanel({ canEdit, records, setRecords }) {
   const [form, setForm] = useState(EMPTY_INOUT)
   const [showForm, setShowForm] = useState(false)
 
@@ -267,6 +264,7 @@ export default function PurchaseVerificationHub() {
 
   const [pos,  setPos]  = useState(() => { try { return JSON.parse(localStorage.getItem(LS_PO)  || '[]') } catch { return [] } })
   const [iqcs, setIqcs] = useState(() => { try { return JSON.parse(localStorage.getItem(LS_IQC) || '[]') } catch { return [] } })
+  const [records, setRecords] = useState(() => { try { return JSON.parse(localStorage.getItem(LS_INOUT) || '[]') } catch { return [] } })
 
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'po')   // po | iqc | inout | analysis
   const [showPoForm,  setShowPoForm]  = useState(false)
@@ -585,7 +583,7 @@ export default function PurchaseVerificationHub() {
         )}
 
         {/* ── 현황 분석 탭 ── */}
-        {tab === 'inout' && <ReceivingShippingPanel canEdit={canEdit} />}
+        {tab === 'inout' && <ReceivingShippingPanel canEdit={canEdit} records={records} setRecords={setRecords} />}
 
         {tab === 'analysis' && <AnalysisView analysis={analysis} pos={pos} iqcs={iqcs} />}
       </div>
