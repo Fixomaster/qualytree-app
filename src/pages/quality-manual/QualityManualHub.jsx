@@ -121,7 +121,7 @@ async function saveSectionContent(companyId, sectionId, sectionTitle, content, u
     .eq('data_key', 'all')
     .single()
   const revisions = revRow?.payload?.list || []
-  revisions.unshift({ section_id: sectionId, section_title: sectionTitle, content, created_at: now, created_by: userEmail, note: '작적저장', reason: meta.reason || '', effective_date: meta.effectiveDate || '' })
+  revisions.unshift({ section_id: sectionId, section_title: sectionTitle, content, created_at: now, created_by: userEmail, note: '작적저장', reason: meta.reason || '', effective_date: meta.effectiveDate || '', rev_no: (meta.revNo || '').trim() })
   await supabase
     .from('company_data')
     .upsert({
@@ -244,7 +244,7 @@ function buildQmRevisions(revisions) {
     const isNew = !seen.has(r.section_id); seen.add(r.section_id)
     const title = r.section_title || r.section_id
     return {
-      rev: i === 0 ? '제정(0)' : 'Rev.' + i,
+      rev: r.rev_no || (i === 0 ? '제정(0)' : 'Rev.' + i),
       date: r.effective_date ? fmtDate(r.effective_date) : fmtDate(r.created_at),
       reason: r.reason || (isNew ? '신규 작성' : '내용 수정'),
       content: title + (isNew ? ' 신규 작성' : ' 개정'),
@@ -266,6 +266,7 @@ export default function QualityManualHub() {
   const [saving, setSaving] = useState(false)
   const [saveOk, setSaveOk] = useState(false)
   const [reason, setReason] = useState('')
+  const [revNo, setRevNo] = useState('')
   const [effDate, setEffDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -312,13 +313,14 @@ export default function QualityManualHub() {
   async function handleSave() {
     if (!companyId) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setSaving(true)
-    await saveSectionContent(companyId, selectedSection.id, selectedSection.title, editText, userEmail, { reason, effectiveDate: effDate })
+    await saveSectionContent(companyId, selectedSection.id, selectedSection.title, editText, userEmail, { reason, effectiveDate: effDate, revNo })
     const now = new Date().toISOString()
     setSectionContents(prev => ({ ...prev, [selectedSection.id]: { content: editText, updatedAt: now } }))
     const revs = await loadRevisions(companyId)
     setRevisions(revs)
     setSaving(false)
     setReason('')
+    setRevNo('')
     setSaveOk(true)
     setTimeout(() => setSaveOk(false), 2000)
   }
@@ -486,6 +488,7 @@ export default function QualityManualHub() {
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <input value={revNo} onChange={e => setRevNo(e.target.value)} placeholder={'개정번호 (비우면 ' + (revisions.length === 0 ? '제정(0)' : 'Rev.' + revisions.length) + ')'} title="개정번호" style={{ padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, width: 150 }} />
                   <input type="date" value={effDate} onChange={e => setEffDate(e.target.value)} title="시행일" style={{ padding: '7px 8px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13 }} />
                   <input value={reason} onChange={e => setReason(e.target.value)} placeholder="개정사유 (예: 신규 제정, 요구사항 변경)" style={{ padding: '7px 10px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, width: 230 }} />
                   <button
