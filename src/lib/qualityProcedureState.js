@@ -51,7 +51,7 @@ export function saveProcedures(list) { localStorage.setItem(QP_KEY, JSON.stringi
 export function loadProcRevisions() { const r = readJson(QP_REV_KEY, []); return Array.isArray(r) ? r : [] }
 
 /** 절차서 1건 저장 + 개정이력(스냅샷) 기록. note: 저장 메모 */
-export function saveProcedure(proc, by = '', note = '저장', effectiveDate = '') {
+export function saveProcedure(proc, by = '', note = '저장', effectiveDate = '', revNo = '') {
   const now = new Date().toISOString()
   const next = { ...proc, updated_at: now }
   const list = loadProcedures()
@@ -68,7 +68,7 @@ export function saveProcedure(proc, by = '', note = '저장', effectiveDate = ''
   })
   ;(prev?.snapshot.items || []).forEach(o => { if (!proc.items.some(i => i.id === o.id)) changed.push(`${o.no} ${o.topic} 삭제`) })
   const summary = prev ? (changed.length ? changed.join(', ') : '제목/구성 변경') : '제정'
-  revs.unshift({ id: uid(), procedure_id: proc.id, procedure_title: proc.title, snapshot: { title: proc.title, items: proc.items.map(i => ({ ...i })) }, created_at: now, created_by: by, note, effective_date: effectiveDate || now.slice(0, 10), summary })
+  revs.unshift({ id: uid(), procedure_id: proc.id, procedure_title: proc.title, snapshot: { title: proc.title, items: proc.items.map(i => ({ ...i })) }, created_at: now, created_by: by, note, effective_date: effectiveDate || now.slice(0, 10), rev_no: String(revNo || '').trim(), summary })
   localStorage.setItem(QP_REV_KEY, JSON.stringify(revs.slice(0, MAX_REV)))
   return next
 }
@@ -133,6 +133,21 @@ export function resolveTokens(html, ctx = getLinkContext()) {
   return src.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, k) => ctx[k] ? esc(ctx[k]) : (k in ctx ? `<span style="color:#b45309;background:#fef3c7;padding:0 4px;border-radius:3px">[미입력: ${esc(k)}]</span>` : `{{${k}}}`))
 }
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])) }
+
+/** 절차서별 개정이력표 행(오래된 순). 개정번호는 입력값 우선, 없으면 절차서별 순번(제정(0), Rev.1…) */
+export function buildProcRevisionRows(revisions, procedureId = null) {
+  const sorted = [...revisions].filter(r => r.created_at && (!procedureId || r.procedure_id === procedureId)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+  const cnt = {}
+  return sorted.map(r => {
+    const idx = cnt[r.procedure_id] = (cnt[r.procedure_id] ?? -1) + 1
+    const d = r.effective_date ? String(r.effective_date).slice(0, 10) : String(r.created_at).slice(0, 10)
+    return {
+      rev: r.rev_no || (idx === 0 ? '제정(0)' : 'Rev.' + idx), date: d,
+      reason: r.note && r.note !== '저장' ? r.note : (idx === 0 ? '신규 제정' : '내용 수정'),
+      content: (procedureId ? '' : r.procedure_title + ': ') + (r.summary || (r.snapshot ? (idx === 0 ? '제정' : '개정') : '삭제')),
+    }
+  })
+}
 
 /** 특정 시점(idx까지)의 전체 절차서 상태 복원: { procedureId: snapshot } */
 export function snapshotAt(revisionsOldestFirst, idx) {
