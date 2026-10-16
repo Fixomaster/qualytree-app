@@ -51,14 +51,24 @@ export function saveProcedures(list) { localStorage.setItem(QP_KEY, JSON.stringi
 export function loadProcRevisions() { const r = readJson(QP_REV_KEY, []); return Array.isArray(r) ? r : [] }
 
 /** 절차서 1건 저장 + 개정이력(스냅샷) 기록. note: 저장 메모 */
-export function saveProcedure(proc, by = '', note = '저장') {
+export function saveProcedure(proc, by = '', note = '저장', effectiveDate = '') {
   const now = new Date().toISOString()
   const next = { ...proc, updated_at: now }
   const list = loadProcedures()
   const exists = list.some(p => p.id === proc.id)
   saveProcedures(exists ? list.map(p => p.id === proc.id ? next : p) : [...list, next])
   const revs = loadProcRevisions()
-  revs.unshift({ id: uid(), procedure_id: proc.id, procedure_title: proc.title, snapshot: { title: proc.title, items: proc.items.map(i => ({ ...i })) }, created_at: now, created_by: by, note })
+  const prev = revs.find(r => r.procedure_id === proc.id && r.snapshot)
+  const norm = (v) => String(v || '').replace(/\s+/g, ' ').trim()
+  const changed = []
+  proc.items.forEach(i => {
+    const o = prev?.snapshot.items.find(x => x.id === i.id)
+    if (!o) { if (isFilled(i.content) || i.topic) changed.push(`${i.no} ${i.topic} 추가`) }
+    else if (norm(o.content) !== norm(i.content) || o.topic !== i.topic || o.no !== i.no) changed.push(`${i.no} ${i.topic} 수정`)
+  })
+  ;(prev?.snapshot.items || []).forEach(o => { if (!proc.items.some(i => i.id === o.id)) changed.push(`${o.no} ${o.topic} 삭제`) })
+  const summary = prev ? (changed.length ? changed.join(', ') : '제목/구성 변경') : '제정'
+  revs.unshift({ id: uid(), procedure_id: proc.id, procedure_title: proc.title, snapshot: { title: proc.title, items: proc.items.map(i => ({ ...i })) }, created_at: now, created_by: by, note, effective_date: effectiveDate || now.slice(0, 10), summary })
   localStorage.setItem(QP_REV_KEY, JSON.stringify(revs.slice(0, MAX_REV)))
   return next
 }

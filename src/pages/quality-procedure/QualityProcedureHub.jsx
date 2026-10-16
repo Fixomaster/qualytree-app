@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router-dom'
 import AppLayout from '../../components/AppLayout'
 import RichTextEditor from '../../components/RichTextEditor'
 import RichView from '../../components/RichView'
+import DocFrontMatter, { fmtDate } from '../../components/DocFrontMatter'
 import { auth } from '../../lib/auth'
 import { htmlToText } from '../../lib/richText'
 import {
@@ -115,6 +116,7 @@ export default function QualityProcedureHub() {
   const [openItem, setOpenItem] = useState(null)
   const [newTitle, setNewTitle] = useState('')
   const [note, setNote] = useState('')
+  const [effDate, setEffDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [saved, setSaved] = useState(false)
   const ctx = useMemo(() => getLinkContext(), [tab, procs])
 
@@ -137,7 +139,7 @@ export default function QualityProcedureHub() {
   }
   function save() {
     if (!draft) return
-    const p = saveProcedure(draft, userName(), note.trim() || '저장')
+    const p = saveProcedure(draft, userName(), note.trim() || '저장', effDate)
     refresh(); setDraft(JSON.parse(JSON.stringify(p))); setDirty(false); setNote(''); setSaved(true); setTimeout(() => setSaved(false), 2000)
   }
   function move(i, d) { upd(x => { const j = i + d; if (j < 0 || j >= x.items.length) return x; [x.items[i], x.items[j]] = [x.items[j], x.items[i]]; return x }) }
@@ -184,7 +186,8 @@ export default function QualityProcedureHub() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <input value={draft.title} onChange={e => upd(x => { x.title = e.target.value; return x })} style={{ ...inp, fontSize: 17, fontWeight: 700, flex: 1, minWidth: 200 }} />
-                  <input value={note} onChange={e => setNote(e.target.value)} placeholder="개정 사유(선택)" style={{ ...inp, width: 180 }} />
+                  <input type="date" value={effDate} onChange={e => setEffDate(e.target.value)} title="시행일" style={inp} />
+                  <input value={note} onChange={e => setNote(e.target.value)} placeholder="개정사유 (예: 신규 제정)" style={{ ...inp, width: 200 }} />
                   <button onClick={save} disabled={!dirty && !saved} style={{ ...btn, background: saved ? '#f0fdf4' : dirty ? G : '#e5e7eb', color: saved ? '#15803d' : dirty ? '#fff' : '#9ca3af', border: 'none', fontWeight: 600 }}>{saved ? <Check size={14} /> : <Save size={14} />}{saved ? '저장됨' : '저장'}</button>
                   <button onClick={removeProcedure} style={{ ...btn, color: '#b91c1c' }} title="절차서 삭제"><Trash2 size={14} /></button>
                 </div>
@@ -254,11 +257,25 @@ export default function QualityProcedureHub() {
               <h2 style={{ fontSize: 28, fontWeight: 800, margin: 0 }}>품질절차서</h2>
               {ctx['회사명'] && <div style={{ fontSize: 16, color: '#6b7280', marginTop: 8 }}>{ctx['회사명']}</div>}
             </div>
+            {(() => {
+              const viewProcs = procs.filter(p => p.items.some(i => isFilled(i.content)))
+              const sortedRevs = [...revs].filter(r => r.created_at).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+              const seen = {}
+              const rows = sortedRevs.map((r, i) => {
+                const first = !seen[r.procedure_id]; seen[r.procedure_id] = true
+                return { rev: i === 0 ? '제정(0)' : 'Rev.' + i, date: r.effective_date ? fmtDate(r.effective_date) : fmtDate(r.created_at), reason: r.note && r.note !== '저장' ? r.note : (first ? '신규 제정' : '내용 수정'), content: `${r.procedure_title}: ${r.summary || (r.snapshot ? (first ? '제정' : '개정') : '삭제')}` }
+              })
+              const toc = []
+              procs.forEach((p, idx) => { if (!viewProcs.includes(p)) return
+                toc.push({ key: 'qp-' + p.id, no: 'QP-' + String(idx + 1).padStart(2, '0'), title: p.title, depth: 0 })
+                p.items.filter(i => isFilled(i.content)).forEach(it => toc.push({ key: 'qpi-' + it.id, no: it.no, title: it.topic, depth: depth(it.no) + 1 })) })
+              return <DocFrontMatter docNo="QP" toc={toc} revisions={rows} latest={rows.slice(-1)[0]} />
+            })()}
             {procs.filter(p => p.items.some(i => isFilled(i.content))).map((p, pi) => (
-              <div key={p.id} style={{ marginBottom: 36, pageBreakInside: 'auto' }}>
+              <div key={p.id} id={'qp-' + p.id} style={{ marginBottom: 36, pageBreakInside: 'auto' }}>
                 <div style={{ fontSize: 19, fontWeight: 800, borderBottom: `2px solid ${G}`, paddingBottom: 6, marginBottom: 14 }}>QP-{String(procs.indexOf(p) + 1).padStart(2, '0')} {p.title}</div>
                 {p.items.filter(i => isFilled(i.content)).map(it => (
-                  <div key={it.id} style={{ marginBottom: 14, paddingLeft: depth(it.no) * 14 }}>
+                  <div key={it.id} id={'qpi-' + it.id} style={{ marginBottom: 14, paddingLeft: depth(it.no) * 14 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{it.no} {it.topic}</div>
                     <RichView value={resolveTokens(it.content, ctx)} style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }} />
                   </div>
