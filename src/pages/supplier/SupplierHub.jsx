@@ -32,12 +32,7 @@ function lsR(key, fb = []) {
 function lsW(key, data) {
   localStorage.setItem(key, JSON.stringify(data))
   if (_sbCidSup) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidSup,
-      data_type: 'localStorage_sync',
-      data_key: key,
-      payload: data,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 

@@ -63,12 +63,7 @@ function useLS(key, init) {
     localStorage.setItem(key, JSON.stringify(n))
     setV(n)
     if (companyId) {
-      supabase.from('company_data').upsert({
-        company_id: companyId,
-        data_type: _SB_DATA_TYPE,
-        data_key: key,
-        payload: n,
-      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+      void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
     }
   }
   return [v, set]

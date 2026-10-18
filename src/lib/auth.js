@@ -22,6 +22,7 @@ export const PENDING_JOIN_KEY = 'qualytree.pendingJoin'
 // 덮어쓰는 경쟁 상태가 생길 수 있다. 모듈 로드 시점에 한 번만 읽어 캐시해두면
 // 이후 호출들이 전부 같은 값을 참조하므로 경쟁 상태 없이 일관되게 override가 유지된다.
 let _cachedNameOverride = null
+let _pendingSignOut = null
 try {
   const boot = JSON.parse(localStorage.getItem(KEY) || 'null')
   if (boot && boot.nameOverride && boot.name && boot.userId) {
@@ -110,10 +111,16 @@ export const auth = {
 
   signOut() {
     localStorage.removeItem(KEY)
-    try { resetCloudSync() } catch { /* ignore */ }
-    try {
-      signOutSupabase().catch(() => {})
-    } catch { /* ignore */ }
+    // 대기 중인 저장을 서버로 모두 보낸 뒤에 Supabase 세션을 끊는다 — 먼저 끊으면 마지막
+    // 입력분이 인증 없이 전송되어 거부(저장 유실)된다.
+    let flush
+    try { flush = Promise.resolve(resetCloudSync()) } catch { flush = Promise.resolve() }
+    _pendingSignOut = flush
+      .catch(() => {})
+      .then(() => signOutSupabase().catch(() => {}))
+      .catch(() => {})
+      .finally(() => { _pendingSignOut = null })
+    return _pendingSignOut
   },
 
   current() {
@@ -170,6 +177,9 @@ export const auth = {
   // ───────── Supabase 정식 인증 ─────────
 
   async signInWithPassword(email, password) {
+    // 직전 로그아웃의 저장·세션 종료가 아직 진행 중이면 끝난 뒤에 로그인한다
+    // (그렇지 않으면 늦게 도착한 세션 종료가 새 로그인 세션을 끊어버린다).
+    if (_pendingSignOut) { try { await _pendingSignOut } catch { /* ignore */ } }
     let data, error
     try {
       const r = await signInWithEmail(email, password)
@@ -328,6 +338,8 @@ if (typeof window !== 'undefined') {
     supabase.auth.onAuthStateChange((event, session) => {
       try {
         if (event === 'SIGNED_OUT') {
+          // 로그아웃 버튼 없이 세션이 끝난 경우(만료·다른 탭 로그아웃)에도 동기화 상태를 정리한다.
+          try { resetCloudSync() } catch { /* ignore */ }
           try {
             const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
             if (cur && cur.identityKind !== 'demo') {

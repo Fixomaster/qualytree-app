@@ -191,17 +191,13 @@ export default function CleanlinessHub() {
   function saveRecs(list) {
     localStorage.setItem(LS_RECS, JSON.stringify(list))
     if (_sbCidCln) {
-      supabase.from('company_data').upsert({
-        company_id: _sbCidCln, data_type: 'localStorage_sync', data_key: LS_RECS, payload: list,
-      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+      void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
     }
   }
   function savePlan(p) {
     localStorage.setItem(LS_PLAN, JSON.stringify(p))
     if (_sbCidCln) {
-      supabase.from('company_data').upsert({
-        company_id: _sbCidCln, data_type: 'localStorage_sync', data_key: LS_PLAN, payload: p,
-      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+      void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
     }
   }
 

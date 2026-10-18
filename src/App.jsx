@@ -4,8 +4,8 @@ import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
-import { initCloudSync } from './lib/cloudSync'
-import { getCompanyMembership } from './lib/supabase'
+import { initCloudSync, subscribeSyncStatus, isSyncReadyFor } from './lib/cloudSync'
+import { supabase, getCompanyMembership } from './lib/supabase'
 import { deptAuth } from './lib/deptAuth'
 import CloudSyncIndicator from './components/CloudSyncIndicator'
 import { CompanyProfileProvider } from './contexts/CompanyProfileContext'
@@ -146,22 +146,101 @@ try { PaymentHub = React.lazy(() => import(/* @vite-ignore */ './pages/billing/P
 try { PaymentSuccessHub = React.lazy(() => import(/* @vite-ignore */ './pages/billing/PaymentSuccessHub')) } catch {}
 
 // ── Route guards ─────────────────────────────────────────────────────
+// 이번 로그인에서 "소속 회사 없음"으로 확인된 사용자(운영자·가입 대기 등) — 라우트 이동마다 다시 묻지 않도록
+let _noCompanyFor = null
+// 로그아웃(동기화 리셋) 시 다음 로그인에서 다시 확인하도록 초기화
+subscribeSyncStatus((s) => { if (s === 'idle') _noCompanyFor = null })
+
+function _gateTimeout(p, ms) {
+  return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))])
+}
+
+// 지금 바로 화면을 그려도 되는지(이미 이 회사 데이터를 불러왔거나, 동기화 대상이 아닌 사용자)
+function _gateReadyNow() {
+  const cur = auth.current()
+  if (!cur) return true
+  if (cur.identityKind === 'demo') return true
+  if (_noCompanyFor && _noCompanyFor === (cur.userId || cur.email)) return true
+  const cid = cur.company?.id
+  return !!cid && !cur._viewingAs && isSyncReadyFor(cid)
+}
+
 function ProtectedRoute({ children }) {
-// #368-371 — localStorage → Supabase 동기화: 로그인된 사용자가 보호된 페이지에
-// 진입할 때마다(1회성, 회사 id가 바뀌지 않는 한 재실행 안 됨) 해당 회사의 company_data를
-// 동기화한다. 실패해도 화면은 기존처럼 localStorage만으로 정상 동작하므로 UI를 막지 않는다.
+// #368-371 — localStorage → Supabase 동기화: 로그인된 사용자가 보호된 페이지에 진입하면
+// 해당 회사의 company_data를 먼저 불러온 뒤에 화면을 그린다. 서버 데이터가 도착하기 전에
+// 빈 화면이 먼저 그려지면, 그 빈 상태가 저장되면서 서버의 기존 데이터를 덮어써 버린다.
+const signedIn = auth.isSignedIn()
+const [gate, setGate] = React.useState(() => _gateReadyNow() ? 'ready' : 'loading')
+const [attempt, setAttempt] = React.useState(0)
 React.useEffect(() => {
+  if (!signedIn) return
+  if (_gateReadyNow()) { setGate('ready'); return }
   let cancelled = false
-  getCompanyMembership().then((m) => {
+  ;(async () => {
+    const cur = auth.current()
+    // 1) 로그인 세션이 살아 있는지 — 만료된 세션으로 동기화하면 빈 데이터로 보여 덮어쓰기가 생긴다
+    let session = null
+    try { session = (await _gateTimeout(supabase.auth.getSession(), 15000))?.data?.session || null }
+    catch { if (!cancelled) setGate('error'); return }
+    if (cancelled) return
+    if (!session) {
+      console.warn('[cloudSync] 로그인 세션 만료 — 다시 로그인 필요')
+      try { await auth.signOut() } catch { /* ignore */ }
+      if (!cancelled) setGate('expired')
+      return
+    }
+    // 2) 소속 회사 확인 (일시 오류에 대비해 한 번 더 시도)
+    let m = null
+    for (let i = 0; i < 2 && !m; i++) {
+      try { m = await _gateTimeout(getCompanyMembership(), 15000) } catch { m = null }
+      if (cancelled) return
+      if (!m && i === 0 && cur?.identityKind === 'company_member') await new Promise((r) => setTimeout(r, 1500))
+      else break
+    }
     console.info('[cloudSync] getCompanyMembership 결과:', m)
-    if (!cancelled && m?.company_id) initCloudSync(m.company_id)
-    else if (!cancelled) console.warn('[cloudSync] company_id 없음 — 회사 소속이 확인되지 않아 동기화 미시작', m)
     // #374 — 이 기기/브라우저에 아직 로컬 부서 선택이 없으면, 계정에 저장된 마지막 선택을 이어받는다.
-    if (!cancelled && m?.last_dept) deptAuth.applyRemoteDept(m.last_dept)
-  }).catch((e) => console.warn('[cloudSync] getCompanyMembership 오류:', String(e?.message || e)))
+    if (m?.last_dept) deptAuth.applyRemoteDept(m.last_dept)
+    if (!m?.company_id) {
+      if (cur?.identityKind === 'company_member') {
+        // 회사 사용자인데 소속 확인 실패 — 동기화 없이 화면을 열면 입력이 서버에 안 남으므로 막는다
+        if (!cancelled) setGate('error')
+        return
+      }
+      console.warn('[cloudSync] 소속 회사 없음 — 동기화 대상 아님', cur?.identityKind)
+      _noCompanyFor = cur?.userId || cur?.email || 'x'
+      if (!cancelled) setGate('ready')
+      return
+    }
+    const ok = await initCloudSync(m.company_id)
+    if (cancelled) return
+    setGate(ok ? 'ready' : 'error')
+  })()
   return () => { cancelled = true }
-}, [])
-if (!auth.isSignedIn()) return <Navigate to="/login" replace />
+}, [signedIn, attempt])
+if (!signedIn || gate === 'expired') return <Navigate to="/login" replace />
+if (gate === 'loading') {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink-faint, #64748b)', fontSize: 14 }}>
+      회사 데이터를 불러오는 중입니다…
+    </div>
+  )
+}
+if (gate === 'error') {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', fontSize: 14, color: '#334155' }}>
+      <div style={{ fontWeight: 700 }}>서버에서 회사 데이터를 불러오지 못했습니다.</div>
+      <div style={{ color: '#64748b' }}>저장된 데이터가 덮어써지지 않도록 화면을 잠시 막아 두었습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</div>
+      <button type="button" onClick={() => { setGate('loading'); setAttempt((n) => n + 1) }}
+        style={{ marginTop: 4, padding: '8px 18px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+        다시 시도
+      </button>
+      <button type="button" onClick={async () => { try { await auth.signOut() } catch { /* ignore */ } window.location.href = '/login' }}
+        style={{ padding: '6px 14px', borderRadius: 8, border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer', fontSize: 13 }}>
+        로그아웃
+      </button>
+    </div>
+  )
+}
 return children
 }
 function PublicRoute({ children }) {

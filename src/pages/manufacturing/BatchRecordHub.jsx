@@ -1,7 +1,6 @@
 // src/pages/manufacturing/BatchRecordHub.jsx
 // 생산현황 — 작업지시 → 배치기록서 연결 및 실적 기록 (ISO 13485 §7.5.1)
 import { useState, useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
 import AppLayout from '../../components/AppLayout'
 import { ClipboardList, Plus, ChevronDown, ChevronRight, Check } from 'lucide-react'
 
@@ -12,6 +11,9 @@ const STATUS_COLORS = {
   rejected:    { bg: '#fef2f2', text: '#dc2626', label: '불합격' },
   on_hold:     { bg: '#fef9c3', text: '#ca8a04', label: '보류' },
 }
+
+const LS_WO = 'qualytree.batch_work_orders'
+const LS_BR = 'qualytree.batch_records'
 
 const EMPTY_WO = { product_name: '', lot_number: '', planned_qty: '', planned_date: '', notes: '' }
 const EMPTY_BR = { actual_qty: '', actual_date: '', operator: '', yield_pct: '', status: 'in_progress', deviations: '', inspector: '', inspection_result: 'pass' }
@@ -29,37 +31,42 @@ export default function BatchRecordHub() {
 
   useEffect(() => { fetchAll() }, [])
 
+  // 저장소: 운영 Supabase에 work_orders·batch_records 테이블이 없어 저장이 전부 실패하고 있었다.
+  // 다른 화면과 같이 회사 데이터(localStorage → cloudSync → company_data)에 저장한다.
+  function readList(key) { try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v : [] } catch { return [] } }
+  function writeList(key, list) { localStorage.setItem(key, JSON.stringify(list)) }
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+  function currentEmail() { try { return JSON.parse(localStorage.getItem('qualytree.auth') || 'null')?.email || null } catch { return null } }
+
   async function fetchAll() {
     setLoading(true)
-    const { data: wos } = await supabase.from('work_orders').select('*').order('created_at', { ascending: false })
-    const { data: brs } = await supabase.from('batch_records').select('*').order('created_at', { ascending: false })
-    setWorkOrders(wos ?? [])
-    if (brs) {
-      const map = {}
-      brs.forEach(br => { if (!map[br.work_order_id]) map[br.work_order_id] = []; map[br.work_order_id].push(br) })
-      setBatchRecords(map)
-    }
+    const wos = readList(LS_WO).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    const brs = readList(LS_BR).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+    setWorkOrders(wos)
+    const map = {}
+    brs.forEach(br => { if (!map[br.work_order_id]) map[br.work_order_id] = []; map[br.work_order_id].push(br) })
+    setBatchRecords(map)
     setLoading(false)
   }
 
   async function submitWorkOrder(e) {
     e.preventDefault()
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('work_orders').insert({ ...woForm, planned_qty: Number(woForm.planned_qty), status: 'draft', created_by: user?.email, created_at: new Date().toISOString() })
+    const rec = { id: newId(), ...woForm, planned_qty: Number(woForm.planned_qty), status: 'draft', created_by: currentEmail(), created_at: new Date().toISOString() }
+    writeList(LS_WO, [rec, ...readList(LS_WO)])
     setWoForm(EMPTY_WO); setShowWOForm(false); fetchAll()
   }
 
   async function updateWOStatus(id, status) {
-    await supabase.from('work_orders').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
+    writeList(LS_WO, readList(LS_WO).map(w => w.id === id ? { ...w, status, updated_at: new Date().toISOString() } : w))
     fetchAll()
   }
 
   async function submitBatchRecord(e, workOrderId) {
     e.preventDefault()
-    const { data: { user } } = await supabase.auth.getUser()
-    await supabase.from('batch_records').insert({ work_order_id: workOrderId, ...brForm, actual_qty: Number(brForm.actual_qty), yield_pct: Number(brForm.yield_pct), created_by: user?.email, created_at: new Date().toISOString() })
+    const rec = { id: newId(), work_order_id: workOrderId, ...brForm, actual_qty: Number(brForm.actual_qty), yield_pct: Number(brForm.yield_pct), created_by: currentEmail(), created_at: new Date().toISOString() }
+    writeList(LS_BR, [rec, ...readList(LS_BR)])
     if (brForm.status === 'completed') {
-      await supabase.from('work_orders').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', workOrderId)
+      writeList(LS_WO, readList(LS_WO).map(w => w.id === workOrderId ? { ...w, status: 'completed', updated_at: new Date().toISOString() } : w))
     }
     setBrForm(EMPTY_BR); setShowBRForm(null); fetchAll()
   }

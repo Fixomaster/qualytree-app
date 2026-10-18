@@ -73,7 +73,17 @@ export function QualityObjectivesPanel() {
   const companyId = user?.company_id
 
   const [objectives, setObjectives] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') } catch { return [] }
+    try {
+      const own = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+      if (Array.isArray(own) && own.length) return own
+      // 복구: 예전 버그로 품질목표가 품질방침 키(qualytree.quality_policy)에 목록 형태로 저장된 경우
+      const misplaced = JSON.parse(localStorage.getItem(LS_KEY_POLICY) || 'null')
+      if (Array.isArray(misplaced) && misplaced.length && misplaced.every(o => o && typeof o === 'object' && 'title' in o)) {
+        localStorage.setItem(LS_KEY, JSON.stringify(misplaced))
+        return misplaced
+      }
+      return Array.isArray(own) ? own : []
+    } catch { return [] }
   })
 
   const [tab, setTab] = useState('list')    // list | detail | analysis
@@ -89,16 +99,16 @@ export function QualityObjectivesPanel() {
 
   function save(list) {
     setObjectives(list)
-    localStorage.setItem(LS_KEY_POLICY, JSON.stringify(list))
-    if (_sbCidQo) supabase.from('company_data').upsert({company_id: _sbCidQo, data_type: 'localStorage_sync', data_key: LS_KEY_POLICY, payload: list}, {onConflict: 'company_id,data_type,data_key'})
+    // 품질목표는 자기 키(qualytree.quality_objectives)에 저장 — 예전엔 품질방침 키에 덮어써 방침이 지워졌다.
+    localStorage.setItem(LS_KEY, JSON.stringify(list))
   }
   useEffect(() => { _sbCidQo = companyId || null }, [companyId])
   useEffect(() => {
     if (!companyId) return
     supabase.from('company_data').select('payload')
       .eq('company_id', companyId).eq('data_type', 'localStorage_sync')
-      .eq('data_key', LS_KEY_POLICY).maybeSingle()
-      .then(({ data: sbData }) => { if (sbData?.payload) setObjectives(sbData.payload) })
+      .eq('data_key', LS_KEY).maybeSingle()
+      .then(({ data: sbData }) => { if (Array.isArray(sbData?.payload)) setObjectives(sbData.payload) })
   }, [companyId])
 
   function submitObj() {

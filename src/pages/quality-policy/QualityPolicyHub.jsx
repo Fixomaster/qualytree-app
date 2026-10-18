@@ -33,7 +33,7 @@ export default function QualityPolicyHub() {
   function changeTab(key) { setTab(key); setSearchParams({ tab: key }) }
 
   const [policy, setPolicy] = useState(() => {
-    try { return { ...DEFAULT_POLICY, ...JSON.parse(localStorage.getItem(LS_KEY_POLICY) || '{}') } } catch { return DEFAULT_POLICY }
+    try { const v = JSON.parse(localStorage.getItem(LS_KEY_POLICY) || '{}'); return (v && typeof v === 'object' && !Array.isArray(v)) ? { ...DEFAULT_POLICY, ...v } : DEFAULT_POLICY } catch { return DEFAULT_POLICY }
   })
   const [draft, setDraft] = useState(null)
   const [editing, setEditing] = useState(false)
@@ -105,7 +105,7 @@ export default function QualityPolicyHub() {
 
   return (
     <AppLayout>
-      <HubBanner title="경영의지 · 품질방침" subtitle="ISO 13485 §5.1 / §5.3 — 품질방침 선언, 경영자 서명 및 검토 이력 관리" icon="🏆" />
+      <HubBanner title="경영의지 · 품질방침" subtitle="ISO 13485 §5.1 / §5.3 — 품질방침 선언, 경영자 서명 및 검토 이력 관리" icon={Award} />
       <div className="px-6 lg:px-8 py-6 max-w-[1400px] mx-auto">
 
         <div className="flex gap-1 mb-5 p-1 rounded-xl w-fit" style={{ background: 'var(--bg-soft)' }}>

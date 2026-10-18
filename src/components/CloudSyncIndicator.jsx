@@ -17,10 +17,16 @@ export default function CloudSyncIndicator() {
       if (s === 'syncing') {
         setVisible(true)
         if (hideTimer.current) clearTimeout(hideTimer.current)
-      } else if (s === 'done' || s === 'error') {
+      } else if (s === 'done') {
         setVisible(true)
         if (hideTimer.current) clearTimeout(hideTimer.current)
         hideTimer.current = setTimeout(() => setVisible(false), 1800)
+      } else if (s === 'error') {
+        // 서버 저장이 계속 실패 중이면 사라지지 않게 표시(자동 재시도 중)
+        setVisible(true)
+        if (hideTimer.current) clearTimeout(hideTimer.current)
+      } else if (s === 'idle') {
+        setVisible(false)
       }
     })
     return () => { unsub(); if (hideTimer.current) clearTimeout(hideTimer.current) }
@@ -31,7 +37,7 @@ export default function CloudSyncIndicator() {
   const cfg = {
     syncing: { icon: Loader2, spin: true,  bg: '#EFF6FF', border: '#BFDBFE', color: '#1D4ED8', text: '회사 데이터 동기화 중...' },
     done:    { icon: CheckCircle2, spin: false, bg: '#ECFDF5', border: '#A7F3D0', color: '#047857', text: '동기화 완료' },
-    error:   { icon: AlertTriangle, spin: false, bg: '#FEF2F2', border: '#FECACA', color: '#B91C1C', text: '동기화 지연 중 (오프라인처럼 계속 사용 가능)' },
+    error:   { icon: AlertTriangle, spin: false, bg: '#FEF2F2', border: '#FECACA', color: '#B91C1C', text: '서버 저장 지연 — 자동 재시도 중 (입력 내용은 이 기기에 보관됨)' },
   }[status] || null
   if (!cfg) return null
   const Icon = cfg.icon

@@ -50,12 +50,7 @@ function lsR() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]') }
 function lsW(d) {
   localStorage.setItem(LS_KEY, JSON.stringify(d))
   if (_sbCidCmp) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidCmp,
-      data_type: 'localStorage_sync',
-      data_key: LS_KEY,
-      payload: d,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 function genId() { return `CMP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }

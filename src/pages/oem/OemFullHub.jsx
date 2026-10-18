@@ -321,7 +321,7 @@ function SectionBox({title,children}) {
   return <div style={{marginBottom:28}}><h4 style={{fontSize:14,fontWeight:600,marginBottom:14}}>{title}</h4><div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'4px 16px'}}>{children}</div></div>
 }
 function ListHeader({title,onAdd}) {
-  return <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}><h3 style={{fontSize:16,fontWeight:600,margin:0}}>{title}</h3><Btn onClick={onAdd}><Plus size={14}/> 추가</Btn></div>
+  return <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}><h3 style={{fontSize:16,fontWeight:600,margin:0}}>{title}</h3><Btn onClick={()=>onAdd()}><Plus size={14}/> 추가</Btn></div>
 }
 function StatusBadge({status}) {
   const map={active:['활성','#16A34A','#F0FDF4'],suspended:['중단','#D97706','#FFFBEB'],terminated:['해지','#6B7280','#F3F4F6']}

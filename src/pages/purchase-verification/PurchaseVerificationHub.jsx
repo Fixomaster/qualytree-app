@@ -112,12 +112,7 @@ function ReceivingShippingPanel({ canEdit, records, setRecords }) {
     setRecords(list)
     localStorage.setItem(LS_INOUT, JSON.stringify(list))
     if (_sbCidPVH) {
-      supabase.from('company_data').upsert({
-        company_id: _sbCidPVH,
-        data_type: 'localStorage_sync',
-        data_key: LS_INOUT,
-        payload: list,
-      }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+      void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
     }
   }
 

@@ -16,18 +16,14 @@ function lsRead() { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'
 function lsWrite(arr) {
   localStorage.setItem(LS_KEY, JSON.stringify(arr))
   if (_sbCidQual) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidQual, data_type: 'localStorage_sync', data_key: LS_KEY, payload: arr,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 function nextId() {
   const n = parseInt(localStorage.getItem(CNT_KEY) || '0', 10) + 1
   localStorage.setItem(CNT_KEY, String(n))
   if (_sbCidQual) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidQual, data_type: 'localStorage_sync', data_key: CNT_KEY, payload: n,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
   return 'NCR-' + new Date().getFullYear() + '-' + String(n).padStart(4, '0')
 }

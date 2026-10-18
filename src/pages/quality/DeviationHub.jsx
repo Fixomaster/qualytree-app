@@ -19,9 +19,7 @@ function load() {
 function save(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
   if (_sbCidDev) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidDev, data_type: 'localStorage_sync', data_key: STORAGE_KEY, payload: list,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 

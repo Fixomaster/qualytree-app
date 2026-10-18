@@ -85,9 +85,7 @@ function loadAudits() {
 function saveAudits(data) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   if (_sbCidAud) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidAud, data_type: 'localStorage_sync', data_key: STORAGE_KEY, payload: data,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 function loadCARs() {
@@ -96,9 +94,7 @@ function loadCARs() {
 function saveCARs(data) {
   localStorage.setItem(CAR_KEY, JSON.stringify(data))
   if (_sbCidAud) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidAud, data_type: 'localStorage_sync', data_key: CAR_KEY, payload: data,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 function genId(prefix) {

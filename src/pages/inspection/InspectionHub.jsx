@@ -32,9 +32,7 @@ function lsR(k) { try { return JSON.parse(localStorage.getItem(k) || '[]') } cat
 function lsW(k, d) {
   localStorage.setItem(k, JSON.stringify(d))
   if (_sbCidIns) {
-    supabase.from('company_data').upsert({
-      company_id: _sbCidIns, data_type: 'localStorage_sync', data_key: k, payload: d,
-    }, { onConflict: 'company_id,data_type,data_key' }).catch(console.error)
+    void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */
   }
 }
 function genInsId() { return `INS-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}` }

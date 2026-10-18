@@ -30,7 +30,7 @@ function useLS(key,init){
     supabase.from('company_data').select('payload').eq('company_id',companyId).eq('data_type',_SB_DATA_TYPE_EQ).eq('data_key',key).maybeSingle()
       .then(({data:row})=>{if(row?.payload!=null){localStorage.setItem(key,JSON.stringify(row.payload));setV(row.payload);vRef.current=row.payload}})
   },[key,companyId])
-  const set=(u)=>{const n=typeof u==='function'?u(vRef.current):u;vRef.current=n;localStorage.setItem(key,JSON.stringify(n));setV(n);if(companyId){supabase.from('company_data').upsert({company_id:companyId,data_type:_SB_DATA_TYPE_EQ,data_key:key,payload:n},{onConflict:'company_id,data_type,data_key'}).catch(console.error)}}
+  const set=(u)=>{const n=typeof u==='function'?u(vRef.current):u;vRef.current=n;localStorage.setItem(key,JSON.stringify(n));setV(n);if(companyId){void 0 /* 서버 저장은 cloudSync가 담당(이 직접 호출은 .catch 오류로 저장을 중단시켜 제거) */}}
   return[v,set]
 }
 const nid=(p)=>`${p}-${new Date().toISOString().slice(2,4)}${String(new Date().getMonth()+1).padStart(2,'0')}-${String(Date.now()).slice(-3)}`
