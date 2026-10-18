@@ -46,7 +46,6 @@ const EXCLUDE_KEYS = new Set([
   'qualytree.pendingJoin',     // 회사 가입 진행 중 임시 상태
   'qualytree.signup',          // 로그인 전 가입 폼 임시 저장
   'qualytree.dept',            // 현재 선택된 부서 화면 (내비게이션 상태)
-  'qualytree.product_id',      // 현재 선택된 제품 ID (내비게이션 상태)
   'qualytree.userLevel',       // 사용자별 권한 캐시 (company_members가 SSoT)
   'qualytree.plans',           // 요금제 캐시 (platform_config가 SSoT, #89 참고)
   'qualytree.viewingAs',       // 운영자 회사 전환 상태
