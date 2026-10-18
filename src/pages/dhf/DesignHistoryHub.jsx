@@ -1433,6 +1433,20 @@ function DhfTransferView({ dhfId }) {
 }
 
 // ── DHF 위험관리 뷰 (ISO 14971) ──────────────────────────────────────
+// 상태 표시용 작은 배지 — 위험관리·설계이전·SOP 탭에서 사용(정의가 빠져 탭이 열리지 않던 문제 수정)
+const BADGE_TONES = {
+  red: { bg: 'var(--rust-soft)', fg: 'var(--rust)' },
+  green: { bg: 'var(--leaf-soft)', fg: 'var(--moss)' },
+  yellow: { bg: '#fff7ed', fg: '#b45309' },
+  amber: { bg: '#fff7ed', fg: '#b45309' },
+  blue: { bg: '#eff6ff', fg: '#1d4ed8' },
+  gray: { bg: 'var(--bg-soft)', fg: 'var(--ink-mute)' },
+}
+function Badge({ text, tone = 'gray' }) {
+  const c = BADGE_TONES[tone] || BADGE_TONES.gray
+  return <span className="font-mono text-[10px] tracking-wider px-1.5 py-0.5 rounded" style={{ background: c.bg, color: c.fg, fontWeight: 500 }}>{text}</span>
+}
+
 function DhfRiskView({ dhfId }) {
   const STORE_KEY = 'qualytree.dhf_risks'
   const [risks, setRisks] = useState([])

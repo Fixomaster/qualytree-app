@@ -1,7 +1,7 @@
 // src/App.jsx — v4: ZERO static page imports. Only auth + react-router-dom stay static.
 // Every page is lazy+vite-ignore → Vite builds nothing page-level at compile time.
 import React from 'react'
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { auth } from './lib/auth'
 import ErrorBoundary from './components/ErrorBoundary'
 import { initCloudSync, subscribeSyncStatus, isSyncReadyFor } from './lib/cloudSync'
@@ -248,14 +248,22 @@ if (auth.isSignedIn()) return <Navigate to="/home" replace />
 return children
 }
 function LazyRoute({ Component, fallback }) {
+const loc = useLocation()
 if (!Component) return fallback || <Navigate to="/home" replace />
 return (
-<ErrorBoundary>
+// key: 다른 메뉴로 이동하면 오류 화면을 초기화한다(한 화면의 오류가 다른 메뉴에 남던 문제)
+<ErrorBoundary key={loc.pathname}>
 <React.Suspense fallback={<div style={{ padding: 48, textAlign: 'center', color: 'var(--ink-faint)' }}>Loading.....</div>}>
 <Component />
 </React.Suspense>
 </ErrorBoundary>
 )
+}
+
+// 예전 주소(/doc-control)로 연결된 버튼·메뉴를 문서관리(/document-control)로 보낸다(쿼리 유지)
+function DocControlRedirect() {
+const loc = useLocation()
+return <Navigate to={'/document-control' + loc.search} replace />
 }
 
 export default function App() {
@@ -321,6 +329,7 @@ return (
 <Route path="/quality-plan" element={<ProtectedRoute><LazyRoute Component={QualityPlanHub} /></ProtectedRoute>} />
 <Route path="/customer-req" element={<ProtectedRoute><LazyRoute Component={CustomerReqHub} /></ProtectedRoute>} />
 <Route path="/infrastructure" element={<ProtectedRoute><LazyRoute Component={InfrastructureHub} /></ProtectedRoute>} />
+<Route path="/doc-control" element={<DocControlRedirect />} />
 <Route path="/document-control" element={<ProtectedRoute><LazyRoute Component={DocControlHub} /></ProtectedRoute>} />
 <Route path="/quality-objectives" element={<ProtectedRoute><LazyRoute Component={QualityObjectivesHub} /></ProtectedRoute>} />
 <Route path="/org-responsibility" element={<ProtectedRoute><LazyRoute Component={OrgResponsibilityHub} /></ProtectedRoute>} />

@@ -269,7 +269,7 @@ function getDeptKPIs(dept) {
   const activeOrders = salOrders.filter(o => !['납품완료', '취소'].includes(o.status))
   const openComplaints = salComplaints.filter(c => !['종결', 'CAPA완료'].includes(c.status))
   const pendingPurOrders = purOrders.filter(o => o.status === '발주대기')
-  const pendingIqc = purIqc.filter(i => i.status === '검사중')
+  const pendingIqc = purIqc.filter(i => i.status === '검사대기' || i.status === '검사중')
   const calDue = eqpInstr.filter(e => {
     const d = daysUntilLocal(e.nextCalib)
     return d !== null && d <= 30

@@ -848,7 +848,7 @@ function FinForm({initial,onSave,onCancel}) {
 function PurchaseHome({avl,orders,inventory,iqc,fin,onNavigate,onGoSupplier}) {
   const shortMat=inventory.filter(i=>i.status==='부족').length
   const shortFin=fin.filter(i=>i.status==='부족').length
-  const pendingIQC=iqc.filter(i=>i.status==='검사중').length
+  const pendingIQC=iqc.filter(i=>i.status==='검사대기'||i.status==='검사중').length
   const overdueOrders=orders.filter(isOrderOverdue).length
   const CARDS=[
     {id:'orders',icon:ClipboardList,label:'발주 관리',desc:'PO 발행 · 납기 추적',count:overdueOrders>0?`납기 지연 ${overdueOrders}건`:`${orders.filter(o=>!['입고완료','취소'].includes(o.status)).length}건 진행중`,warn:overdueOrders>0},
