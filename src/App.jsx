@@ -241,7 +241,44 @@ if (gate === 'error') {
     </div>
   )
 }
+if (auth.current()?.mustChangePassword) return <ForcePasswordChange onDone={() => setAttempt((n) => n + 1)} />
 return children
+}
+
+// 임시 비밀번호로 처음 로그인한 회사 관리자 — 새 비밀번호로 바꾸기 전에는 화면을 열지 않는다
+function ForcePasswordChange({ onDone }) {
+  const [pw, setPw] = React.useState('')
+  const [pw2, setPw2] = React.useState('')
+  const [busy, setBusy] = React.useState(false)
+  const [msg, setMsg] = React.useState('')
+  const inp = { width: '100%', boxSizing: 'border-box', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13 }
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!pw || pw.length < 6) { setMsg('새 비밀번호는 6자 이상이어야 합니다.'); return }
+    if (pw !== pw2) { setMsg('두 비밀번호가 일치하지 않습니다.'); return }
+    setBusy(true); setMsg('')
+    const { error } = await supabase.auth.updateUser({ password: pw, data: { must_change_password: false } })
+    if (error) { setMsg('변경 실패: ' + (error.message || '')); setBusy(false); return }
+    try { await auth.refreshFromSupabase() } catch { /* ignore */ }
+    setBusy(false)
+    onDone()
+  }
+  return (
+    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: '#f8fafc', padding: 24 }}>
+      <div style={{ width: '100%', maxWidth: 380, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 14, padding: 24 }}>
+        <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a' }}>Qualytree</div>
+        <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>첫 로그인 — 비밀번호 변경</div>
+        <p style={{ fontSize: 13, color: '#475569', margin: '10px 0 14px' }}>보안을 위해 임시 비밀번호를 새 비밀번호로 변경해 주세요.</p>
+        <form onSubmit={submit}>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="새 비밀번호 (6자 이상)" autoComplete="new-password" style={inp} />
+          <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="새 비밀번호 확인" autoComplete="new-password" style={{ ...inp, marginTop: 8 }} />
+          {msg && <div style={{ fontSize: 12.5, color: '#b91c1c', marginTop: 8 }}>{msg}</div>}
+          <button type="submit" disabled={busy} style={{ width: '100%', marginTop: 12, background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>{busy ? '변경 중…' : '비밀번호 변경'}</button>
+        </form>
+        <button onClick={async () => { try { await auth.signOut() } catch { /* ignore */ } window.location.href = '/login' }} style={{ marginTop: 12, background: 'none', border: 'none', color: '#64748b', fontSize: 12.5, cursor: 'pointer' }}>로그아웃</button>
+      </div>
+    </div>
+  )
 }
 function PublicRoute({ children }) {
 if (auth.isSignedIn()) return <Navigate to="/home" replace />

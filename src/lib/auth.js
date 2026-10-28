@@ -263,6 +263,8 @@ export const auth = {
         userId: user.id,
         memberId: membership.id,
         permissionLevel: membership.permission_level,
+        // 승인 시 임시 비밀번호로 만든 계정 — 첫 로그인에서 비밀번호 변경을 강제한다(provision_company_manager가 설정)
+        ...(user.user_metadata?.must_change_password ? { mustChangePassword: true } : {}),
       }
       localStorage.setItem(KEY, JSON.stringify(session))
       permissions.setLevel(level)
