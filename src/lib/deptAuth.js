@@ -90,7 +90,7 @@ export const deptAuth = {
         } catch { /* ignore — 아래에서 ALL로 기본 설정 */ }
         if (!this.getDepartment()) this.setDepartment('ALL')
         return this.getDepartment()
-      })()
+      })().finally(() => { this._ensurePromise = null }) // 로그아웃 후 재로그인 시 이전 결과를 재사용하지 않도록
     }
     return this._ensurePromise
   },

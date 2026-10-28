@@ -16,6 +16,11 @@ import { resetCloudSync } from './cloudSync'
 const KEY = 'qualytree.auth'
 const VIEWING_AS_KEY = 'qualytree.viewingAs'
 export const PENDING_JOIN_KEY = 'qualytree.pendingJoin'
+// 로그아웃 시 함께 지울 사용자별 화면 상태 — 남아 있으면 다음 로그인에 이전 회사 보기·부서·권한이 따라온다
+const USER_SCOPED_KEYS = [VIEWING_AS_KEY, 'qualytree.dept', 'qualytree.userLevel']
+function clearUserScopedState() {
+  for (const k of USER_SCOPED_KEYS) { try { localStorage.removeItem(k) } catch { /* ignore */ } }
+}
 
 // 페이지 로드 시 SIGNED_IN·TOKEN_REFRESHED 이벤트가 거의 동시에 여러 번 발생하면
 // refreshFromSupabase()가 병렬로 여러 번 실행되면서 서로의 localStorage 쓰기를
@@ -111,6 +116,7 @@ export const auth = {
 
   signOut() {
     localStorage.removeItem(KEY)
+    clearUserScopedState()
     // 대기 중인 저장을 서버로 모두 보낸 뒤에 Supabase 세션을 끊는다 — 먼저 끊으면 마지막
     // 입력분이 인증 없이 전송되어 거부(저장 유실)된다.
     let flush
@@ -344,6 +350,7 @@ if (typeof window !== 'undefined') {
             const cur = JSON.parse(localStorage.getItem(KEY) || 'null')
             if (cur && cur.identityKind !== 'demo') {
               localStorage.removeItem(KEY)
+              clearUserScopedState()
             }
           } catch { /* ignore */ }
         } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
