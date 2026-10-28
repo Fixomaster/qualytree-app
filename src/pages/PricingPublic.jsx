@@ -89,8 +89,10 @@ export default function PricingPublic() {
           ))}
         </div>
 
-        <div style={{ marginTop: 56, paddingTop: 24, borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--ink-faint)' }}>
-          주식회사 퀄리트리 (Qualytree Co., Ltd.) · 사업자등록번호 496-81-03944 · contact@qualy-tree.com
+        <div style={{ marginTop: 56, paddingTop: 24, borderTop: '1px solid var(--line)', fontSize: 12, color: 'var(--ink-faint)', lineHeight: 1.8 }}>
+          <div><b>상호명</b> 주식회사 퀄리트리 · <b>대표자명</b> 이경혁 · <b>사업자등록번호</b> 496-81-03944</div>
+          <div><b>사업장 주소</b> 경기도 여주시 세종대왕면 양화로 738, 3층 301호</div>
+          <div><b>연락처</b> 010-3116-5997 · <b>이메일</b> contact@qualy-tree.com</div>
         </div>
       </main>
     </div>
