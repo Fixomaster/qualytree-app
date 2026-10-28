@@ -96,7 +96,7 @@ export async function getCompaniesWithSubscriptions() {
   // company_members 전체 조회 → companies join
   const { data: members, error: mErr } = await supabase
     .from('company_members')
-    .select('company_id, companies:company_id(id, name, business_number, created_at)')
+    .select('company_id, companies:company_id(id, name, business_number, created_at, plan_code)')
     .not('company_id', 'is', null)
   if (mErr) return { data: null, error: mErr }
 

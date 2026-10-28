@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { supabase, isPlatformOperator, getCompaniesWithSubscriptions } from '../lib/supabase'
 import RegStandardsTab from './operator/RegStandardsTab'
+import { loadPlans, syncPlansFromServer } from '../lib/plans'
 
 export default function OperatorConsole() {
   const navigate = useNavigate()
@@ -21,6 +22,9 @@ export default function OperatorConsole() {
   const [tab, setTab] = useState('requests')
   const [companies, setCompanies] = useState([])
   const [companiesLoading, setCompaniesLoading] = useState(false)
+  const [plans, setPlans] = useState(() => loadPlans())
+  const [planSaving, setPlanSaving] = useState(null) // 저장 중인 회사 id
+  const [planMsg, setPlanMsg] = useState('')
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -72,7 +76,19 @@ export default function OperatorConsole() {
       setCompanies(data || [])
       setCompaniesLoading(false)
     })
+    syncPlansFromServer().then((p) => { if (Array.isArray(p)) setPlans(p) })
   }, [tab, isOperator])
+
+  // 회사별 요금제 변경 — 요금제 목록·금액은 '플랜·요금 관리'(platform_config.plans)가 기준
+  const changeCompanyPlan = async (company, planCode) => {
+    if (!planCode || planCode === company.plan_code) return
+    setPlanSaving(company.id); setPlanMsg('')
+    const { error } = await supabase.from('companies').update({ plan_code: planCode }).eq('id', company.id)
+    setPlanSaving(null)
+    if (error) { setPlanMsg(`${company.name}: 요금제 변경 실패 — ${typeof error.message === 'string' ? error.message : ''}`); return }
+    setCompanies((cs) => cs.map((x) => (x.id === company.id ? { ...x, plan_code: planCode } : x)))
+    setPlanMsg(`${company.name}: 요금제를 변경했습니다.`)
+  }
 
   const handleViewAs = (company) => {
     auth.viewAs({ id: company.id, name: company.name, business_number: company.business_number, type: company.type })
@@ -618,6 +634,7 @@ export default function OperatorConsole() {
       {tab === 'companies' && (
         <div style={{ padding:'24px 32px' }}>
           <div style={{ fontSize:16, fontWeight:700, color:'#1c1917', marginBottom:16 }}>회사 관리</div>
+          {planMsg && <div style={{ fontSize:12.5, color: planMsg.includes('실패') ? '#b91c1c' : '#166534', marginBottom:10 }}>{planMsg}</div>}
           {companiesLoading ? (
             <div style={{ color:'#78716c', fontSize:14 }}>불러오는 중…</div>
           ) : companies.length === 0 ? (
@@ -640,7 +657,17 @@ export default function OperatorConsole() {
                         <td style={{ padding:'12px 16px', color:'#57534e' }}>{c.business_number || '-'}</td>
                         <td style={{ padding:'12px 16px', color:'#57534e' }}>{c.type || '-'}</td>
                         <td style={{ padding:'12px 16px', color:'#57534e', fontSize:12 }}>{c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-'}</td>
-                        <td style={{ padding:'12px 16px' }}>{sub ? <span style={{ background:'#dcfce7', color:'#166534', padding:'2px 8px', borderRadius:10, fontSize:11, fontWeight:600 }}>{sub.plan}</span> : <span style={{ background:'#f5f5f4', color:'#a8a29e', padding:'2px 8px', borderRadius:10, fontSize:11 }}>무료</span>}</td>
+                        <td style={{ padding:'12px 16px' }}>
+                          <select value={c.plan_code || ''} disabled={planSaving === c.id} onChange={(e) => changeCompanyPlan(c, e.target.value)}
+                            style={{ padding:'4px 6px', border:'1px solid #d6d3d1', borderRadius:6, fontSize:12, background:'#fff' }}>
+                            {!c.plan_code && <option value="">(미지정)</option>}
+                            {c.plan_code && !plans.some((p) => p.id === c.plan_code) && <option value={c.plan_code}>{c.plan_code}</option>}
+                            {plans.filter((p) => !p.custom).map((p) => (
+                              <option key={p.id} value={p.id}>{p.name || p.id} · 월 {Number(p.monthly || 0).toLocaleString('ko-KR')}원</option>
+                            ))}
+                          </select>
+                          {sub && <div style={{ fontSize:11, color:'#78716c', marginTop:3 }}>구독: {sub.plan}</div>}
+                        </td>
                         <td style={{ padding:'12px 16px', color:expired?'#ef4444':'#57534e', fontSize:12 }}>{sub?.expires_at ? new Date(sub.expires_at).toLocaleDateString('ko-KR') : '-'}</td>
                         <td style={{ padding:'12px 16px', color:'#57534e', textAlign:'center' }}>{c.memberCount}</td>
                         <td style={{ padding:'12px 16px', textAlign:'right' }}><button onClick={()=>handleViewAs(c)} style={{ padding:'5px 12px', background:'#1c1917', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:500, cursor:'pointer' }}>이 계정으로 →</button></td>
