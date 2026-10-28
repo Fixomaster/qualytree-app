@@ -24,7 +24,7 @@ export default function OperatorConsole() {
   const [companiesLoading, setCompaniesLoading] = useState(false)
   const [plans, setPlans] = useState(() => loadPlans())
   const [planSaving, setPlanSaving] = useState(null) // 저장 중인 회사 id
-  const [planMsg, setPlanMsg] = useState('')
+  const [planMsg, setPlanMsg] = useState(null) // { id: 회사 id, ok, text } — 해당 회사 행에 표시
   const [selectedRequest, setSelectedRequest] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
@@ -82,12 +82,12 @@ export default function OperatorConsole() {
   // 회사별 요금제 변경 — 요금제 목록·금액은 '플랜·요금 관리'(platform_config.plans)가 기준
   const changeCompanyPlan = async (company, planCode) => {
     if (!planCode || planCode === company.plan_code) return
-    setPlanSaving(company.id); setPlanMsg('')
+    setPlanSaving(company.id); setPlanMsg(null)
     const { error } = await supabase.from('companies').update({ plan_code: planCode }).eq('id', company.id)
     setPlanSaving(null)
-    if (error) { setPlanMsg(`${company.name}: 요금제 변경 실패 — ${typeof error.message === 'string' ? error.message : ''}`); return }
+    if (error) { setPlanMsg({ id: company.id, ok: false, text: `플랜 변경 실패 — ${typeof error.message === 'string' ? error.message : ''}` }); return }
     setCompanies((cs) => cs.map((x) => (x.id === company.id ? { ...x, plan_code: planCode } : x)))
-    setPlanMsg(`${company.name}: 요금제를 변경했습니다.`)
+    setPlanMsg({ id: company.id, ok: true, text: '플랜을 변경했습니다.' })
   }
 
   const handleViewAs = (company) => {
@@ -634,7 +634,6 @@ export default function OperatorConsole() {
       {tab === 'companies' && (
         <div style={{ padding:'24px 32px' }}>
           <div style={{ fontSize:16, fontWeight:700, color:'#1c1917', marginBottom:16 }}>회사 관리</div>
-          {planMsg && <div style={{ fontSize:12.5, color: planMsg.includes('실패') ? '#b91c1c' : '#166534', marginBottom:10 }}>{planMsg}</div>}
           {companiesLoading ? (
             <div style={{ color:'#78716c', fontSize:14 }}>불러오는 중…</div>
           ) : companies.length === 0 ? (
@@ -666,6 +665,7 @@ export default function OperatorConsole() {
                               <option key={p.id} value={p.id}>{p.name || p.id} · 월 {Number(p.monthly || 0).toLocaleString('ko-KR')}원</option>
                             ))}
                           </select>
+                          {planMsg && planMsg.id === c.id && <div style={{ fontSize:11.5, fontWeight:600, color: planMsg.ok ? '#166534' : '#b91c1c', marginTop:4 }}>{planMsg.ok ? '✓ ' : ''}{planMsg.text}</div>}
                           {sub && <div style={{ fontSize:11, color:'#78716c', marginTop:3 }}>구독: {sub.plan}</div>}
                         </td>
                         <td style={{ padding:'12px 16px', color:expired?'#ef4444':'#57534e', fontSize:12 }}>{sub?.expires_at ? new Date(sub.expires_at).toLocaleDateString('ko-KR') : '-'}</td>
