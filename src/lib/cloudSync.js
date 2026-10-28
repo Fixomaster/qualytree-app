@@ -565,4 +565,23 @@ export async function resetCloudSync() {
   setSyncStatus('idle')
 }
 
+// 데모 로그인 시 호출 — 이 브라우저의 회사 데이터를 '데모 소유'로 표시한다. 표시가 없으면 다음 실제
+// 로그인이 데모 데이터를 "이 브라우저에만 있던 회사 데이터"로 보고 서버에 올려 버린다.
+// 직전에 실제 회사 데이터가 있었다면 데모 화면에 노출되지 않도록 지운다(서버에 이미 저장돼 있음).
+const DEMO_COMPANY_MARK = '__demo__'
+export function enterDemoMode() {
+  const lastCompany = rawGet(META_COMPANY_KEY)
+  if (lastCompany && lastCompany !== DEMO_COMPANY_MARK) {
+    const toRemove = []
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i)
+      if (isSyncableKey(k)) toRemove.push(k)
+    }
+    toRemove.forEach(rawRemove)
+    for (const k of [...overlay.keys()]) overlay.delete(k)
+    writeDirty({})
+  }
+  rawSet(META_COMPANY_KEY, DEMO_COMPANY_MARK)
+}
+
 export const _internal = { isSyncableKey, EXCLUDE_KEYS, readDirty, flushPending }

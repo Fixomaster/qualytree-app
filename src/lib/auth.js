@@ -11,7 +11,7 @@ import {
   signInWithEmail,
   signOutSupabase,
 } from './supabase'
-import { resetCloudSync } from './cloudSync'
+import { resetCloudSync, enterDemoMode } from './cloudSync'
 
 const KEY = 'qualytree.auth'
 const VIEWING_AS_KEY = 'qualytree.viewingAs'
@@ -80,6 +80,7 @@ export const auth = {
   },
 
   signInDemo(email, name, level = LEVELS.OPERATOR) {
+    try { enterDemoMode() } catch { /* ignore */ }
     const session = {
       email,
       name: name || email.split('@')[0],
