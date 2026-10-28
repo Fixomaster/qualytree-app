@@ -86,7 +86,8 @@ export async function signInWithEmail(email, password) {
 
 // ── 헬퍼: 로그아웃 ────────────────────────────────────────────────
 export async function signOutSupabase() {
-  const { error } = await supabase.auth.signOut()
+  // 'local': 이 브라우저만 로그아웃 — 기본값('global')은 다른 기기·탭의 로그인까지 모두 끊는다
+  const { error } = await supabase.auth.signOut({ scope: 'local' })
   return { error }
 }
 

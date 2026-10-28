@@ -693,7 +693,7 @@ export default function Signup() {
                   <div style={styles.payInfo}>전용 가상계좌를 발급해 드립니다. 입금이 확인되면 자동으로 서비스가 시작됩니다(또는 관리자 승인 후 시작).</div>
                 )}
                 {!PORTONE_READY && (
-                  <div style={styles.notice}>※ 결제 모듈(PortOne) 키가 아직 설정되지 않았습니다. 설정 전에는 아래 "신청 접수"로 진행되며, 관리자 승인 후 활성화됩니다.</div>
+                  <div style={styles.notice}>※ 지금은 신청만 접수됩니다. 운영팀 승인 후 결제 방법을 별도로 안내해 드리며, 아래 "신청 접수"를 눌러 신청을 마쳐 주세요.</div>
                 )}
                 {vaInfo && (
                   <div style={styles.vaBox}>가상계좌가 발급되었습니다. 입금 후 자동으로 활성화됩니다. (결제번호: {vaInfo.paymentId})</div>

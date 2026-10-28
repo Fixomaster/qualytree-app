@@ -226,6 +226,9 @@ export default function OperatorConsole() {
           } })
         }
       } catch (e3) { /* 이메일 발송 실패는 승인에 영향 없음 */ }
+      // 상세 패널·통계가 처리 전 상태('대기 중')로 남지 않도록 함께 갱신
+      setSelectedRequest((r) => (r ? { ...r, status: 'approved' } : r))
+      loadStats()
       await loadRequests(filter)
     } catch (e) {
       setActionError(String(e?.message || e))
@@ -268,6 +271,8 @@ export default function OperatorConsole() {
           } })
         }
       } catch (e3) { /* 이메일 발송 실패는 처리에 영향 없음 */ }
+      setSelectedRequest((r) => (r ? { ...r, status: 'rejected', rejection_reason: rejectionReason.trim() } : r))
+      loadStats()
       await loadRequests(filter)
     } catch (e) {
       setActionError(String(e?.message || e))
