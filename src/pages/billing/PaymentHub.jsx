@@ -82,7 +82,8 @@ export default function PaymentHub() {
     if (!cid) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setLoading(true)
     try {
-      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'
+      // 기본값: 퀄리트리 빌링 상점(MID bill_qualyudon) 테스트 클라이언트 키(공개키) — 계약 후 라이브 키는 VITE_TOSS_CLIENT_KEY로 설정
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_mBZ1gQ4YVXbGoe2NRnz68l2KPoqN'
       const tossPayments = window.TossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: cid })
       await payment.requestBillingAuth({
