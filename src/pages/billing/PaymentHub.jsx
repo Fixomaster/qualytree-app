@@ -265,14 +265,14 @@ export default function PaymentHub() {
           환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>
         {chooser && (() => { const v = withVat(chooser.price); const opt = (id, title, desc, disabled) => (
-          <label key={id} style={{ display: 'flex', gap: 10, padding: '12px 14px', border: '1.5px solid ' + (method === id ? 'var(--moss)' : 'var(--line)'), borderRadius: 10, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: method === id ? 'var(--leaf-soft, #f0fdf4)' : 'var(--surface)' }}>
+          <label key={id} style={{ display: 'flex', gap: 10, padding: '12px 14px', border: '1.5px solid ' + (method === id ? 'var(--moss)' : 'var(--line)'), borderRadius: 10, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: method === id ? '#f0fdf4' : '#ffffff' }}>
             <input type="radio" name="paymethod" checked={method === id} disabled={disabled} onChange={() => setMethod(id)} style={{ marginTop: 3 }} />
             <span><span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{title}</span>{disabled && <span style={{ fontSize: 11, marginLeft: 6, color: 'var(--ink-faint)' }}>준비 중</span>}
               <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>{desc}</span></span>
           </label>)
           return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => !loading && setChooser(null)}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 460, padding: 24, maxHeight: '90vh', overflowY: 'auto' }}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 16 }} onClick={() => !loading && setChooser(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: '#ffffff', borderRadius: 14, width: '100%', maxWidth: 460, padding: 24, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{chooser.label}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 4, fontSize: 13, color: 'var(--ink)', padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, margin: '10px 0 16px' }}>
                 <span style={{ color: 'var(--ink-faint)' }}>공급가액</span><span>{fmtWon(v.supply)}</span>
