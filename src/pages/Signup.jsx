@@ -7,7 +7,7 @@
 //  - 모든 에러는 문자열로만 state에 저장 (React error #31 차단)
 //  - 제출 버튼 외에는 어떤 비동기 호출도 없음
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { auth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -199,6 +199,33 @@ export default function Signup() {
   const [consents, setConsents] = useState({})                  // { [id]: true }
   const [openConsent, setOpenConsent] = useState('')            // 펼쳐진 동의 항목 id
   const [adminEmail, setAdminEmail] = useState('')
+  // 관리자 이메일 인증(Resend). 서버 설정이 꺼져 있으면(emailOtpOn=false) 인증 없이 진행
+  const [emailOtpOn, setEmailOtpOn] = useState(false)
+  const [emailOtpToken, setEmailOtpToken] = useState('')
+  const [emailCode, setEmailCode] = useState('')
+  const [emailVerified, setEmailVerified] = useState('')   // 인증된 이메일(소문자)
+  const [emailOtpMsg, setEmailOtpMsg] = useState('')
+  const [emailOtpBusy, setEmailOtpBusy] = useState(false)
+  useEffect(() => {
+    fetch('/api/email-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'config' }) })
+      .then((r) => r.json()).then((d) => setEmailOtpOn(!!d.enabled)).catch(() => setEmailOtpOn(false))
+  }, [])
+  const emailOtpCall = (body) => fetch('/api/email-verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then((r) => r.json()).catch(() => ({ ok: false, error: '서버 응답이 없습니다. 잠시 후 다시 시도해주세요.' }))
+  const sendEmailCode = async () => {
+    setEmailOtpMsg(''); setEmailOtpBusy(true)
+    const d = await emailOtpCall({ action: 'send', email: adminEmail.trim() })
+    setEmailOtpBusy(false)
+    if (d.ok) { setEmailOtpToken(d.otpToken); setEmailCode(''); setEmailOtpMsg('인증번호를 보냈습니다. 메일이 안 보이면 스팸함도 확인해 주세요.') }
+    else setEmailOtpMsg(d.error || '인증 메일을 보내지 못했습니다.')
+  }
+  const checkEmailCode = async () => {
+    setEmailOtpMsg(''); setEmailOtpBusy(true)
+    const d = await emailOtpCall({ action: 'verify', email: adminEmail.trim(), code: emailCode.trim(), otpToken: emailOtpToken })
+    setEmailOtpBusy(false)
+    if (d.ok) { setEmailVerified(adminEmail.trim().toLowerCase()); setEmailOtpMsg('') }
+    else setEmailOtpMsg(d.error || '인증에 실패했습니다.')
+  }
   const [adminName, setAdminName] = useState('')
   const [adminPhone, setAdminPhone] = useState('')
 
@@ -237,6 +264,7 @@ export default function Signup() {
     if (!effectivePlan) return '기본 요금제를 선택해주세요.'
     if (!adminEmail.trim()) return '관리자 이메일을 입력해주세요.'
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) return '이메일 형식이 올바르지 않습니다.'
+    if (emailOtpOn && emailVerified !== adminEmail.trim().toLowerCase()) return '관리자 이메일 인증을 완료해주세요.'
     if (!adminName.trim()) return '관리자 이름을 입력해주세요.'
     if (!adminPhone.trim()) return '관리자 연락처를 입력해주세요.'
     if (!requiredConsentsOk) return '필수 약관·동의 항목에 모두 동의해주세요.'
@@ -614,7 +642,24 @@ export default function Signup() {
               </Field>
             </div>
             <Field label="관리자 이메일 *">
-              <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@company.com" style={styles.input} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input type="email" value={adminEmail} onChange={(e) => { setAdminEmail(e.target.value); setEmailOtpToken(''); setEmailVerified(''); setEmailOtpMsg('') }} placeholder="admin@company.com" style={{ ...styles.input, flex: 1, minWidth: 0 }} />
+                {emailOtpOn && (
+                  <button type="button" onClick={sendEmailCode} disabled={emailOtpBusy || !!emailVerified || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail.trim())}
+                    style={{ padding: '0 14px', border: '1px solid #1f4d3a', color: '#1f4d3a', background: '#fff', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {emailVerified ? '인증 완료' : emailOtpToken ? '다시 받기' : '인증번호 받기'}
+                  </button>
+                )}
+              </div>
+              {emailOtpOn && emailOtpToken && !emailVerified && (
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <input value={emailCode} onChange={(e) => setEmailCode(e.target.value)} inputMode="numeric" maxLength={6} placeholder="메일로 받은 인증번호 6자리 (5분 이내)" style={{ ...styles.input, flex: 1, minWidth: 0 }} />
+                  <button type="button" onClick={checkEmailCode} disabled={emailOtpBusy || emailCode.trim().length < 6}
+                    style={{ padding: '0 16px', background: '#1f4d3a', color: '#fff', border: 'none', borderRadius: 9, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>확인</button>
+                </div>
+              )}
+              {emailOtpOn && emailVerified && <div style={{ marginTop: 6, fontSize: 12.5, color: '#16a34a' }}>✓ 이메일 인증이 완료되었습니다.</div>}
+              {emailOtpOn && emailOtpMsg && <div style={{ marginTop: 6, fontSize: 12.5, color: emailOtpMsg.startsWith('인증번호를 보냈') ? '#475569' : '#dc2626' }}>{emailOtpMsg}</div>}
             </Field>
 
             <div style={styles.divider} />
