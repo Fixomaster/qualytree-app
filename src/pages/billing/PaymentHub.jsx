@@ -12,7 +12,7 @@ const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b4
 export default function PaymentHub() {
   const PLANS = useMemo(() => {
     const all = loadPlans().filter((p) => !p.custom)
-    return all.map((p, i) => ({
+    const list = all.map((p, i) => ({
       key: p.name,
       id: p.id,
       label: p.name,
@@ -20,10 +20,17 @@ export default function PaymentHub() {
       color: PLAN_COLORS[i % PLAN_COLORS.length],
       features: p.features || [],
     }))
+    // ?test=1 로 들어오면 1,000원(+부가세) 시험 결제 카드를 맨 앞에 보여준다 — 결제 직후 자동 취소, 요금제 변경 없음
+    if (new URLSearchParams(window.location.search).get('test') === '1') {
+      list.unshift({ key: 'test', id: 'test', label: '시험 결제 (자동 환불)', price: 1000, color: '#64748b',
+        features: ['실제 카드로 1,100원(부가세 포함) 결제', '결제 직후 자동 취소(환불)', '요금제는 바뀌지 않음'] })
+    }
+    return list
   }, [])
   const [currentPlan, setCurrentPlan] = useState(null)
   const [companyId, setCompanyId] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [loadingId, setLoadingId] = useState(null)
   const [sdkLoaded, setSdkLoaded] = useState(false)
   const [expiresAt, setExpiresAt] = useState(null)
   const urlParams = new URLSearchParams(window.location.search)
@@ -81,13 +88,13 @@ export default function PaymentHub() {
     if (!sdkLoaded || plan.price === 0) return
     const cid = companyId || auth.current()?.company?.id
     if (!cid) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
-    setLoading(true)
+    setLoading(true); setLoadingId(plan.id)
     try {
       // 클라이언트 키는 Vercel 환경변수 VITE_TOSS_CLIENT_KEY(빌링 상점 MID bill_qualyudon)에서만 읽는다.
       // 운영(Production)에서 키가 빠졌는데 테스트 키로 조용히 열리면 실제 고객이 테스트 결제창을 보게 되므로,
       // 테스트 키 기본값은 미리보기·개발 환경에서만 쓴다.
       const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || (import.meta.env.PROD ? '' : 'test_ck_mBZ1gQ4YVXbGoe2NRnz68l2KPoqN')
-      if (!clientKey) { alert('결제 설정이 완료되지 않았습니다. 운영팀에 문의해 주세요.'); setLoading(false); return }
+      if (!clientKey) { alert('결제 설정이 완료되지 않았습니다. 운영팀에 문의해 주세요.'); setLoading(false); setLoadingId(null); return }
       const tossPayments = window.TossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: cid })
       await payment.requestBillingAuth({
@@ -98,7 +105,7 @@ export default function PaymentHub() {
     } catch (e) {
       if (e.code !== 'USER_CANCEL') alert('카드 등록 오류: ' + e.message)
     }
-    setLoading(false)
+    setLoading(false); setLoadingId(null)
   }
 
   const currentPlanObj = PLANS.find(p => p.id === currentPlan) || null
@@ -180,7 +187,7 @@ export default function PaymentHub() {
                       fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       opacity: loading || !sdkLoaded ? 0.7 : 1
                     }}>
-                    {loading ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> 카드 등록 · 구독</>}
+                    {loadingId === plan.id ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> {plan.id === 'test' ? '카드 등록 · 시험 결제' : '카드 등록'}</>}
                   </button>
                 )}
               </div>
@@ -192,7 +199,7 @@ export default function PaymentHub() {
           <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ink)', fontSize: 13 }}>결제 안내</div>
           결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 국내에서 발급한 신용·체크카드를 지원합니다.
           표시된 요금은 부가세 별도이며, 실제 카드 결제는 부가세 10%를 더한 금액(월 결제금액)으로 청구됩니다.
-          카드를 한 번 등록하면 매월 자동 결제됩니다. 구독을 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
+          카드를 먼저 등록한 뒤, 등록된 카드와 결제 금액을 확인하고 「결제하기」를 눌러야 결제됩니다. 이후 매월 자동 결제되며, 구독을 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
           환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>
       </div>
