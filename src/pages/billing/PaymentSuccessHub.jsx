@@ -8,6 +8,14 @@ import { CheckCircle, AlertCircle, RefreshCw, CreditCard } from 'lucide-react'
 import { planById } from '../../lib/plans'
 import { supabase } from '../../lib/supabase'
 
+// 토스 카드사 코드 → 이름 (토스페이먼츠 코드표 기준). 모르는 코드는 그대로 표시
+const CARD_COMPANY = {
+  '11': 'KB국민카드', '15': '카카오뱅크', '21': '하나카드', '24': '토스뱅크', '30': 'KDB산업은행', '31': 'BC카드',
+  '33': '우리카드', 'W1': '우리카드', '34': 'Sh수협은행', '35': '전북은행', '36': '씨티카드', '37': '우체국예금보험',
+  '38': '새마을금고', '39': '저축은행', '3A': '케이뱅크', '3K': '기업BC', '41': '신한카드', '42': '제주은행',
+  '46': '광주은행', '51': '삼성카드', '61': '현대카드', '62': '신협', '71': '롯데카드', '91': 'NH농협카드',
+}
+const cardCompanyName = (c) => CARD_COMPANY[String(c || '').toUpperCase()] || c || '-'
 const won = (n) => '₩' + Number(n || 0).toLocaleString('ko-KR')
 
 async function callBilling(body) {
@@ -95,7 +103,7 @@ export default function PaymentSuccessHub() {
               <h2 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>카드가 등록되었습니다</h2>
               <p style={{ fontSize: 14, color: 'var(--ink-faint)', margin: '0 0 18px' }}>아직 결제되지 않았습니다. 아래 내용을 확인하고 결제 여부를 선택하세요.</p>
               <div style={{ margin: '0 auto 14px', maxWidth: 320, padding: '12px 16px', background: 'var(--bg)', borderRadius: 10, fontSize: 14, color: 'var(--ink)', display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 6, textAlign: 'left' }}>
-                <span style={{ color: 'var(--ink-faint)' }}>카드사</span><span>{info.card?.company || '-'}</span>
+                <span style={{ color: 'var(--ink-faint)' }}>카드사</span><span>{cardCompanyName(info.card?.company)}</span>
                 <span style={{ color: 'var(--ink-faint)' }}>카드번호</span><span>{info.card?.number || '-'}</span>
                 <span style={{ color: 'var(--ink-faint)' }}>요금제</span><span>{planName}</span>
               </div>
