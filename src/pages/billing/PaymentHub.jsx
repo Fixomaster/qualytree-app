@@ -82,13 +82,16 @@ export default function PaymentHub() {
     if (!cid) { alert('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
     setLoading(true)
     try {
-      // 기본값: 퀄리트리 빌링 상점(MID bill_qualyudon) 테스트 클라이언트 키(공개키) — 계약 후 라이브 키는 VITE_TOSS_CLIENT_KEY로 설정
-      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || 'test_ck_mBZ1gQ4YVXbGoe2NRnz68l2KPoqN'
+      // 클라이언트 키는 Vercel 환경변수 VITE_TOSS_CLIENT_KEY(빌링 상점 MID bill_qualyudon)에서만 읽는다.
+      // 운영(Production)에서 키가 빠졌는데 테스트 키로 조용히 열리면 실제 고객이 테스트 결제창을 보게 되므로,
+      // 테스트 키 기본값은 미리보기·개발 환경에서만 쓴다.
+      const clientKey = import.meta.env.VITE_TOSS_CLIENT_KEY || (import.meta.env.PROD ? '' : 'test_ck_mBZ1gQ4YVXbGoe2NRnz68l2KPoqN')
+      if (!clientKey) { alert('결제 설정이 완료되지 않았습니다. 운영팀에 문의해 주세요.'); setLoading(false); return }
       const tossPayments = window.TossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: cid })
       await payment.requestBillingAuth({
         method: 'CARD',
-        successUrl: window.location.origin + '/billing/success?plan=' + plan.id + '&companyId=' + cid + '&amount=' + plan.price,
+        successUrl: window.location.origin + '/billing/success?plan=' + plan.id + '&companyId=' + cid,
         failUrl: window.location.origin + '/billing?fail=1',
       })
     } catch (e) {

@@ -19,7 +19,6 @@ export default function PaymentSuccessHub() {
       const customerKey = params.get('customerKey')
       const plan        = params.get('plan')
       const companyId   = params.get('companyId')
-      const amount      = params.get('amount')
       if (!authKey || !customerKey) {
         setStatus('error')
         setMessage('카드 등록 정보가 올바르지 않습니다.')
@@ -30,7 +29,7 @@ export default function PaymentSuccessHub() {
         const res = await fetch('/api/payments/toss-billing-issue', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ authKey, customerKey, companyId, plan, amount: Number(amount) }),
+          body: JSON.stringify({ authKey, customerKey, companyId, plan }),
         })
         const data = await res.json()
         if (data.ok) {
