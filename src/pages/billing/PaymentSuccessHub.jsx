@@ -10,6 +10,7 @@ export default function PaymentSuccessHub() {
   const [status, setStatus] = useState('loading')
   const [message, setMessage] = useState('')
   const [planLabel, setPlanLabel] = useState('')
+  const [paid, setPaid] = useState(null)
 
   const planLabelFor = (id) => planById(id)?.name || id
 
@@ -35,6 +36,7 @@ export default function PaymentSuccessHub() {
         if (data.ok) {
           setStatus('success')
           setMessage(planLabelFor(plan) + ' 플랜으로 업그레이드 완료!')
+          setPaid({ supply: data.supply, vat: data.vat, total: data.amount })
         } else {
           setStatus('error')
           setMessage(data.error || '빌링키 발급 또는 첫 결제 중 오류가 발생했습니다.')
@@ -63,7 +65,15 @@ export default function PaymentSuccessHub() {
             <>
               <CheckCircle size={56} style={{ color: '#16a34a', marginBottom: 20 }} />
               <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 12px' }}>구독 완료!</h2>
-              <p style={{ fontSize: 15, color: 'var(--ink)', marginBottom: 24 }}>{message}</p>
+              <p style={{ fontSize: 15, color: 'var(--ink)', marginBottom: 16 }}>{message}</p>
+              {paid && paid.total > 0 && (
+                <div style={{ margin: '0 auto 24px', maxWidth: 300, padding: '12px 16px', border: '1px solid var(--line)', borderRadius: 10, fontSize: 14, color: 'var(--ink)', display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 6, textAlign: 'left' }}>
+                  <span style={{ color: 'var(--ink-faint)' }}>공급가액</span><span>₩{Number(paid.supply).toLocaleString('ko-KR')}</span>
+                  <span style={{ color: 'var(--ink-faint)' }}>부가세 (10%)</span><span>₩{Number(paid.vat).toLocaleString('ko-KR')}</span>
+                  <span style={{ fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 6 }}>결제금액 (부가세 포함)</span>
+                  <span style={{ fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 6 }}>₩{Number(paid.total).toLocaleString('ko-KR')}</span>
+                </div>
+              )}
               <a href="/dashboard" style={{
                 display: 'inline-block', padding: '12px 28px', background: 'var(--moss)',
                 color: '#fff', borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 15

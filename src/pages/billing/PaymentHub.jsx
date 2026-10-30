@@ -5,6 +5,7 @@ import { auth } from '../../lib/auth'
 import AppLayout from '../../components/AppLayout'
 import { CreditCard, Check, Sparkles, RefreshCw } from 'lucide-react'
 import { loadPlans, priceFor, won as fmtWon } from '../../lib/plans'
+import { withVat } from '../../lib/planDefaults'
 
 const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b45309']
 
@@ -114,7 +115,7 @@ export default function PaymentHub() {
             {expiresAt && ' · 만료일: ' + expiresAt.slice(0, 10)}
           </p>
           <p style={{ color: 'var(--ink-faint)', margin: '2px 0 0', fontSize: 12 }}>
-            모든 금액은 VAT 별도이며, 카드를 한 번 등록하면 매월 자동 결제됩니다.
+            요금은 VAT 별도이며, 결제 시 부가세 10%가 더해진 금액으로 청구됩니다. 카드를 한 번 등록하면 매월 자동 결제됩니다.
           </p>
         </div>
 
@@ -145,6 +146,14 @@ export default function PaymentHub() {
                     {plan.price > 0 && <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-faint)' }}>/월</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>VAT 별도 · 자동결제</div>
+                  {plan.price > 0 && (() => { const v = withVat(plan.price); return (
+                    <div style={{ marginTop: 10, padding: '8px 10px', background: 'var(--bg)', borderRadius: 8, fontSize: 12, color: 'var(--ink)', display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 3 }}>
+                      <span style={{ color: 'var(--ink-faint)' }}>공급가액</span><span>{fmtWon(v.supply)}</span>
+                      <span style={{ color: 'var(--ink-faint)' }}>부가세 (10%)</span><span>{fmtWon(v.vat)}</span>
+                      <span style={{ fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 3 }}>월 결제금액</span>
+                      <span style={{ fontWeight: 700, borderTop: '1px solid var(--line)', paddingTop: 3 }}>{fmtWon(v.total)}</span>
+                    </div>
+                  ) })()}
                 </div>
 
                 <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
@@ -182,6 +191,7 @@ export default function PaymentHub() {
         <div style={{ marginTop: 28, padding: 20, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--line)', fontSize: 12, color: 'var(--ink-faint)', lineHeight: 1.7 }}>
           <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ink)', fontSize: 13 }}>결제 안내</div>
           결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 국내에서 발급한 신용·체크카드를 지원합니다.
+          표시된 요금은 부가세 별도이며, 실제 카드 결제는 부가세 10%를 더한 금액(월 결제금액)으로 청구됩니다.
           카드를 한 번 등록하면 매월 자동 결제됩니다. 구독을 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
           환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>

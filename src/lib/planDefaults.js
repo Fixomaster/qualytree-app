@@ -109,3 +109,12 @@ export const DEFAULT_PLANS = [
     features: ['KGMP·ISO 13485·NB·FDA 심사 전 모의심사와 부적합 예방', '심사 당일 대응 지원 (담당자 협의)'],
   },
 ]
+
+// 부가세 별도 요금 → 실제 카드 청구액. 요금표 금액은 공급가액이며, 결제 시 부가세 10%를 더해 청구한다.
+// 브라우저(결제 화면 표시)와 서버(실제 청구)가 같은 계산을 쓰도록 여기 한 곳에 둔다.
+export const VAT_RATE = 0.1
+export function withVat(supply) {
+  const s = Math.round(Number(supply) || 0)
+  const vat = Math.round(s * VAT_RATE)
+  return { supply: s, vat, total: s + vat }
+}

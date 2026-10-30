@@ -1,11 +1,12 @@
 // api/payments/toss-billing-issue.js — 빌링키 발급 + 첫 결제 실행 서버 API
 // 순서(라이브 전환 대비 2026-10-30 재작성):
 //  0) 금액은 서버가 요금제에서 직접 계산한다 — 브라우저 주소의 amount 는 신뢰하지 않음(변조 시 1원 결제 방지)
+//     요금표는 VAT 별도(공급가액) → 실제 청구액 = 공급가액 + 부가세 10% (2026-10-30 대표 결정)
 //  1) authKey + customerKey로 빌링키 발급 (POST /v1/billing/authorizations/issue)
 //  2) 빌링키를 먼저 구독 테이블에 저장 — 빌링키는 재조회가 불가하므로 저장 실패 시 결제하지 않고 중단
 //  3) 빌링키로 첫 결제 실행 (POST /v1/billing/{billingKey})
 //  4) 결제 기록 저장 + 구독 활성화(만료일 +1개월)
-import { DEFAULT_PLANS } from '../../src/lib/planDefaults.js'
+import { DEFAULT_PLANS, withVat } from '../../src/lib/planDefaults.js'
 
 const TOSS = 'https://api.tosspayments.com'
 
@@ -25,7 +26,8 @@ async function serverPlan(supabase, planId) {
   } catch { /* 기본 요금제 사용 */ }
   const p = list.find((x) => x && x.id === planId) || DEFAULT_PLANS.find((x) => x.id === planId)
   if (!p || p.custom || !(Number(p.monthly) > 0)) return null
-  return { id: p.id, name: p.name, amount: Math.round(Number(p.monthly)) }
+  const v = withVat(p.monthly)
+  return { id: p.id, name: p.name, supply: v.supply, vat: v.vat, amount: v.total }
 }
 
 export default async function handler(req, res) {
@@ -126,7 +128,7 @@ export default async function handler(req, res) {
   if (subErr) console.error('[toss-billing-issue] subscription activate failed', orderId, subErr)
 
   return res.status(200).json({
-    ok: true, plan: p.id, amount: p.amount, paymentKey: billingData.paymentKey, orderId,
+    ok: true, plan: p.id, supply: p.supply, vat: p.vat, amount: p.amount, paymentKey: billingData.paymentKey, orderId,
     warning: payErr || subErr ? '결제는 완료됐으나 기록 저장 중 문제가 있었습니다. 운영팀이 확인합니다.' : undefined,
   })
 }
