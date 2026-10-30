@@ -52,8 +52,10 @@ export default function PaymentHub() {
   const [depositor, setDepositor] = useState('')
   const [bankOrder, setBankOrder] = useState(null)    // 무통장입금 주문 결과(입금 안내)
   const [chooserMsg, setChooserMsg] = useState('')
-  // 무통장입금 휴대폰 인증(알림톡/문자). otpOn=false 면 인증 없이 진행(발송 설정 전)
+  // 무통장입금 이메일 인증. otpOn=false 면 인증 없이 진행(메일 설정 전). kakaoOn 이면 휴대폰(선택)으로 카카오톡 안내도 발송
   const [otpOn, setOtpOn] = useState(false)
+  const [kakaoOn, setKakaoOn] = useState(false)
+  const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [otpToken, setOtpToken] = useState('')
@@ -138,13 +140,13 @@ export default function PaymentHub() {
 
   function openChooser(plan) {
     setChooser(plan); setMethod('CARD'); setDepositor(''); setBankOrder(null); setChooserMsg('')
-    setPhone(''); setOtpCode(''); setOtpToken(''); setVerifyToken('')
-    callPayment({ action: 'config' }).then((d) => setOtpOn(!!d.otp)).catch(() => setOtpOn(false))
+    setEmail(auth.current()?.email || auth.current()?.user?.email || ''); setPhone(''); setOtpCode(''); setOtpToken(''); setVerifyToken('')
+    callPayment({ action: 'config' }).then((d) => { setOtpOn(!!d.emailOtp); setKakaoOn(!!d.kakao) }).catch(() => { setOtpOn(false); setKakaoOn(false) })
   }
 
   async function sendOtp() {
     setChooserMsg(''); setOtpBusy(true)
-    const d = await callPayment({ action: 'otp-send', phone })
+    const d = await callPayment({ action: 'otp-send', email })
     setOtpBusy(false)
     if (d.ok) { setOtpToken(d.otpToken); setVerifyToken(''); setOtpCode(''); setChooserMsg('') }
     else setChooserMsg(d.error || '인증번호를 보내지 못했습니다.')
@@ -152,7 +154,7 @@ export default function PaymentHub() {
 
   async function checkOtp() {
     setChooserMsg(''); setOtpBusy(true)
-    const d = await callPayment({ action: 'otp-verify', phone, code: otpCode, otpToken })
+    const d = await callPayment({ action: 'otp-verify', email, code: otpCode, otpToken })
     setOtpBusy(false)
     if (d.ok) setVerifyToken(d.verifyToken); else setChooserMsg(d.error || '인증에 실패했습니다.')
   }
@@ -165,9 +167,9 @@ export default function PaymentHub() {
     if (method === 'CARD') { setChooser(null); return handleCheckout(plan) }
     if (method === 'BANK') {
       if (!depositor.trim()) { setChooserMsg('입금자명을 입력해 주세요.'); return }
-      if (otpOn && !verifyToken) { setChooserMsg('휴대폰 인증을 먼저 완료해 주세요.'); return }
+      if (otpOn && !verifyToken) { setChooserMsg('이메일 인증을 먼저 완료해 주세요.'); return }
       setLoading(true)
-      const d = await callPayment({ action: 'order', method: 'BANK', companyId: cid, plan: plan.id, depositor, phone, verifyToken })
+      const d = await callPayment({ action: 'order', method: 'BANK', companyId: cid, plan: plan.id, depositor, email, phone, verifyToken })
       setLoading(false)
       if (d.ok) setBankOrder(d); else setChooserMsg(d.error || '주문을 만들지 못했습니다.')
       return
@@ -315,7 +317,7 @@ export default function PaymentHub() {
                     <span style={{ color: 'var(--ink-faint)' }}>입금자명</span><span>{bankOrder.bank.depositor}</span>
                     <span style={{ color: 'var(--ink-faint)' }}>주문번호</span><span style={{ fontSize: 12 }}>{bankOrder.orderId}</span>
                   </div>
-                  {bankOrder.notified && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 8 }}>✓ 같은 안내를 인증한 휴대폰으로 보내드렸습니다.</div>}
+                  {(bankOrder.notified?.email || bankOrder.notified?.kakao) && <div style={{ fontSize: 12, color: '#16a34a', marginTop: 8 }}>✓ 같은 안내를 {[bankOrder.notified.email && '이메일', bankOrder.notified.kakao && '카카오톡'].filter(Boolean).join('·')}로 보내드렸습니다.</div>}
                   <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 8 }}>입금자명과 금액이 같아야 빠르게 확인됩니다. 운영팀이 입금을 확인하면 이용이 시작되고 메일로 안내드립니다.</div>
                   <button onClick={() => setChooser(null)} style={{ marginTop: 16, width: '100%', padding: 12, background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>확인</button>
                 </div>
@@ -333,19 +335,27 @@ export default function PaymentHub() {
                       <input value={depositor} onChange={(e) => setDepositor(e.target.value)} placeholder="통장에 찍힐 입금자명 (예: 주식회사OO)" style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
                       {otpOn && (
                         <div style={{ marginTop: 12 }}>
-                          <div style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 4 }}>담당자 휴대폰 인증 <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>· 입금 안내를 카카오톡으로 보내드립니다</span></div>
+                          <div style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 4 }}>담당자 이메일 인증 <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>· 입금 안내를 이 메일로 보내드립니다</span></div>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <input value={phone} onChange={(e) => { setPhone(e.target.value); setOtpToken(''); setVerifyToken('') }} disabled={!!verifyToken} inputMode="numeric" placeholder="휴대폰 번호 (- 없이)" style={{ flex: 1, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14 }} />
-                            <button onClick={sendOtp} disabled={otpBusy || !!verifyToken || phone.replace(/\D/g, '').length < 10} style={{ padding: '0 12px', border: '1px solid var(--moss)', color: 'var(--moss)', background: '#fff', borderRadius: 8, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>{otpToken ? '다시 받기' : '인증번호 받기'}</button>
+                            <input value={email} onChange={(e) => { setEmail(e.target.value); setOtpToken(''); setVerifyToken('') }} disabled={!!verifyToken} type="email" placeholder="담당자 이메일" style={{ flex: 1, minWidth: 0, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14 }} />
+                            <button onClick={sendOtp} disabled={otpBusy || !!verifyToken || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())} style={{ padding: '0 12px', border: '1px solid var(--moss)', color: 'var(--moss)', background: '#fff', borderRadius: 8, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>{otpToken ? '다시 받기' : '인증번호 받기'}</button>
                           </div>
                           {otpToken && !verifyToken && (
                             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} inputMode="numeric" maxLength={6} placeholder="인증번호 6자리 (5분 이내)" style={{ flex: 1, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14 }} />
+                              <input value={otpCode} onChange={(e) => setOtpCode(e.target.value)} inputMode="numeric" maxLength={6} placeholder="메일로 받은 인증번호 6자리 (5분 이내)" style={{ flex: 1, minWidth: 0, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14 }} />
                               <button onClick={checkOtp} disabled={otpBusy || otpCode.length < 6} style={{ padding: '0 14px', background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>확인</button>
                             </div>
                           )}
-                          {verifyToken && <div style={{ marginTop: 6, fontSize: 12, color: '#16a34a' }}>✓ 휴대폰 인증 완료</div>}
+                          {otpToken && !verifyToken && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--ink-faint)' }}>메일이 안 보이면 스팸함도 확인해 주세요.</div>}
+                          {verifyToken && <div style={{ marginTop: 6, fontSize: 12, color: '#16a34a' }}>✓ 이메일 인증 완료</div>}
                         </div>
+                      )}
+                      {kakaoOn && (
+                        <div style={{ marginTop: 12 }}>
+                          <div style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 4 }}>카카오톡으로도 받기 <span style={{ fontSize: 11, color: 'var(--ink-faint)' }}>· 선택</span></div>
+                          <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="휴대폰 번호 (- 없이)" style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+                        </div>
+                      )}
                       )}
                     </div>
                   )}

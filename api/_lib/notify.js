@@ -67,17 +67,20 @@ const sign = (s) => crypto.createHmac('sha256', secret()).update(s).digest('base
 const pack = (...parts) => Buffer.from(parts.join('|')).toString('base64url')
 const unpack = (t) => { try { return Buffer.from(String(t), 'base64url').toString().split('|') } catch { return [] } }
 
+// 인증 대상: 이메일이면 소문자, 아니면 숫자만
+export const normId = (v) => (String(v || '').includes('@') ? String(v).trim().toLowerCase() : normalizePhone(v))
+
 export function issueOtp(phone) {
-  const p = normalizePhone(phone)
+  const p = normId(phone)
   const code = String(crypto.randomInt(0, 1000000)).padStart(6, '0')
   const exp = Date.now() + 5 * 60 * 1000
   return { code, otpToken: pack(p, exp, sign('otp|' + p + '|' + code + '|' + exp)) }
 }
 
 export function verifyOtp(phone, code, otpToken) {
-  const p = normalizePhone(phone)
+  const p = normId(phone)
   const [tp, exp, sig] = unpack(otpToken)
-  if (!tp || tp !== p) return { error: '휴대폰 번호가 인증 요청과 다릅니다.' }
+  if (!tp || tp !== p) return { error: '인증을 요청한 주소(번호)와 다릅니다.' }
   if (Date.now() > Number(exp)) return { error: '인증번호가 만료되었습니다. 다시 받아 주세요.' }
   const expect = sign('otp|' + p + '|' + String(code || '').trim() + '|' + exp)
   if (!sig || sig.length !== expect.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expect))) {
@@ -88,7 +91,7 @@ export function verifyOtp(phone, code, otpToken) {
 }
 
 export function checkVerified(phone, verifyToken) {
-  const p = normalizePhone(phone)
+  const p = normId(phone)
   const [tp, exp, sig] = unpack(verifyToken)
   if (!tp || tp !== p || Date.now() > Number(exp)) return false
   const expect = sign('verified|' + p + '|' + exp)
