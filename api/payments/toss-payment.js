@@ -12,6 +12,10 @@
 //   서버 TOSS_PAYMENT_SECRET_KEY, 브라우저 VITE_TOSS_PAYMENT_CLIENT_KEY
 import { TOSS, serverPlan, authorize, whoIs, tossHeaders, supabaseAdmin, activateSubscription } from '../_lib/billingCommon.js'
 import { BANK_ACCOUNT } from '../../src/lib/bankAccount.js'
+import * as notify from '../_lib/notify.js'
+
+const fmt = (n) => Number(n || 0).toLocaleString('ko-KR')
+const ymd = (d) => new Date(d).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
 
 const secretKey = () => process.env.TOSS_PAYMENT_SECRET_KEY || ''
 
@@ -20,6 +24,14 @@ async function markPaid(supabase, row, extra = {}) {
   await supabase.from('payments').update({ status: 'paid', ...extra }).eq('id', row.id)
   const v = { id: row.plan, amount: Number(row.amount) }
   if (row.plan !== 'test') await activateSubscription(supabase, row.company_id, v)
+  const phone = row.raw?.phone
+  if (phone) {
+    const start = new Date(); const end = new Date(); end.setMonth(end.getMonth() + 1)
+    await notify.send('PAID', phone, {
+      회사명: row.raw?.companyName || '', 입금액: fmt(row.amount), 요금제: row.raw?.planName || row.plan,
+      시작일: ymd(start), 종료일: ymd(end), 주문번호: row.order_id,
+    })
+  }
 }
 
 export default async function handler(req, res) {
@@ -50,6 +62,26 @@ export default async function handler(req, res) {
 
   const body = req.body || {}
   const action = body.action
+
+  // ── 화면 설정: 휴대폰 인증·알림 사용 여부 ─────────────────────────────
+  if (action === 'config') return res.status(200).json({ ok: true, otp: notify.enabled() })
+
+  // ── 휴대폰 인증번호 발송·확인 (로그인 필요) ────────────────────────────
+  if (action === 'otp-send' || action === 'otp-verify') {
+    const me = await whoIs(supabase, req)
+    if (me.error) return res.status(401).json({ ok: false, error: me.error })
+    if (!notify.enabled()) return res.status(503).json({ ok: false, error: '휴대폰 인증이 아직 설정되지 않았습니다.' })
+    if (!notify.validPhone(body.phone)) return res.status(400).json({ ok: false, error: '휴대폰 번호를 확인해 주세요.' })
+    if (action === 'otp-send') {
+      const { code, otpToken } = notify.issueOtp(body.phone)
+      const r = await notify.send('OTP', body.phone, { 인증번호: code })
+      if (!r.ok) return res.status(502).json({ ok: false, error: '인증번호를 보내지 못했습니다. 잠시 후 다시 시도해 주세요.' })
+      return res.status(200).json({ ok: true, otpToken, channel: r.channel })
+    }
+    const v = notify.verifyOtp(body.phone, body.code, body.otpToken)
+    if (v.error) return res.status(400).json({ ok: false, error: v.error })
+    return res.status(200).json({ ok: true, verifyToken: v.verifyToken })
+  }
 
   // ── 무통장입금 확인 (운영자) ──────────────────────────────────────────
   if (action === 'bank-confirm') {
@@ -85,19 +117,31 @@ export default async function handler(req, res) {
     if (!['VIRTUAL_ACCOUNT', 'BANK'].includes(method)) return res.status(400).json({ ok: false, error: '결제 방법이 올바르지 않습니다.' })
     const depositor = String(body.depositor || '').trim().slice(0, 40)
     if (method === 'BANK' && !depositor) return res.status(400).json({ ok: false, error: '입금자명을 입력해 주세요.' })
+    const phone = notify.normalizePhone(body.phone)
+    if (method === 'BANK' && notify.enabled() && !notify.checkVerified(phone, body.verifyToken)) {
+      return res.status(400).json({ ok: false, error: '휴대폰 인증을 먼저 완료해 주세요.', code: 'PHONE_NOT_VERIFIED' })
+    }
 
     const orderId = (method === 'BANK' ? 'QT-BANK-' : 'QT-VA-') + companyId.replace(/-/g, '').slice(0, 8) + '-' + Date.now()
     const orderName = 'Qualytree ' + p.name + ' 1개월 이용'
     const { error } = await supabase.from('payments').insert({
       company_id: companyId, order_id: orderId, amount: p.amount, plan: p.id, status: 'pending',
       method: method === 'BANK' ? '무통장입금' : '가상계좌',
-      raw: { supply: p.supply, vat: p.vat, depositor: depositor || null, companyName: company.name },
+      raw: { supply: p.supply, vat: p.vat, depositor: depositor || null, companyName: company.name, planName: p.name, phone: phone || null },
       created_at: new Date().toISOString(),
     })
     if (error) { console.error('[toss-payment] order save failed', error); return res.status(500).json({ ok: false, error: '주문을 저장하지 못했습니다.' }) }
+    let notified = false
+    if (method === 'BANK' && phone && notify.enabled()) {
+      const r = await notify.send('BANK', phone, {
+        회사명: company.name || '', 요금제: p.name, 입금액: fmt(p.amount), 은행: BANK_ACCOUNT.bank,
+        계좌번호: BANK_ACCOUNT.number, 예금주: BANK_ACCOUNT.holder, 입금자명: depositor, 주문번호: orderId,
+      })
+      notified = !!r.ok
+    }
     return res.status(200).json({
       ok: true, orderId, orderName, price, planName: p.name,
-      bank: method === 'BANK' ? { ...BANK_ACCOUNT, depositor } : undefined,
+      bank: method === 'BANK' ? { ...BANK_ACCOUNT, depositor } : undefined, notified,
     })
   }
 
