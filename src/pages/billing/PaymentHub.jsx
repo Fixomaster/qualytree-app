@@ -356,7 +356,6 @@ export default function PaymentHub() {
                           <input value={phone} onChange={(e) => setPhone(e.target.value)} inputMode="numeric" placeholder="휴대폰 번호 (- 없이)" style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
                         </div>
                       )}
-                      )}
                     </div>
                   )}
                   {chooserMsg && <div style={{ marginTop: 10, fontSize: 13, color: '#dc2626' }}>{chooserMsg}</div>}
