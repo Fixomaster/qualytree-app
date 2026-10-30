@@ -16,7 +16,25 @@ const CARD_COMPANY = {
   '46': '광주은행', '51': '삼성카드', '61': '현대카드', '62': '신협', '71': '롯데카드', '91': 'NH농협카드',
 }
 const cardCompanyName = (c) => CARD_COMPANY[String(c || '').toUpperCase()] || c || '-'
+// 토스 은행 코드 → 은행명 (가상계좌 안내용)
+const BANK_NAME = {
+  '39': '경남은행', '34': '광주은행', '12': '단위농협', '32': '부산은행', '45': '새마을금고', '64': '산림조합', '88': '신한은행',
+  '48': '신협', '27': '씨티은행', '20': '우리은행', '71': '우체국', '50': '저축은행', '37': '전북은행', '35': '제주은행',
+  '90': '카카오뱅크', '89': '케이뱅크', '92': '토스뱅크', '81': '하나은행', '54': 'HSBC', '03': 'IBK기업은행', '06': 'KB국민은행',
+  '31': 'iM뱅크(대구)', '02': 'KDB산업은행', '11': 'NH농협은행', '23': 'SC제일은행', '07': 'Sh수협은행',
+}
 const won = (n) => '₩' + Number(n || 0).toLocaleString('ko-KR')
+
+async function callApi(path, body) {
+  let token = ''
+  try { token = (await supabase.auth.getSession()).data?.session?.access_token || '' } catch { /* noop */ }
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: JSON.stringify(body),
+  })
+  return res.json().catch(() => ({ ok: false, error: '서버 응답을 읽지 못했습니다.' }))
+}
 
 async function callBilling(body) {
   let token = ''
@@ -55,6 +73,7 @@ export default function PaymentSuccessHub() {
   const [info, setInfo] = useState(null)   // issue 응답(card, price, planName, test)
   const [result, setResult] = useState(null)
   const [error, setError] = useState('')
+  const [va, setVa] = useState(null)        // 가상계좌 발급 결과
   const started = useRef(false)
 
   const planName = info?.planName || planById(plan)?.name || plan
@@ -62,6 +81,16 @@ export default function PaymentSuccessHub() {
   useEffect(() => {
     if (started.current) return
     started.current = true
+    if (params.get('type') === 'va') {
+      // 가상계좌: 토스 결제창에서 돌아온 paymentKey·orderId·amount 로 서버 승인 → 계좌 안내
+      const paymentKey = params.get('paymentKey'), orderId = params.get('orderId'), amount = params.get('amount')
+      setStatus('va-issuing')
+      callApi('/api/payments/toss-payment', { action: 'confirm', companyId, plan, paymentKey, orderId, amount: Number(amount) }).then((d) => {
+        if (d.ok) { setVa(d); setStatus('va') } else { setStatus('error'); setError(d.error || '가상계좌 발급 중 오류가 발생했습니다.') }
+        try { window.history.replaceState(null, '', '/billing/success?type=va&plan=' + encodeURIComponent(plan) + '&companyId=' + encodeURIComponent(companyId) + '&done=1') } catch { /* noop */ }
+      }).catch((e) => { setStatus('error'); setError('서버 오류: ' + e.message) })
+      return
+    }
     const authKey = params.get('authKey')
     const customerKey = params.get('customerKey')
     if (!authKey || !customerKey || !companyId || !plan) {
@@ -89,10 +118,28 @@ export default function PaymentSuccessHub() {
       <style>{'@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }'}</style>
       <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <div style={{ textAlign: 'center', maxWidth: 440, width: '100%' }}>
-          {(status === 'issuing' || status === 'charging') && (
+          {status === 'va' && va && (
+            <>
+              <CheckCircle size={52} style={{ color: '#16a34a', marginBottom: 16 }} />
+              <h2 style={{ fontSize: 21, fontWeight: 700, color: 'var(--ink)', margin: '0 0 6px' }}>{va.status === 'DONE' ? '입금이 확인되었습니다' : '가상계좌가 발급되었습니다'}</h2>
+              <p style={{ fontSize: 14, color: 'var(--ink-faint)', margin: '0 0 18px' }}>{va.status === 'DONE' ? va.planName + ' 이용이 시작되었습니다.' : '아래 계좌로 입금하시면 자동으로 이용이 시작됩니다.'}</p>
+              {va.status !== 'DONE' && (
+                <div style={{ margin: '0 auto 14px', maxWidth: 340, padding: '12px 16px', background: 'var(--bg)', borderRadius: 10, fontSize: 14, color: 'var(--ink)', display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, rowGap: 6, textAlign: 'left' }}>
+                  <span style={{ color: 'var(--ink-faint)' }}>은행</span><span>{BANK_NAME[va.account?.bankCode] || va.account?.bankCode || '-'}</span>
+                  <span style={{ color: 'var(--ink-faint)' }}>계좌번호</span><span style={{ fontWeight: 700 }}>{va.account?.accountNumber || '-'}</span>
+                  <span style={{ color: 'var(--ink-faint)' }}>예금주</span><span>{va.account?.customerName || '-'}</span>
+                  <span style={{ color: 'var(--ink-faint)' }}>입금 기한</span><span>{va.account?.dueDate ? va.account.dueDate.slice(0, 16).replace('T', ' ') : '-'}</span>
+                </div>
+              )}
+              <PriceBox price={va.price} totalLabel="입금액 (부가세 포함)" />
+              <a href="/billing" style={btn('var(--moss)')}>플랜 및 결제로</a>
+            </>
+          )}
+
+          {(status === 'issuing' || status === 'charging' || status === 'va-issuing') && (
             <>
               <RefreshCw size={48} style={{ color: 'var(--moss)', animation: 'spin 1s linear infinite', marginBottom: 20 }} />
-              <p style={{ fontSize: 16, color: 'var(--ink)' }}>{status === 'issuing' ? '카드를 등록하는 중…' : '결제하는 중…'}</p>
+              <p style={{ fontSize: 16, color: 'var(--ink)' }}>{status === 'issuing' ? '카드를 등록하는 중…' : status === 'va-issuing' ? '가상계좌를 발급하는 중…' : '결제하는 중…'}</p>
               <p style={{ fontSize: 13, color: 'var(--ink-faint)', marginTop: 8 }}>잠시만 기다려 주세요.</p>
             </>
           )}
@@ -136,7 +183,7 @@ export default function PaymentSuccessHub() {
           {status === 'error' && (
             <>
               <AlertCircle size={56} style={{ color: '#dc2626', marginBottom: 20 }} />
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 12px' }}>{info ? '결제 실패' : '카드 등록 실패'}</h2>
+              <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', margin: '0 0 12px' }}>{params.get('type') === 'va' ? '가상계좌 발급 실패' : info ? '결제 실패' : '카드 등록 실패'}</h2>
               <p style={{ fontSize: 14, color: '#dc2626', marginBottom: 8 }}>{error}</p>
               {info && <p style={{ fontSize: 13, color: 'var(--ink-faint)', marginBottom: 20 }}>카드는 등록되어 있습니다. 결제되지 않았으니 다른 카드로 다시 등록하거나 카드사에 문의해 주세요.</p>}
               <a href="/billing" style={btn('var(--moss)')}>플랜 및 결제로</a>

@@ -6,6 +6,22 @@ import AppLayout from '../../components/AppLayout'
 import { CreditCard, Check, Sparkles, RefreshCw } from 'lucide-react'
 import { loadPlans, priceFor, won as fmtWon } from '../../lib/plans'
 import { withVat } from '../../lib/planDefaults'
+import { BANK_ACCOUNT } from '../../lib/bankAccount'
+
+// 가상계좌는 일반결제 상점(MID)의 클라이언트 키 — 자동결제(bill_) 상점 키와 다르다
+const VA_CLIENT_KEY = import.meta.env.VITE_TOSS_PAYMENT_CLIENT_KEY || ''
+const BANK_READY = !!(BANK_ACCOUNT.bank && BANK_ACCOUNT.number)
+
+async function callPayment(body) {
+  let token = ''
+  try { token = (await supabase.auth.getSession()).data?.session?.access_token || '' } catch { /* noop */ }
+  const res = await fetch('/api/payments/toss-payment', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: JSON.stringify(body),
+  })
+  return res.json().catch(() => ({ ok: false, error: '서버 응답을 읽지 못했습니다.' }))
+}
 
 const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b45309']
 
@@ -31,6 +47,11 @@ export default function PaymentHub() {
   const [companyId, setCompanyId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [loadingId, setLoadingId] = useState(null)
+  const [chooser, setChooser] = useState(null)        // 결제 방법 선택 중인 플랜
+  const [method, setMethod] = useState('CARD')
+  const [depositor, setDepositor] = useState('')
+  const [bankOrder, setBankOrder] = useState(null)    // 무통장입금 주문 결과(입금 안내)
+  const [chooserMsg, setChooserMsg] = useState('')
   const [sdkLoaded, setSdkLoaded] = useState(false)
   const [expiresAt, setExpiresAt] = useState(null)
   const urlParams = new URLSearchParams(window.location.search)
@@ -108,6 +129,46 @@ export default function PaymentHub() {
     setLoading(false); setLoadingId(null)
   }
 
+  function openChooser(plan) {
+    setChooser(plan); setMethod('CARD'); setDepositor(''); setBankOrder(null); setChooserMsg('')
+  }
+
+  async function proceed() {
+    const plan = chooser
+    const cid = companyId || auth.current()?.company?.id
+    if (!cid) { setChooserMsg('회사 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
+    setChooserMsg('')
+    if (method === 'CARD') { setChooser(null); return handleCheckout(plan) }
+    if (method === 'BANK') {
+      if (!depositor.trim()) { setChooserMsg('입금자명을 입력해 주세요.'); return }
+      setLoading(true)
+      const d = await callPayment({ action: 'order', method: 'BANK', companyId: cid, plan: plan.id, depositor })
+      setLoading(false)
+      if (d.ok) setBankOrder(d); else setChooserMsg(d.error || '주문을 만들지 못했습니다.')
+      return
+    }
+    // 가상계좌: 서버에서 주문(금액)을 먼저 만들고 토스 결제창으로 계좌 발급
+    if (!sdkLoaded || !window.TossPayments) { setChooserMsg('결제 모듈을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.'); return }
+    setLoading(true)
+    const d = await callPayment({ action: 'order', method: 'VIRTUAL_ACCOUNT', companyId: cid, plan: plan.id })
+    if (!d.ok) { setLoading(false); setChooserMsg(d.error || '주문을 만들지 못했습니다.'); return }
+    try {
+      const payment = window.TossPayments(VA_CLIENT_KEY).payment({ customerKey: cid })
+      await payment.requestPayment({
+        method: 'VIRTUAL_ACCOUNT',
+        amount: { currency: 'KRW', value: d.price.total },
+        orderId: d.orderId,
+        orderName: d.orderName,
+        successUrl: window.location.origin + '/billing/success?type=va&plan=' + plan.id + '&companyId=' + cid,
+        failUrl: window.location.origin + '/billing?fail=1',
+        virtualAccount: { validHours: 72 },
+      })
+    } catch (e) {
+      if (e.code !== 'USER_CANCEL') setChooserMsg('가상계좌 발급 오류: ' + e.message)
+    }
+    setLoading(false)
+  }
+
   const currentPlanObj = PLANS.find(p => p.id === currentPlan) || null
 
   return (
@@ -122,7 +183,7 @@ export default function PaymentHub() {
             {expiresAt && ' · 만료일: ' + expiresAt.slice(0, 10)}
           </p>
           <p style={{ color: 'var(--ink-faint)', margin: '2px 0 0', fontSize: 12 }}>
-            요금은 VAT 별도이며, 결제 시 부가세 10%가 더해진 금액으로 청구됩니다. 카드를 한 번 등록하면 매월 자동 결제됩니다.
+            요금은 VAT 별도이며, 결제 시 부가세 10%가 더해진 금액으로 청구됩니다. 결제 방법은 카드 자동결제·가상계좌·무통장입금 중에서 고를 수 있습니다.
           </p>
         </div>
 
@@ -180,14 +241,14 @@ export default function PaymentHub() {
                     기본 플랜
                   </div>
                 ) : (
-                  <button onClick={() => handleCheckout(plan)} disabled={loading || !sdkLoaded}
+                  <button onClick={() => openChooser(plan)} disabled={loading || !sdkLoaded}
                     style={{
                       padding: '10px', background: plan.color, color: '#fff', border: 'none',
                       borderRadius: 8, cursor: loading ? 'not-allowed' : 'pointer',
                       fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                       opacity: loading || !sdkLoaded ? 0.7 : 1
                     }}>
-                    {loadingId === plan.id ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> {plan.id === 'test' ? '카드 등록 · 시험 결제' : '카드 등록'}</>}
+                    {loadingId === plan.id ? <><RefreshCw size={14} /> 처리 중…</> : <><Sparkles size={14} /> {plan.id === 'test' ? '시험 결제' : '결제하기'}</>}
                   </button>
                 )}
               </div>
@@ -197,11 +258,66 @@ export default function PaymentHub() {
 
         <div style={{ marginTop: 28, padding: 20, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--line)', fontSize: 12, color: 'var(--ink-faint)', lineHeight: 1.7 }}>
           <div style={{ fontWeight: 600, marginBottom: 4, color: 'var(--ink)', fontSize: 13 }}>결제 안내</div>
-          결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 국내에서 발급한 신용·체크카드를 지원합니다.
+          결제는 <strong>토스페이먼츠</strong>로 안전하게 처리됩니다. 국내에서 발급한 신용·체크카드, 가상계좌, 무통장입금을 지원합니다.
+          가상계좌·무통장입금은 1개월분씩 결제하며, 입금이 확인되면 이용이 시작됩니다(가상계좌는 자동, 무통장입금은 운영팀 확인 후).
           표시된 요금은 부가세 별도이며, 실제 카드 결제는 부가세 10%를 더한 금액(월 결제금액)으로 청구됩니다.
           카드를 먼저 등록한 뒤, 등록된 카드와 결제 금액을 확인하고 「결제하기」를 눌러야 결제됩니다. 이후 매월 자동 결제되며, 구독을 해지하지 않는 한 매월 자동 갱신되며, 결제 시마다 1개월 이용권이 발급됩니다.
           환불 및 결제 문의: <a href="mailto:contact@qualy-tree.com" style={{ color: 'var(--moss)' }}>contact@qualy-tree.com</a>
         </div>
+        {chooser && (() => { const v = withVat(chooser.price); const opt = (id, title, desc, disabled) => (
+          <label key={id} style={{ display: 'flex', gap: 10, padding: '12px 14px', border: '1.5px solid ' + (method === id ? 'var(--moss)' : 'var(--line)'), borderRadius: 10, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1, background: method === id ? 'var(--leaf-soft, #f0fdf4)' : 'var(--surface)' }}>
+            <input type="radio" name="paymethod" checked={method === id} disabled={disabled} onChange={() => setMethod(id)} style={{ marginTop: 3 }} />
+            <span><span style={{ fontWeight: 700, fontSize: 14, color: 'var(--ink)' }}>{title}</span>{disabled && <span style={{ fontSize: 11, marginLeft: 6, color: 'var(--ink-faint)' }}>준비 중</span>}
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--ink-faint)', marginTop: 2 }}>{desc}</span></span>
+          </label>)
+          return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={() => !loading && setChooser(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 460, padding: 24, maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>{chooser.label}</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', rowGap: 4, fontSize: 13, color: 'var(--ink)', padding: '10px 12px', background: 'var(--bg)', borderRadius: 8, margin: '10px 0 16px' }}>
+                <span style={{ color: 'var(--ink-faint)' }}>공급가액</span><span>{fmtWon(v.supply)}</span>
+                <span style={{ color: 'var(--ink-faint)' }}>부가세 (10%)</span><span>{fmtWon(v.vat)}</span>
+                <span style={{ fontWeight: 700 }}>결제금액 (부가세 포함)</span><span style={{ fontWeight: 700 }}>{fmtWon(v.total)}</span>
+              </div>
+              {bankOrder ? (
+                <div style={{ fontSize: 14, color: 'var(--ink)', lineHeight: 1.8 }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>아래 계좌로 입금해 주세요</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 14, padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8 }}>
+                    <span style={{ color: 'var(--ink-faint)' }}>은행</span><span>{bankOrder.bank.bank}</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>계좌번호</span><span style={{ fontWeight: 700 }}>{bankOrder.bank.number}</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>예금주</span><span>{bankOrder.bank.holder}</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>입금액</span><span style={{ fontWeight: 700 }}>{fmtWon(bankOrder.price.total)}</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>입금자명</span><span>{bankOrder.bank.depositor}</span>
+                    <span style={{ color: 'var(--ink-faint)' }}>주문번호</span><span style={{ fontSize: 12 }}>{bankOrder.orderId}</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 8 }}>입금자명과 금액이 같아야 빠르게 확인됩니다. 운영팀이 입금을 확인하면 이용이 시작되고 메일로 안내드립니다.</div>
+                  <button onClick={() => setChooser(null)} style={{ marginTop: 16, width: '100%', padding: 12, background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}>확인</button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 8 }}>결제 방법</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {opt('CARD', '카드 자동결제', '카드를 등록하고 확인 후 결제 · 이후 매월 자동 결제', false)}
+                    {chooser.id !== 'test' && opt('VIRTUAL_ACCOUNT', '가상계좌 (계좌이체)', '전용 계좌를 발급받아 입금 · 입금 즉시 자동으로 이용 시작 · 1개월분', !VA_CLIENT_KEY)}
+                    {chooser.id !== 'test' && opt('BANK', '무통장입금', '회사 계좌로 직접 송금 · 운영팀 입금 확인 후 이용 시작 · 1개월분', !BANK_READY)}
+                  </div>
+                  {method === 'BANK' && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 13, color: 'var(--ink)', marginBottom: 4 }}>입금자명</div>
+                      <input value={depositor} onChange={(e) => setDepositor(e.target.value)} placeholder="통장에 찍힐 입금자명 (예: 주식회사OO)" style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--line)', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+                    </div>
+                  )}
+                  {chooserMsg && <div style={{ marginTop: 10, fontSize: 13, color: '#dc2626' }}>{chooserMsg}</div>}
+                  <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+                    <button onClick={() => setChooser(null)} disabled={loading} style={{ flex: 1, padding: 12, background: 'transparent', border: '1px solid var(--line)', borderRadius: 8, cursor: 'pointer', color: 'var(--ink)' }}>취소</button>
+                    <button onClick={proceed} disabled={loading} style={{ flex: 2, padding: 12, background: 'var(--moss)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
+                      {loading ? '처리 중…' : method === 'CARD' ? '카드 등록하기' : method === 'VIRTUAL_ACCOUNT' ? '가상계좌 발급받기' : '입금 안내 받기'}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>) })()}
       </div>
     </AppLayout>
   )

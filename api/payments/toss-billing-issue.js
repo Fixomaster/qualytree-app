@@ -10,54 +10,7 @@
 //  - 로그인한 사용자(Supabase 세션)가 그 회사 소속(company_members)이거나 운영자일 때만 처리한다.
 //  - 금액은 서버가 요금제에서 직접 계산한다(브라우저 값 신뢰 안 함). 요금표는 VAT 별도 → 청구액 = 공급가액 + 10%.
 //  - 빌링키는 재조회가 불가하므로 저장에 실패하면 그 뒤 단계로 가지 않는다.
-import { DEFAULT_PLANS, withVat } from '../../src/lib/planDefaults.js'
-
-const TOSS = 'https://api.tosspayments.com'
-export const TEST_PLAN = { id: 'test', name: '시험 결제 (자동 환불)', monthly: 1000 }
-
-function supabaseAdmin(createClient) {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return null
-  return createClient(url, key, { auth: { persistSession: false } })
-}
-
-// 운영자 콘솔에서 바꾼 요금제(platform_config.plans)가 있으면 그것을, 없으면 기본 요금제를 쓴다.
-async function serverPlan(supabase, planId) {
-  if (planId === TEST_PLAN.id) {
-    const v = withVat(TEST_PLAN.monthly)
-    return { id: TEST_PLAN.id, name: TEST_PLAN.name, supply: v.supply, vat: v.vat, amount: v.total, test: true }
-  }
-  let list = DEFAULT_PLANS
-  try {
-    const { data } = await supabase.from('platform_config').select('value').eq('key', 'plans').maybeSingle()
-    if (Array.isArray(data?.value) && data.value.length) list = data.value
-  } catch { /* 기본 요금제 사용 */ }
-  const p = list.find((x) => x && x.id === planId) || DEFAULT_PLANS.find((x) => x.id === planId)
-  if (!p || p.custom || !(Number(p.monthly) > 0)) return null
-  const v = withVat(p.monthly)
-  return { id: p.id, name: p.name, supply: v.supply, vat: v.vat, amount: v.total, test: false }
-}
-
-// 요청자가 이 회사 소속(또는 운영자)인지 확인
-async function authorize(supabase, req, companyId) {
-  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '')
-  if (!token) return '로그인이 필요합니다.'
-  const { data: u, error } = await supabase.auth.getUser(token)
-  const uid = u?.user?.id
-  if (error || !uid) return '로그인이 만료되었습니다. 다시 로그인해 주세요.'
-  const { data: m } = await supabase.from('company_members').select('company_id')
-    .eq('user_id', uid).eq('company_id', companyId).limit(1)
-  if (m && m.length) return null
-  const { data: op } = await supabase.from('platform_operators').select('user_id').eq('user_id', uid).limit(1)
-  if (op && op.length) return null
-  return '이 회사의 결제 권한이 없습니다.'
-}
-
-const tossHeaders = (secretKey) => ({
-  Authorization: 'Basic ' + Buffer.from(secretKey + ':').toString('base64'),
-  'Content-Type': 'application/json',
-})
+import { TOSS, serverPlan, authorize, tossHeaders, supabaseAdmin, activateSubscription } from '../_lib/billingCommon.js'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -70,8 +23,7 @@ export default async function handler(req, res) {
   const secretKey = process.env.TOSS_SECRET_KEY
   if (!secretKey) return res.status(500).json({ ok: false, error: 'TOSS_SECRET_KEY not set' })
 
-  const { createClient } = await import('@supabase/supabase-js')
-  const supabase = supabaseAdmin(createClient)
+  const supabase = await supabaseAdmin()
   if (!supabase) return res.status(500).json({ ok: false, error: 'SUPABASE_SERVICE_ROLE_KEY not set' })
 
   const { data: company } = await supabase.from('companies').select('id').eq('id', companyId).maybeSingle()
@@ -167,11 +119,7 @@ export default async function handler(req, res) {
     })
     if (payErr) console.error('[billing] payment record save failed', orderId, payErr)
 
-    const expiresAt = new Date(); expiresAt.setMonth(expiresAt.getMonth() + 1)
-    const { error: subErr } = await supabase.from('subscriptions').upsert({
-      company_id: companyId, plan: p.id, amount: p.amount, billing_status: 'active',
-      expires_at: expiresAt.toISOString(), updated_at: new Date().toISOString(),
-    }, { onConflict: 'company_id' })
+    const { error: subErr } = await activateSubscription(supabase, companyId, p)
     if (subErr) console.error('[billing] subscription activate failed', orderId, subErr)
 
     return res.status(200).json({

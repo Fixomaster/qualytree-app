@@ -53,6 +53,20 @@ export default function SuperAdminHub() {
     fetchAll()
   }
 
+  // 무통장입금 확인 → 서버가 결제 완료 처리 + 구독 1개월 활성화 (운영자만)
+  async function confirmBank(p) {
+    const depositor = p.raw?.depositor || '-'
+    if (!window.confirm(`입금을 확인했습니까?\n\n주문번호: ${p.order_id}\n입금자명: ${depositor}\n금액: ${(p.amount ?? 0).toLocaleString()}원`)) return
+    let token = ''
+    try { token = (await supabase.auth.getSession()).data?.session?.access_token || '' } catch { /* noop */ }
+    const r = await fetch('/api/payments/toss-payment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ action: 'bank-confirm', orderId: p.order_id }),
+    }).then((x) => x.json()).catch(() => ({ ok: false, error: '서버 오류' }))
+    if (!r.ok) window.alert(r.error || '입금 확인 처리 실패')
+    fetchAll()
+  }
+
   const filteredCos = companies.filter(c =>
     c.name?.toLowerCase().includes(search.toLowerCase())
   )
@@ -163,7 +177,7 @@ export default function SuperAdminHub() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
             <thead>
               <tr style={{ background: '#f5f5f5' }}>
-                {['결제일', '회사 ID', '금액', '플랜', '상태', '결제키'].map(h => (
+                {['결제일', '회사', '금액', '플랜', '결제수단', '상태', '주문번호 · 입금자'].map(h => (
                   <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, borderBottom: '2px solid #e0e0e0' }}>{h}</th>
                 ))}
               </tr>
@@ -172,17 +186,23 @@ export default function SuperAdminHub() {
               {payments.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                   <td style={{ padding: '10px 12px', fontSize: '12px' }}>{p.created_at?.slice(0,16)}</td>
-                  <td style={{ padding: '10px 12px', fontSize: '11px', color: '#888' }}>{p.company_id?.slice(0,8)}…</td>
+                  <td style={{ padding: '10px 12px', fontSize: '12px', color: '#555' }}>{p.raw?.companyName || companies.find(c => c.id === p.company_id)?.name || (p.company_id?.slice(0,8) + '…')}</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600 }}>{(p.amount ?? 0).toLocaleString()}원</td>
                   <td style={{ padding: '10px 12px' }}>{p.plan}</td>
+                  <td style={{ padding: '10px 12px', fontSize: '12px' }}>{p.method || '카드'}</td>
                   <td style={{ padding: '10px 12px' }}>
-                    <span style={{ color: p.status === 'paid' ? '#27ae60' : '#e74c3c', fontWeight: 600 }}>{p.status}</span>
+                    <span style={{ color: p.status === 'paid' ? '#27ae60' : p.status === 'pending' ? '#b45309' : p.status === 'refunded' ? '#64748b' : '#e74c3c', fontWeight: 600 }}>
+                      {{ paid: '결제 완료', pending: '입금 대기', failed: '실패', refunded: '취소·환불' }[p.status] || p.status}
+                    </span>
+                    {p.status === 'pending' && p.method === '무통장입금' && (
+                      <button onClick={() => confirmBank(p)} style={{ marginLeft: 8, padding: '3px 8px', fontSize: 12, border: '1px solid #16a34a', color: '#16a34a', background: '#fff', borderRadius: 6, cursor: 'pointer' }}>입금 확인</button>
+                    )}
                   </td>
-                  <td style={{ padding: '10px 12px', fontSize: '11px', color: '#aaa' }}>{p.payment_key?.slice(0,20)}…</td>
+                  <td style={{ padding: '10px 12px', fontSize: '11px', color: '#888' }}>{p.order_id || (p.payment_key?.slice(0,20) + '…')}{p.raw?.depositor ? ' · ' + p.raw.depositor : ''}</td>
                 </tr>
               ))}
               {payments.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>결제 내역 없음</td></tr>
+                <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#aaa' }}>결제 내역 없음</td></tr>
               )}
             </tbody>
           </table>
