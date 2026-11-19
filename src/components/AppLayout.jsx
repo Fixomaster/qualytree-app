@@ -55,6 +55,7 @@ export default function AppLayout({ user: userProp, title, subtitle, children })
             <span><b style={{color:'#666',fontWeight:600}}>대표자명</b> 이경혁</span>
             <span><b style={{color:'#666',fontWeight:600}}>사업장 주소</b> 경기도 여주시 세종대왕면 양화로 738, 3층 301호</span>
             <span><b style={{color:'#666',fontWeight:600}}>사업자등록번호</b> 496-81-03944</span>
+            <span><b style={{color:'#666',fontWeight:600}}>통신판매업신고번호</b> 제2026-경기여주-00340호</span>
             <span><b style={{color:'#666',fontWeight:600}}>연락처</b> 010-3116-5997</span>
             <span><b style={{color:'#666',fontWeight:600}}>이메일</b> contact@qualy-tree.com</span>
           </div>

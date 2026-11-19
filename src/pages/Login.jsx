@@ -223,6 +223,7 @@ export default function Login() {
             <span><b style={{color:'#78716c',fontWeight:600}}>상호명</b> 주식회사 퀄리트리</span>
             <span><b style={{color:'#78716c',fontWeight:600}}>대표자명</b> 이경혁</span>
             <span><b style={{color:'#78716c',fontWeight:600}}>사업자등록번호</b> 496-81-03944</span>
+            <span><b style={{color:'#78716c',fontWeight:600}}>통신판매업신고번호</b> 제2026-경기여주-00340호</span>
           </div>
           <div style={{marginBottom:4}}><b style={{color:'#78716c',fontWeight:600}}>사업장 주소</b> 경기도 여주시 세종대왕면 양화로 738, 3층 301호</div>
           <div><b style={{color:'#78716c',fontWeight:600}}>연락처</b> 010-3116-5997 · <b style={{color:'#78716c',fontWeight:600}}>이메일</b> contact@qualy-tree.com</div>
