@@ -97,6 +97,7 @@ export function planForCertIds(idsOn, plans) {
   const list = plans || loadPlans()
   return (
     list.find((p) => {
+      if (p.trial) return false // 체험 플랜은 인증 조합 매칭에서 제외
       const pc = (p.certs || []).filter((id) => avail.has(id))
       return pc.length === want.size && pc.every((id) => want.has(id))
     }) || null

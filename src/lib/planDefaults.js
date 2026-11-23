@@ -10,6 +10,22 @@
 // ISO 13485는 KGMP(제조업체) 기본 계약 시 무료 포함. 컨설팅 3종은 담당자 협의(가격 문의형).
 export const DEFAULT_PLANS = [
   {
+    // 운영자 전용 무료 체험 플랜 — 가입 화면·공개 요금제·결제 화면에는 노출하지 않는다(trial:true).
+    // 운영자 콘솔 › 회사 관리의 요금제 드롭다운에서 승인된 고객사에 지정한다.
+    id: 'trial',
+    name: '무료 체험 (운영자 지정)',
+    monthly: 0,
+    annualDiscountPct: 0,
+    seats: 0,
+    certs: ['kgmp', 'iso13485', 'kgmp_importer'],
+    recommended: false,
+    custom: false,
+    trial: true,
+    trialDays: 30,
+    aiDraftsPerMonth: 30,
+    features: ['무료 체험 30일 (운영자 지정)', '제조 KGMP·수입 GMP 전 기능 체험', 'AI 초안 작성 월 30회 한도'],
+  },
+  {
     id: 'kgmp',
     name: '제조업체 기본 (KGMP)',
     monthly: 3000000,

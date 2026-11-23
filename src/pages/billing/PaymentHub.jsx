@@ -27,7 +27,7 @@ const PLAN_COLORS = ['#2980b9', '#16a34a', '#8e44ad', '#c0392b', '#0d9488', '#b4
 
 export default function PaymentHub() {
   const PLANS = useMemo(() => {
-    const all = loadPlans().filter((p) => !p.custom)
+    const all = loadPlans().filter((p) => !p.custom && !p.trial)
     const list = all.map((p, i) => ({
       key: p.name,
       id: p.id,

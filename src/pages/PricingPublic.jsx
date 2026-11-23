@@ -7,8 +7,8 @@ import { Link } from 'react-router-dom'
 import Logo from '../components/Logo'
 import { DEFAULT_PLANS, won } from '../lib/plans'
 
-const FIXED_PLANS = DEFAULT_PLANS.filter((p) => !p.custom)
-const CONSULT_PLANS = DEFAULT_PLANS.filter((p) => p.custom)
+const FIXED_PLANS = DEFAULT_PLANS.filter((p) => !p.custom && !p.trial)
+const CONSULT_PLANS = DEFAULT_PLANS.filter((p) => p.custom && !p.trial)
 const MAX_PRICE = Math.max(...FIXED_PLANS.map((p) => p.monthly))
 
 export default function PricingPublic() {
