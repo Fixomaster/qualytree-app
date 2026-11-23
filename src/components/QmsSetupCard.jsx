@@ -4,15 +4,15 @@ import React, { useState } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 
 const QMS_SETUP_STEPS = [
-  { id:1,  title:'회사 마스터 정보 완성',          link:'/company-master'        },
-  { id:2,  title:'품질책임자(QMR) 지정',            link:'/company-master'        },
-  { id:3,  title:'품질방침 수립',                        link:'/quality-policy'        },
-  { id:4,  title:'품질목표 설정',                        link:'/quality-objectives'    },
-  { id:5,  title:'직원 초대 및 권한 설정',           link:'/admin'                 },
+  { id:1,  title:'회사 마스터 정보 완성',          link:'/company'        },
+  { id:2,  title:'품질책임자(QMR) 지정',            link:'/company'        },
+  { id:3,  title:'품질방침 수립',                        link:'/management-commitment'        },
+  { id:4,  title:'품질목표 설정',                        link:'/management-commitment'    },
+  { id:5,  title:'직원 초대 및 권한 설정',           link:'/admin/permissions'                },
   { id:6,  title:'품질매뉴얼 작성',                  link:'/quality-manual'        },
   { id:7,  title:'핵심 SOP 작성',                    link:'/sop'                   },
-  { id:8,  title:'제품 정보 등록',                      link:'/product-identification' },
-  { id:9,  title:'위험관리 계획 수립',               link:'/risk-management'       },
+  { id:8,  title:'제품 정보 등록',                      link:'/products' },
+  { id:9,  title:'위험관리 계획 수립',               link:'/risk'       },
   { id:10, title:'내부심사 계획 수립',               link:'/audit'                 },
   { id:11, title:'공급업체 등록',                      link:'/supplier'              },
   { id:12, title:'GMP 자가점검 실시',                  link:'/gmp-self-inspection'   },

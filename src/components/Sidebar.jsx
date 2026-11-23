@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { useSetupFlow, STATUS_COLOR } from '../lib/setupFlow'
 import {
 Home,
 IdCard,
@@ -64,6 +65,23 @@ function relevantDeptOptions() {
     if (!leafDepts.length) return DEPT_LIST
     return leafDepts.map(d => ({ code: d.id, icon: '🏢', label: d.name }))
   } catch { return DEPT_LIST }
+}
+
+
+// 순서 안내 번호 배지 — 완료(초록)/진행중(주황)/미시작(회색), 다음 할 단계에는 "지금 여기"
+function StepBadge({ step }) {
+  if (!step) return null
+  return (
+    <>
+      <span title={step.done ? '완료' : step.status === 'doing' ? '진행 중' : '시작 전'} style={{ width: 17, height: 17, borderRadius: 9, background: STATUS_COLOR[step.status], color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginRight: 7, flexShrink: 0 }}>
+        {step.done ? '✓' : step.no}
+      </span>
+    </>
+  )
+}
+function NowBadge({ step }) {
+  if (!step || !step.current) return null
+  return <span style={{ marginLeft: 6, fontSize: 9.5, fontWeight: 700, color: '#fff', background: '#e0531e', borderRadius: 8, padding: '1px 6px', flexShrink: 0 }}>지금 여기</span>
 }
 
 const DOMAINS = [
@@ -180,6 +198,8 @@ const IMP_ITEMS = [
 
 export default function Sidebar() {
 const loc = useLocation()
+const flow = useSetupFlow()
+const stepOf = (to) => flow.find(f => f.to === to)
 const cur = auth.current()
 const userId = cur?.memberId || (cur?.email ? 'demo_' + cur.email : null)
 
@@ -358,7 +378,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <IdCard size={16} strokeWidth={1.7} />
-<span>기본정보</span>
+<StepBadge step={stepOf('/company')} /><span>기본정보</span><NowBadge step={stepOf('/company')} />
 </NavLink>
 
 <NavLink
@@ -386,7 +406,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <FileCheck2 size={16} strokeWidth={1.7} />
-<span>GMP 신청</span>
+<StepBadge step={stepOf('/gmp-application')} /><span>GMP 신청</span><NowBadge step={stepOf('/gmp-application')} />
 </NavLink>
 
 
@@ -400,7 +420,7 @@ fontWeight: isActive ? 600 : 500,
 })}
 >
 <ShieldCheck size={16} strokeWidth={1.7} />
-<span>GMP 자가점검</span>
+<StepBadge step={stepOf('/gmp-self-inspection')} /><span>GMP 자가점검</span><NowBadge step={stepOf('/gmp-self-inspection')} />
 </NavLink>
 <NavLink
 to="/print-export"
@@ -455,7 +475,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 fontWeight: isActive ? 600 : 400,
 })}
 >
-{item.label}
+<StepBadge step={stepOf(item.to)} />{item.label}<NowBadge step={stepOf(item.to)} />
 </NavLink>
 ))}
 </div>
@@ -538,7 +558,7 @@ background: isActive ? 'var(--leaf-soft)' : 'transparent',
 fontWeight: isActive ? 600 : 400,
 })}
 >
-{item.label}
+<StepBadge step={stepOf(item.to)} />{item.label}<NowBadge step={stepOf(item.to)} />
 </NavLink>
 ))}
 </div>

@@ -5,6 +5,7 @@ import Sidebar from './Sidebar'
 import TopBar from './TopBar'
 import { deptAuth } from '../lib/deptAuth'
 import { auth } from '../lib/auth'
+import SetupFlowBar from './SetupFlowBar'
 
 // #301: 부서 선택 정보는 localStorage(브라우저 캐시)에만 저장되어, 캐시를 삭제하면
 // 홈 대시보드 진입 시마다 매번 부서 선택 화면이 강제로 뜨는 문제가 있었다(요청: 삭제).
@@ -42,6 +43,7 @@ export default function AppLayout({ user: userProp, title, subtitle, children })
             <button onClick={exitViewAs} style={{ background:'#fff', color:'#1c1917', border:'none', borderRadius:6, padding:'4px 12px', fontSize:12, fontWeight:600, cursor:'pointer' }}>나가기 ×</button>
           </div>
         )}
+        <SetupFlowBar />
         <main>{children}</main>
         <footer style={{borderTop:'1px solid #e8e5de',background:'#fafaf8',padding:'20px 24px',fontSize:12,color:'#999',marginTop:'auto'}}>
           <div style={{display:'flex',gap:16,marginBottom:10,flexWrap:'wrap'}}>
