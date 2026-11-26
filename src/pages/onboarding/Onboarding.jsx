@@ -71,12 +71,10 @@ const SEED_MANUAL = [
   { c: '8', name: '측정 · 분석 및 개선' },
 ]
 
+// 조직도·품질매뉴얼·절차서·계정 발급은 앱 메뉴(조직·책임, 품질매뉴얼, 품질절차서, 관리자 권한)와
+// 중복되어 온보딩에서 제외했다 — 진행 순서는 화면 상단 '진행 안내'를 따른다.
 const STEPS = [
   { key: 'info', label: '기본정보·제품·인증', icon: Building2 },
-  { key: 'org', label: '조직도', icon: Users },
-  { key: 'manual', label: '품질매뉴얼', icon: FileText },
-  { key: 'procedures', label: '절차서', icon: ClipboardCheck },
-  { key: 'accounts', label: '계정 발급', icon: UserPlus },
 ]
 
 function defaultState() {
@@ -134,11 +132,20 @@ export default function Onboarding() {
   const [, setPlanSync] = useState(0)
   useEffect(() => { syncPlansFromServer().then(() => setPlanSync((x) => x + 1)).catch(() => {}) }, [])
 
+  // 가입 때 입력한 회사명을 미리 채운다(비어 있을 때만)
+  useEffect(() => {
+    try {
+      const nm = auth.current()?.company?.name
+      if (nm && !(state.company?.name || '').trim()) setState((s) => ({ ...s, company: { ...s.company, name: nm } }))
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const patch = (p) => setState((s) => ({ ...s, ...p }))
   // 단계별 최소 입력 검증 — 방문/넘김만으로 '완료' 처리되지 않도록 한다
   const stepValid = (s, key) => {
     if (key === 'info') {
-      const base = !!(s.company?.name?.trim()) && !!(s.company?.ceo?.trim()) && !!(s.company?.bizNumber?.trim()) && (s.products || []).length > 0
+      const base = (s.products || []).length > 0 // 회사명·대표자·사업자번호는 가입 정보로 이미 입력됨 — 필수 아님
       if (s.company?.newLicense) return base
       return base && !!(s.company?.licenseNo?.trim()) && !!(s.company?.qmRep?.trim())
     }
@@ -148,7 +155,7 @@ export default function Onboarding() {
     if (key === 'accounts') return (s.members || []).length > 0
     return true
   }
-  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '회사명·대표자·사업자등록번호를 입력하고, 제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다. (제조업 허가번호·품질관리 책임자는 "신규 회사" 체크 시 추후 입력으로 건너뛸 수 있습니다.)'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
+  const markDone = (key) => setState((s) => ({ ...s, done: { ...s.done, [key]: stepValid(s, key) } })); const stepErrorMessage = (key) => { if (key === 'info') return '제품을 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다. (제조업 허가번호·품질관리 책임자는 "신규 회사" 체크 시 추후 입력으로 건너뛸 수 있습니다.)'; if (key === 'org') return '조직도에 부서를 최소 1개 이상 등록해야 다음 단계로 진행할 수 있습니다.'; if (key === 'manual') return '품질매뉴얼 작성 방식을 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'procedures') return '적용할 절차서를 최소 1개 이상 선택해야 다음 단계로 진행할 수 있습니다.'; if (key === 'accounts') return '담당자(계정)를 최소 1명 이상 등록해야 다음 단계로 진행할 수 있습니다.'; return '필수 항목을 모두 입력해야 다음 단계로 진행할 수 있습니다.' }
   const finishOnboarding = () => {
     const done = STEPS.reduce((o, st) => ((o[st.key] = stepValid(state, st.key)), o), {})
     const ns = { ...state, done }
@@ -218,7 +225,7 @@ export default function Onboarding() {
           <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-5">
           {STEPS.map((s, i) => {
             const Icon = s.icon
             const active = i === step
@@ -268,7 +275,7 @@ export default function Onboarding() {
             onClick={goNext}
             className="flex items-center gap-1.5 px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium transition"
           >
-            {step === STEPS.length - 1 ? '온보딩 완료 · 홈으로' : '이 단계 완료 · 다음'}
+            {step === STEPS.length - 1 ? '기본정보 저장 · 순서 안내 시작' : '이 단계 완료 · 다음'}
             <ChevronRight size={16} />
           </button>
         </div>
@@ -378,9 +385,9 @@ function StepInfo({ state, patch, setState }) {
           </span>
         </label>
         <div className="grid sm:grid-cols-2 gap-3">
-          <Field label="회사명" value={c.name} onChange={(v) => setC('name', v)} placeholder="(주)퀄리트리" required />
-          <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" required />
-          <Field label="사업자등록번호" value={c.bizNumber} onChange={(v) => setC('bizNumber', v)} placeholder="000-00-00000" required />
+          <Field label="회사명" value={c.name} onChange={(v) => setC('name', v)} placeholder="(주)퀄리트리" />
+          <Field label="대표자" value={c.ceo} onChange={(v) => setC('ceo', v)} placeholder="홍길동" />
+          <Field label="사업자등록번호" value={c.bizNumber} onChange={(v) => setC('bizNumber', v)} placeholder="000-00-00000" />
           <Field label="제조업 허가번호" value={c.licenseNo} onChange={(v) => setC('licenseNo', v)} placeholder={c.newLicense ? '허가 취득 후 입력' : '제0000호'} required={!c.newLicense} />
           <Field label="품질관리 책임자" value={c.qmRep} onChange={(v) => setC('qmRep', v)} placeholder={c.newLicense ? '지정 후 입력' : '이름'} required={!c.newLicense} />
         </div>
